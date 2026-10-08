@@ -240,7 +240,17 @@
         "KUS:Metamod:Source"
       ],
       "installed": false,
-      "merge": "release_csgo_root"
+      "merge": "release_csgo_root",
+      "asset_mappings": {
+        "VIPCore.zip": {
+          "merge": "release_csgo_root"
+        },
+        "VIP_Modules.zip": {
+          "merge": "release_plugin_directory",
+          "source_path": ".",
+          "install_path": "addons/counterstrikesharp/plugins"
+        }
+      }
     },
     {
       "order": 13,
