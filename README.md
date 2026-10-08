@@ -51,6 +51,7 @@ They are intentionally **not reinstalled or managed by this repository**.
 | Mod | Version | Why |
 | --- | --- | --- |
 | [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) | 1.0.376 | The .NET scripting framework used by our CounterStrikeSharp plugins. Its runtime is required by this layer. |
+| [CS2UpdateMonitor](https://github.com/beanman109/cs2-updatemonitor) | 1.1.0 | Detects new CS2 game builds and coordinates the restart handoff to the external supervisor. |
 | [WeaponPaints](https://github.com/Nereziel/cs2-WeaponPaints) | build-466 | Additional player-side game customization plugin. |
 | [CS2-SimpleAdmin](https://github.com/daffyyyy/CS2-SimpleAdmin) | 1.9.0 | Provides extended server administration functionality. |
 | [AFKManager](https://github.com/NiGHT757/AFKManager) | 0.2.8 | Detects AFK players and applies the configured AFK handling. |
@@ -138,28 +139,28 @@ For example, when a CounterStrikeSharp Windows release has \`addons/\` at the ar
 
 No extra \`CounterStrikeSharp/\` directory is inserted.
 
-The updater never deletes files from that staging tree. It only creates/overwrites paths supplied by the upstream release.
+The updater never deletes files from that staging tree. It only creates/overwrites paths supplied by the upstream release. Release mappings support both full `game/csgo` roots and explicit plugin-directory destinations.
 
 Run the next addon only after the previous layer is verified.
 ### CS2 Update Monitor
 
-`CS2UpdateMonitor` is kept as a dedicated runtime component under:
+`CS2UpdateMonitor` is managed by the same `addons-update.bat` / `Update-Addons.ps1` pipeline as the other automated addons.
+
+Its runtime directory is:
 
 ```text
 server/game/csgo/addons/counterstrikesharp/plugins/CS2UpdateMonitor/
 ```
 
-Its tracked configuration is at:
+Its configuration is:
 
 ```text
 server/game/csgo/addons/counterstrikesharp/configs/plugins/CS2UpdateMonitor/CS2UpdateMonitor.json
 ```
 
-The Windows updater is `update-monitor.bat`. It downloads the latest Windows release, verifies the GitHub SHA-256 digest, extracts it, and non-destructively merges the `CS2UpdateMonitor/` release directory into the plugin directory. It never deletes old destination files.
+The upstream Windows release has a single top-level `CS2UpdateMonitor/` directory, so `DEPENDENCIES.json` uses an explicit `source_path` + `install_path` mapping instead of assuming the archive is a complete `game/csgo` tree.
 
-The configured action is `ShutdownForSupervisor`: when a newer CS2 build is detected, the plugin announces a countdown and finally executes `quit`. An external supervisor/VBS loop is then responsible for starting the server again. The plugin itself is deliberately not configured to run SteamCMD or `win.bat` directly.
-
-
+The configured action is `ShutdownForSupervisor`: when a newer CS2 build is detected, the plugin announces a countdown and finally executes `quit`. The external VBS supervisor is responsible for starting the server again.
 
 ### 2. Start the server
 
