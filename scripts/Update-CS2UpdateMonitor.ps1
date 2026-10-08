@@ -40,11 +40,13 @@ if (-not $asset) {
 }
 
 $installedVersion = ''
+$installedDll = Join-Path $TargetRoot 'CS2UpdateMonitor.dll'
+$hasInstalledPayload = Test-Path $installedDll -PathType Leaf
 if (Test-Path $VersionFile -PathType Leaf) {
     $installedVersion = (Get-Content -LiteralPath $VersionFile -Raw).Trim()
 }
 
-if (-not $Force -and -not [string]::IsNullOrWhiteSpace($installedVersion) -and $installedVersion -eq $version) {
+if (-not $Force -and $hasInstalledPayload -and -not [string]::IsNullOrWhiteSpace($installedVersion) -and $installedVersion -eq $version) {
     Write-Host "CS2 Update Monitor is already at $version." -ForegroundColor DarkGray
     exit 0
 }
