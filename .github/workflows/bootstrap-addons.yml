@@ -1,6 +1,7 @@
 name: Bootstrap Remaining Addons
 # Retry with per-asset VIPCore mapping.
-# Retry after aligning plugin-root release mappings.
+# Retry after fixing safe path validation.
+
 
 on:
   push:
