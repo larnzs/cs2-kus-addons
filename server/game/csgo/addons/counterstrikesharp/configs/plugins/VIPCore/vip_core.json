@@ -8,9 +8,9 @@
   "VipLogging": true,
   "Connection": {
     "Host": "127.0.0.1",
-    "Database": "SET_IN_CUSTOM_FILES_SECRET",
-    "User": "SET_IN_CUSTOM_FILES_SECRET",
-    "Password": "SET_IN_CUSTOM_FILES_SECRET",
+    "Database": "vip_plugin",
+    "User": "root",
+    "Password": "Atrisayeafsorde824@",
     "Port": 3306
   }
 }

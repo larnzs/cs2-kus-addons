@@ -4,9 +4,9 @@
   "SkinsLanguage": "en",
   "DatabaseHost": "localhost",
   "DatabasePort": 3306,
-  "DatabaseUser": "SET_IN_CUSTOM_FILES_SECRET",
-  "DatabasePassword": "SET_IN_CUSTOM_FILES_SECRET",
-  "DatabaseName": "SET_IN_CUSTOM_FILES_SECRET",
+  "DatabaseUser": "root",
+  "DatabasePassword": "Atrisayeafsorde824@",
+  "DatabaseName": "weaponpaints_plugin",
   "CmdRefreshCooldownSeconds": 3,
   "Website": "cs.fragcity.ir/weaponpaints.php",
   "Additional": {
