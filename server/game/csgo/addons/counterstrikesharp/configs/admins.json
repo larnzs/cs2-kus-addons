@@ -1,0 +1,18 @@
+﻿{
+  "76561198214760293": {
+    "identity": "76561198214760293",
+    "name": "labubu",
+    "immunity": 100,
+    "groups": [
+      "#css/admin"
+    ]
+  },
+  "76561198974853536": {
+    "identity": "76561198975596513",
+    "name": "shahriar",
+    "immunity": 99,
+    "groups": [
+      "#css/admin"
+    ]
+  }
+}

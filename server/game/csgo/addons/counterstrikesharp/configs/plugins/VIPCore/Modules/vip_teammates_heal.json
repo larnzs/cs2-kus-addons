@@ -1,0 +1,8 @@
+{
+  "WeaponBlacklist": [
+    "weapon_hegrenade",
+    "weapon_molotov"
+  ],
+  "MaxHealth": 100,
+  "HealPerShot": 25
+}

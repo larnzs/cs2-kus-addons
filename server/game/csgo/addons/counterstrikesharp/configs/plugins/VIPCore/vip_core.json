@@ -1,0 +1,16 @@
+{
+  "TimeMode": 0,
+  "ServerId": 0,
+  "UseCenterHtmlMenu": true,
+  "ServerIP": "0.0.0.0",
+  "ServerPort": 27015,
+  "ReOpenMenuAfterItemClick": true,
+  "VipLogging": true,
+  "Connection": {
+    "Host": "127.0.0.1",
+    "Database": "vip_plugin",
+    "User": "root",
+    "Password": "Atrisayeafsorde824@",
+    "Port": 3306
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "TableName": "lvl_base",
+  "Prefix": "[ {BLUE}Ranks {DEFAULT}]",
+  "TeamKillAllowed": true,
+  "UseCommandWithoutPrefix": true,
+  "ShowExperienceMessages": true,
+  "MinPlayers": 4,
+  "InitialExperiencePoints": 500,
+  "StatisticsResetEnabled": true,
+  "TypeStatistics": 0,
+  "KillCoefficient": 1.04,
+  "Events": {
+    "EventRoundMvp": 12,
+    "EventPlayerDeath": {
+      "Kills": 13,
+      "Deaths": -20,
+      "Assists": 5,
+      "KillingAnAlly": -10,
+      "Suicide": -15
+    },
+    "EventPlayerBomb": {
+      "DroppedBomb": -5,
+      "PlantedBomb": 4,
+      "DefusedBomb": 3,
+      "PickUpBomb": 3
+    },
+    "EventRoundEnd": {
+      "Winner": 5,
+      "Loser": -8
+    },
+    "Additionally": {
+      "Headshot": 1,
+      "Noscope": 2,
+      "Attackerblind": 1,
+      "Thrusmoke": 1,
+      "Penetrated": 2
+    }
+  },
+  "Weapon": {
+    "knife": 5,
+    "awp": 2
+  },
+  "Ranks": {
+    "None": 0,
+    "Silver I": 50,
+    "Silver II": 100,
+    "Silver III": 150,
+    "Silver IV": 300,
+    "Silver Elite": 400,
+    "Silver Elite Master": 500,
+    "Gold Nova I": 600,
+    "Gold Nova II": 700,
+    "Gold Nova III": 800,
+    "Gold Nova Master": 900,
+    "Master Guardian I": 1000,
+    "Master Guardian II": 1400,
+    "Master Guardian Elite": 1600,
+    "BigStar": 2100,
+    "Legendary Eagle": 2600,
+    "Legendary Eagle Master": 2900,
+    "Supreme": 3400,
+    "The Global Elite": 4500
+  },
+  "Connection": {
+    "Host": "127.0.0.1",
+    "Database": "ranks_plugin",
+    "User": "root",
+    "Password": "Atrisayeafsorde824@",
+    "Port": 3306
+  }
+}

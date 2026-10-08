@@ -1,0 +1,112 @@
+{
+  "Delay": 2.0,
+  "Groups": {
+    "BRONZE": {
+      "Values": {
+        "armor": 50,
+        "health": 110,
+        "start_money": 1000,
+        "defuser": false,
+        "bhop": false,
+        "no_fall_damage": false,
+        "tag": "VIP : BRONZE"
+      }
+    },
+    "SILVER": {
+      "Values": {
+        "armor": 100,
+        "health": 120,
+        "start_money": 1500,
+        "defuser": true,
+        "bhop": true,
+        "no_fall_damage": false,
+        "fast_reload": true,
+        "tag": "VIP : SILVER"
+      }
+    },
+    "GOLD": {
+      "Values": {
+        "armor": 100,
+        "health": 130,
+        "start_money": 2000,
+        "defuser": true,
+        "bhop": true,
+        "no_fall_damage": true,
+        "fast_reload": true,
+        "fast_defuse": true,
+        "gravity": 0.95,
+        "tag": "VIP : GOLD"
+      }
+    },
+    "PLATINUM": {
+      "Values": {
+        "armor": 150,
+        "health": 150,
+        "start_money": 3000,
+        "defuser": true,
+        "bhop": true,
+        "no_fall_damage": true,
+        "fast_reload": true,
+        "fast_defuse": true,
+        "fast_plant": true,
+        "gravity": 0.9,
+        "infinite_ammo": false,
+        "regen_health": 2,
+        "regen_armor": 2,
+        "anti_flash": 0.3,
+        "tag": "VIP : PLATINUM"
+      }
+    },
+    "EMERALD": {
+      "Values": {
+        "armor": 200,
+        "health": 180,
+        "start_money": 5000,
+        "defuser": true,
+        "bhop": true,
+        "no_fall_damage": true,
+        "fast_reload": true,
+        "fast_defuse": true,
+        "fast_plant": true,
+        "gravity": 0.85,
+        "infinite_ammo": true,
+        "regen_health": 4,
+        "regen_armor": 4,
+        "vampirism": 15,
+        "anti_flash": 0.5,
+        "weapons_menu": true,
+        "zeus": true,
+        "tag": "VIP : EMERALD"
+      }
+    },
+    "DIAMOND": {
+      "Values": {
+        "armor": 300,
+        "health": 300,
+        "start_money": 20000,
+        "defuser": true,
+        "bhop": true,
+        "no_fall_damage": true,
+        "fast_reload": true,
+        "fast_defuse": true,
+        "fast_plant": true,
+        "gravity": 0.75,
+        "infinite_ammo": true,
+        "regen_health": 15,
+        "regen_armor": 15,
+        "vampirism": 40,
+        "anti_flash": 1.0,
+        "weapons_menu": true,
+        "zeus": true,
+        "respawn": true,
+        "damage_multiplier": 1.35,
+        "rainbow_model": true,
+        "smoke_color": "rainbow",
+        "kill_screen": true,
+        "night_vip": true,
+        "teammates_heal": 10,
+        "tag": "VIP : DIAMOND"
+      }
+    }
+  }
+}

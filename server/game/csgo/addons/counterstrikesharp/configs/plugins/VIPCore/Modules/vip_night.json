@@ -1,0 +1,9 @@
+{
+  "VIPGroup": "vip",
+  "PluginStartTime": "20:00:00",
+  "PluginEndTime": "08:00:00",
+  "Timezone": "UTC",
+  "CheckTimer": 10,
+  "VipGrantedMessage": "You are receiving VIP because it\u0027s VIP Night time.",
+  "Tag": "[NightVIP]"
+}
