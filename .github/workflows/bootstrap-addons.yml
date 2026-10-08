@@ -1,5 +1,5 @@
 name: Bootstrap Remaining Addons
-# Focused test after target array return fix.
+# Final full bootstrap of all automated addons.
 
 
 on:
@@ -34,7 +34,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\Update-Addons.ps1" -Only AnyBaseLibCS2
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\Update-Addons.ps1"
 
       - name: Push results
         shell: pwsh
