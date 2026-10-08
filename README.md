@@ -162,19 +162,21 @@ The upstream Windows release has a single top-level `CS2UpdateMonitor/` director
 
 The configured action is `ShutdownForSupervisor`: when a newer CS2 build is detected, the plugin announces a countdown and finally executes `quit`. The external VBS supervisor is responsible for starting the server again.
 
-### 2. Update CS2 and install the addon layer (without starting the server)
+### 2. Initial installation
 
-Run:
+Run `install.bat` from this repository's Git checkout:
 
 ```bat
-win.bat
+install.bat
 ```
 
-`win.bat` runs SteamCMD's CS2 update, rebuilds the KUS-managed game files, then overlays the tracked `server/game/csgo/` addon tree and optional custom-file layers. It verifies that the CS2 executable and the Metamod entry in `gameinfo.gi` are present before returning.
+The installer treats KUS as the raw base and this repository as the overlay. It clones KUS into `KUS_ROOT` from `win.ini` only when the checkout is missing, verifies the repository origin, and installs CS2 through SteamCMD only if the CS2 executable or `appmanifest_730.acf` is missing. If both are already present, it does not run `app_update` again.
 
-**It does not launch `cs2.exe`.** The VBS supervisor is responsible for starting the dedicated server separately after this preparation step.
+It then calls `win.bat`, which rebuilds the KUS-managed server files and applies this repository's overlay plus optional custom-file layers. **`win.bat` does not download/update the game and never launches `cs2.exe`.**
 
-### 3. Full update + prepare files (without starting the server)
+The current `CS2UpdateMonitor` config uses `ShutdownForSupervisor`, which detects a new game build and shuts the server down, but does not install the update itself. Its game-update handoff must be wired into the VBS supervisor separately; do not add a second automatic SteamCMD updater.
+
+### 3. Update both repositories and re-apply the layers
 
 Run:
 
@@ -184,17 +186,24 @@ update.bat
 
 This does:
 
-1. `git pull --ff-only` for `cs2-kus-addons`, bringing in the latest addon files already committed by the updater workflow.
+1. `git pull --ff-only` for `cs2-kus-addons`, which receives the tracked plugin/library files published by this repository's addon updater.
 2. `git pull --ff-only` for the KUS base repository.
-3. Runs `win.bat` to update CS2 through SteamCMD and apply the KUS base plus this repository's addon overlay.
+3. Runs `win.bat` to rebuild the KUS-managed files and re-apply the addon overlay.
 
-The dedicated server is left stopped; the VBS supervisor starts it separately. Addon release updates in the repository are intentionally a separate operation:
+`update.bat` checks that both Git working trees are clean before pulling either repository. It does **not** run SteamCMD, update the game, or start the server. The plugin release-download/update pipeline remains separately available through `addons-update.bat` when updating the tracked addon layer from upstream releases.
+
+The CS2 game-build checker and the VBS restart/update handoff will be configured as a separate step, so ordinary repository updates and server restarts do not become extra game-updater instances.
+
+### 4. Update addon release files
+
+To refresh the tracked plugins/libraries from their upstream releases in this local clone:
 
 ```bat
+addons-update.bat -DryRun
 addons-update.bat
 ```
 
-This keeps normal server startup predictable and avoids downloading third-party releases every time the server starts.
+These commands are separate from `update.bat`, which pulls already-published commits from both Git repositories.
 
 ## KUS base location
 
@@ -221,6 +230,7 @@ cs2-kus-addons/
 ├── DEPENDENCIES.json
 ├── README.md
 ├── win.ini
+├── install.bat
 ├── win.bat
 ├── update.bat
 ├── addons-update.bat

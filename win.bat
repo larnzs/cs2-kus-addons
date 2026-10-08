@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
-title CS2 KUS Addons - Update and Install
+title CS2 KUS Addons - Apply Layers
 cd /d "%~dp0"
 
 set "EXIT_CODE=0"
@@ -39,42 +39,23 @@ if not exist "%KUS_ROOT%\game\csgo\" (
     goto :error
 )
 
-if not exist "%KUS_ROOT%\steamcmd\steamcmd.exe" (
-    echo Downloading SteamCMD...
-    if not exist "%KUS_ROOT%\steamcmd" mkdir "%KUS_ROOT%\steamcmd"
-
-    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-      "Invoke-WebRequest -Uri 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip' -OutFile '%KUS_ROOT%\steamcmd\steamcmd.zip'"
-    if errorlevel 1 goto :error
-
-    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-      "Expand-Archive -LiteralPath '%KUS_ROOT%\steamcmd\steamcmd.zip' -DestinationPath '%KUS_ROOT%\steamcmd' -Force"
-    if errorlevel 1 goto :error
-
-    if not exist "%KUS_ROOT%\steamcmd\steamcmd.exe" (
-        echo ERROR: SteamCMD extraction did not produce steamcmd.exe.
-        goto :error
-    )
-    del /q "%KUS_ROOT%\steamcmd\steamcmd.zip" >nul 2>&1
-)
-
 echo.
 echo ============================================
-echo     CS2 KUS Addons - Update and Install
+echo       CS2 KUS Addons - Apply Layers
 echo ============================================
 echo KUS base:     %KUS_ROOT%
 echo Addon layer:  %ROOT_DIR%
 echo.
-echo Checking CS2 for updates through SteamCMD...
-"%KUS_ROOT%\steamcmd\steamcmd.exe" +force_install_dir "%KUS_ROOT%\server" +login anonymous +app_update 730 +quit
-if errorlevel 1 goto :error
-
-if not exist "%KUS_ROOT%\server\game\csgo\" (
-    echo ERROR: SteamCMD did not create the CS2 game directory.
+if not exist "%KUS_ROOT%\server\game\bin\win64\cs2.exe" (
+    echo ERROR: CS2 is not installed yet. Run install.bat first.
     goto :error
 )
 
-echo.
+if not exist "%KUS_ROOT%\server\steamapps\appmanifest_730.acf" (
+    echo ERROR: appmanifest_730.acf is missing. Run install.bat to repair the initial CS2 installation.
+    goto :error
+)
+
 echo Rebuilding KUS-managed game files...
 
 if exist "%KUS_ROOT%\server\game\csgo\addons\" (
@@ -216,7 +197,7 @@ if not exist "%KUS_ROOT%\server\game\bin\win64\cs2.exe" (
 )
 
 echo.
-echo SUCCESS: CS2 game files are updated and the KUS + addon layers are installed.
+echo SUCCESS: The KUS base and addon overlay are installed. CS2 game files were not updated.
 echo The game server was not started; the VBS supervisor can launch it separately.
 goto :success
 
@@ -230,7 +211,7 @@ exit /b 0
 set "EXIT_CODE=1"
 echo.
 echo ============================================
-echo ERROR: CS2 update / addon installation failed.
+echo ERROR: Applying KUS / addon layers failed.
 echo ============================================
 goto :finish
 

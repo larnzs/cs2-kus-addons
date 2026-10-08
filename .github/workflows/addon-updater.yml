@@ -10,6 +10,8 @@ on:
       - "scripts/Test-AddonOverlay.ps1"
       - "scripts/Inspect-Releases.ps1"
       - "win.bat"
+      - "install.bat"
+      - "update.bat"
       - "README.md"
       - ".github/workflows/addon-updater.yml"
   schedule:
@@ -63,18 +65,35 @@ jobs:
             }
           }
 
+          $install = Get-Content -LiteralPath ".\install.bat" -Raw
           $win = Get-Content -LiteralPath ".\win.bat" -Raw
           $update = Get-Content -LiteralPath ".\update.bat" -Raw
-          if ($win -match '(?im)^\s*start\s+.*cs2\.exe') {
-            throw "win.bat must update/install files without launching cs2.exe."
+          if ($install -notmatch '(?i)git clone https://github\.com/kus/cs2-modded-server\.git') {
+            throw "install.bat must bootstrap the KUS raw base when it is missing."
           }
-          if ($win -notmatch '(?i)The game server was not started') {
-            throw "win.bat must clearly report that it leaves the server stopped."
+          if ($install -notmatch '(?i)\+app_update\s+730') {
+            throw "install.bat must install CS2 during the one-time bootstrap when it is missing."
+          }
+          if ($win -match '(?i)steamcmd\.exe|\+app_update\s+730') {
+            throw "win.bat must not perform recurring game updates."
+          }
+          if ($win -match '(?im)^\s*start\s+.*cs2\.exe') {
+            throw "win.bat must not launch cs2.exe."
+          }
+          if ($win -notmatch '(?i)CS2 game files were not updated') {
+            throw "win.bat must clearly report that it leaves the game build unchanged."
+          }
+          if ($update -match '(?i)steamcmd\.exe|\+app_update\s+730') {
+            throw "update.bat must not perform game updates."
+          }
+          if ($update -notmatch 'git -C "%~dp0\." pull --ff-only' -or
+              $update -notmatch 'git -C "%KUS_ROOT%" pull --ff-only') {
+            throw "update.bat must pull both repositories."
           }
           if ($update -notmatch 'call\s+"%~dp0win\.bat"') {
-            throw "update.bat must call win.bat after pulling both repositories."
+            throw "update.bat must re-apply the layers after pulling both repositories."
           }
-          Write-Host "PowerShell syntax and launcher role checks passed."
+          Write-Host "PowerShell syntax and install/update launcher role checks passed."
 
       - name: Smoke-test explicit release archive mappings
         if: github.event_name != 'schedule'
