@@ -1,4 +1,5 @@
 name: Fix SLAYER Tree
+# Retry with separate PowerShell array parameters.
 
 on:
   push:
@@ -23,12 +24,19 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Reinstall SLAYER addons with correct mappings
+      - name: Reinstall SLAYER AntiCamp with correct mapping
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\Update-Addons.ps1" -Only SLAYER_AntiCamp,SLAYER_HeadshotOnly -Force
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\Update-Addons.ps1" -Only SLAYER_AntiCamp -Force
+
+      - name: Reinstall SLAYER HeadshotOnly with correct mapping
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\Update-Addons.ps1" -Only SLAYER_HeadshotOnly -Force
 
       - name: Remove obsolete misplaced SLAYER directories
         shell: pwsh
