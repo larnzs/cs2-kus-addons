@@ -1,0 +1,32 @@
+name: Test General Addon Updater
+
+on:
+  push:
+    paths:
+      - ".github/workflows/test-general-monitor.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Configure Git
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Test general addon updater
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\Update-Addons.ps1" -Only CS2UpdateMonitor -Force
+      - name: Push result
+        shell: pwsh
+        run: |
+          git push origin HEAD:main
