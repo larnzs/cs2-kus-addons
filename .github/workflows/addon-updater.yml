@@ -46,6 +46,12 @@ jobs:
           pwsh --version
           dotnet --info
 
+      - name: Configure Git identity
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       - name: Run addon updater
         shell: pwsh
         env:
