@@ -285,7 +285,7 @@
                        "depends_on":  [
                                           "CounterStrikeSharp"
                                       ],
-                       "installed":  false,
+                       "installed":  true,
                        "merge":  "release_plugin_directory",
                        "asset_mappings":  {
                                               "CS2.SLAYER_HeadshotOnly.v1.2.1.zip":  [
