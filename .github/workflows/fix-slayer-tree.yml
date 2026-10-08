@@ -1,0 +1,54 @@
+name: Fix SLAYER Tree
+
+on:
+  push:
+    paths:
+      - ".github/workflows/fix-slayer-tree.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Reinstall SLAYER addons with correct mappings
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\Update-Addons.ps1" -Only SLAYER_AntiCamp,SLAYER_HeadshotOnly -Force
+
+      - name: Remove obsolete misplaced SLAYER directories
+        shell: pwsh
+        run: |
+          $paths = @(
+            ".\server\game\csgo\addons\counterstrikesharp\SLAYER_AntiCamp",
+            ".\server\game\csgo\addons\counterstrikesharp\SLAYER_HeadshotOnly"
+          )
+          foreach ($path in $paths) {
+            if (Test-Path $path) {
+              Remove-Item -LiteralPath $path -Recurse -Force
+              Write-Host "Removed $path"
+            }
+          }
+          git add -- server/game/csgo/addons/counterstrikesharp
+          git status --short
+          if (git diff --cached --quiet) { exit 0 }
+          git commit -m "Fix SLAYER addon tree layout"
+
+      - name: Push result
+        shell: pwsh
+        run: |
+          git push origin HEAD:main
