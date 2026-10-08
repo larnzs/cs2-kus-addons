@@ -665,6 +665,8 @@ foreach ($addon in $addons) {
     }
     catch {
         Write-Host "  ERROR $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "  POSITION $($_.InvocationInfo.PositionMessage)" -ForegroundColor DarkYellow
+        Write-Host "  STACK $($_.ScriptStackTrace)" -ForegroundColor DarkYellow
         exit 1
     }
 }
