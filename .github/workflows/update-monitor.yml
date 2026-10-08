@@ -1,14 +1,9 @@
 name: Update CS2 Update Monitor
-# Bootstrap/recovery run: also triggers when this workflow file changes.
 
 on:
   schedule:
     - cron: "23 3 * * *"
   workflow_dispatch:
-  # One-time bootstrap trigger; remove after the first successful payload install.
-  push:
-    paths:
-      - ".github/workflows/update-monitor.yml"
 
 permissions:
   contents: write
