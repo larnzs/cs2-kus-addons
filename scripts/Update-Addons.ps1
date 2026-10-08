@@ -295,6 +295,17 @@ if (-not (Test-Path $ManifestPath)) {
 $manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
 $addons = @($manifest.addons | Sort-Object order)
 
+$available = @{}
+foreach ($addon in $addons) {
+    if (-not [bool]$addon.installed) {
+        $available[$addon.name] = $false
+    }
+    else {
+        $available[$addon.name] = $true
+    }
+}
+$available["KUS:Metamod:Source"] = $true
+
 if ($Only) {
     $selected = @(
         $addons | Where-Object {
@@ -331,6 +342,18 @@ foreach ($addon in $addons) {
         continue
     }
 
+    foreach ($dependency in @($addon.depends_on)) {
+        if (-not $available.ContainsKey([string]$dependency) -or -not [bool]$available[[string]$dependency]) {
+            throw "$($addon.name) requires '$dependency'. Run the updater in dependency order or install that dependency first."
+        }
+    }
+
+    if ($addon.PSObject.Properties.Name -contains "automation_supported" -and
+        -not [bool]$addon.automation_supported) {
+        Write-Warn "This addon is tracked in the manifest but is not automated by this updater."
+        continue
+    }
+
     try {
         if ($addon.type -eq "github_release") {
             $release = Get-ReleaseForAddon $addon
@@ -354,6 +377,7 @@ foreach ($addon in $addons) {
             }
 
             Update-ReadmeVersion $addon.name $addon.repository $newVersion
+            $available[$addon.name] = $true
             Write-Host "  OK $newVersion" -ForegroundColor Green
         }
         elseif ($addon.type -eq "github_source_build") {
@@ -379,6 +403,7 @@ foreach ($addon in $addons) {
 
             $display = "$($addon.branch)@$($newVersion.Substring(0,12))"
             Update-ReadmeVersion $addon.name $addon.repository $display
+            $available[$addon.name] = $true
             Write-Host "  OK $display" -ForegroundColor Green
         }
         else {
