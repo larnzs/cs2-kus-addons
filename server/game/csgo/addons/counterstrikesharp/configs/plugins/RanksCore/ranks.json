@@ -63,9 +63,9 @@
   },
   "Connection": {
     "Host": "127.0.0.1",
-    "Database": "ranks_plugin",
-    "User": "root",
-    "Password": "Atrisayeafsorde824@",
+    "Database": "SET_IN_CUSTOM_FILES_SECRET",
+    "User": "SET_IN_CUSTOM_FILES_SECRET",
+    "Password": "SET_IN_CUSTOM_FILES_SECRET",
     "Port": 3306
   }
 }

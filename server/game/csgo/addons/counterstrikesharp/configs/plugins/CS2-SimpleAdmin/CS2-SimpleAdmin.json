@@ -6,9 +6,9 @@
     "SqliteFilePath": "cs2-simpleadmin.sqlite",
     "DatabaseHost": "127.0.0.1",
     "DatabasePort": 3306,
-    "DatabaseUser": "root",
-    "DatabasePassword": "Atrisayeafsorde824@",
-    "DatabaseName": "simpleadmin_plugin",
+    "DatabaseUser": "SET_IN_CUSTOM_FILES_SECRET",
+    "DatabasePassword": "SET_IN_CUSTOM_FILES_SECRET",
+    "DatabaseName": "SET_IN_CUSTOM_FILES_SECRET",
     "DatabaseSSlMode": "preferred"
   },
   "OtherSettings": {

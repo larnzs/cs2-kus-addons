@@ -274,3 +274,33 @@ The optional `custom_files/` directory remains available as a final KUS-compatib
 ## License
 
 Third-party plugins remain under their respective upstream licenses. This repository manages the installation/merge layer and our own configuration files.
+
+
+## Local-only secrets and private runtime overrides
+
+This repository is public, so tracked configuration files must not contain database credentials, API keys, or per-player state. Public config templates use `SET_IN_CUSTOM_FILES_SECRET` for sensitive string fields.
+
+Before pulling a version that contains the redacted templates, copy your current private files into the ignored `custom_files_secret/` folder. The launcher merges it last, so those private copies override the public templates when the server starts.
+
+Use the same path below `custom_files_secret/` that the file has below `server/game/csgo/`. For example:
+
+```text
+custom_files_secret/
+└── addons/
+    └── counterstrikesharp/
+        └── configs/
+            └── plugins/
+                ├── CS2-SimpleAdmin/
+                │   └── CS2-SimpleAdmin.json
+                ├── CS2FaceitLevels/
+                │   └── CS2FaceitLevels.json
+                ├── RanksCore/
+                │   └── ranks.json
+                ├── VIPCore/
+                │   ├── vip_core.json
+                │   └── vip_core_cookie.json
+                └── WeaponPaints/
+                    └── WeaponPaints.json
+```
+
+`custom_files_secret/` is ignored by Git. Do not commit this folder. Public config paths are preserved by the updater; local secret overrides are applied only by `win.bat` on your machine.

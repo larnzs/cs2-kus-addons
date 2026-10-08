@@ -8,6 +8,8 @@ on:
       - "DEPENDENCIES.json"
       - "scripts/Update-Addons.ps1"
       - "scripts/Test-AddonOverlay.ps1"
+      - "win.bat"
+      - "README.md"
       - ".github/workflows/addon-updater.yml"
   schedule:
     - cron: "17 3 * * *"
@@ -72,6 +74,25 @@ jobs:
           $manual = @($manifest.addons | Where-Object {
             $_.PSObject.Properties.Name -contains "automation_supported" -and -not [bool]$_.automation_supported
           })
+          foreach ($slayerName in @("SLAYER_AntiCamp", "SLAYER_HeadshotOnly")) {
+            $slayer = @($manifest.addons | Where-Object name -eq $slayerName) | Select-Object -First 1
+            if (-not $slayer) { throw "Missing manifest entry: $slayerName" }
+            $assetPattern = "CS2.$slayerName.v{version}.zip"
+            $mappingProperty = $slayer.asset_mappings.PSObject.Properties |
+              Where-Object Name -eq $assetPattern |
+              Select-Object -First 1
+            if (-not $mappingProperty) { throw "Missing versioned asset mapping for $slayerName." }
+            $mappingItems = @($mappingProperty.Value)
+            if ($mappingItems.Count -ne 2) { throw "$slayerName must map both plugin and source directories." }
+            if (-not ($mappingItems | Where-Object install_path -eq "addons/counterstrikesharp/source/$slayerName")) {
+              throw "$slayerName source directory does not map to CounterStrikeSharp/source."
+            }
+            if (-not ($mappingItems | Where-Object install_path -eq "addons/counterstrikesharp/plugins/$slayerName")) {
+              throw "$slayerName plugin directory does not map to plugins."
+            }
+          }
+
+          Write-Host "Validated versioned plugin + source mappings for both SLAYER addons."
           Write-Host "Validated $($manifest.addons.Count) manifest entries."
           Write-Host "Automated entries: $($automated.Count)"
           Write-Host "Manual entries: $($manual.Count)"

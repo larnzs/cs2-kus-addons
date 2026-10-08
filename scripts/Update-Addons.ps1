@@ -262,13 +262,28 @@ function Merge-Directory([string]$Source, [string]$Destination) {
 }
 
 function Get-ReleaseMappings($Addon, [string]$AssetName) {
-    if ($Addon.PSObject.Properties.Name -contains 'asset_mappings' -and
-        $Addon.asset_mappings.PSObject.Properties.Name -contains $AssetName) {
-        $value = $Addon.asset_mappings.PSObject.Properties[$AssetName].Value
-        if ($value -is [System.Array]) {
-            return @($value)
+    if ($Addon.PSObject.Properties.Name -contains 'asset_mappings' -and $Addon.asset_mappings) {
+        $mappingProperties = @($Addon.asset_mappings.PSObject.Properties)
+        $exactMatches = @($mappingProperties | Where-Object { $_.Name -eq $AssetName })
+
+        if ($exactMatches.Count -gt 1) {
+            throw "Multiple exact asset mappings found for '$AssetName' in addon '$($Addon.name)'."
         }
-        return @($value)
+        if ($exactMatches.Count -eq 1) {
+            return @($exactMatches[0].Value)
+        }
+
+        # Versioned archive names must keep working when upstream increments the release version.
+        $patternMatches = @($mappingProperties | Where-Object {
+            $_.Name.Contains('{version}') -and
+            $AssetName -like $_.Name.Replace('{version}', '*')
+        })
+        if ($patternMatches.Count -gt 1) {
+            throw "Ambiguous versioned asset mappings found for '$AssetName' in addon '$($Addon.name)'."
+        }
+        if ($patternMatches.Count -eq 1) {
+            return @($patternMatches[0].Value)
+        }
     }
 
     return @([pscustomobject]@{

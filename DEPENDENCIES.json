@@ -355,13 +355,29 @@
       "depends_on": [
         "CounterStrikeSharp"
       ],
-      "installed": true,
+      "installed": false,
       "merge": "release_plugin_directory",
       "source_path": "plugins/SLAYER_AntiCamp",
       "install_path": "addons/counterstrikesharp/plugins/SLAYER_AntiCamp",
       "verify_paths": [
-        "addons/counterstrikesharp/plugins/SLAYER_AntiCamp/SLAYER_AntiCamp.dll"
-      ]
+        "addons/counterstrikesharp/plugins/SLAYER_AntiCamp/SLAYER_AntiCamp.dll",
+        "addons/counterstrikesharp/source/SLAYER_AntiCamp/SLAYER_AntiCamp.cs",
+        "addons/counterstrikesharp/source/SLAYER_AntiCamp/SLAYER_AntiCamp.csproj"
+      ],
+      "asset_mappings": {
+        "CS2.SLAYER_AntiCamp.v{version}.zip": [
+          {
+            "merge": "release_plugin_directory",
+            "source_path": "plugins/SLAYER_AntiCamp",
+            "install_path": "addons/counterstrikesharp/plugins/SLAYER_AntiCamp"
+          },
+          {
+            "merge": "release_plugin_directory",
+            "source_path": "source/SLAYER_AntiCamp",
+            "install_path": "addons/counterstrikesharp/source/SLAYER_AntiCamp"
+          }
+        ]
+      }
     },
     {
       "order": 14,
@@ -377,13 +393,29 @@
       "depends_on": [
         "CounterStrikeSharp"
       ],
-      "installed": true,
+      "installed": false,
       "merge": "release_plugin_directory",
       "source_path": "plugins/SLAYER_HeadshotOnly",
       "install_path": "addons/counterstrikesharp/plugins/SLAYER_HeadshotOnly",
       "verify_paths": [
-        "addons/counterstrikesharp/plugins/SLAYER_HeadshotOnly/SLAYER_HeadshotOnly.dll"
-      ]
+        "addons/counterstrikesharp/plugins/SLAYER_HeadshotOnly/SLAYER_HeadshotOnly.dll",
+        "addons/counterstrikesharp/source/SLAYER_HeadshotOnly/SLAYER_HeadshotOnly.cs",
+        "addons/counterstrikesharp/source/SLAYER_HeadshotOnly/SLAYER_HeadshotOnly.csproj"
+      ],
+      "asset_mappings": {
+        "CS2.SLAYER_HeadshotOnly.v{version}.zip": [
+          {
+            "merge": "release_plugin_directory",
+            "source_path": "plugins/SLAYER_HeadshotOnly",
+            "install_path": "addons/counterstrikesharp/plugins/SLAYER_HeadshotOnly"
+          },
+          {
+            "merge": "release_plugin_directory",
+            "source_path": "source/SLAYER_HeadshotOnly",
+            "install_path": "addons/counterstrikesharp/source/SLAYER_HeadshotOnly"
+          }
+        ]
+      }
     },
     {
       "order": 15,

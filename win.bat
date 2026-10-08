@@ -154,16 +154,28 @@ if exist "%ROOT_DIR%server\game\csgo\" (
     echo          %ROOT_DIR%server\game\csgo
 )
 
-rem KUS custom files first, our custom files last.
+rem Merge order: KUS custom files, KUS local secrets, addon custom files, addon local secrets.
 if exist "%KUS_ROOT%\custom_files\" (
     echo Merging KUS custom files...
     call :MERGE "%KUS_ROOT%\custom_files" "%KUS_ROOT%\server\game\csgo"
     if errorlevel 1 goto :error
 )
 
+if exist "%KUS_ROOT%\custom_files_secret\" (
+    echo Merging KUS local secret overrides...
+    call :MERGE "%KUS_ROOT%\custom_files_secret" "%KUS_ROOT%\server\game\csgo"
+    if errorlevel 1 goto :error
+)
+
 if exist "%ROOT_DIR%custom_files\" (
     echo Merging cs2-kus-addons custom files...
     call :MERGE "%ROOT_DIR%custom_files" "%KUS_ROOT%\server\game\csgo"
+    if errorlevel 1 goto :error
+)
+
+if exist "%ROOT_DIR%custom_files_secret\" (
+    echo Merging cs2-kus-addons local secret overrides...
+    call :MERGE "%ROOT_DIR%custom_files_secret" "%KUS_ROOT%\server\game\csgo"
     if errorlevel 1 goto :error
 )
 
