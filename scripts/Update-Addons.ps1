@@ -183,7 +183,7 @@ function Write-ReleaseMetadata(
     [string]$AssetName,
     [string]$Archive,
     [string]$ExtractRoot,
-    [string]$DetectedRoot
+    $Targets
 ) {
     $metadata = [ordered]@{
         addon = $AddonName
@@ -193,18 +193,24 @@ function Write-ReleaseMetadata(
         asset = $AssetName
         archive = $Archive
         extract_root = $ExtractRoot
-        detected_source_root = $DetectedRoot
         destination_root = $ServerRoot
-        merge_mode = "non-destructive-overlay"
+        merge_mode = 'non-destructive-overlay'
+        mappings = @($Targets | ForEach-Object {
+            [ordered]@{
+                merge_mode = $_.MergeMode
+                source_root = $_.SourceRoot
+                destination_root = $_.DestinationRoot
+                destination_display = $_.DestinationDisplay
+            }
+        })
     }
 
     [IO.File]::WriteAllText(
         $OutputFile,
-        (($metadata | ConvertTo-Json -Depth 10) + [Environment]::NewLine),
+        (($metadata | ConvertTo-Json -Depth 20) + [Environment]::NewLine),
         (New-Object System.Text.UTF8Encoding($false))
     )
 }
-
 function Merge-Directory([string]$Source, [string]$Destination) {
     if (-not (Test-Path $Source -PathType Container)) {
         throw "Source directory does not exist: $Source"
@@ -229,79 +235,86 @@ function Merge-Directory([string]$Source, [string]$Destination) {
     }
 }
 
-function Resolve-ReleaseInstallTarget($Addon, [string]$ExtractRoot, [string]$AssetName) {
-    $merge = [string]$Addon.merge
-    $sourcePath = ''
-    $installPath = ''
-
+function Get-ReleaseMappings($Addon, [string]$AssetName) {
     if ($Addon.PSObject.Properties.Name -contains 'asset_mappings' -and
         $Addon.asset_mappings.PSObject.Properties.Name -contains $AssetName) {
-        $mapping = $Addon.asset_mappings.PSObject.Properties[$AssetName].Value
-        if ($mapping.PSObject.Properties.Name -contains 'merge') {
-            $merge = [string]$mapping.merge
+        $value = $Addon.asset_mappings.PSObject.Properties[$AssetName].Value
+        if ($value -is [System.Array]) {
+            return @($value)
         }
-        if ($mapping.PSObject.Properties.Name -contains 'source_path') {
-            $sourcePath = [string]$mapping.source_path
-        }
-        if ($mapping.PSObject.Properties.Name -contains 'install_path') {
-            $installPath = ([string]$mapping.install_path) -replace '/', '\'
-        }
-    }
-    else {
-        if ($Addon.PSObject.Properties.Name -contains 'source_path') {
-            $sourcePath = [string]$Addon.source_path
-        }
-        if ($Addon.PSObject.Properties.Name -contains 'install_path') {
-            $installPath = ([string]$Addon.install_path) -replace '/', '\'
-        }
+        return @($value)
     }
 
-    if ($merge -eq 'release_csgo_root') {
-        $sourceRoot = Find-CsgoRoot $ExtractRoot
-        if (-not $sourceRoot) {
-            throw "Could not locate a CS2 game root/addons directory in the release archive for '$AssetName'."
+    return @([pscustomobject]@{
+        merge = [string]$Addon.merge
+        source_path = if ($Addon.PSObject.Properties.Name -contains 'source_path') { [string]$Addon.source_path } else { '' }
+        install_path = if ($Addon.PSObject.Properties.Name -contains 'install_path') { [string]$Addon.install_path } else { '' }
+    })
+}
+
+function Resolve-ReleaseInstallTargets($Addon, [string]$ExtractRoot, [string]$AssetName) {
+    $targets = New-Object System.Collections.Generic.List[object]
+
+    foreach ($mapping in @(Get-ReleaseMappings $Addon $AssetName)) {
+        $merge = [string]$mapping.merge
+        $sourcePath = if ($mapping.PSObject.Properties.Name -contains 'source_path') { [string]$mapping.source_path } else { '' }
+        $installPath = if ($mapping.PSObject.Properties.Name -contains 'install_path') { ([string]$mapping.install_path) -replace '/', '\' } else { '' }
+
+        if ($merge -eq 'release_csgo_root') {
+            $sourceRoot = Find-CsgoRoot $ExtractRoot
+            if (-not $sourceRoot) {
+                throw "Could not locate a CS2 game root/addons directory in the release archive for '$AssetName'."
+            }
+
+            $targets.Add(@{
+                MergeMode = $merge
+                SourceRoot = $sourceRoot
+                DestinationRoot = $ServerRoot
+                DestinationDisplay = 'server\game\csgo'
+            })
+            continue
         }
 
-        return @{
-            MergeMode = $merge
-            SourceRoot = $sourceRoot
-            DestinationRoot = $ServerRoot
-            DestinationDisplay = 'server\game\csgo'
+        if ($merge -eq 'release_plugin_directory') {
+            $sourceParts = $sourcePath -split '[\\/]+' | Where-Object { $_ -ne '' }
+            $installParts = $installPath -split '[\\/]+' | Where-Object { $_ -ne '' }
+
+            if ([string]::IsNullOrWhiteSpace($sourcePath) -or [IO.Path]::IsPathRooted($sourcePath) -or ($sourceParts -contains '..')) {
+                throw "Invalid release source_path for $($Addon.name) asset '$AssetName': $sourcePath"
+            }
+            if ([string]::IsNullOrWhiteSpace($installPath) -or [IO.Path]::IsPathRooted($installPath) -or ($installParts -contains '..')) {
+                throw "Invalid release install_path for $($Addon.name) asset '$AssetName': $installPath"
+            }
+
+            $sourceRoot = Join-Path $ExtractRoot $sourcePath
+            if (-not (Test-Path $sourceRoot -PathType Container)) {
+                throw "Configured release source_path was not found for '$AssetName': $sourceRoot"
+            }
+
+            $destinationRoot = Join-Path $ServerRoot $installPath
+            $serverFull = [IO.Path]::GetFullPath($ServerRoot).TrimEnd('\') + '\'
+            $destinationFull = [IO.Path]::GetFullPath($destinationRoot)
+            if (-not $destinationFull.StartsWith($serverFull, [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Release install_path escapes server/game/csgo for '$AssetName': $installPath"
+            }
+
+            $targets.Add(@{
+                MergeMode = $merge
+                SourceRoot = $sourceRoot
+                DestinationRoot = $destinationRoot
+                DestinationDisplay = "server\game\csgo\$installPath"
+            })
+            continue
         }
+
+        throw "Unsupported release merge mode '$merge' for $($Addon.name) asset '$AssetName'."
     }
 
-    if ($merge -eq 'release_plugin_directory') {
-        $sourceParts = $sourcePath -split '[\\/]+' | Where-Object { $_ -ne '' }
-        $installParts = $installPath -split '[\\/]+' | Where-Object { $_ -ne '' }
-
-        if ([string]::IsNullOrWhiteSpace($sourcePath) -or [IO.Path]::IsPathRooted($sourcePath) -or ($sourceParts -contains '..')) {
-            throw "Invalid release source_path for $($Addon.name) asset '$AssetName': $sourcePath"
-        }
-        if ([string]::IsNullOrWhiteSpace($installPath) -or [IO.Path]::IsPathRooted($installPath) -or ($installParts -contains '..')) {
-            throw "Invalid release install_path for $($Addon.name) asset '$AssetName': $installPath"
-        }
-
-        $sourceRoot = Join-Path $ExtractRoot $sourcePath
-        if (-not (Test-Path $sourceRoot -PathType Container)) {
-            throw "Configured release source_path was not found for '$AssetName': $sourceRoot"
-        }
-
-        $destinationRoot = Join-Path $ServerRoot $installPath
-        $serverFull = [IO.Path]::GetFullPath($ServerRoot).TrimEnd('\') + '\'
-        $destinationFull = [IO.Path]::GetFullPath($destinationRoot)
-        if (-not $destinationFull.StartsWith($serverFull, [StringComparison]::OrdinalIgnoreCase)) {
-            throw "Release install_path escapes server/game/csgo for '$AssetName': $installPath"
-        }
-
-        return @{
-            MergeMode = $merge
-            SourceRoot = $sourceRoot
-            DestinationRoot = $destinationRoot
-            DestinationDisplay = "server\game\csgo\$installPath"
-        }
+    if ($targets.Count -eq 0) {
+        throw "No release mappings were defined for '$AssetName'."
     }
 
-    throw "Unsupported release merge mode '$merge' for $($Addon.name) asset '$AssetName'."
+    return @($targets)
 }
 function Install-ReleaseAddon($Addon, $Release) {
     $assets = @(Get-ReleaseAssets $Release $Addon)
@@ -337,35 +350,37 @@ function Install-ReleaseAddon($Addon, $Release) {
         Write-Info "Extracting $($asset.name)"
         Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
 
-        $target = Resolve-ReleaseInstallTarget $Addon $extract $asset.name
-        Merge-Directory $target.SourceRoot $target.DestinationRoot
+        $targets = @(Resolve-ReleaseInstallTargets $Addon $extract $asset.name)
+        foreach ($target in $targets) {
+            Merge-Directory $target.SourceRoot $target.DestinationRoot
+        }
 
         $layoutFile = Join-Path $workRoot ("layout-" + [IO.Path]::GetFileNameWithoutExtension($asset.name) + ".txt")
-        if ($target.MergeMode -eq 'release_csgo_root') {
-            Write-ReleaseLayout $archive $extract $target.SourceRoot $layoutFile $Addon.name $version
-        }
-        else {
-            $lines = New-Object System.Collections.Generic.List[string]
-            $lines.Add("ADDON: $($Addon.name)")
-            $lines.Add("VERSION: $version")
-            $lines.Add("ARCHIVE: $archive")
-            $lines.Add("EXTRACT ROOT: $extract")
-            $lines.Add("SOURCE ROOT: $($target.SourceRoot)")
-            $lines.Add("TARGET ROOT: $($target.DestinationRoot)")
-            $lines.Add('')
-            $lines.Add('SOURCE -> DESTINATION')
+        $lines = New-Object System.Collections.Generic.List[string]
+        $lines.Add("ADDON: $($Addon.name)")
+        $lines.Add("VERSION: $version")
+        $lines.Add("ARCHIVE: $archive")
+        $lines.Add("EXTRACT ROOT: $extract")
+        $lines.Add('')
+        $lines.Add('SOURCE -> DESTINATION')
+        foreach ($target in $targets) {
+            $lines.Add("")
+            $lines.Add("[$($target.MergeMode)] $($target.SourceRoot) -> $($target.DestinationDisplay)")
             Get-ChildItem -LiteralPath $target.SourceRoot -Recurse -File | Sort-Object FullName | ForEach-Object {
                 $relative = $_.FullName.Substring($target.SourceRoot.Length).TrimStart('\')
                 $lines.Add("$relative -> $($target.DestinationDisplay)\$relative")
             }
-            [IO.File]::WriteAllLines($layoutFile, $lines, (New-Object System.Text.UTF8Encoding($false)))
         }
+        [IO.File]::WriteAllLines($layoutFile, $lines, (New-Object System.Text.UTF8Encoding($false)))
 
         $metadataFile = Join-Path $workRoot ("release-" + [IO.Path]::GetFileNameWithoutExtension($asset.name) + ".json")
-        Write-ReleaseMetadata $metadataFile $Addon.name $Addon.repository $version $Release.tag_name $asset.name $archive $extract $target.SourceRoot
+        Write-ReleaseMetadata $metadataFile $Addon.name $Addon.repository $version $Release.tag_name $asset.name $archive $extract $targets
 
-        Write-Info "Extracted tree: $($target.SourceRoot)"
-        Write-Info "Destination: $($target.DestinationDisplay)"
+        Write-Info "Extracted tree: $($targets[0].SourceRoot)"
+        Write-Info "Mappings: $($targets.Count)"
+        foreach ($target in $targets) {
+            Write-Info "Destination: $($target.DestinationDisplay)"
+        }
         Write-Info "Layout written to $layoutFile"
         Write-Info "Metadata written to $metadataFile"
     }
