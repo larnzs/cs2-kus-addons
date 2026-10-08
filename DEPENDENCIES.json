@@ -124,7 +124,8 @@
         "MenuManagerCS2"
       ],
       "installed": false,
-      "merge": "release_csgo_root"
+      "merge": "release_csgo_root",
+      "automation_supported": false
     },
     {
       "order": 7,
@@ -298,7 +299,8 @@
         "CounterStrikeSharp"
       ],
       "installed": false,
-      "merge": "release_csgo_root"
+      "merge": "release_csgo_root",
+      "automation_supported": false
     }
   ]
 }
