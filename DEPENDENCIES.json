@@ -83,7 +83,7 @@
                                           "CounterStrikeSharp",
                                           "PlayerSettingsCS2"
                                       ],
-                       "installed":  false,
+                       "installed":  true,
                        "merge":  "release_csgo_root"
                    },
                    {
