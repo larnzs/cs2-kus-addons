@@ -346,6 +346,55 @@ function Install-SourceBuildAddon($Addon, $Commit) {
     return $version
 }
 
+function Save-Manifest() {
+    $json = $manifest | ConvertTo-Json -Depth 20
+    [IO.File]::WriteAllText(
+        $ManifestPath,
+        $json + [Environment]::NewLine,
+        (New-Object System.Text.UTF8Encoding($false))
+    )
+}
+
+function Commit-AddonUpdate([string]$AddonName, [string]$Version) {
+    if ($DryRun) {
+        return
+    }
+
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        throw "git is required to commit addon updates."
+    }
+
+    & git -C $RepoRoot add -- server/game/csgo README.md DEPENDENCIES.json
+    if ($LASTEXITCODE -ne 0) {
+        throw "git add failed."
+    }
+
+    $staged = @(& git -C $RepoRoot diff --cached --name-only)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not inspect staged changes."
+    }
+
+    foreach ($file in $staged) {
+        if ($file -ne "README.md" -and $file -ne "DEPENDENCIES.json" -and
+            -not $file.StartsWith("server/game/csgo/", [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Unexpected staged path: $file"
+        }
+    }
+
+    if ($staged.Count -eq 0) {
+        throw "Addon update produced no Git changes to commit."
+    }
+
+    $message = "Update addon: $AddonName $Version"
+    & git -C $RepoRoot commit -m $message
+    if ($LASTEXITCODE -ne 0) {
+        throw "git commit failed for $AddonName."
+    }
+
+    $short = (& git -C $RepoRoot rev-parse --short HEAD).Trim()
+    Write-Info "Committed $short"
+}
+
 function Update-ReadmeVersion([string]$Name, [string]$Repository, [string]$DisplayVersion) {
     if (-not (Test-Path $ReadmePath) -or $DryRun) {
         return
@@ -374,6 +423,24 @@ function Update-ReadmeVersion([string]$Name, [string]$Repository, [string]$Displ
 
 if (-not (Test-Path $ManifestPath)) {
     throw "Missing $ManifestPath"
+}
+
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    throw "git is required by the KUS-style updater."
+}
+
+if (-not (Test-Path (Join-Path $RepoRoot ".git"))) {
+    throw "$RepoRoot is not a Git working tree."
+}
+
+if (-not $DryRun) {
+    $status = @(& git -C $RepoRoot status --porcelain)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not read Git working tree status."
+    }
+    if ($status.Count -gt 0) {
+        throw "Working tree is not clean. Commit/stash existing changes before running the updater."
+    }
 }
 
 $manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
@@ -455,6 +522,8 @@ foreach ($addon in $addons) {
             }
 
             Update-ReadmeVersion $addon.name $addon.repository $newVersion
+            Save-Manifest
+            Commit-AddonUpdate $addon.name $newVersion
             $available[$addon.name] = $true
             Write-Host "  OK $newVersion" -ForegroundColor Green
         }
@@ -481,6 +550,8 @@ foreach ($addon in $addons) {
 
             $display = "$($addon.branch)@$($newVersion.Substring(0,12))"
             Update-ReadmeVersion $addon.name $addon.repository $display
+            Save-Manifest
+            Commit-AddonUpdate $addon.name $display
             $available[$addon.name] = $true
             Write-Host "  OK $display" -ForegroundColor Green
         }
@@ -492,15 +563,6 @@ foreach ($addon in $addons) {
         Write-Host "  ERROR $($_.Exception.Message)" -ForegroundColor Red
         exit 1
     }
-}
-
-if (-not $DryRun) {
-    $json = $manifest | ConvertTo-Json -Depth 20
-    [IO.File]::WriteAllText(
-        $ManifestPath,
-        $json + [Environment]::NewLine,
-        (New-Object System.Text.UTF8Encoding($false))
-    )
 }
 
 Write-Host ""
