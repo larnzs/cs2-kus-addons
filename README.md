@@ -109,11 +109,34 @@ addons-update.bat -DryRun -Only CounterStrikeSharp
 addons-update.bat -Only CounterStrikeSharp
 \`\`\`
 
-The updater downloads the configured GitHub release, extracts it, finds the CS2 \`addons/\` tree, and merges it into:
+The updater downloads the configured GitHub release, keeps the archive and extracted tree under:
+
+\`\`\`text
+tmp/
+└── releases/
+    └── <addon>/
+        └── <version>/
+            ├── <release>.zip
+            ├── extract-<release>/
+            ├── layout-<release>.txt
+            └── release-<release>.json
+\`\`\`
+
+It then detects the release's real CS2 root and merges that tree directly into:
 
 \`\`\`text
 server/game/csgo/
 \`\`\`
+
+So the repository stores the **extracted runtime tree**, just like KUS does.
+
+For example, when a CounterStrikeSharp Windows release has \`addons/\` at the archive root, that exact tree is placed at:
+
+\`\`\`text
+<release>/addons/...  ->  server/game/csgo/addons/...
+\`\`\`
+
+No extra \`CounterStrikeSharp/\` directory is inserted.
 
 The updater never deletes files from that staging tree. It only creates/overwrites paths supplied by the upstream release.
 
