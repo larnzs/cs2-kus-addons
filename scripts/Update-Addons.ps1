@@ -105,6 +105,15 @@ function Download-Asset($Asset, [string]$Destination) {
 
     Write-Info "Downloading $($Asset.name)"
     Invoke-WebRequest -Uri $Asset.browser_download_url -Headers (Get-GitHubHeaders) -OutFile $Destination -UseBasicParsing
+
+    if ($Asset.digest -and $Asset.digest -match "^sha256:(.+)$") {
+        $expected = $Matches[1].ToLowerInvariant()
+        $actual = (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($actual -ne $expected) {
+            throw "SHA256 mismatch for $($Asset.name): expected $expected, got $actual"
+        }
+        Write-Info "SHA256 verified"
+    }
 }
 
 function Find-CsgoRoot([string]$ExtractRoot) {
@@ -129,6 +138,26 @@ function Find-CsgoRoot([string]$ExtractRoot) {
     }
 
     return $null
+}
+
+function Write-ReleaseLayout([string]$Archive, [string]$ExtractRoot, [string]$CsgoRoot, [string]$OutputFile, [string]$AddonName, [string]$Version) {
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add("ADDON: $AddonName")
+    $lines.Add("VERSION: $Version")
+    $lines.Add("ARCHIVE: $Archive")
+    $lines.Add("EXTRACT ROOT: $ExtractRoot")
+    $lines.Add("CS2 ROOT DETECTED: $CsgoRoot")
+    $lines.Add("TARGET ROOT: $ServerRoot")
+    $lines.Add("")
+    $lines.Add("SOURCE -> DESTINATION")
+
+    Get-ChildItem -LiteralPath $CsgoRoot -Recurse -File | Sort-Object FullName | ForEach-Object {
+        $relative = $_.FullName.Substring($CsgoRoot.Length).TrimStart("\")
+        $lines.Add("$relative -> server\game\csgo\$relative")
+    }
+
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $OutputFile) | Out-Null
+    [IO.File]::WriteAllLines($OutputFile, $lines, (New-Object System.Text.UTF8Encoding($false)))
 }
 
 function Merge-Directory([string]$Source, [string]$Destination) {
@@ -195,6 +224,10 @@ function Install-ReleaseAddon($Addon, $Release) {
         }
 
         Merge-Directory $csgo $ServerRoot
+
+        $layoutFile = Join-Path $workRoot "layout.txt"
+        Write-ReleaseLayout $archive $extract $csgo $layoutFile $Addon.name $version
+        Write-Info "Layout written to $layoutFile"
     }
 
     return $version
