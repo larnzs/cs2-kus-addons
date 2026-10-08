@@ -267,7 +267,9 @@
         "CounterStrikeSharp"
       ],
       "installed": false,
-      "merge": "release_csgo_root"
+      "merge": "release_plugin_directory",
+      "source_path": "plugins",
+      "install_path": "addons/counterstrikesharp"
     },
     {
       "order": 14,
@@ -284,7 +286,21 @@
         "CounterStrikeSharp"
       ],
       "installed": false,
-      "merge": "release_csgo_root"
+      "merge": "release_plugin_directory",
+      "asset_mappings": {
+        "CS2.SLAYER_HeadshotOnly.v1.2.1.zip": [
+          {
+            "merge": "release_plugin_directory",
+            "source_path": "plugins",
+            "install_path": "addons/counterstrikesharp"
+          },
+          {
+            "merge": "release_plugin_directory",
+            "source_path": "configs",
+            "install_path": "addons/counterstrikesharp"
+          }
+        ]
+      }
     },
     {
       "order": 15,
