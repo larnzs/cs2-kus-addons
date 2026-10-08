@@ -64,7 +64,7 @@ They are intentionally **not reinstalled or managed by this repository**.
 | [PlayerSettingsCS2](https://github.com/NickFox007/PlayerSettingsCS2) | 0.9.4 | Persistent player-settings library used by dependent plugins. |
 | [MenuManagerCS2](https://github.com/NickFox007/MenuManagerCS2) | 1.4.1 | Menu/API library used by dependent plugins. |
 | [SLAYER_AntiCamp](https://github.com/zakriamansoor47/SLAYER_AntiCamp) | `1.2.5` | Detects and handles excessive camping according to configuration. |
-| [SLAYER_HeadshotOnly](https://github.com/zakriamansoor47/SLAYER_HeadshotOnly) | v1.2.1 | Provides a headshot-only gameplay mode. |
+| [SLAYER_HeadshotOnly](https://github.com/zakriamansoor47/SLAYER_HeadshotOnly) | `1.2.1` | Provides a headshot-only gameplay mode. |
 | [CS2-TeamLimiter](https://github.com/Ferks-FK/CS2-TeamLimiter) | — | Limits the maximum number of players on each team. |
 | [CS2-WeaponRestrict](https://github.com/TICHOJEBEC-SK/CS2-WeaponRestrict) | WeaponRestrict1.5 | Applies configurable gameplay restrictions. |
 
