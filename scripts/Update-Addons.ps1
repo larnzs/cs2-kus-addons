@@ -12,7 +12,7 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 $ManifestPath = Join-Path $RepoRoot "DEPENDENCIES.json"
 $ReadmePath = Join-Path $RepoRoot "README.md"
 $ServerRoot = Join-Path $RepoRoot "server\game\csgo"
-$CacheRoot = Join-Path $RepoRoot "tmp\addons"
+$CacheRoot = Join-Path $RepoRoot "tmp\releases"
 $UserAgent = "cs2-kus-addons"
 
 function Write-Info([string]$Message) {
@@ -117,10 +117,24 @@ function Download-Asset($Asset, [string]$Destination) {
 }
 
 function Find-CsgoRoot([string]$ExtractRoot) {
+    # Most releases use one of these layouts:
+    #   <archive>/addons/...
+    #   <archive>/csgo/addons/...
+    #   <archive>/<wrapper>/csgo/addons/...
+    # Return the directory that must be merged into server/game/csgo.
+    if (Test-Path (Join-Path $ExtractRoot "addons") -PathType Container) {
+        return $ExtractRoot
+    }
+
+    $directCsgo = Join-Path $ExtractRoot "csgo"
+    if (Test-Path (Join-Path $directCsgo "addons") -PathType Container) {
+        return $directCsgo
+    }
+
     $csgo = @(
         Get-ChildItem -LiteralPath $ExtractRoot -Directory -Recurse -ErrorAction SilentlyContinue |
             Where-Object {
-                $_.Name -ieq "csgo" -and (Test-Path (Join-Path $_.FullName "addons"))
+                $_.Name -ieq "csgo" -and (Test-Path (Join-Path $_.FullName "addons") -PathType Container)
             }
     ) | Select-Object -First 1
 
@@ -158,6 +172,37 @@ function Write-ReleaseLayout([string]$Archive, [string]$ExtractRoot, [string]$Cs
 
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $OutputFile) | Out-Null
     [IO.File]::WriteAllLines($OutputFile, $lines, (New-Object System.Text.UTF8Encoding($false)))
+}
+
+function Write-ReleaseMetadata(
+    [string]$OutputFile,
+    [string]$AddonName,
+    [string]$Repository,
+    [string]$Version,
+    [string]$ReleaseTag,
+    [string]$AssetName,
+    [string]$Archive,
+    [string]$ExtractRoot,
+    [string]$DetectedRoot
+) {
+    $metadata = [ordered]@{
+        addon = $AddonName
+        repository = $Repository
+        version = $Version
+        release_tag = $ReleaseTag
+        asset = $AssetName
+        archive = $Archive
+        extract_root = $ExtractRoot
+        detected_source_root = $DetectedRoot
+        destination_root = $ServerRoot
+        merge_mode = "non-destructive-overlay"
+    }
+
+    [IO.File]::WriteAllText(
+        $OutputFile,
+        (($metadata | ConvertTo-Json -Depth 10) + [Environment]::NewLine),
+        (New-Object System.Text.UTF8Encoding($false))
+    )
 }
 
 function Merge-Directory([string]$Source, [string]$Destination) {
@@ -225,9 +270,15 @@ function Install-ReleaseAddon($Addon, $Release) {
 
         Merge-Directory $csgo $ServerRoot
 
-        $layoutFile = Join-Path $workRoot "layout.txt"
+        $layoutFile = Join-Path $workRoot ("layout-" + [IO.Path]::GetFileNameWithoutExtension($asset.name) + ".txt")
         Write-ReleaseLayout $archive $extract $csgo $layoutFile $Addon.name $version
+
+        $metadataFile = Join-Path $workRoot ("release-" + [IO.Path]::GetFileNameWithoutExtension($asset.name) + ".json")
+        Write-ReleaseMetadata $metadataFile $Addon.name $Addon.repository $version $Release.tag_name $asset.name $archive $extract $csgo
+
+        Write-Info "Extracted tree: $csgo"
         Write-Info "Layout written to $layoutFile"
+        Write-Info "Metadata written to $metadataFile"
     }
 
     return $version
@@ -379,12 +430,6 @@ foreach ($addon in $addons) {
         if (-not $available.ContainsKey([string]$dependency) -or -not [bool]$available[[string]$dependency]) {
             throw "$($addon.name) requires '$dependency'. Run the updater in dependency order or install that dependency first."
         }
-    }
-
-    if ($addon.PSObject.Properties.Name -contains "automation_supported" -and
-        -not [bool]$addon.automation_supported) {
-        Write-Warn "This addon is tracked in the manifest but is not automated by this updater."
-        continue
     }
 
     try {
