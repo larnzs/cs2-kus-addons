@@ -1,5 +1,5 @@
 name: Bootstrap Remaining Addons
-# Final full bootstrap after source-build state fix.
+# Final full bootstrap after source-build return fix.
 
 
 on:
