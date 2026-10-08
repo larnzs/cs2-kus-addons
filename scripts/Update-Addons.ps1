@@ -314,7 +314,7 @@ function Resolve-ReleaseInstallTargets($Addon, [string]$ExtractRoot, [string]$As
         throw "No release mappings were defined for '$AssetName'."
     }
 
-    return @($targets)
+    return $targets.ToArray()
 }
 function Install-ReleaseAddon($Addon, $Release) {
     $assets = @(Get-ReleaseAssets $Release $Addon)
