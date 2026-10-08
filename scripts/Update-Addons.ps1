@@ -266,7 +266,7 @@ function Resolve-ReleaseInstallTargets($Addon, [string]$ExtractRoot, [string]$As
                 throw "Could not locate a CS2 game root/addons directory in the release archive for '$AssetName'."
             }
 
-            $targets.Add(@{
+            [void]$targets.Add(@{
                 MergeMode = $merge
                 SourceRoot = $sourceRoot
                 DestinationRoot = $ServerRoot
@@ -298,7 +298,7 @@ function Resolve-ReleaseInstallTargets($Addon, [string]$ExtractRoot, [string]$As
                 throw "Release install_path escapes server/game/csgo for '$AssetName': $installPath"
             }
 
-            $targets.Add(@{
+            [void]$targets.Add(@{
                 MergeMode = $merge
                 SourceRoot = $sourceRoot
                 DestinationRoot = $destinationRoot
