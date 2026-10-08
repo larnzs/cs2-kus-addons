@@ -1,0 +1,43 @@
+name: Update CS2 Update Monitor
+
+on:
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/update-monitor.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cs2-update-monitor
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Update CS2 Update Monitor
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\Update-CS2UpdateMonitor.ps1"
+
+      - name: Push updater commit
+        shell: pwsh
+        run: |
+          git push origin HEAD:main
