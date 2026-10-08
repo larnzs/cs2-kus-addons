@@ -17,7 +17,7 @@ When the layer is applied:
 - Files that exist only in the destination are not removed by the overlay.
 - Our custom files are applied after the addon layer.
 
-The repository's \`server/game/csgo/\` directory is a **staging/overlay tree**, not a second CS2 installation.
+The repository's `server/game/csgo/` directory is a **staging/overlay tree**, not a second CS2 installation.
 
 ## KUS vs. cs2-kus-addons
 
@@ -52,7 +52,7 @@ They are intentionally **not reinstalled or managed by this repository**.
 | --- | --- | --- |
 | [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) | 1.0.376 | The .NET scripting framework used by our CounterStrikeSharp plugins. Its runtime is required by this layer. |
 | [CS2UpdateMonitor](https://github.com/beanman109/cs2-updatemonitor) | 1.1.0 | Detects new CS2 game builds and coordinates the restart handoff to the external supervisor. |
-| [WeaponPaints](https://github.com/Nereziel/cs2-WeaponPaints) | build-466 | Additional player-side game customization plugin. |
+| [WeaponPaints](https://github.com/Nereziel/cs2-WeaponPaints) | `466` | Additional player-side game customization plugin. |
 | [CS2-SimpleAdmin](https://github.com/daffyyyy/CS2-SimpleAdmin) | 1.9.0 | Provides extended server administration functionality. |
 | [AFKManager](https://github.com/NiGHT757/AFKManager) | 0.2.8 | Detects AFK players and applies the configured AFK handling. |
 | [CS2-Kill-Plugin](https://github.com/Quantor97/CS2-Kill-Plugin) | 0.2.0 | Adds a player self-action command. |
@@ -68,7 +68,7 @@ They are intentionally **not reinstalled or managed by this repository**.
 | [CS2-TeamLimiter](https://github.com/Ferks-FK/CS2-TeamLimiter) | — | Limits the maximum number of players on each team. |
 | [CS2-WeaponRestrict](https://github.com/TICHOJEBEC-SK/CS2-WeaponRestrict) | WeaponRestrict1.5 | Applies configurable gameplay restrictions. |
 
-> **Version note:** \`cs2-showdamage\` is intentionally pinned to \`1.1.0\`. The two addons marked as manual in \`DEPENDENCIES.json\` remain tracked but are not processed by the automated Windows updater.
+> **Version note:** `cs2-showdamage` is intentionally pinned to `1.1.0`. `CS2-WeaponRestrict` is currently the only addon marked manual in `DEPENDENCIES.json`; `WeaponPaints` follows the latest stable GitHub release and is managed by the same updater as the other automated addons.
 
 ## Dependency order
 
@@ -76,7 +76,7 @@ Dependencies are explicit in [DEPENDENCIES.json](./DEPENDENCIES.json). The Windo
 
 The core chain is:
 
-\`\`\`text
+```text
 KUS / Metamod:Source
         |
 CounterStrikeSharp + Runtime
@@ -90,7 +90,7 @@ MenuManagerCS2
 +-------------------------------+
 | dependent plugins             |
 +-------------------------------+
-\`\`\`
+```
 
 Examples:
 
@@ -105,14 +105,14 @@ Examples:
 
 Run:
 
-\`\`\`bat
+```bat
 addons-update.bat -DryRun -Only CounterStrikeSharp
 addons-update.bat -Only CounterStrikeSharp
-\`\`\`
+```
 
 The updater downloads the configured GitHub release, keeps the archive and extracted tree under:
 
-\`\`\`text
+```text
 tmp/
 └── releases/
     └── <addon>/
@@ -121,27 +121,27 @@ tmp/
             ├── extract-<release>/
             ├── layout-<release>.txt
             └── release-<release>.json
-\`\`\`
+```
 
 It then detects the release's real CS2 root and merges that tree directly into:
 
-\`\`\`text
+```text
 server/game/csgo/
-\`\`\`
+```
 
 So the repository stores the **extracted runtime tree**, just like KUS does.
 
-For example, when a CounterStrikeSharp Windows release has \`addons/\` at the archive root, that exact tree is placed at:
+For example, when a CounterStrikeSharp Windows release has `addons/` at the archive root, that exact tree is placed at:
 
-\`\`\`text
+```text
 <release>/addons/...  ->  server/game/csgo/addons/...
-\`\`\`
+```
 
-No extra \`CounterStrikeSharp/\` directory is inserted.
+No extra `CounterStrikeSharp/` directory is inserted.
 
-The updater never deletes files from that staging tree. It only creates/overwrites paths supplied by the upstream release. Release mappings support both full `game/csgo` roots and explicit plugin-directory destinations.
+The updater never deletes files from that staging tree. It only creates/overwrites paths supplied by the upstream release. Release mappings support both full `game/csgo` roots and explicit plugin-directory destinations. The updater deliberately preserves `cfg/` and `addons/counterstrikesharp/configs/`; incoming release files cannot overwrite the static/user-managed settings in those locations.
 
-Run the next addon only after the previous layer is verified.
+The updater processes the manifest in dependency order, and the GitHub workflow validates required files across the full runtime tree after updating. The workflow also verifies that fixed configuration paths were not changed by release packages.
 ### CS2 Update Monitor
 
 `CS2UpdateMonitor` is managed by the same `addons-update.bat` / `Update-Addons.ps1` pipeline as the other automated addons.
@@ -166,11 +166,11 @@ The configured action is `ShutdownForSupervisor`: when a newer CS2 build is dete
 
 Run:
 
-\`\`\`bat
+```bat
 win.bat
-\`\`\`
+```
 
-\`win.bat\` uses the KUS repository as the base, applies the same KUS Metamod gameinfo patch, rebuilds KUS's generated server areas, then applies this repository's overlay.
+`win.bat` uses the KUS repository as the base, applies the same KUS Metamod gameinfo patch, rebuilds KUS's generated server areas, then applies this repository's overlay.
 
 The KUS base cleanup is intentionally performed **before** our overlay is copied. That prevents old KUS-managed files from surviving a KUS update while ensuring our layer is restored immediately afterwards.
 
@@ -178,21 +178,21 @@ The KUS base cleanup is intentionally performed **before** our overlay is copied
 
 Run:
 
-\`\`\`bat
+```bat
 update.bat
-\`\`\`
+```
 
 This does:
 
-1. \`git pull\` for \`cs2-kus-addons\`
-2. \`git pull --ff-only\` for the KUS base repository
-3. Runs \`win.bat\`
+1. `git pull` for `cs2-kus-addons`
+2. `git pull --ff-only` for the KUS base repository
+3. Runs `win.bat`
 
 Addon release updates are intentionally a separate operation:
 
-\`\`\`bat
+```bat
 addons-update.bat
-\`\`\`
+```
 
 This keeps normal server startup predictable and avoids downloading third-party releases every time the server starts.
 
@@ -200,23 +200,23 @@ This keeps normal server startup predictable and avoids downloading third-party 
 
 Edit [win.ini](./win.ini):
 
-\`\`\`ini
+```ini
 KUS_ROOT=..\\cs2-modded-server
-\`\`\`
+```
 
 The default assumes this layout:
 
-\`\`\`text
+```text
 parent/
 ├── cs2-modded-server/
 └── cs2-kus-addons/
-\`\`\`
+```
 
 The KUS repository is not copied into this repository and is not vendored here.
 
 ## File layout
 
-\`\`\`text
+```text
 cs2-kus-addons/
 ├── DEPENDENCIES.json
 ├── README.md
@@ -224,12 +224,15 @@ cs2-kus-addons/
 ├── win.bat
 ├── update.bat
 ├── addons-update.bat
-├── server/
-│   └── game/
-│       └── csgo/
-└── scripts/
-    └── Update-Addons.ps1
-\`\`\`
+├── addons-inspect.bat
+├── scripts/
+│   ├── Inspect-Releases.ps1
+│   ├── Test-AddonOverlay.ps1
+│   └── Update-Addons.ps1
+└── server/
+    └── game/
+        └── csgo/  (runtime overlay)
+```
 
 ## Updating addon versions
 
@@ -237,34 +240,36 @@ The release updater uses [DEPENDENCIES.json](./DEPENDENCIES.json) as the source 
 
 Useful commands:
 
-\`\`\`bat
+```bat
 addons-update.bat -DryRun
 addons-update.bat -DryRun -Only CounterStrikeSharp
 addons-update.bat -Only CounterStrikeSharp
 addons-update.bat -Force -Only CounterStrikeSharp
-\`\`\`
+```
 
 The updater:
 
 - checks the configured GitHub release/tag
 - selects the exact asset pattern from the manifest
 - downloads and extracts the archive
-- verifies that a CS2 \`addons/\` tree can be found
+- verifies that a CS2 `addons/` tree can be found
 - merges files into the staging tree without deleting unrelated files
-- updates the version state in \`DEPENDENCIES.json\`
+- updates the version state in `DEPENDENCIES.json`
 - updates the matching README table row
 - supports source builds for addons that do not publish releases
 
-It does **not** push or commit automatically. Review with \`git status\` and commit/push the resulting changes yourself.
+The PowerShell updater commits each successful add-on update locally. A local run leaves those commits on your local branch, so review and push them yourself. The GitHub Actions workflow runs daily or by manual dispatch, validates the full managed runtime tree, and pushes successful update commits to `main`.
 
-## Custom files
+## Static configuration ownership
 
-Our custom configuration belongs in the repository's \`custom_files/\` directory and is applied after both the KUS base and the addon overlay.
+The addon updater intentionally does not copy incoming release files into either of these tracked paths:
 
-This follows the same general layering model as KUS while keeping ownership separate:
+- `server/game/csgo/cfg/`
+- `server/game/csgo/addons/counterstrikesharp/configs/`
 
-**KUS owns the base.**  
-**cs2-kus-addons owns the extra layer.**
+Those paths are reserved for fixed/user-managed settings. The workflow records their file list and SHA-256 hashes before updating, then fails if any file is added, removed, or changed. Edit those settings deliberately; upstream release archives cannot replace them. The normal `win.bat` overlay still merges the tracked staging tree into the KUS server installation.
+
+The optional `custom_files/` directory remains available as a final KUS-compatible override layer, but it is not part of the addon release updater.
 
 ## License
 

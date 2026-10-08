@@ -211,9 +211,30 @@ function Write-ReleaseMetadata(
         (New-Object System.Text.UTF8Encoding($false))
     )
 }
+function Test-IsProtectedConfigDestination([string]$DestinationPath) {
+    $serverRootFull = [IO.Path]::GetFullPath($ServerRoot).TrimEnd([char[]]@('\', '/'))
+    $destinationFull = [IO.Path]::GetFullPath($DestinationPath)
+    $prefix = $serverRootFull + [IO.Path]::DirectorySeparatorChar
+
+    if (-not $destinationFull.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+        return $false
+    }
+
+    $relative = $destinationFull.Substring($prefix.Length).Replace('\', '/')
+    return (
+        $relative -match '^(?i:cfg)(/|$)' -or
+        $relative -match '^(?i:addons/counterstrikesharp/configs)(/|$)'
+    )
+}
+
 function Merge-Directory([string]$Source, [string]$Destination) {
     if (-not (Test-Path $Source -PathType Container)) {
         throw "Source directory does not exist: $Source"
+    }
+
+    if (Test-IsProtectedConfigDestination $Destination) {
+        Write-Info "Preserving fixed/user-managed config path: $Destination"
+        return
     }
 
     New-Item -ItemType Directory -Force -Path $Destination | Out-Null
@@ -229,6 +250,11 @@ function Merge-Directory([string]$Source, [string]$Destination) {
             Merge-Directory $_.FullName $dest
         }
         else {
+            if (Test-IsProtectedConfigDestination $dest) {
+                Write-Info "Preserving fixed/user-managed config file: $dest"
+                return
+            }
+
             New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null
             Copy-Item -LiteralPath $_.FullName -Destination $dest -Force
         }

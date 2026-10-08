@@ -1,18 +1,25 @@
 name: Update CS2 Addons
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "DEPENDENCIES.json"
+      - "scripts/Update-Addons.ps1"
+      - "scripts/Test-AddonOverlay.ps1"
+      - ".github/workflows/addon-updater.yml"
   schedule:
-    # Once per day, deliberately away from the top of the hour.
     - cron: "17 3 * * *"
   workflow_dispatch:
     inputs:
       only:
-        description: "Addon name/repository/slug. Leave empty to update all automated addons."
+        description: "Optional addon name, repository URL, slug, or comma-separated list. Empty means all automated addons."
         required: false
         default: ""
         type: string
       force:
-        description: "Force reinstall the selected release(s)."
+        description: "Force reinstall selected release(s)."
         required: false
         default: false
         type: boolean
@@ -26,7 +33,9 @@ concurrency:
 
 jobs:
   update:
+    if: github.actor != 'github-actions[bot]'
     runs-on: windows-latest
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
@@ -34,12 +43,45 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Show runner tools
+      - name: Validate manifest and automation policy
         shell: pwsh
         run: |
-          git --version
-          pwsh --version
-          dotnet --info
+          $manifest = Get-Content -LiteralPath ".\DEPENDENCIES.json" -Raw | ConvertFrom-Json
+          if ([int]$manifest.schema_version -lt 2) {
+            throw "Unsupported DEPENDENCIES.json schema version."
+          }
+
+          $names = @($manifest.addons | ForEach-Object { [string]$_.name })
+          $duplicates = @($names | Group-Object | Where-Object Count -gt 1)
+          if ($duplicates.Count -gt 0) {
+            throw ("Duplicate addon names: " + (($duplicates | ForEach-Object Name) -join ", "))
+          }
+
+          $weaponPaints = @($manifest.addons | Where-Object name -eq "WeaponPaints") | Select-Object -First 1
+          if (-not $weaponPaints) {
+            throw "WeaponPaints is missing from DEPENDENCIES.json."
+          }
+          if ($weaponPaints.PSObject.Properties.Name -contains "automation_supported" -and
+              -not [bool]$weaponPaints.automation_supported) {
+            throw "WeaponPaints must be managed by the stable-release updater."
+          }
+
+          $automated = @($manifest.addons | Where-Object {
+            -not ($_.PSObject.Properties.Name -contains "automation_supported" -and -not [bool]$_.automation_supported)
+          })
+          $manual = @($manifest.addons | Where-Object {
+            $_.PSObject.Properties.Name -contains "automation_supported" -and -not [bool]$_.automation_supported
+          })
+          Write-Host "Validated $($manifest.addons.Count) manifest entries."
+          Write-Host "Automated entries: $($automated.Count)"
+          Write-Host "Manual entries: $($manual.Count)"
+
+      - name: Snapshot fixed configuration paths
+        shell: pwsh
+        run: |
+          $snapshot = Join-Path $env:RUNNER_TEMP "protected-configs.json"
+          & pwsh -NoProfile -File ".\scripts\Test-AddonOverlay.ps1" -SnapshotConfigs -SnapshotPath $snapshot
+          if ($LASTEXITCODE -ne 0) { throw "Could not snapshot the protected config paths." }
 
       - name: Configure Git identity
         shell: pwsh
@@ -51,56 +93,45 @@ jobs:
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_EVENT: ${{ github.event_name }}
-          INPUT_ONLY: ${{ inputs.only }}
-          INPUT_FORCE: ${{ inputs.force }}
+          INPUT_ONLY: ${{ github.event.inputs.only }}
+          INPUT_FORCE: ${{ github.event.inputs.force }}
         run: |
           $arguments = @()
-
-          if ($env:GH_EVENT -eq "push") {
-            Write-Host "First-run placement test: CounterStrikeSharp only"
-            $arguments += "-Only"
-            $arguments += "CounterStrikeSharp"
-          }
-          elseif ($env:INPUT_ONLY) {
-            $arguments += "-Only"
-            $arguments += $env:INPUT_ONLY
+          if (-not [string]::IsNullOrWhiteSpace($env:INPUT_ONLY)) {
+            $selected = @($env:INPUT_ONLY -split '[,;\s]+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+            if ($selected.Count -gt 0) {
+              $arguments += "-Only"
+              $arguments += $selected
+            }
           }
 
           if ($env:INPUT_FORCE -eq "true") {
             $arguments += "-Force"
           }
 
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\Update-Addons.ps1" @arguments
-
-      - name: Verify CounterStrikeSharp tree
-        if: success()
-        shell: pwsh
-        run: |
-          $root = Join-Path $PWD "server\game\csgo"
-          $css = Join-Path $root "addons\counterstrikesharp"
-
-          if (-not (Test-Path $css -PathType Container)) {
-            throw "CounterStrikeSharp destination was not created: $css"
+          & pwsh -NoProfile -File ".\scripts\Update-Addons.ps1" @arguments
+          if ($LASTEXITCODE -ne 0) {
+            throw "The addon updater failed with exit code $LASTEXITCODE."
           }
 
-          Write-Host ""
-          Write-Host "CounterStrikeSharp destination:" -ForegroundColor Cyan
-          Write-Host $css
-          Write-Host ""
-          Get-ChildItem -LiteralPath $css -Recurse -File |
-            Sort-Object FullName |
-            ForEach-Object {
-              $relative = $_.FullName.Substring($root.Length).TrimStart("\")
-              Write-Host "server\game\csgo\$relative"
-            }
+      - name: Verify all installed addon files and protected configs
+        shell: pwsh
+        run: |
+          $snapshot = Join-Path $env:RUNNER_TEMP "protected-configs.json"
+          & pwsh -NoProfile -File ".\scripts\Test-AddonOverlay.ps1" -VerifyAddons -CompareConfigSnapshot -SnapshotPath $snapshot
+          if ($LASTEXITCODE -ne 0) {
+            throw "Addon overlay validation failed."
+          }
 
-          Write-Host ""
-          Write-Host "Git status after updater:" -ForegroundColor Cyan
-          git status --short
+          $root = Join-Path $PWD "server\game\csgo"
+          $allFiles = @(Get-ChildItem -LiteralPath $root -Recurse -File -Force)
+          Write-Host "Runtime overlay contains $($allFiles.Count) files."
+          Write-Host "Top-level addons:"
+          Get-ChildItem -LiteralPath (Join-Path $root "addons") -Directory |
+            Sort-Object Name |
+            ForEach-Object { Write-Host (" - " + $_.Name) }
 
-      - name: Push updater commits
-        if: success()
+      - name: Push successful updater commits
         shell: pwsh
         run: |
           $status = git status --porcelain
@@ -109,3 +140,6 @@ jobs:
           }
 
           git push origin HEAD:main
+          if ($LASTEXITCODE -ne 0) {
+            throw "Push to main failed."
+          }
