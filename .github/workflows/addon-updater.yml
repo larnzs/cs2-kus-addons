@@ -1,0 +1,110 @@
+name: Update CS2 Addons
+
+on:
+  schedule:
+    # Once per day, deliberately away from the top of the hour.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Addon name/repository/slug. Leave empty to update all automated addons."
+        required: false
+        default: ""
+        type: string
+      force:
+        description: "Force reinstall the selected release(s)."
+        required: false
+        default: false
+        type: boolean
+  # Temporary first-run trigger: the first commit of this workflow will
+  # automatically run the CounterStrikeSharp placement test.
+  push:
+    paths:
+      - ".github/workflows/addon-updater.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: addon-updater
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Show runner tools
+        shell: pwsh
+        run: |
+          git --version
+          pwsh --version
+          dotnet --info
+
+      - name: Run addon updater
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_EVENT: ${{ github.event_name }}
+          INPUT_ONLY: ${{ inputs.only }}
+          INPUT_FORCE: ${{ inputs.force }}
+        run: |
+          $arguments = @()
+
+          if ($env:GH_EVENT -eq "push") {
+            Write-Host "First-run placement test: CounterStrikeSharp only"
+            $arguments += "-Only"
+            $arguments += "CounterStrikeSharp"
+          }
+          elseif ($env:INPUT_ONLY) {
+            $arguments += "-Only"
+            $arguments += $env:INPUT_ONLY
+          }
+
+          if ($env:INPUT_FORCE -eq "true") {
+            $arguments += "-Force"
+          }
+
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\Update-Addons.ps1" @arguments
+
+      - name: Verify CounterStrikeSharp tree
+        if: success()
+        shell: pwsh
+        run: |
+          $root = Join-Path $PWD "server\game\csgo"
+          $css = Join-Path $root "addons\counterstrikesharp"
+
+          if (-not (Test-Path $css -PathType Container)) {
+            throw "CounterStrikeSharp destination was not created: $css"
+          }
+
+          Write-Host ""
+          Write-Host "CounterStrikeSharp destination:" -ForegroundColor Cyan
+          Write-Host $css
+          Write-Host ""
+          Get-ChildItem -LiteralPath $css -Recurse -File |
+            Sort-Object FullName |
+            ForEach-Object {
+              $relative = $_.FullName.Substring($root.Length).TrimStart("\")
+              Write-Host "server\game\csgo\$relative"
+            }
+
+          Write-Host ""
+          Write-Host "Git status after updater:" -ForegroundColor Cyan
+          git status --short
+
+      - name: Push updater commits
+        if: success()
+        shell: pwsh
+        run: |
+          $status = git status --porcelain
+          if ($status) {
+            throw ("Unexpected uncommitted changes remain after updater:" + [Environment]::NewLine + $status)
+          }
+
+          git push origin HEAD:main
