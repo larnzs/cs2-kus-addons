@@ -1,0 +1,13 @@
+# Local updater cache
+tmp/
+.cache/
+
+# Downloaded archives
+*.zip
+*.part
+
+# Local logs
+*.log
+
+# Local secrets
+custom_files_secret/
