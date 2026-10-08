@@ -16,11 +16,6 @@ on:
         required: false
         default: false
         type: boolean
-  # Temporary first-run trigger: the first commit of this workflow will
-  # automatically run the CounterStrikeSharp placement test.
-  push:
-    paths:
-      - ".github/workflows/addon-updater.yml"
 
 permissions:
   contents: write
