@@ -297,8 +297,6 @@ function Inspect-Addon($Addon) {
     }
 }
 
-}
-
 $manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
 $addons = @($manifest.addons | Sort-Object order)
 
