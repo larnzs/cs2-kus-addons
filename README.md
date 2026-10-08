@@ -141,6 +141,25 @@ No extra \`CounterStrikeSharp/\` directory is inserted.
 The updater never deletes files from that staging tree. It only creates/overwrites paths supplied by the upstream release.
 
 Run the next addon only after the previous layer is verified.
+### CS2 Update Monitor
+
+`CS2UpdateMonitor` is kept as a dedicated runtime component under:
+
+```text
+server/game/csgo/addons/counterstrikesharp/plugins/CS2UpdateMonitor/
+```
+
+Its tracked configuration is at:
+
+```text
+server/game/csgo/addons/counterstrikesharp/configs/plugins/CS2UpdateMonitor/CS2UpdateMonitor.json
+```
+
+The Windows updater is `update-monitor.bat`. It downloads the latest Windows release, verifies the GitHub SHA-256 digest, extracts it, and non-destructively merges the `CS2UpdateMonitor/` release directory into the plugin directory. It never deletes old destination files.
+
+The configured action is `ShutdownForSupervisor`: when a newer CS2 build is detected, the plugin announces a countdown and finally executes `quit`. An external supervisor/VBS loop is then responsible for starting the server again. The plugin itself is deliberately not configured to run SteamCMD or `win.bat` directly.
+
+
 
 ### 2. Start the server
 
