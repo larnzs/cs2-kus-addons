@@ -1,4 +1,5 @@
 name: Bootstrap Remaining Addons
+# Retry after aligning release mappings with upstream package layouts.
 
 on:
   push:
