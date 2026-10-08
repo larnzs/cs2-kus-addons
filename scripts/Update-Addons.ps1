@@ -271,10 +271,13 @@ function Resolve-ReleaseInstallTarget($Addon, [string]$ExtractRoot, [string]$Ass
     }
 
     if ($merge -eq 'release_plugin_directory') {
-        if ([string]::IsNullOrWhiteSpace($sourcePath) -or [IO.Path]::IsPathRooted($sourcePath) -or $sourcePath -match '\.\.') {
+        $sourceParts = $sourcePath -split '[\\/]+' | Where-Object { $_ -ne '' }
+        $installParts = $installPath -split '[\\/]+' | Where-Object { $_ -ne '' }
+
+        if ([string]::IsNullOrWhiteSpace($sourcePath) -or [IO.Path]::IsPathRooted($sourcePath) -or ($sourceParts -contains '..')) {
             throw "Invalid release source_path for $($Addon.name) asset '$AssetName': $sourcePath"
         }
-        if ([string]::IsNullOrWhiteSpace($installPath) -or [IO.Path]::IsPathRooted($installPath) -or $installPath -match '(^|[\])\.\.([\]|$)') {
+        if ([string]::IsNullOrWhiteSpace($installPath) -or [IO.Path]::IsPathRooted($installPath) -or ($installParts -contains '..')) {
             throw "Invalid release install_path for $($Addon.name) asset '$AssetName': $installPath"
         }
 
