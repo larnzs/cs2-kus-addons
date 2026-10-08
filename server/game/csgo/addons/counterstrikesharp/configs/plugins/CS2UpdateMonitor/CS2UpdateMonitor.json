@@ -1,0 +1,45 @@
+{
+  "Enabled": true,
+  "CheckIntervalSeconds": 300,
+  "InitialCheckDelaySeconds": 20,
+  "SteamAppId": 730,
+  "SteamCmdPath": "steamcmd\\steamcmd.exe",
+  "SteamCmdTimeoutSeconds": 120,
+  "UpdateInstallTimeoutSeconds": 1800,
+  "AppManifestPath": "auto",
+
+  "Action": "ShutdownForSupervisor",
+  "CountdownSeconds": 300,
+  "OnlyStartCountdownWhenServerEmpty": false,
+  "AnnounceAtSeconds": [300, 180, 120, 60, 30, 10, 5, 4, 3, 2, 1],
+  "ShowCenterCountdownFromSeconds": 10,
+
+  "ShutdownCommand": "quit",
+  "ShutdownCommandRetrySeconds": 30,
+  "MapChangeGraceSeconds": 15,
+  "MaxAutomaticRestartsPerBuild": 2,
+  "AutomaticRestartRetryCooldownMinutes": 30,
+  "StateFileName": "update-state.json",
+
+  "MaintenanceWindowStart": "",
+  "MaintenanceWindowEnd": "",
+
+  "DotnetHostPath": "dotnet",
+  "ServerInstallDirectory": "auto",
+  "SteamCmdExtraArguments": "",
+  "ValidateUpdate": false,
+
+  "RestartExecutable": "",
+  "RestartArguments": "",
+  "RestartWorkingDirectory": "",
+  "UpdaterLogPath": "update-helper.log",
+  "ExitWaitTimeoutSeconds": 180,
+
+  "ChatPrefix": "{green}[Update Monitor]{default}",
+  "UpdateDetectedMessage": "A CS2 update was detected (build {remote_build}).",
+  "CountdownMessage": "Server maintenance starts in {time}.",
+  "WaitingForEmptyMessage": "An update is ready; maintenance will begin when the server is empty.",
+  "ShutdownMessage": "Server shutting down for a CS2 update now.",
+  "CancelledMessage": "Scheduled update was cancelled by an administrator.",
+  "FailsafeBlockedMessage": "Automatic restart paused by the update failsafe: {reason}"
+}
