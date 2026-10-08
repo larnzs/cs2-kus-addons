@@ -143,7 +143,7 @@
                        "depends_on":  [
                                           "CounterStrikeSharp"
                                       ],
-                       "installed":  false,
+                       "installed":  true,
                        "merge":  "release_plugin_directory",
                        "source_path":  "AFKManager",
                        "install_path":  "addons/counterstrikesharp/plugins/AFKManager"
