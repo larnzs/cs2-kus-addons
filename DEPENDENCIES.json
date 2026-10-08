@@ -144,7 +144,9 @@
         "CounterStrikeSharp"
       ],
       "installed": false,
-      "merge": "release_csgo_root"
+      "merge": "release_plugin_directory",
+      "source_path": "AFKManager",
+      "install_path": "addons/counterstrikesharp/plugins/AFKManager"
     },
     {
       "order": 8,
@@ -179,7 +181,9 @@
         "KUS:Metamod:Source"
       ],
       "installed": false,
-      "merge": "release_csgo_root"
+      "merge": "release_plugin_directory",
+      "source_path": "ResetScore",
+      "install_path": "addons/counterstrikesharp/plugins/ResetScore"
     },
     {
       "order": 10,
@@ -196,7 +200,9 @@
         "CounterStrikeSharp"
       ],
       "installed": false,
-      "merge": "release_csgo_root"
+      "merge": "release_plugin_directory",
+      "source_path": "ShowDamage",
+      "install_path": "addons/counterstrikesharp/plugins/ShowDamage"
     },
     {
       "order": 11,
