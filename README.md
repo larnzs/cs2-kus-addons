@@ -2,22 +2,22 @@
 
 Additional plugins and libraries for [KUS/cs2-modded-server](https://github.com/kus/cs2-modded-server).
 
-This repository is an **add-on layer** on top of KUS. KUS remains responsible for the base CS2 dedicated server, its own bundled mods/plugins, and its own update system. This repository only adds the extra plugins and files we choose to run.
+This repository is an **add-on layer** on top of KUS. KUS remains responsible for the base CS2 dedicated server, its own bundled mods/plugins, and its own update system. This repository manages the extra addon layer and our own files.
 
 ## How this repository works
 
 The most important rule is simple:
 
-> **This repository never deletes files from the server. It only merges/adds its files on top of the existing installation.**
+> **The addon layer never deletes files from the destination. It only merges its files on top of the existing installation.**
 
-When the installer/update process runs, files from this repository are copied/extracted into the existing server paths.
+When the layer is applied:
 
-- Existing unrelated files are left untouched.
-- If an add-on provides a file at a path that already exists, that file is overwritten by the add-on's copy.
-- Nothing is removed just because it is not present in this repository.
-- Custom files are applied after the add-ons, so they can override add-on defaults.
+- Existing unrelated destination files are left untouched.
+- A file supplied by this repository replaces the file at the same path.
+- Files that exist only in the destination are not removed by the overlay.
+- Our custom files are applied after the addon layer.
 
-This makes the repository a persistent, non-destructive add-on layer over the KUS base rather than a replacement for it.
+The repository's \`server/game/csgo/\` directory is a **staging/overlay tree**, not a second CS2 installation.
 
 ## KUS vs. cs2-kus-addons
 
@@ -29,7 +29,7 @@ This makes the repository a persistent, non-destructive add-on layer over the KU
 | Extra plugins listed below | cs2-kus-addons |
 | Extra plugin dependencies | cs2-kus-addons |
 | Our custom configs/files | cs2-kus-addons |
-| Installation/merge logic for these add-ons | cs2-kus-addons |
+| Addon installation/merge logic | cs2-kus-addons |
 
 ### Intentionally kept from KUS
 
@@ -50,59 +50,175 @@ They are intentionally **not reinstalled or managed by this repository**.
 
 | Mod | Version | Why |
 | --- | --- | --- |
-| [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) | 1.0.376 | The .NET scripting framework used by our CounterStrikeSharp plugins. Its runtime is required by the server-side plugins in this layer. |
-| [WeaponPaints](https://github.com/Nereziel/cs2-WeaponPaints) | build-466 | Provides player weapon, knife, glove and agent cosmetic/inventory features. |
-| [CS2-SimpleAdmin](https://github.com/daffyyyy/CS2-SimpleAdmin) | 1.9.0 | Provides extended administration functionality for the server. |
+| [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) | 1.0.376 | The .NET scripting framework used by our CounterStrikeSharp plugins. Its runtime is required by this layer. |
+| [WeaponPaints](https://github.com/Nereziel/cs2-WeaponPaints) | build-466 | Additional player-side game customization plugin. |
+| [CS2-SimpleAdmin](https://github.com/daffyyyy/CS2-SimpleAdmin) | 1.9.0 | Provides extended server administration functionality. |
 | [AFKManager](https://github.com/NiGHT757/AFKManager) | 0.2.8 | Detects AFK players and applies the configured AFK handling. |
-| [CS2-Kill-Plugin](https://github.com/Quantor97/CS2-Kill-Plugin) | 0.2.0 | Adds player suicide commands such as !suicide and /suicide. |
+| [CS2-Kill-Plugin](https://github.com/Quantor97/CS2-Kill-Plugin) | 0.2.0 | Adds a player self-action command. |
 | [SimpleResetScore](https://github.com/stefanx111/cs2-SimpleResetScore) | 1.0.7 | Lets players reset their own score. |
-| [cs2-showdamage](https://github.com/abnerfs/cs2-showdamage) | 1.1.0 | Shows damage information to players during gameplay. |
-| [cs2-ranks](https://github.com/partiusfabaa/cs2-ranks) | v2.0.5.5-recompile | Provides persistent player ranks, statistics and progression backed by a database. |
+| [cs2-showdamage](https://github.com/abnerfs/cs2-showdamage) | 1.1.0 | Shows damage information during gameplay. |
+| [cs2-ranks](https://github.com/partiusfabaa/cs2-ranks) | v2.0.5.5-recompile | Persistent player ranks, statistics and progression backed by a database. |
 | [VIPCore](https://github.com/partiusfabaa/cs2-VIPCore) | v1.3.4-recompile3 | Provides the VIP core/module used for VIP functionality. |
-| [AnyBaseLibCS2](https://github.com/NickFox007/AnyBaseLibCS2) | 0.9.4 | Shared database/API library required by other add-ons in this layer. |
-| [PlayerSettingsCS2](https://github.com/NickFox007/PlayerSettingsCS2) | 0.9.4 | Provides persistent player settings used by dependent plugins. |
-| [MenuManagerCS2](https://github.com/NickFox007/MenuManagerCS2) | 1.4.1 | Provides menu/API functionality used by dependent plugins. |
-| [SLAYER_AntiCamp](https://github.com/zakriamansoor47/SLAYER_AntiCamp) | v1.2.5 | Detects and handles excessive camping according to the configured rules. |
+| [AnyBaseLibCS2](https://github.com/NickFox007/AnyBaseLibCS2) | 0.9.4 | Shared database/API library required by other add-ons. |
+| [PlayerSettingsCS2](https://github.com/NickFox007/PlayerSettingsCS2) | 0.9.4 | Persistent player-settings library used by dependent plugins. |
+| [MenuManagerCS2](https://github.com/NickFox007/MenuManagerCS2) | 1.4.1 | Menu/API library used by dependent plugins. |
+| [SLAYER_AntiCamp](https://github.com/zakriamansoor47/SLAYER_AntiCamp) | v1.2.5 | Detects and handles excessive camping according to configuration. |
 | [SLAYER_HeadshotOnly](https://github.com/zakriamansoor47/SLAYER_HeadshotOnly) | v1.2.1 | Provides a headshot-only gameplay mode. |
 | [CS2-TeamLimiter](https://github.com/Ferks-FK/CS2-TeamLimiter) | — | Limits the maximum number of players on each team. |
-| [CS2-WeaponRestrict](https://github.com/TICHOJEBEC-SK/cs2-WeaponRestrict) | WeaponRestrict1.5 | Restricts selected weapons according to the server configuration. |
+| [CS2-WeaponRestrict](https://github.com/TICHOJEBEC-SK/CS2-WeaponRestrict) | WeaponRestrict1.5 | Applies configurable gameplay restrictions. |
 
-> **Version note:** Versions above are the releases currently tracked for this repository. cs2-showdamage is intentionally pinned to 1.1.0.
+> **Version note:** \`cs2-showdamage\` is intentionally pinned to \`1.1.0\`. The two addons marked as manual in \`DEPENDENCIES.json\` remain tracked but are not processed by the automated Windows updater.
 
-## Installation order
+## Dependency order
 
-The table above is the addon catalog. The installer will use a **dependency-safe installation order** instead of blindly following the table order.
+Dependencies are explicit in [DEPENDENCIES.json](./DEPENDENCIES.json). The Windows updater verifies dependencies before installing an addon.
 
-The first layer is always:
+The core chain is:
 
-1. CounterStrikeSharp + runtime
-2. AnyBaseLibCS2
-3. PlayerSettingsCS2
-4. MenuManagerCS2
-5. Plugins that depend on those libraries
-6. Remaining plugins
-7. Custom files last
+\`\`\`text
+KUS / Metamod:Source
+        |
+CounterStrikeSharp + Runtime
+        |
+AnyBaseLibCS2
+        |
+PlayerSettingsCS2
+        |
+MenuManagerCS2
+        |
++-------------------------------+
+| dependent plugins             |
++-------------------------------+
+\`\`\`
 
-The exact order may be adjusted as individual release packages and dependencies are verified.
+Examples:
 
-## Updating
+- CounterStrikeSharp requires KUS's Metamod:Source.
+- PlayerSettingsCS2 requires CounterStrikeSharp and AnyBaseLibCS2.
+- MenuManagerCS2 requires CounterStrikeSharp and PlayerSettingsCS2.
+- CS2-SimpleAdmin requires CounterStrikeSharp, AnyBaseLibCS2, PlayerSettingsCS2 and MenuManagerCS2.
 
-The intended flow is:
+## Windows workflow
 
-1. KUS updates the base server.
-2. This repository installs/updates CounterStrikeSharp and its runtime.
-3. This repository merges required libraries/dependencies.
-4. This repository merges the selected add-ons.
-5. Custom files are merged last.
-6. The server starts.
+### 1. First install / update the addon layer
 
-Running the add-on installer again should be safe: it can overwrite files it owns, but it does not delete unrelated server files.
+Run:
+
+\`\`\`bat
+addons-update.bat -DryRun -Only CounterStrikeSharp
+addons-update.bat -Only CounterStrikeSharp
+\`\`\`
+
+The updater downloads the configured GitHub release, extracts it, finds the CS2 \`addons/\` tree, and merges it into:
+
+\`\`\`text
+server/game/csgo/
+\`\`\`
+
+The updater never deletes files from that staging tree. It only creates/overwrites paths supplied by the upstream release.
+
+Run the next addon only after the previous layer is verified.
+
+### 2. Start the server
+
+Run:
+
+\`\`\`bat
+win.bat
+\`\`\`
+
+\`win.bat\` uses the KUS repository as the base, applies the same KUS Metamod gameinfo patch, rebuilds KUS's generated server areas, then applies this repository's overlay.
+
+The KUS base cleanup is intentionally performed **before** our overlay is copied. That prevents old KUS-managed files from surviving a KUS update while ensuring our layer is restored immediately afterwards.
+
+### 3. Full update + start
+
+Run:
+
+\`\`\`bat
+update.bat
+\`\`\`
+
+This does:
+
+1. \`git pull\` for \`cs2-kus-addons\`
+2. \`git pull --ff-only\` for the KUS base repository
+3. Runs \`win.bat\`
+
+Addon release updates are intentionally a separate operation:
+
+\`\`\`bat
+addons-update.bat
+\`\`\`
+
+This keeps normal server startup predictable and avoids downloading third-party releases every time the server starts.
+
+## KUS base location
+
+Edit [win.ini](./win.ini):
+
+\`\`\`ini
+KUS_ROOT=..\\cs2-modded-server
+\`\`\`
+
+The default assumes this layout:
+
+\`\`\`text
+parent/
+├── cs2-modded-server/
+└── cs2-kus-addons/
+\`\`\`
+
+The KUS repository is not copied into this repository and is not vendored here.
+
+## File layout
+
+\`\`\`text
+cs2-kus-addons/
+├── DEPENDENCIES.json
+├── README.md
+├── win.ini
+├── win.bat
+├── update.bat
+├── addons-update.bat
+├── server/
+│   └── game/
+│       └── csgo/
+└── scripts/
+    └── Update-Addons.ps1
+\`\`\`
+
+## Updating addon versions
+
+The release updater uses [DEPENDENCIES.json](./DEPENDENCIES.json) as the source of truth.
+
+Useful commands:
+
+\`\`\`bat
+addons-update.bat -DryRun
+addons-update.bat -DryRun -Only CounterStrikeSharp
+addons-update.bat -Only CounterStrikeSharp
+addons-update.bat -Force -Only CounterStrikeSharp
+\`\`\`
+
+The updater:
+
+- checks the configured GitHub release/tag
+- selects the exact asset pattern from the manifest
+- downloads and extracts the archive
+- verifies that a CS2 \`addons/\` tree can be found
+- merges files into the staging tree without deleting unrelated files
+- updates the version state in \`DEPENDENCIES.json\`
+- updates the matching README table row
+- supports source builds for addons that do not publish releases
+
+It does **not** push or commit automatically. Review with \`git status\` and commit/push the resulting changes yourself.
 
 ## Custom files
 
-Our custom configuration will live in the repository's custom-file layer and will be applied after third-party add-ons.
+Our custom configuration belongs in the repository's \`custom_files/\` directory and is applied after both the KUS base and the addon overlay.
 
-This follows the same general idea as KUS's custom_files system while keeping the ownership boundary clear:
+This follows the same general layering model as KUS while keeping ownership separate:
 
 **KUS owns the base.**  
 **cs2-kus-addons owns the extra layer.**
