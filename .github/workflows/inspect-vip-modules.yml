@@ -1,0 +1,23 @@
+name: Inspect VIP Modules Archive
+
+on:
+  push:
+    paths:
+      - ".github/workflows/inspect-vip-modules.yml"
+
+jobs:
+  inspect:
+    runs-on: windows-latest
+    steps:
+      - name: Inspect archive
+        shell: pwsh
+        run: |
+          $url = 'https://github.com/partiusfabaa/cs2-VIPCore/releases/download/v1.3.4-recompile3/VIP_Modules.zip'
+          $zip = Join-Path $PWD 'VIP_Modules.zip'
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [IO.Compression.ZipFile]::OpenRead($zip)
+          try {
+            $archive.Entries | Sort-Object FullName | ForEach-Object { Write-Host $_.FullName }
+          }
+          finally { $archive.Dispose() }
