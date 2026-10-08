@@ -220,7 +220,7 @@
                                           "CounterStrikeSharp",
                                           "KUS:Metamod:Source"
                                       ],
-                       "installed":  false,
+                       "installed":  true,
                        "merge":  "release_csgo_root"
                    },
                    {
