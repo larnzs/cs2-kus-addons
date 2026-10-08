@@ -81,8 +81,9 @@ jobs:
         shell: pwsh
         run: |
           $selected = @("SLAYER_AntiCamp", "SLAYER_HeadshotOnly", "VIPCore", "CS2-TeamLimiter")
-          & pwsh -NoProfile -File ".\scripts\Inspect-Releases.ps1" -Only $selected
-          if ($LASTEXITCODE -ne 0) {
+          $ErrorActionPreference = "Stop"
+          & ".\scripts\Inspect-Releases.ps1" -Only $selected
+          if (-not $?) {
             throw "Explicit release archive mapping smoke test failed."
           }
 
