@@ -1,6 +1,5 @@
 name: Bootstrap Remaining Addons
-# Retry with per-asset VIPCore mapping.
-# Temporary diagnostic run for updater failure.
+# Focused test after target array return fix.
 
 
 on:
