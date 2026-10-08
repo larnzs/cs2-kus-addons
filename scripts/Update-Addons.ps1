@@ -510,7 +510,7 @@ function Update-ReadmeVersion([string]$Name, [string]$Repository, [string]$Displ
     $escapedUrl = [regex]::Escape($Repository)
     $escapedName = [regex]::Escape($Name)
     $backtick = [char]96
-    $pattern = "(?m)^\| \[$escapedName\]\($escapedUrl\) \| $backtick[^$backtick]*$backtick \|"
+    $pattern = "(?m)^\|\s*\[$escapedName\]\($escapedUrl\)\s*\|[^|\r\n]*\|"
     $replacement = "| [$Name]($Repository) | $backtick$DisplayVersion$backtick |"
 
     $newText = [regex]::Replace($text, $pattern, $replacement, 1)
