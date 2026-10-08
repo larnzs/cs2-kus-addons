@@ -284,6 +284,8 @@ function Get-ReleaseMappings($Addon, [string]$AssetName) {
         if ($patternMatches.Count -eq 1) {
             return @($patternMatches[0].Value)
         }
+
+        throw "No asset_mappings entry matches archive '$AssetName' for addon '$($Addon.name)'. Check the ZIP filename and destination mapping."
     }
 
     return @([pscustomobject]@{
@@ -456,7 +458,7 @@ function Install-SourceBuildAddon($Addon, $Commit) {
 
     $zip = Join-Path $workRoot "source.zip"
     $repo = Get-RepoSlug $Addon.repository
-    $url = "https://github.com/$repo/archive/refs/heads/$($Addon.branch).zip"
+    $url = "https://github.com/$repo/archive/$($Commit.sha).zip"
 
     Write-Info "Downloading $($Addon.name) source"
     Invoke-WebRequest -Uri $url -Headers (Get-GitHubHeaders) -OutFile $zip -UseBasicParsing
@@ -494,6 +496,8 @@ function Install-SourceBuildAddon($Addon, $Commit) {
 }
 
 function Save-Manifest() {
+    if ($DryRun) { return }
+
     $json = $manifest | ConvertTo-Json -Depth 20
     [IO.File]::WriteAllText(
         $ManifestPath,
@@ -621,7 +625,7 @@ if ($Only) {
     $addons = $selected
 }
 
-New-Item -ItemType Directory -Force -Path $ServerRoot | Out-Null
+if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $ServerRoot | Out-Null }
 
 Write-Host ""
 Write-Host "CS2 KUS Addons updater" -ForegroundColor Cyan

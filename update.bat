@@ -10,7 +10,7 @@ echo       CS2 KUS Addons - Full Update
 echo ============================================
 echo.
 
-echo [1/3] Updating cs2-kus-addons...
+echo [1/3] Updating cs2-kus-addons repository...
 git pull --ff-only
 if errorlevel 1 (
     echo.
@@ -45,7 +45,7 @@ if not exist "%KUS_ROOT%\win.bat" (
 )
 
 echo.
-echo [2/3] Updating KUS base...
+echo [2/3] Updating KUS base repository...
 git -C "%KUS_ROOT%" pull --ff-only
 if errorlevel 1 (
     echo.
@@ -56,6 +56,18 @@ if errorlevel 1 (
 )
 
 echo.
-echo [3/3] Starting server with the tracked addon layer...
+echo [3/3] Updating CS2 and installing the current addon layer...
+echo The dedicated server will NOT be started by this script.
 call "%~dp0win.bat"
-exit /b %errorlevel%
+set "RC=%ERRORLEVEL%"
+if not "%RC%"=="0" (
+    echo.
+    echo ERROR: win.bat failed with exit code %RC%.
+    pause
+    exit /b %RC%
+)
+
+echo.
+echo Full update completed. The server remains stopped until the VBS supervisor starts it.
+pause
+exit /b 0

@@ -1,15 +1,16 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
-title CS2 KUS Addons
+title CS2 KUS Addons - Update and Install
 cd /d "%~dp0"
 
+set "EXIT_CODE=0"
 set "ROOT_DIR=%~dp0"
 set "CONFIG_FILE=%ROOT_DIR%win.ini"
 
 if not exist "%CONFIG_FILE%" (
     echo ERROR: %CONFIG_FILE% not found.
-    goto :end
+    goto :error
 )
 
 set "KUS_ROOT="
@@ -17,7 +18,7 @@ for /f "usebackq eol=; tokens=* delims=" %%S in ("%CONFIG_FILE%") do set "%%S"
 
 if not defined KUS_ROOT (
     echo ERROR: KUS_ROOT is not configured in win.ini.
-    goto :end
+    goto :error
 )
 
 if "%KUS_ROOT:~1,1%"==":" (
@@ -26,38 +27,17 @@ if "%KUS_ROOT:~1,1%"==":" (
     for %%I in ("%ROOT_DIR%%KUS_ROOT%") do set "KUS_ROOT=%%~fI"
 )
 
-if not exist "%KUS_ROOT%\win.ini" (
-    echo ERROR: KUS win.ini not found:
-    echo        %KUS_ROOT%\win.ini
-    goto :end
+if not exist "%KUS_ROOT%\win.bat" (
+    echo ERROR: KUS base was not found:
+    echo        %KUS_ROOT%
+    goto :error
 )
 
-for /f "usebackq eol=; tokens=* delims=" %%S in ("%KUS_ROOT%\win.ini") do set "%%S"
-
-if not defined PORT set "PORT=27015"
-if not defined MAXPLAYERS set "MAXPLAYERS=32"
-if not defined TICKRATE set "TICKRATE=128"
-if not defined IP set "IP=0.0.0.0"
-if not defined LAN set "LAN=0"
-if not defined SERVER_PASSWORD set "SERVER_PASSWORD="
-if not defined RCON_PASSWORD set "RCON_PASSWORD=changeme"
-if not defined EXEC set "EXEC=on_boot.cfg"
-if not defined CUSTOM_FOLDER set "CUSTOM_FOLDER=custom_files"
-
-set "GAMEINFO=%KUS_ROOT%\server\game\csgo\gameinfo.gi"
-set "BAKFILE=%GAMEINFO%.bak"
-set "TEMPFILE=%GAMEINFO%.tmp"
-set "SEARCHSTRING=Game	csgo/addons/metamod"
-set "INSERTAFTER=Game_LowViolence	csgo_lv"
-
-echo.
-echo ============================================
-echo          CS2 KUS Addons - Start
-echo ============================================
-echo.
-echo KUS base:     %KUS_ROOT%
-echo Addon layer:  %ROOT_DIR%
-echo.
+if not exist "%KUS_ROOT%\game\csgo\" (
+    echo ERROR: KUS base game files were not found:
+    echo        %KUS_ROOT%\game\csgo
+    goto :error
+)
 
 if not exist "%KUS_ROOT%\steamcmd\steamcmd.exe" (
     echo Downloading SteamCMD...
@@ -68,72 +48,49 @@ if not exist "%KUS_ROOT%\steamcmd\steamcmd.exe" (
     if errorlevel 1 goto :error
 
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-      "Expand-Archive -Path '%KUS_ROOT%\steamcmd\steamcmd.zip' -DestinationPath '%KUS_ROOT%\steamcmd' -Force"
+      "Expand-Archive -LiteralPath '%KUS_ROOT%\steamcmd\steamcmd.zip' -DestinationPath '%KUS_ROOT%\steamcmd' -Force"
     if errorlevel 1 goto :error
 
-    del /q "%KUS_ROOT%\steamcmd\steamcmd.zip"
+    if not exist "%KUS_ROOT%\steamcmd\steamcmd.exe" (
+        echo ERROR: SteamCMD extraction did not produce steamcmd.exe.
+        goto :error
+    )
+    del /q "%KUS_ROOT%\steamcmd\steamcmd.zip" >nul 2>&1
 )
 
-echo Checking CS2 for updates...
+echo.
+echo ============================================
+echo     CS2 KUS Addons - Update and Install
+echo ============================================
+echo KUS base:     %KUS_ROOT%
+echo Addon layer:  %ROOT_DIR%
+echo.
+echo Checking CS2 for updates through SteamCMD...
 "%KUS_ROOT%\steamcmd\steamcmd.exe" +force_install_dir "%KUS_ROOT%\server" +login anonymous +app_update 730 +quit
 if errorlevel 1 goto :error
 
-if not exist "%GAMEINFO%" (
-    echo ERROR: %GAMEINFO% does not exist.
+if not exist "%KUS_ROOT%\server\game\csgo\" (
+    echo ERROR: SteamCMD did not create the CS2 game directory.
     goto :error
 )
 
-if not exist "%BAKFILE%" (
-    echo Creating gameinfo.gi backup...
-    copy "%GAMEINFO%" "%BAKFILE%" >nul
-    if errorlevel 1 goto :error
-)
-
-findstr /m /c:"%SEARCHSTRING%" "%GAMEINFO%" >nul
-if errorlevel 1 (
-    echo Patching gameinfo.gi for Metamod...
-
-    >"%TEMPFILE%" (
-        set "ADDED=0"
-        for /f "tokens=* delims=" %%A in ('findstr /n "^" "%GAMEINFO%"') do (
-            set "LINE=%%A"
-            setlocal EnableDelayedExpansion
-            set "LINE=!LINE:*:=!"
-
-            if "!LINE!" neq "" (
-                if "!LINE!"=="!LINE:%INSERTAFTER%=!" (
-                    echo(!LINE!
-                ) else (
-                    if "!ADDED!"=="0" (
-                        echo(!LINE!
-                        echo(			%SEARCHSTRING%
-                        set "ADDED=1"
-                    )
-                )
-            ) else (
-                echo(
-            )
-
-            endlocal
-        )
-    )
-
-    if not exist "%TEMPFILE%" goto :error
-    move /y "%TEMPFILE%" "%GAMEINFO%" >nul
-    if errorlevel 1 goto :error
-) else (
-    echo gameinfo.gi is already patched.
-)
-
-rem KUS owns this cleanup. Our addon layer is pasted back immediately afterwards.
-echo Rebuilding KUS base files...
+echo.
+echo Rebuilding KUS-managed game files...
 
 if exist "%KUS_ROOT%\server\game\csgo\addons\" (
     rmdir /S /Q "%KUS_ROOT%\server\game\csgo\addons"
+    if exist "%KUS_ROOT%\server\game\csgo\addons\" (
+        echo ERROR: Could not remove the old KUS addons directory.
+        goto :error
+    )
 )
 
 if exist "%KUS_ROOT%\server\game\csgo\cfg\settings\" (
     rmdir /S /Q "%KUS_ROOT%\server\game\csgo\cfg\settings"
+    if exist "%KUS_ROOT%\server\game\csgo\cfg\settings\" (
+        echo ERROR: Could not remove the old KUS cfg\settings directory.
+        goto :error
+    )
 )
 
 call :MERGE "%KUS_ROOT%\game\csgo" "%KUS_ROOT%\server\game\csgo"
@@ -144,15 +101,15 @@ if exist "%KUS_ROOT%\game\csgo\addons\windows\" (
     if errorlevel 1 goto :error
 )
 
-rem Our repository is an overlay: merge only, never delete from the destination.
-if exist "%ROOT_DIR%server\game\csgo\" (
-    echo Merging cs2-kus-addons layer...
-    call :MERGE "%ROOT_DIR%server\game\csgo" "%KUS_ROOT%\server\game\csgo"
-    if errorlevel 1 goto :error
-) else (
-    echo WARNING: addon staging directory not found:
-    echo          %ROOT_DIR%server\game\csgo
+if not exist "%ROOT_DIR%server\game\csgo\" (
+    echo ERROR: Addon staging directory was not found:
+    echo        %ROOT_DIR%server\game\csgo
+    goto :error
 )
+
+echo Applying cs2-kus-addons overlay...
+call :MERGE "%ROOT_DIR%server\game\csgo" "%KUS_ROOT%\server\game\csgo"
+if errorlevel 1 goto :error
 
 rem Merge order: KUS custom files, KUS local secrets, addon custom files, addon local secrets.
 if exist "%KUS_ROOT%\custom_files\" (
@@ -179,30 +136,89 @@ if exist "%ROOT_DIR%custom_files_secret\" (
     if errorlevel 1 goto :error
 )
 
+rem Patch gameinfo.gi after all merges so a copied base file cannot undo the Metamod entry.
+set "GAMEINFO=%KUS_ROOT%\server\game\csgo\gameinfo.gi"
+set "BAKFILE=%GAMEINFO%.bak"
+set "TEMPFILE=%GAMEINFO%.tmp"
+set "SEARCHSTRING=Game	csgo/addons/metamod"
+set "INSERTAFTER=Game_LowViolence	csgo_lv"
+
+if not exist "%GAMEINFO%" (
+    echo ERROR: %GAMEINFO% does not exist after the game update.
+    goto :error
+)
+
+if not exist "%BAKFILE%" (
+    echo Creating gameinfo.gi backup...
+    copy "%GAMEINFO%" "%BAKFILE%" >nul
+    if errorlevel 1 goto :error
+)
+
+findstr /m /c:"%SEARCHSTRING%" "%GAMEINFO%" >nul
+if errorlevel 1 (
+    findstr /m /c:"%INSERTAFTER%" "%GAMEINFO%" >nul
+    if errorlevel 1 (
+        echo ERROR: The Metamod insertion marker was not found in gameinfo.gi.
+        goto :error
+    )
+
+    echo Patching gameinfo.gi for Metamod...
+    >"%TEMPFILE%" (
+        set "ADDED=0"
+        for /f "tokens=* delims=" %%A in ('findstr /n "^" "%GAMEINFO%"') do (
+            set "LINE=%%A"
+            setlocal EnableDelayedExpansion
+            set "LINE=!LINE:*:=!"
+
+            if "!LINE!" neq "" (
+                if "!LINE!"=="!LINE:%INSERTAFTER%=!" (
+                    echo(!LINE!
+                ) else (
+                    if "!ADDED!"=="0" (
+                        echo(!LINE!
+                        echo(			%SEARCHSTRING%
+                        set "ADDED=1"
+                    )
+                )
+            ) else (
+                echo(
+            )
+
+            endlocal
+        )
+    )
+
+    if not exist "%TEMPFILE%" (
+        echo ERROR: Could not create the patched gameinfo temporary file.
+        goto :error
+    )
+
+    findstr /m /c:"%SEARCHSTRING%" "%TEMPFILE%" >nul
+    if errorlevel 1 (
+        del /q "%TEMPFILE%" >nul 2>&1
+        echo ERROR: Metamod entry was not inserted into gameinfo.gi.
+        goto :error
+    )
+
+    move /y "%TEMPFILE%" "%GAMEINFO%" >nul
+    if errorlevel 1 goto :error
+)
+
+findstr /m /c:"%SEARCHSTRING%" "%GAMEINFO%" >nul
+if errorlevel 1 (
+    echo ERROR: gameinfo.gi is missing the required Metamod entry.
+    goto :error
+)
+
 if not exist "%KUS_ROOT%\server\game\bin\win64\cs2.exe" (
     echo ERROR: cs2.exe was not installed by SteamCMD.
     goto :error
 )
 
 echo.
-echo CS2 started.
-echo.
-
-pushd "%KUS_ROOT%"
-start "CS2" /wait "%KUS_ROOT%\server\game\bin\win64\cs2.exe" ^
-    -dedicated -console -debug -condebug -conclearlog -usercon ^
-    -disable_workshop_command_filtering ^
-    +game_type 0 +game_mode 0 +mapgroup mg_active +map de_dust2 ^
-    -port %PORT% -ip 0.0.0.0 +net_public_adr %IP% ^
-    -tickrate %TICKRATE% +sv_visiblemaxplayers %MAXPLAYERS% ^
-    -authkey %API_KEY% +sv_setsteamaccount %STEAM_ACCOUNT% ^
-    +sv_lan %LAN% +sv_password %SERVER_PASSWORD% ^
-    +rcon_password %RCON_PASSWORD% +exec %EXEC%
-popd
-
-echo.
-echo WARNING: CS2 closed or crashed.
-goto :end
+echo SUCCESS: CS2 game files are updated and the KUS + addon layers are installed.
+echo The game server was not started; the VBS supervisor can launch it separately.
+goto :success
 
 :MERGE
 robocopy "%~1" "%~2" /E /COPY:DAT /DCOPY:DAT /R:2 /W:1 /XF .gitnote .gitkeep >nul
@@ -211,11 +227,16 @@ if %RC% GEQ 8 exit /b 1
 exit /b 0
 
 :error
+set "EXIT_CODE=1"
 echo.
 echo ============================================
-echo ERROR: update/start process failed.
+echo ERROR: CS2 update / addon installation failed.
 echo ============================================
+goto :finish
 
-:end
-pause
-endlocal
+:success
+set "EXIT_CODE=0"
+goto :finish
+
+:finish
+endlocal & exit /b %EXIT_CODE%

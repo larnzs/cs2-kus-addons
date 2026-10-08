@@ -162,7 +162,7 @@ The upstream Windows release has a single top-level `CS2UpdateMonitor/` director
 
 The configured action is `ShutdownForSupervisor`: when a newer CS2 build is detected, the plugin announces a countdown and finally executes `quit`. The external VBS supervisor is responsible for starting the server again.
 
-### 2. Start the server
+### 2. Update CS2 and install the addon layer (without starting the server)
 
 Run:
 
@@ -170,11 +170,11 @@ Run:
 win.bat
 ```
 
-`win.bat` uses the KUS repository as the base, applies the same KUS Metamod gameinfo patch, rebuilds KUS's generated server areas, then applies this repository's overlay.
+`win.bat` runs SteamCMD's CS2 update, rebuilds the KUS-managed game files, then overlays the tracked `server/game/csgo/` addon tree and optional custom-file layers. It verifies that the CS2 executable and the Metamod entry in `gameinfo.gi` are present before returning.
 
-The KUS base cleanup is intentionally performed **before** our overlay is copied. That prevents old KUS-managed files from surviving a KUS update while ensuring our layer is restored immediately afterwards.
+**It does not launch `cs2.exe`.** The VBS supervisor is responsible for starting the dedicated server separately after this preparation step.
 
-### 3. Full update + start
+### 3. Full update + prepare files (without starting the server)
 
 Run:
 
@@ -184,11 +184,11 @@ update.bat
 
 This does:
 
-1. `git pull` for `cs2-kus-addons`
-2. `git pull --ff-only` for the KUS base repository
-3. Runs `win.bat`
+1. `git pull --ff-only` for `cs2-kus-addons`, bringing in the latest addon files already committed by the updater workflow.
+2. `git pull --ff-only` for the KUS base repository.
+3. Runs `win.bat` to update CS2 through SteamCMD and apply the KUS base plus this repository's addon overlay.
 
-Addon release updates are intentionally a separate operation:
+The dedicated server is left stopped; the VBS supervisor starts it separately. Addon release updates in the repository are intentionally a separate operation:
 
 ```bat
 addons-update.bat
@@ -276,31 +276,12 @@ The optional `custom_files/` directory remains available as a final KUS-compatib
 Third-party plugins remain under their respective upstream licenses. This repository manages the installation/merge layer and our own configuration files.
 
 
-## Local-only secrets and private runtime overrides
+## Private configuration and local overrides
 
-This repository is public, so tracked configuration files must not contain database credentials, API keys, or per-player state. Public config templates use `SET_IN_CUSTOM_FILES_SECRET` for sensitive string fields.
+This repository is intended to remain **private**. The tracked files under `server/game/csgo/cfg/` and `server/game/csgo/addons/counterstrikesharp/configs/` contain project-specific settings and are treated as user-managed configuration, not as upstream plugin payloads.
 
-Before pulling a version that contains the redacted templates, copy your current private files into the ignored `custom_files_secret/` folder. The launcher merges it last, so those private copies override the public templates when the server starts.
+The addon updater never copies release ZIP files over those protected configuration paths. The GitHub workflow snapshots their file list and SHA-256 hashes before each update and verifies that the updater did not add, remove, or change them.
 
-Use the same path below `custom_files_secret/` that the file has below `server/game/csgo/`. For example:
+`custom_files/` and the ignored `custom_files_secret/` folder remain optional local override layers that are merged after the tracked addon overlay. For `custom_files_secret/`, mirror the path that the file should have inside `server/game/csgo/`; it is machine-local and must not be committed.
 
-```text
-custom_files_secret/
-└── addons/
-    └── counterstrikesharp/
-        └── configs/
-            └── plugins/
-                ├── CS2-SimpleAdmin/
-                │   └── CS2-SimpleAdmin.json
-                ├── CS2FaceitLevels/
-                │   └── CS2FaceitLevels.json
-                ├── RanksCore/
-                │   └── ranks.json
-                ├── VIPCore/
-                │   ├── vip_core.json
-                │   └── vip_core_cookie.json
-                └── WeaponPaints/
-                    └── WeaponPaints.json
-```
-
-`custom_files_secret/` is ignored by Git. Do not commit this folder. Public config paths are preserved by the updater; local secret overrides are applied only by `win.bat` on your machine.
+Keep this repository private while it contains personal configuration or credentials. Since previous versions may have been visible before the repository was made private, rotate any credentials that were exposed in earlier public commits.
