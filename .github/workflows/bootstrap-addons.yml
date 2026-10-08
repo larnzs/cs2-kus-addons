@@ -1,6 +1,6 @@
 name: Bootstrap Remaining Addons
 # Retry with per-asset VIPCore mapping.
-# Retry after fixing safe path validation.
+# Retry after multi-mapping release support.
 
 
 on:
