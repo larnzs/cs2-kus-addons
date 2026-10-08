@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $CacheRoot = Join-Path $RepoRoot 'tmp\releases\CS2UpdateMonitor'
 $TargetRoot = Join-Path $RepoRoot 'server\game\csgo\addons\counterstrikesharp\plugins\CS2UpdateMonitor'
-$VersionFile = Join-Path $TargetRoot 'VERSION'
+$ManifestPath = Join-Path $RepoRoot 'DEPENDENCIES.json'
 $UserAgent = 'cs2-kus-addons'
 $ApiUrl = 'https://api.github.com/repos/beanman109/cs2-updatemonitor/releases/latest'
 
@@ -39,14 +39,20 @@ if (-not $asset) {
     throw "Windows release asset was not found for $version. Available: $available"
 }
 
-$installedVersion = ''
+if (-not (Test-Path $ManifestPath -PathType Leaf)) {
+    throw "Missing manifest: $ManifestPath"
+}
+$manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
+$entry = @($manifest.addons | Where-Object { $_.name -eq 'CS2UpdateMonitor' }) | Select-Object -First 1
+if (-not $entry) {
+    throw "CS2UpdateMonitor is missing from DEPENDENCIES.json"
+}
+$installedVersion = [string]$entry.version
+$installedFlag = [bool]$entry.installed
 $installedDll = Join-Path $TargetRoot 'CS2UpdateMonitor.dll'
 $hasInstalledPayload = Test-Path $installedDll -PathType Leaf
-if (Test-Path $VersionFile -PathType Leaf) {
-    $installedVersion = (Get-Content -LiteralPath $VersionFile -Raw).Trim()
-}
 
-if (-not $Force -and $hasInstalledPayload -and -not [string]::IsNullOrWhiteSpace($installedVersion) -and $installedVersion -eq $version) {
+if (-not $Force -and $installedFlag -and $hasInstalledPayload -and $installedVersion -eq $version) {
     Write-Host "CS2 Update Monitor is already at $version." -ForegroundColor DarkGray
     exit 0
 }
@@ -96,7 +102,14 @@ Get-ChildItem -LiteralPath $sourceRoot -Force | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $TargetRoot $_.Name) -Recurse -Force
 }
 
-[IO.File]::WriteAllText($VersionFile, $version + [Environment]::NewLine, (New-Object System.Text.UTF8Encoding($false)))
+$entry.installed = $true
+$entry.version = $version
+$entry.release_tag = $tag
+[IO.File]::WriteAllText(
+    $ManifestPath,
+    (($manifest | ConvertTo-Json -Depth 20) + [Environment]::NewLine),
+    (New-Object System.Text.UTF8Encoding($false))
+)
 
 $lines = New-Object System.Collections.Generic.List[string]
 $lines.Add("ADDON: CS2UpdateMonitor")
@@ -135,7 +148,7 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     throw 'git is required to commit the tracked update.'
 }
 
-& git -C $RepoRoot add -- server/game/csgo/addons/counterstrikesharp/plugins/CS2UpdateMonitor
+& git -C $RepoRoot add -- DEPENDENCIES.json server/game/csgo/addons/counterstrikesharp/plugins/CS2UpdateMonitor
 if ($LASTEXITCODE -ne 0) { throw 'git add failed.' }
 
 $staged = @(& git -C $RepoRoot diff --cached --name-only)
