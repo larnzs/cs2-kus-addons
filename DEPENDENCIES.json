@@ -1,0 +1,97 @@
+{
+  "name": "cs2-kus-addons",
+  "schema_version": 1,
+  "base": {
+    "repository": "kus/cs2-modded-server",
+    "role": "upstream-base"
+  },
+  "notes": [
+    "KUS owns the base server and its bundled plugins.",
+    "This repository owns the additional addon layer only.",
+    "KUS SimpleAdmin is intentionally kept; Daffy CS2-SimpleAdmin is installed alongside it.",
+    "MultiAddonManager and ServerListPlayersFix are not managed by this repository."
+  ],
+  "installed": [
+    {
+      "order": 1,
+      "repository": "roflmuffin/CounterStrikeSharp",
+      "role": "framework",
+      "runtime_required": true
+    },
+    {
+      "order": 2,
+      "repository": "Nereziel/cs2-WeaponPaints",
+      "role": "plugin"
+    },
+    {
+      "order": 3,
+      "repository": "daffyyyy/CS2-SimpleAdmin",
+      "role": "plugin"
+    },
+    {
+      "order": 4,
+      "repository": "NiGHT757/AFKManager",
+      "role": "plugin"
+    },
+    {
+      "order": 5,
+      "repository": "Quantor97/CS2-Kill-Plugin",
+      "role": "plugin"
+    },
+    {
+      "order": 6,
+      "repository": "stefanx111/cs2-SimpleResetScore",
+      "role": "plugin"
+    },
+    {
+      "order": 7,
+      "repository": "abnerfs/cs2-showdamage",
+      "role": "plugin"
+    },
+    {
+      "order": 8,
+      "repository": "partiusfabaa/cs2-ranks",
+      "role": "plugin"
+    },
+    {
+      "order": 9,
+      "repository": "partiusfabaa/cs2-VIPCore",
+      "role": "plugin"
+    },
+    {
+      "order": 10,
+      "repository": "NickFox007/AnyBaseLibCS2",
+      "role": "library"
+    },
+    {
+      "order": 11,
+      "repository": "NickFox007/PlayerSettingsCS2",
+      "role": "library"
+    },
+    {
+      "order": 12,
+      "repository": "NickFox007/MenuManagerCS2",
+      "role": "library"
+    },
+    {
+      "order": 13,
+      "repository": "zakriamansoor47/SLAYER_AntiCamp",
+      "role": "plugin"
+    },
+    {
+      "order": 14,
+      "repository": "zakriamansoor47/SLAYER_HeadshotOnly",
+      "role": "plugin"
+    },
+    {
+      "order": 15,
+      "repository": "Ferks-FK/CS2-TeamLimiter",
+      "role": "plugin"
+    },
+    {
+      "order": 16,
+      "repository": "TICHOJEBEC-SK/cs2-WeaponRestrict",
+      "role": "plugin"
+    }
+  ]
+}
