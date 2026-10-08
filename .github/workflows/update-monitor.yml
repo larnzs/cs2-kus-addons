@@ -1,4 +1,5 @@
 name: Update CS2 Update Monitor
+# Bootstrap/recovery run: also triggers when this workflow file changes.
 
 on:
   schedule:
