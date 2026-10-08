@@ -433,9 +433,11 @@ function Install-SourceBuildAddon($Addon, $Commit) {
     New-Item -ItemType Directory -Force -Path $output | Out-Null
 
     Write-Info "Building $($Addon.name)"
-    & dotnet build $project.FullName -c Release -o $output --nologo
+    $buildLog = Join-Path $workRoot "build.log"
+    & dotnet build $project.FullName -c Release -o $output --nologo *> $buildLog
     if ($LASTEXITCODE -ne 0) {
-        throw "dotnet build failed for $($Addon.name)."
+        $tail = (Get-Content -LiteralPath $buildLog -Tail 40 -ErrorAction SilentlyContinue) -join [Environment]::NewLine
+        throw "dotnet build failed for $($Addon.name): $tail"
     }
 
     $built = Join-Path $output ([string]$Addon.output_file)
@@ -447,7 +449,7 @@ function Install-SourceBuildAddon($Addon, $Commit) {
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
     Copy-Item -LiteralPath $built -Destination $destination -Force
 
-    return $version
+    return [string]$version
 }
 
 function Save-Manifest() {
