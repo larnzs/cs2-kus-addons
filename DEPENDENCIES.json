@@ -355,7 +355,7 @@
       "depends_on": [
         "CounterStrikeSharp"
       ],
-      "installed": false,
+      "installed": true,
       "merge": "release_plugin_directory",
       "source_path": "plugins/SLAYER_AntiCamp",
       "install_path": "addons/counterstrikesharp/plugins/SLAYER_AntiCamp",
