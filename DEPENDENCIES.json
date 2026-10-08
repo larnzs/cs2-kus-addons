@@ -148,7 +148,7 @@
         "PlayerSettingsCS2",
         "MenuManagerCS2"
       ],
-      "installed": false,
+      "installed": true,
       "merge": "release_csgo_root",
       "verify_paths": [
         "addons/counterstrikesharp/plugins/WeaponPaints/WeaponPaints.dll",

@@ -1,0 +1,30 @@
+{
+	"wp_prefix": "{lightblue}[WeaponPaints] {default}",
+	"wp_info_website": "Apmeklē {lime}{0}{default}, kur vari mainīt skinus",
+	"wp_info_refresh": "Ieraksti {lime}!wp{default}, lai sinhronizētu izvēlētos skinus",
+	"wp_info_knife": "Ieraksti {lime}!knife{default}, lai atvērtu nažu izvēlni",
+	"wp_info_glove": "Ieraksti {lime}!gloves{default}, lai atvērtu cimdu izvēlni",
+	"wp_info_agent": "Ieraksti {lime}!agents{default}, lai atvērtu aģentu izvēlni",
+	"wp_info_music": "Ieraksti {lime}!music{default}, lai atvērtu mūzikas izvēlni",
+	"wp_info_pin": "Ieraksti {lime}!pins{default}, lai atvērtu nozīmīšu izvēlni",
+	"wp_command_cooldown": "{lightred}Šobrīd nevar atjaunot weapon paints",
+	"wp_command_refresh_done": "{lime}Weapon paints tiek atjaunoti",
+	"wp_knife_menu_select": "Tu izvēlējies {lime}{0}{default} kā savu nazi",
+	"wp_knife_menu_kill": "",
+	"wp_knife_menu_title": "Nažu izvēlne",
+	"wp_glove_menu_select": "Tu izvēlējies {lime}{0}{default} kā savus cimdus",
+	"wp_glove_menu_title": "Cimdu izvēlne",
+	"wp_agent_menu_select": "Tu izvēlējies {lime}{0}{default} kā savu aģentu",
+	"wp_agent_menu_title": "Aģentu izvēlne",
+	"wp_music_menu_title": "Mūzikas izvēlne",
+	"wp_music_menu_select": "Tu izvēlējies {lime}{0}{default} kā savu mūzikas komplektu",
+	"wp_pins_menu_title": "Nozīmīšu izvēlne",
+	"wp_pins_menu_select": "Tu izvēlējies {lime}{0}{default} kā savu nozīmīti",
+	"wp_skin_menu_weapon_title": "Ieroču izvēlne",
+	"wp_skin_menu_skin_title": "Izvēlies skinu priekš {lime}{0}{default}",
+	"wp_skin_menu_select": "Tu izvēlējies {lime}{0}{default} kā savu skinu",
+	
+	"wp_stattrak_action": "Tu veiksmīgi nomainīji stattrak iestatījumu",
+	
+	"None": "Nav"
+}
