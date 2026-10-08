@@ -1,359 +1,359 @@
 {
-  "schema_version": 2,
-  "name": "cs2-kus-addons",
-  "architecture": {
-    "base_repository": "kus/cs2-modded-server",
-    "target_root": "server/game/csgo",
-    "merge_mode": "non-destructive-overlay",
-    "deletes_owned_files": false,
-    "overwrite_existing_files": true
-  },
-  "not_managed_by_this_repo": [
-    "Source2ZE/MultiAddonManager",
-    "Source2ZE/ServerListPlayersFix"
-  ],
-  "intentionally_kept_from_kus": [
-    "connercsbn/SimpleAdmin"
-  ],
-  "addons": [
-    {
-      "order": 1,
-      "name": "CounterStrikeSharp",
-      "repository": "https://github.com/roflmuffin/CounterStrikeSharp",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.0.376",
-      "release_tag": "v1.0.376",
-      "assets": [
-        "counterstrikesharp-with-runtime-windows-{version}.zip"
-      ],
-      "depends_on": [
-        "KUS:Metamod:Source"
-      ],
-      "installed": true,
-      "merge": "release_csgo_root"
-    },
-    {
-      "order": 2,
-      "name": "AnyBaseLibCS2",
-      "repository": "https://github.com/NickFox007/AnyBaseLibCS2",
-      "type": "github_release",
-      "track": "latest",
-      "version": "0.9.4",
-      "release_tag": "0.9.4",
-      "assets": [
-        "AnyBaseLib.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": false,
-      "merge": "release_csgo_root"
-    },
-    {
-      "order": 3,
-      "name": "PlayerSettingsCS2",
-      "repository": "https://github.com/NickFox007/PlayerSettingsCS2",
-      "type": "github_release",
-      "track": "latest",
-      "version": "0.9.4",
-      "release_tag": "0.9.4",
-      "assets": [
-        "PlayerSettings.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp",
-        "AnyBaseLibCS2"
-      ],
-      "installed": false,
-      "merge": "release_csgo_root"
-    },
-    {
-      "order": 4,
-      "name": "MenuManagerCS2",
-      "repository": "https://github.com/NickFox007/MenuManagerCS2",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.4.1",
-      "release_tag": "1.4.1",
-      "assets": [
-        "MenuManager.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp",
-        "PlayerSettingsCS2"
-      ],
-      "installed": false,
-      "merge": "release_csgo_root"
-    },
-    {
-      "order": 5,
-      "name": "CS2-SimpleAdmin",
-      "repository": "https://github.com/daffyyyy/CS2-SimpleAdmin",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.9.0",
-      "release_tag": "build-1.9.0",
-      "assets": [
-        "CS2-SimpleAdmin-{version}.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp",
-        "AnyBaseLibCS2",
-        "PlayerSettingsCS2",
-        "MenuManagerCS2"
-      ],
-      "installed": false,
-      "merge": "release_plugin_directory",
-      "source_path": "counterstrikesharp",
-      "install_path": "addons/counterstrikesharp"
-    },
-    {
-      "order": 6,
-      "name": "WeaponPaints",
-      "repository": "https://github.com/Nereziel/cs2-WeaponPaints",
-      "type": "github_release",
-      "track": "latest",
-      "version": "466",
-      "release_tag": "build-466",
-      "assets": [
-        "WeaponPaints.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp",
-        "AnyBaseLibCS2",
-        "PlayerSettingsCS2",
-        "MenuManagerCS2"
-      ],
-      "installed": false,
-      "merge": "release_csgo_root",
-      "automation_supported": false
-    },
-    {
-      "order": 7,
-      "name": "AFKManager",
-      "repository": "https://github.com/NiGHT757/AFKManager",
-      "type": "github_release",
-      "track": "latest",
-      "version": "0.2.8",
-      "release_tag": "v0.2.8",
-      "assets": [
-        "AFKManager.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": false,
-      "merge": "release_plugin_directory",
-      "source_path": "AFKManager",
-      "install_path": "addons/counterstrikesharp/plugins/AFKManager"
-    },
-    {
-      "order": 8,
-      "name": "CS2-Kill-Plugin",
-      "repository": "https://github.com/Quantor97/CS2-Kill-Plugin",
-      "type": "github_release",
-      "track": "latest",
-      "version": "0.2.0",
-      "release_tag": "0.2.0",
-      "assets": [
-        "Kill-{version}.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": false,
-      "merge": "release_csgo_root"
-    },
-    {
-      "order": 9,
-      "name": "SimpleResetScore",
-      "repository": "https://github.com/stefanx111/cs2-SimpleResetScore",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.0.7",
-      "release_tag": "1.0.7",
-      "assets": [
-        "cs2-SimpleResetScore.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp",
-        "KUS:Metamod:Source"
-      ],
-      "installed": false,
-      "merge": "release_plugin_directory",
-      "source_path": "ResetScore",
-      "install_path": "addons/counterstrikesharp/plugins/ResetScore"
-    },
-    {
-      "order": 10,
-      "name": "cs2-showdamage",
-      "repository": "https://github.com/abnerfs/cs2-showdamage",
-      "type": "github_release",
-      "track": "pinned",
-      "version": "1.1.0",
-      "release_tag": "1.1.0",
-      "assets": [
-        "ShowDamage_1.1.0.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": false,
-      "merge": "release_plugin_directory",
-      "source_path": "ShowDamage",
-      "install_path": "addons/counterstrikesharp/plugins/ShowDamage"
-    },
-    {
-      "order": 11,
-      "name": "cs2-ranks",
-      "repository": "https://github.com/partiusfabaa/cs2-ranks",
-      "type": "github_release",
-      "track": "latest",
-      "version": "2.0.5.5-recompile",
-      "release_tag": "v2.0.5.5-recompile",
-      "assets": [
-        "Ranks.zip",
-        "Modules.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp",
-        "KUS:Metamod:Source"
-      ],
-      "installed": false,
-      "merge": "release_csgo_root"
-    },
-    {
-      "order": 12,
-      "name": "VIPCore",
-      "repository": "https://github.com/partiusfabaa/cs2-VIPCore",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.3.4-recompile3",
-      "release_tag": "v1.3.4-recompile3",
-      "assets": [
-        "VIPCore.zip",
-        "VIP_Modules.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp",
-        "KUS:Metamod:Source"
-      ],
-      "installed": false,
-      "merge": "release_csgo_root",
-      "asset_mappings": {
-        "VIPCore.zip": {
-          "merge": "release_csgo_root"
-        },
-        "VIP_Modules.zip": {
-          "merge": "release_plugin_directory",
-          "source_path": ".",
-          "install_path": "addons/counterstrikesharp/plugins"
-        }
-      }
-    },
-    {
-      "order": 13,
-      "name": "SLAYER_AntiCamp",
-      "repository": "https://github.com/zakriamansoor47/SLAYER_AntiCamp",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.2.5",
-      "release_tag": "v1.2.5",
-      "assets": [
-        "CS2.SLAYER_AntiCamp.v{version}.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": false,
-      "merge": "release_plugin_directory",
-      "source_path": "plugins",
-      "install_path": "addons/counterstrikesharp"
-    },
-    {
-      "order": 14,
-      "name": "SLAYER_HeadshotOnly",
-      "repository": "https://github.com/zakriamansoor47/SLAYER_HeadshotOnly",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.2.1",
-      "release_tag": "v1.2.1",
-      "assets": [
-        "CS2.SLAYER_HeadshotOnly.v{version}.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": false,
-      "merge": "release_plugin_directory",
-      "asset_mappings": {
-        "CS2.SLAYER_HeadshotOnly.v1.2.1.zip": [
-          {
-            "merge": "release_plugin_directory",
-            "source_path": "plugins",
-            "install_path": "addons/counterstrikesharp"
-          },
-          {
-            "merge": "release_plugin_directory",
-            "source_path": "configs",
-            "install_path": "addons/counterstrikesharp"
-          }
-        ]
-      }
-    },
-    {
-      "order": 15,
-      "name": "CS2-TeamLimiter",
-      "repository": "https://github.com/Ferks-FK/CS2-TeamLimiter",
-      "type": "github_source_build",
-      "track": "branch",
-      "branch": "development",
-      "version": "b9be93940543bd06b771199301c7c8ee6b162e8f",
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "project": "TeamLimiter.csproj",
-      "output_file": "TeamLimiter.dll",
-      "install_path": "addons/counterstrikesharp/plugins/TeamLimiter.dll",
-      "installed": false
-    },
-    {
-      "order": 16,
-      "name": "CS2-WeaponRestrict",
-      "repository": "https://github.com/TICHOJEBEC-SK/cs2-WeaponRestrict",
-      "type": "github_release",
-      "track": "latest",
-      "version": "WeaponRestrict1.5",
-      "release_tag": "WeaponRestrict1.5",
-      "assets": [
-        "WeaponRestrict1.5.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": false,
-      "merge": "release_csgo_root",
-      "automation_supported": false
-    },
-    {
-      "order": 17,
-      "name": "CS2UpdateMonitor",
-      "repository": "https://github.com/beanman109/cs2-updatemonitor",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.1.0",
-      "release_tag": "v1.1.0",
-      "assets": [
-        "CS2UpdateMonitor-{version}-windows-x64.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": true,
-      "merge": "release_plugin_directory",
-      "source_path": "CS2UpdateMonitor",
-      "install_path": "addons/counterstrikesharp/plugins/CS2UpdateMonitor"
-    }
-  ]
+    "schema_version":  2,
+    "name":  "cs2-kus-addons",
+    "architecture":  {
+                         "base_repository":  "kus/cs2-modded-server",
+                         "target_root":  "server/game/csgo",
+                         "merge_mode":  "non-destructive-overlay",
+                         "deletes_owned_files":  false,
+                         "overwrite_existing_files":  true
+                     },
+    "not_managed_by_this_repo":  [
+                                     "Source2ZE/MultiAddonManager",
+                                     "Source2ZE/ServerListPlayersFix"
+                                 ],
+    "intentionally_kept_from_kus":  [
+                                        "connercsbn/SimpleAdmin"
+                                    ],
+    "addons":  [
+                   {
+                       "order":  1,
+                       "name":  "CounterStrikeSharp",
+                       "repository":  "https://github.com/roflmuffin/CounterStrikeSharp",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.0.376",
+                       "release_tag":  "v1.0.376",
+                       "assets":  [
+                                      "counterstrikesharp-with-runtime-windows-{version}.zip"
+                                  ],
+                       "depends_on":  [
+                                          "KUS:Metamod:Source"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_csgo_root"
+                   },
+                   {
+                       "order":  2,
+                       "name":  "AnyBaseLibCS2",
+                       "repository":  "https://github.com/NickFox007/AnyBaseLibCS2",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "0.9.4",
+                       "release_tag":  "0.9.4",
+                       "assets":  [
+                                      "AnyBaseLib.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_csgo_root"
+                   },
+                   {
+                       "order":  3,
+                       "name":  "PlayerSettingsCS2",
+                       "repository":  "https://github.com/NickFox007/PlayerSettingsCS2",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "0.9.4",
+                       "release_tag":  "0.9.4",
+                       "assets":  [
+                                      "PlayerSettings.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp",
+                                          "AnyBaseLibCS2"
+                                      ],
+                       "installed":  false,
+                       "merge":  "release_csgo_root"
+                   },
+                   {
+                       "order":  4,
+                       "name":  "MenuManagerCS2",
+                       "repository":  "https://github.com/NickFox007/MenuManagerCS2",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.4.1",
+                       "release_tag":  "1.4.1",
+                       "assets":  [
+                                      "MenuManager.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp",
+                                          "PlayerSettingsCS2"
+                                      ],
+                       "installed":  false,
+                       "merge":  "release_csgo_root"
+                   },
+                   {
+                       "order":  5,
+                       "name":  "CS2-SimpleAdmin",
+                       "repository":  "https://github.com/daffyyyy/CS2-SimpleAdmin",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.9.0",
+                       "release_tag":  "build-1.9.0",
+                       "assets":  [
+                                      "CS2-SimpleAdmin-{version}.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp",
+                                          "AnyBaseLibCS2",
+                                          "PlayerSettingsCS2",
+                                          "MenuManagerCS2"
+                                      ],
+                       "installed":  false,
+                       "merge":  "release_plugin_directory",
+                       "source_path":  "counterstrikesharp",
+                       "install_path":  "addons/counterstrikesharp"
+                   },
+                   {
+                       "order":  6,
+                       "name":  "WeaponPaints",
+                       "repository":  "https://github.com/Nereziel/cs2-WeaponPaints",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "466",
+                       "release_tag":  "build-466",
+                       "assets":  [
+                                      "WeaponPaints.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp",
+                                          "AnyBaseLibCS2",
+                                          "PlayerSettingsCS2",
+                                          "MenuManagerCS2"
+                                      ],
+                       "installed":  false,
+                       "merge":  "release_csgo_root",
+                       "automation_supported":  false
+                   },
+                   {
+                       "order":  7,
+                       "name":  "AFKManager",
+                       "repository":  "https://github.com/NiGHT757/AFKManager",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "0.2.8",
+                       "release_tag":  "v0.2.8",
+                       "assets":  [
+                                      "AFKManager.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  false,
+                       "merge":  "release_plugin_directory",
+                       "source_path":  "AFKManager",
+                       "install_path":  "addons/counterstrikesharp/plugins/AFKManager"
+                   },
+                   {
+                       "order":  8,
+                       "name":  "CS2-Kill-Plugin",
+                       "repository":  "https://github.com/Quantor97/CS2-Kill-Plugin",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "0.2.0",
+                       "release_tag":  "0.2.0",
+                       "assets":  [
+                                      "Kill-{version}.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  false,
+                       "merge":  "release_csgo_root"
+                   },
+                   {
+                       "order":  9,
+                       "name":  "SimpleResetScore",
+                       "repository":  "https://github.com/stefanx111/cs2-SimpleResetScore",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.0.7",
+                       "release_tag":  "1.0.7",
+                       "assets":  [
+                                      "cs2-SimpleResetScore.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp",
+                                          "KUS:Metamod:Source"
+                                      ],
+                       "installed":  false,
+                       "merge":  "release_plugin_directory",
+                       "source_path":  "ResetScore",
+                       "install_path":  "addons/counterstrikesharp/plugins/ResetScore"
+                   },
+                   {
+                       "order":  10,
+                       "name":  "cs2-showdamage",
+                       "repository":  "https://github.com/abnerfs/cs2-showdamage",
+                       "type":  "github_release",
+                       "track":  "pinned",
+                       "version":  "1.1.0",
+                       "release_tag":  "1.1.0",
+                       "assets":  [
+                                      "ShowDamage_1.1.0.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  false,
+                       "merge":  "release_plugin_directory",
+                       "source_path":  "ShowDamage",
+                       "install_path":  "addons/counterstrikesharp/plugins/ShowDamage"
+                   },
+                   {
+                       "order":  11,
+                       "name":  "cs2-ranks",
+                       "repository":  "https://github.com/partiusfabaa/cs2-ranks",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "2.0.5.5-recompile",
+                       "release_tag":  "v2.0.5.5-recompile",
+                       "assets":  [
+                                      "Ranks.zip",
+                                      "Modules.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp",
+                                          "KUS:Metamod:Source"
+                                      ],
+                       "installed":  false,
+                       "merge":  "release_csgo_root"
+                   },
+                   {
+                       "order":  12,
+                       "name":  "VIPCore",
+                       "repository":  "https://github.com/partiusfabaa/cs2-VIPCore",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.3.4-recompile3",
+                       "release_tag":  "v1.3.4-recompile3",
+                       "assets":  [
+                                      "VIPCore.zip",
+                                      "VIP_Modules.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp",
+                                          "KUS:Metamod:Source"
+                                      ],
+                       "installed":  false,
+                       "merge":  "release_csgo_root",
+                       "asset_mappings":  {
+                                              "VIPCore.zip":  {
+                                                                  "merge":  "release_csgo_root"
+                                                              },
+                                              "VIP_Modules.zip":  {
+                                                                      "merge":  "release_plugin_directory",
+                                                                      "source_path":  ".",
+                                                                      "install_path":  "addons/counterstrikesharp/plugins"
+                                                                  }
+                                          }
+                   },
+                   {
+                       "order":  13,
+                       "name":  "SLAYER_AntiCamp",
+                       "repository":  "https://github.com/zakriamansoor47/SLAYER_AntiCamp",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.2.5",
+                       "release_tag":  "v1.2.5",
+                       "assets":  [
+                                      "CS2.SLAYER_AntiCamp.v{version}.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  false,
+                       "merge":  "release_plugin_directory",
+                       "source_path":  "plugins",
+                       "install_path":  "addons/counterstrikesharp"
+                   },
+                   {
+                       "order":  14,
+                       "name":  "SLAYER_HeadshotOnly",
+                       "repository":  "https://github.com/zakriamansoor47/SLAYER_HeadshotOnly",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.2.1",
+                       "release_tag":  "v1.2.1",
+                       "assets":  [
+                                      "CS2.SLAYER_HeadshotOnly.v{version}.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  false,
+                       "merge":  "release_plugin_directory",
+                       "asset_mappings":  {
+                                              "CS2.SLAYER_HeadshotOnly.v1.2.1.zip":  [
+                                                                                         {
+                                                                                             "merge":  "release_plugin_directory",
+                                                                                             "source_path":  "plugins",
+                                                                                             "install_path":  "addons/counterstrikesharp"
+                                                                                         },
+                                                                                         {
+                                                                                             "merge":  "release_plugin_directory",
+                                                                                             "source_path":  "configs",
+                                                                                             "install_path":  "addons/counterstrikesharp"
+                                                                                         }
+                                                                                     ]
+                                          }
+                   },
+                   {
+                       "order":  15,
+                       "name":  "CS2-TeamLimiter",
+                       "repository":  "https://github.com/Ferks-FK/CS2-TeamLimiter",
+                       "type":  "github_source_build",
+                       "track":  "branch",
+                       "branch":  "development",
+                       "version":  "b9be93940543bd06b771199301c7c8ee6b162e8f",
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "project":  "TeamLimiter.csproj",
+                       "output_file":  "TeamLimiter.dll",
+                       "install_path":  "addons/counterstrikesharp/plugins/TeamLimiter.dll",
+                       "installed":  false
+                   },
+                   {
+                       "order":  16,
+                       "name":  "CS2-WeaponRestrict",
+                       "repository":  "https://github.com/TICHOJEBEC-SK/cs2-WeaponRestrict",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "WeaponRestrict1.5",
+                       "release_tag":  "WeaponRestrict1.5",
+                       "assets":  [
+                                      "WeaponRestrict1.5.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  false,
+                       "merge":  "release_csgo_root",
+                       "automation_supported":  false
+                   },
+                   {
+                       "order":  17,
+                       "name":  "CS2UpdateMonitor",
+                       "repository":  "https://github.com/beanman109/cs2-updatemonitor",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.1.0",
+                       "release_tag":  "v1.1.0",
+                       "assets":  [
+                                      "CS2UpdateMonitor-{version}-windows-x64.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_plugin_directory",
+                       "source_path":  "CS2UpdateMonitor",
+                       "install_path":  "addons/counterstrikesharp/plugins/CS2UpdateMonitor"
+                   }
+               ]
 }
