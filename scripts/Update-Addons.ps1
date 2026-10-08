@@ -649,7 +649,12 @@ foreach ($addon in $addons) {
             if (-not $DryRun) {
                 $addon.installed = $true
                 $addon.version = $newVersion
-                $addon.source_commit = $newVersion
+                if ($addon.PSObject.Properties.Name -contains "source_commit") {
+                    $addon.source_commit = $newVersion
+                }
+                else {
+                    Add-Member -InputObject $addon -MemberType NoteProperty -Name source_commit -Value $newVersion -Force
+                }
             }
 
             $display = "$($addon.branch)@$($newVersion.Substring(0,12))"
