@@ -78,7 +78,7 @@ echo Patching gameinfo.gi for MetaMod using the KUS-compatible method...
             ) else (
                 echo(!LINE!
                 if "!ADDED!"=="0" (
-                    echo(           Game	csgo/addons/metamod
+                    echo(			Game	csgo/addons/metamod
                     set "ADDED=1"
                 )
             )
