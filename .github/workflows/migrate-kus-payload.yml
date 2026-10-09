@@ -1,0 +1,84 @@
+name: Restructure KUS staged payload
+
+on:
+  push:
+    branches:
+      - integration/kus-monorepo
+    paths:
+      - "scripts/Restructure-KUS-Payload.ps1"
+      - ".github/workflows/migrate-kus-payload.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kus-payload-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout the integration branch
+        uses: actions/checkout@v5
+        with:
+          ref: integration/kus-monorepo
+          path: repo
+          fetch-depth: 0
+
+      - name: Checkout the pinned KUS source snapshot
+        uses: actions/checkout@v5
+        with:
+          repository: kus/cs2-modded-server
+          ref: 1901323d831f59979c4911df921b36788754e0f8
+          path: kus-source
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate restructuring script syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/repo/scripts/Restructure-KUS-Payload.ps1", [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_ }
+            exit 1
+          }
+          Write-Host "Restructuring script syntax passed."
+
+      - name: Rebuild the KUS-style source payload
+        shell: pwsh
+        working-directory: repo
+        run: ./scripts/Restructure-KUS-Payload.ps1 -KusRoot ../kus-source
+
+      - name: Verify staged tree and commit migration
+        shell: bash
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          test -f game/csgo/addons/counterstrikesharp/bin/linuxsteamrt64/counterstrikesharp.so
+          test -f game/csgo/addons/windows/addons/counterstrikesharp/dotnet/dotnet.exe
+          test -f scripts/Deploy-Runtime.ps1
+          test ! -d server/game/csgo
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          with open("DEPENDENCIES.json", encoding="utf-8") as f:
+              manifest = json.load(f)
+          css = next(x for x in manifest["addons"] if x["name"] == "CounterStrikeSharp")
+          assert css["install_path"] == "addons/windows/addons/counterstrikesharp"
+          assert Path("game/csgo/addons/counterstrikesharp/bin/linuxsteamrt64/counterstrikesharp.so").is_file()
+          print("Payload layout and manifest checks passed.")
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No migration changes were produced."
+            exit 0
+          fi
+          git status --short
+          git commit -m "Adopt KUS staged game payload and platform overlay deployment"
+          git push origin HEAD:integration/kus-monorepo
