@@ -88,6 +88,7 @@ if not exist "%APP_MANIFEST%" (
 )
 
 :game_installed
+rem win.bat deploys the runtime and applies KUS-compatible gameinfo.gi patching.
 call "%ROOT_DIR%win.bat" --no-pause
 set "RC=%ERRORLEVEL%"
 if not "%RC%"=="0" (
