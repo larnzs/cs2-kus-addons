@@ -5,7 +5,8 @@
 # Useful for testing and modifying files on the server
 
 # As root (sudo su)
-# Local startup helper from this checkout; the KUS-style payload is deployed by install.sh/win.bat.
+# Local KUS-compatible startup helper. It updates the installed game but does not redeploy plugins.
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 
 # Function to safely enable unprivileged user namespaces.
@@ -78,7 +79,6 @@ get_metadata () {
 # Get meta data from GCP and set environment variables
 META_RCON_PASSWORD=$(get_metadata RCON_PASSWORD)
 META_API_KEY=$(get_metadata API_KEY)
-META_MOD_BRANCH=$(get_metadata MOD_BRANCH)
 META_PORT=$(get_metadata PORT)
 META_TICKRATE=$(get_metadata TICKRATE)
 META_MAXPLAYERS=$(get_metadata MAXPLAYERS)
@@ -87,7 +87,6 @@ META_EXEC=$(get_metadata EXEC)
 export RCON_PASSWORD="${META_RCON_PASSWORD:-changeme}"
 export API_KEY="${META_API_KEY:-changeme}"
 export STEAM_ACCOUNT="${STEAM_ACCOUNT:-$(get_metadata STEAM_ACCOUNT)}"
-export MOD_BRANCH="${META_MOD_BRANCH:-master}"
 export SERVER_PASSWORD="${SERVER_PASSWORD:-$(get_metadata SERVER_PASSWORD)}"
 export PORT="${META_PORT:-27015}"
 export TICKRATE="${META_TICKRATE:-128}"
@@ -96,21 +95,11 @@ export LAN="${META_LAN:-0}"
 export EXEC="${META_EXEC:-on_boot.cfg}"
 export DUCK_DOMAIN="${DUCK_DOMAIN:-$(get_metadata DUCK_DOMAIN)}"
 export DUCK_TOKEN="${DUCK_TOKEN:-$(get_metadata DUCK_TOKEN)}"
-export CUSTOM_FOLDER="${CUSTOM_FOLDER:-$(get_metadata CUSTOM_FOLDER)}"
 
 cd /
 
 # Variables
 user="steam"
-BRANCH="master"
-
-# Check if MOD_BRANCH is set and not empty
-if [ -n "$MOD_BRANCH" ]; then
-    BRANCH="$MOD_BRANCH"
-fi
-
-CUSTOM_FILES="${CUSTOM_FOLDER:-custom_files}"
-
 # 32 or 64 bit Operating System
 # If BITS environment variable is not set, try determine it
 if [ -z "$BITS" ]; then
@@ -226,8 +215,11 @@ else
 	exit 1
 fi
 
-# Download latest stop script
-curl -s -H "Cache-Control: no-cache" -o "stop.sh" "https://raw.githubusercontent.com/kus/cs2-modded-server/${BRANCH}/stop.sh" && chmod +x stop.sh
+if [[ ! -f "$ROOT_DIR/stop.sh" ]]; then
+    echo "ERROR: stop.sh from this repository is missing: $ROOT_DIR/stop.sh"
+    exit 1
+fi
+chmod +x "$ROOT_DIR/stop.sh"
 
 PUBLIC_IP=$(curl -4 ifconfig.me)
 
