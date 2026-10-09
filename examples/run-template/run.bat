@@ -100,7 +100,8 @@ if exist "%CUSTOM_DIR%\cfg\" (
     if errorlevel 8 goto :sync_failed
 )
 if exist "%CUSTOM_DIR%\addons\" (
-    robocopy "%CUSTOM_DIR%\addons" "%GAME_DIR%\addons" /E /COPY:DAT /DCOPY:DAT /R:2 /W:1 >nul
+    rem Keep CounterStrikeSharp configs user-managed; do not overlay them from CUSTOM_FOLDER.
+    robocopy "%CUSTOM_DIR%\addons" "%GAME_DIR%\addons" /E /COPY:DAT /DCOPY:DAT /R:2 /W:1 /XD "%CUSTOM_DIR%\addons\counterstrikesharp\configs" "%CUSTOM_DIR%\addons\windows\addons\counterstrikesharp\configs" >nul
     if errorlevel 8 goto :sync_failed
 )
 
