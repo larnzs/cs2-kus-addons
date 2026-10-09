@@ -25,6 +25,7 @@ if errorlevel 1 (
     goto :finish
 )
 
+rem Re-apply runtime and the KUS-compatible gameinfo.gi patch after repository updates.
 call "%~dp0win.bat" --no-pause
 set "RC=%ERRORLEVEL%"
 if not "%RC%"=="0" echo ERROR: Post-pull server preparation failed with code %RC%.
