@@ -1,0 +1,122 @@
+name: KUS payload layout checks
+
+on:
+  push:
+    branches:
+      - integration/kus-monorepo
+    paths:
+      - "game/csgo/**"
+      - "scripts/Deploy-Runtime.ps1"
+      - "scripts/Patch-GameInfo.ps1"
+      - "scripts/Test-AddonOverlay.ps1"
+      - "scripts/Update-Addons.ps1"
+      - "scripts/Inspect-Releases.ps1"
+      - "scripts/Restructure-KUS-Payload.ps1"
+      - "scripts/Integrate-KUS.ps1"
+      - "install.bat"
+      - "win.bat"
+      - "game-update.bat"
+      - "install.sh"
+      - "start.sh"
+      - "install_docker.sh"
+      - "gcp.sh"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - ".gitignore"
+      - "DEPENDENCIES.json"
+      - ".github/workflows/payload-layout-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-payload-layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout the integration branch
+        uses: actions/checkout@v5
+        with:
+          ref: integration/kus-monorepo
+          fetch-depth: 1
+
+      - name: Validate shell syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n install.sh start.sh install_docker.sh gcp.sh scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh
+          echo "Shell syntax passed."
+
+      - name: Validate PowerShell syntax
+        shell: pwsh
+        run: |
+          $paths = @(
+            "scripts/Deploy-Runtime.ps1",
+            "scripts/Patch-GameInfo.ps1",
+            "scripts/Test-AddonOverlay.ps1",
+            "scripts/Update-Addons.ps1",
+            "scripts/Inspect-Releases.ps1",
+            "scripts/Restructure-KUS-Payload.ps1",
+            "scripts/Integrate-KUS.ps1"
+          )
+          foreach ($path in $paths) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path).Path, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              throw ("PowerShell syntax errors in " + $path + ":" + [Environment]::NewLine + (($errors | ForEach-Object Message) -join [Environment]::NewLine))
+            }
+          }
+          Write-Host "PowerShell syntax passed."
+
+      - name: Validate KUS payload roots, platform overlay, and Windows-safe tracked paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f game/csgo/addons/counterstrikesharp/bin/linuxsteamrt64/counterstrikesharp.so
+          test -f game/csgo/addons/windows/addons/counterstrikesharp/bin/win64/counterstrikesharp.dll
+          test -f game/csgo/addons/windows/addons/counterstrikesharp/dotnet/dotnet.exe
+          test ! -e server/game/csgo
+          python - <<'PY'
+          import json
+          import subprocess
+          from collections import defaultdict
+          from pathlib import Path
+
+          with open("DEPENDENCIES.json", encoding="utf-8") as stream:
+              manifest = json.load(stream)
+
+          architecture = manifest["architecture"]
+          assert architecture["target_root"] == "game/csgo", architecture
+          assert architecture["platform_overlay_root"] == "game/csgo/addons/windows", architecture
+          assert architecture["runtime_roots"]["windows"] == "server/game/csgo", architecture
+
+          css = next(addon for addon in manifest["addons"] if addon["name"] == "CounterStrikeSharp")
+          assert css["runtime_required"] is True
+          assert css["install_path"] == "addons/windows/addons/counterstrikesharp"
+          assert css["assets"] == ["counterstrikesharp-with-runtime-windows-{version}.zip"]
+          assert Path("game/csgo/addons/counterstrikesharp/bin/linuxsteamrt64/counterstrikesharp.so").is_file()
+          assert Path("game/csgo/addons/windows/addons/counterstrikesharp/dotnet/dotnet.exe").is_file()
+
+          names = subprocess.run(
+              ["git", "ls-tree", "-r", "--name-only", "HEAD"],
+              check=True, capture_output=True, text=True
+          ).stdout.splitlines()
+          collisions = defaultdict(list)
+          for name in names:
+              collisions[name.casefold()].append(name)
+          collisions = [paths for paths in collisions.values() if len(paths) > 1]
+          assert not collisions, f"Windows case-insensitive path collisions remain: {collisions}"
+          assert not any(name.startswith("server/game/csgo/") for name in names), "Downloaded runtime files must not be tracked under server/."
+
+          install_bat = Path("install.bat").read_text(encoding="utf-8")
+          win_bat = Path("win.bat").read_text(encoding="utf-8")
+          deploy = Path("scripts/Deploy-Runtime.ps1").read_text(encoding="utf-8")
+          assert "+app_update 730 +quit" in install_bat
+          assert "+app_update 730 validate" not in install_bat
+          assert "Deploy-Runtime.ps1" in win_bat and "Patch-GameInfo.ps1" in win_bat
+          assert 'Copy-TreeContent -Source $WindowsOverlay -Destination $IncomingRoot' in deploy
+          assert "gameinfo.gi" in deploy
+          print(f"Validated {len(names)} tracked paths and KUS staged layout.")
+          PY
