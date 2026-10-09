@@ -1,19 +1,17 @@
 Option Explicit
 
-Dim shell, fso, wmi, root, repoRoot, batPath, iniPath, serverDir, cs2Path
+Dim shell, fso, root, repoRoot, batPath, iniPath, serverDir, cs2Path
 Dim gameUpdatePath, repoUpdatePath, runtimeAddonsPath, payloadAddonsPath, windowsAddonsPath
-Dim tempFolderPath, logPath, comSpec, backupAddonsPath
+Dim tempFolderPath, logPath, comSpec, backupAddonsPath, processEnv
 Dim backupOk, backupCount, restoreOk, backupRoot, cycleSucceeded, restoreSucceeded
+Dim runnerExitCode, launchCommand, launchError
 
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
 root = fso.GetParentFolderName(WScript.ScriptFullName)
-repoRoot = fso.GetAbsolutePathName(fso.BuildPath(root, "..\.."))
 batPath = fso.BuildPath(root, "run.bat")
 iniPath = fso.BuildPath(root, "instance.ini")
-gameUpdatePath = fso.BuildPath(repoRoot, "game-update.bat")
-repoUpdatePath = fso.BuildPath(repoRoot, "update.bat")
 
 If Not fso.FileExists(batPath) Then
     MsgBox "The runner batch file is missing:" & vbCrLf & batPath, vbCritical, "CS2 Instance Runner"
@@ -25,16 +23,6 @@ If Not fso.FileExists(iniPath) Then
         "Copy instance.example.ini to instance.ini, then edit SERVER_DIR and credentials.", _
         vbExclamation, "CS2 Instance Runner"
     WScript.Quit 2
-End If
-
-If Not fso.FileExists(gameUpdatePath) Then
-    MsgBox "The game updater is missing:" & vbCrLf & gameUpdatePath, vbCritical, "CS2 Instance Runner"
-    WScript.Quit 3
-End If
-
-If Not fso.FileExists(repoUpdatePath) Then
-    MsgBox "The repository updater is missing:" & vbCrLf & repoUpdatePath, vbCritical, "CS2 Instance Runner"
-    WScript.Quit 4
 End If
 
 serverDir = ReadSetting(iniPath, "SERVER_DIR")
@@ -50,6 +38,32 @@ Else
 End If
 
 cs2Path = fso.GetAbsolutePathName(fso.BuildPath(serverDir, "game\bin\win64\cs2.exe"))
+If Not fso.FileExists(cs2Path) Then
+    MsgBox "CS2 was not found:" & vbCrLf & cs2Path & vbCrLf & _
+        "Run the repository's install.bat first.", vbExclamation, "CS2 Instance Runner"
+    WScript.Quit 2
+End If
+
+repoRoot = FindRepositoryRoot(serverDir, root)
+If Len(repoRoot) = 0 Then
+    MsgBox "Could not locate the repository that contains game-update.bat and update.bat." & vbCrLf & _
+        "SERVER_DIR: " & serverDir & vbCrLf & _
+        "Make sure SERVER_DIR points to the server folder inside the cs2-kus-addons repository.", _
+        vbCritical, "CS2 Instance Runner"
+    WScript.Quit 3
+End If
+
+gameUpdatePath = fso.BuildPath(repoRoot, "game-update.bat")
+repoUpdatePath = fso.BuildPath(repoRoot, "update.bat")
+If Not fso.FileExists(gameUpdatePath) Then
+    MsgBox "The game updater is missing:" & vbCrLf & gameUpdatePath, vbCritical, "CS2 Instance Runner"
+    WScript.Quit 4
+End If
+If Not fso.FileExists(repoUpdatePath) Then
+    MsgBox "The repository updater is missing:" & vbCrLf & repoUpdatePath, vbCritical, "CS2 Instance Runner"
+    WScript.Quit 5
+End If
+
 runtimeAddonsPath = fso.BuildPath(serverDir, "game\csgo\addons")
 payloadAddonsPath = fso.BuildPath(repoRoot, "game\csgo\addons")
 windowsAddonsPath = fso.BuildPath(payloadAddonsPath, "windows\addons")
@@ -57,31 +71,33 @@ tempFolderPath = fso.GetSpecialFolder(2).Path
 logPath = fso.BuildPath(tempFolderPath, "CS2-KUS-runner-supervisor.log")
 comSpec = shell.ExpandEnvironmentStrings("%ComSpec%")
 
-If Not fso.FileExists(cs2Path) Then
-    MsgBox "CS2 was not found:" & vbCrLf & cs2Path & vbCrLf & _
-        "Run the repository's install.bat first.", vbExclamation, "CS2 Instance Runner"
-    WScript.Quit 2
-End If
-
-On Error Resume Next
-Set wmi = GetObject("winmgmts:\\.\root\cimv2")
-If Err.Number <> 0 Then
-    MsgBox "Could not initialize Windows process monitoring:" & vbCrLf & Err.Description, _
-        vbCritical, "CS2 Instance Runner"
-    WScript.Quit 5
-End If
-On Error GoTo 0
+Set processEnv = shell.Environment("PROCESS")
+processEnv("CS2_REPO_ROOT") = repoRoot
 
 WriteLog "Supervisor started. Server: " & cs2Path
-WriteLog "After CS2 exits, game-update.bat and (if successful) update.bat will run before restart."
+WriteLog "Repository resolved from SERVER_DIR: " & repoRoot
+WriteLog "run.bat will run one game process, then game-update.bat and update.bat will finish before restart."
 
 Do
-    WriteLog "Launching the instance runner."
-    shell.Run Chr(34) & batPath & Chr(34) & " --no-pause", 0, False
+    WriteLog "Launching run.bat in supervised one-shot mode."
+    launchCommand = Chr(34) & batPath & Chr(34) & " --no-pause --supervised"
 
-    If WaitForServerExit() Then
-        WriteLog "CS2 exited. Preparing unattended maintenance."
-        backupAddonsPath = ""
+    On Error Resume Next
+    runnerExitCode = shell.Run(launchCommand, 0, True)
+    launchError = Err.Number
+    If launchError <> 0 Then
+        WriteLog "ERROR: Could not run the instance runner: " & Err.Description
+        Err.Clear
+    End If
+    On Error GoTo 0
+
+    If launchError <> 0 Then
+        WScript.Sleep 10000
+    ElseIf CLng(runnerExitCode) <> 0 Then
+        WriteLog "run.bat exited with code " & runnerExitCode & " before completing a supervised server run. Updates are skipped; retrying in 10 seconds."
+        WScript.Sleep 10000
+    Else
+        WriteLog "CS2 exited; starting maintenance. run.bat has returned, so its internal restart loop cannot race the update."
         backupRoot = CreateRuntimeExtrasBackup()
 
         Do While backupRoot = "!BACKUP_ERROR!"
@@ -106,148 +122,33 @@ Do
             WriteLog "Maintenance did not complete successfully. The server remains stopped; retrying in 60 seconds."
             WScript.Sleep 60000
         Loop
-    Else
-        ' Preserve the old supervisor behavior if run.bat exits before CS2 ever starts.
-        WScript.Sleep 5000
     End If
 Loop
 
-Function WaitForServerExit()
-    Dim sawServer, launchTime, isRunning, runnerRunning
-    sawServer = False
-    launchTime = Now
-    WaitForServerExit = False
+Function FindRepositoryRoot(serverPath, scriptPath)
+    Dim found
+    found = SearchRepositoryAncestors(serverPath)
+    If Len(found) = 0 Then found = SearchRepositoryAncestors(scriptPath)
+    FindRepositoryRoot = found
+End Function
 
-    Do
-        isRunning = IsTargetCs2Running()
-        If isRunning Then sawServer = True
+Function SearchRepositoryAncestors(startPath)
+    Dim current, parentPath, i
+    SearchRepositoryAncestors = ""
+    current = fso.GetAbsolutePathName(startPath)
 
-        If sawServer And Not isRunning Then
-            WriteLog "Detected that CS2 has exited. Stopping run.bat's internal 5-second restart loop."
-            If StopRunnerShell() Then
-                WaitForServerExit = True
-                Exit Function
-            End If
-            ' If the runner could not be stopped, keep watching instead of starting a second runner.
-        End If
-
-        runnerRunning = IsRunnerShellRunning()
-        If Not sawServer And Not runnerRunning And DateDiff("s", launchTime, Now) >= 10 Then
-            WriteLog "run.bat exited before CS2 started; the runner will be retried."
-            WaitForServerExit = False
+    For i = 1 To 12
+        If fso.FileExists(fso.BuildPath(current, "game-update.bat")) And _
+           fso.FileExists(fso.BuildPath(current, "update.bat")) And _
+           fso.FileExists(fso.BuildPath(current, "DEPENDENCIES.json")) Then
+            SearchRepositoryAncestors = current
             Exit Function
         End If
 
-        WScript.Sleep 250
-    Loop
-End Function
-
-Function IsTargetCs2Running()
-    Dim processes, process, executablePath, commandLine
-    IsTargetCs2Running = True
-
-    On Error Resume Next
-    Set processes = wmi.ExecQuery("SELECT Name, ExecutablePath, CommandLine FROM Win32_Process WHERE Name='cs2.exe'")
-    If Err.Number <> 0 Then
-        WriteLog "WARNING: Could not query CS2 processes: " & Err.Description
-        Err.Clear
-        On Error GoTo 0
-        Exit Function
-    End If
-    On Error GoTo 0
-
-    IsTargetCs2Running = False
-    For Each process In processes
-        executablePath = ""
-        commandLine = ""
-        On Error Resume Next
-        If Not IsNull(process.ExecutablePath) Then executablePath = CStr(process.ExecutablePath)
-        If Not IsNull(process.CommandLine) Then commandLine = CStr(process.CommandLine)
-        On Error GoTo 0
-
-        If Len(executablePath) > 0 Then
-            If SamePath(executablePath, cs2Path) Then
-                IsTargetCs2Running = True
-                Exit Function
-            End If
-        ElseIf InStr(1, commandLine, cs2Path, vbTextCompare) > 0 Then
-            IsTargetCs2Running = True
-            Exit Function
-        End If
+        parentPath = fso.GetParentFolderName(current)
+        If Len(parentPath) = 0 Or LCase(parentPath) = LCase(current) Then Exit For
+        current = parentPath
     Next
-End Function
-
-Function IsRunnerShellRunning()
-    Dim processes, process, commandLine
-    ' Fail safe: if process inspection fails, assume the runner still exists.
-    IsRunnerShellRunning = True
-
-    On Error Resume Next
-    Set processes = wmi.ExecQuery("SELECT Name, CommandLine FROM Win32_Process WHERE Name='cmd.exe'")
-    If Err.Number <> 0 Then
-        WriteLog "WARNING: Could not inspect runner processes: " & Err.Description
-        Err.Clear
-        On Error GoTo 0
-        Exit Function
-    End If
-    On Error GoTo 0
-
-    IsRunnerShellRunning = False
-    For Each process In processes
-        commandLine = ""
-        On Error Resume Next
-        If Not IsNull(process.CommandLine) Then commandLine = CStr(process.CommandLine)
-        On Error GoTo 0
-
-        If InStr(1, commandLine, batPath, vbTextCompare) > 0 Then
-            IsRunnerShellRunning = True
-            Exit Function
-        End If
-    Next
-End Function
-
-Function StopRunnerShell()
-    Dim attempt, processes, process, commandLine, terminateResult
-    StopRunnerShell = False
-
-    For attempt = 1 To 20
-        On Error Resume Next
-        Set processes = wmi.ExecQuery("SELECT Name, CommandLine FROM Win32_Process WHERE Name='cmd.exe'")
-        If Err.Number <> 0 Then
-            WriteLog "WARNING: Could not inspect runner processes while stopping them: " & Err.Description
-            Err.Clear
-            On Error GoTo 0
-            WScript.Sleep 250
-        Else
-            On Error GoTo 0
-            For Each process In processes
-                commandLine = ""
-                On Error Resume Next
-                If Not IsNull(process.CommandLine) Then commandLine = CStr(process.CommandLine)
-                On Error GoTo 0
-
-                If InStr(1, commandLine, batPath, vbTextCompare) > 0 Then
-                    On Error Resume Next
-                    terminateResult = process.Terminate()
-                    If Err.Number <> 0 Then
-                        WriteLog "WARNING: Could not stop run.bat command process: " & Err.Description
-                        Err.Clear
-                    ElseIf terminateResult <> 0 Then
-                        WriteLog "WARNING: run.bat process termination returned code " & terminateResult
-                    End If
-                    On Error GoTo 0
-                End If
-            Next
-
-            WScript.Sleep 250
-            If Not IsRunnerShellRunning() Then
-                StopRunnerShell = True
-                Exit Function
-            End If
-        End If
-    Next
-
-    WriteLog "WARNING: run.bat is still active. Updates will not start while its restart loop remains active."
 End Function
 
 Function RunMaintenanceCycle()
@@ -259,7 +160,7 @@ Function RunMaintenanceCycle()
         Exit Function
     End If
 
-    WriteLog "Running update.bat to pull the latest private-repository changes and deploy them."
+    WriteLog "Running update.bat to pull the latest private-repository changes and deploy them into server/game/csgo."
     If Not RunBatch(repoUpdatePath, "update.bat") Then
         WriteLog "update.bat failed; the server will remain stopped until maintenance succeeds."
         Exit Function
