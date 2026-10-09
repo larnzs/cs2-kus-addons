@@ -48,28 +48,3 @@ if ($verify.Count -ne 1) {
     throw "Metamod entry verification failed after patching gameinfo.gi."
 }
 Write-Host "Inserted and verified the Metamod entry. Backup: $backupPath"
-
-$marker = [regex]::Match($text, $markerPattern)
-if (-not $marker.Success) {
-    throw "Could not find the Game_LowViolence csgo_lv insertion marker in gameinfo.gi."
-}
-
-$backupPath = "$GameInfoPath.bak"
-if (-not (Test-Path -LiteralPath $backupPath -PathType Leaf)) {
-    Copy-Item -LiteralPath $GameInfoPath -Destination $backupPath
-}
-
-$crlf = [string][char]13 + [string][char]10
-$newLine = if ($text.Contains($crlf)) { $crlf } else { [string][char]10 }
-$tab = [string][char]9
-$entry = $tab + $tab + $tab + "Game" + $tab + "csgo/addons/metamod"
-$replacement = $marker.Value + $newLine + $entry
-$updated = $text.Remove($marker.Index, $marker.Length).Insert($marker.Index, $replacement)
-$encoding = New-Object System.Text.UTF8Encoding($false)
-[IO.File]::WriteAllText($GameInfoPath, $updated, $encoding)
-
-$verify = [regex]::Matches([IO.File]::ReadAllText($GameInfoPath), $metamodPattern)
-if ($verify.Count -ne 1) {
-    throw "Metamod entry verification failed after patching gameinfo.gi."
-}
-Write-Host "Inserted and verified the Metamod entry. Backup: $backupPath"
