@@ -743,7 +743,7 @@ foreach ($addon in $addons) {
                 continue
             }
             if ($needsRepair) {
-                Write-Warn ("Runtime requirements are missing; reinstalling $($addon.name) $version:" + [Environment]::NewLine + ($missingFiles -join [Environment]::NewLine))
+                Write-Warn ("Runtime requirements are missing; reinstalling {0} {1}:{2}{3}" -f $addon.name, $version, [Environment]::NewLine, ($missingFiles -join [Environment]::NewLine))
             }
 
             $newVersion = Install-ReleaseAddon $addon $release
