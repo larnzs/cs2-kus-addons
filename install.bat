@@ -21,7 +21,7 @@ echo Repository: %ROOT_DIR%
 echo Server:     %SERVER_DIR%
 echo.
 
-git -C "%ROOT_DIR%" rev-parse --is-inside-work-tree >nul 2>&1
+git rev-parse --is-inside-work-tree >nul 2>&1
 if errorlevel 1 (
     echo ERROR: Clone this private Git repository before running install.bat.
     goto :finish
@@ -55,17 +55,25 @@ if not exist "%STEAMCMD%" (
     goto :finish
 )
 
-if exist "%CS2_EXE%" if exist "%APP_MANIFEST%" goto :game_installed
-
-echo Installing CS2 through SteamCMD (initial install only)...
-if not exist "%SERVER_DIR%" mkdir "%SERVER_DIR%"
-if errorlevel 1 (
-    echo ERROR: Could not create the server directory.
-    goto :finish
+if exist "%CS2_EXE%" (
+    echo Existing CS2 files detected in the server directory.
+    echo SteamCMD will verify, update, and repair this installation as needed.
+) else (
+    echo CS2 files were not found in the server directory.
+    echo SteamCMD will install the game now.
+)
+if not exist "%SERVER_DIR%\" (
+    mkdir "%SERVER_DIR%"
+    if errorlevel 1 (
+        echo ERROR: Could not create the server directory.
+        goto :finish
+    )
 )
 "%STEAMCMD%" +force_install_dir "%SERVER_DIR%" +login anonymous +app_update 730 validate +quit
-if errorlevel 1 (
-    echo ERROR: SteamCMD failed to install CS2.
+set "STEAMCMD_RC=%ERRORLEVEL%"
+if not "%STEAMCMD_RC%"=="0" (
+    echo ERROR: SteamCMD failed to install, update, or validate CS2 ^(exit code %STEAMCMD_RC%^).
+    set "RC=%STEAMCMD_RC%"
     goto :finish
 )
 if not exist "%CS2_EXE%" (
