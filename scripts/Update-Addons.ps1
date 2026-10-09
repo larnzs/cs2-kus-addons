@@ -666,7 +666,7 @@ if (-not $DryRun) {
         throw "Could not read Git working tree status."
     }
     if ($status.Count -gt 0) {
-        throw "Working tree is not clean. Commit/stash existing changes before running the updater."
+        throw ("Working tree is not clean. Commit/stash existing changes before running the updater:" + [Environment]::NewLine + ($status -join [Environment]::NewLine))
     }
 }
 
