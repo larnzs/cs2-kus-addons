@@ -92,7 +92,70 @@ function Get-ReleaseAssets($Release, $Addon) {
         $selected += $matches[0]
     }
 
+    if ($Addon.PSObject.Properties.Name -contains "runtime_required" -and [bool]$Addon.runtime_required) {
+        $requiredMarker = if ($Addon.PSObject.Properties.Name -contains "required_asset_name_contains") {
+            [string]$Addon.required_asset_name_contains
+        } else {
+            "with-runtime"
+        }
+        foreach ($asset in $selected) {
+            if ([string]$asset.name -notmatch [regex]::Escape($requiredMarker)) {
+                throw "Runtime-required addon '$($Addon.name)' selected '$($asset.name)', which does not contain required marker '$requiredMarker'. Refusing to install a no-runtime package."
+            }
+        }
+    }
+
     return $selected
+}
+
+function Get-AddonMissingFiles($Addon) {
+    $missing = New-Object System.Collections.Generic.List[string]
+    $rootFull = [IO.Path]::GetFullPath($ServerRoot).TrimEnd([char[]]@('\', '/'))
+    $rootPrefix = $rootFull + [IO.Path]::DirectorySeparatorChar
+
+    foreach ($relativeValue in @($Addon.verify_paths)) {
+        $relative = ([string]$relativeValue).Replace('/', '\')
+        if ([string]::IsNullOrWhiteSpace($relative) -or
+            [IO.Path]::IsPathRooted($relative) -or
+            $relative -match '(^|[\\/])\.\.([\\/]|$)') {
+            throw "Unsafe verify_paths entry for '$($Addon.name)': $relative"
+        }
+
+        $fullPath = [IO.Path]::GetFullPath((Join-Path $ServerRoot $relative))
+        if (-not $fullPath.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Verification path escaped server/game/csgo for '$($Addon.name)': $relative"
+        }
+        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+            [void]$missing.Add("server/game/csgo/$($relative.Replace('\', '/'))")
+        }
+    }
+
+    if ($Addon.PSObject.Properties.Name -contains "verify_globs") {
+        foreach ($relativeValue in @($Addon.verify_globs)) {
+            $relative = ([string]$relativeValue).Replace('/', '\')
+            if ([string]::IsNullOrWhiteSpace($relative) -or
+                [IO.Path]::IsPathRooted($relative) -or
+                $relative -match '(^|[\\/])\.\.([\\/]|$)') {
+                throw "Unsafe verify_globs entry for '$($Addon.name)': $relative"
+            }
+
+            # Normalize wildcard characters only for the containment check; keep the
+            # original pattern for Get-ChildItem's real wildcard matching.
+            $guardRelative = $relative -replace '[*?]', 'wildcard'
+            $guardFull = [IO.Path]::GetFullPath((Join-Path $ServerRoot $guardRelative))
+            if (-not $guardFull.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Verification glob escaped server/game/csgo for '$($Addon.name)': $relative"
+            }
+
+            $pattern = Join-Path $ServerRoot $relative
+            $matches = @(Get-ChildItem -Path $pattern -File -ErrorAction SilentlyContinue)
+            if ($matches.Count -eq 0) {
+                [void]$missing.Add("server/game/csgo/$relative (no file matched runtime requirement)")
+            }
+        }
+    }
+
+    return @($missing.ToArray())
 }
 
 function Download-Asset($Asset, [string]$Destination) {
@@ -430,28 +493,10 @@ function Install-ReleaseAddon($Addon, $Release) {
         Write-Info "Metadata written to $metadataFile"
     }
 
-    # Do not report/commit a version unless its declared runtime files landed at the expected paths.
-    $missing = New-Object System.Collections.Generic.List[string]
-    foreach ($relativeValue in @($Addon.verify_paths)) {
-        $relative = ([string]$relativeValue).Replace('/', '\')
-        if ([string]::IsNullOrWhiteSpace($relative) -or
-            [IO.Path]::IsPathRooted($relative) -or
-            $relative -match '(^|[\\/])\.\.([\\/]|$)') {
-            throw "Unsafe verify_paths entry for '$($Addon.name)': $relative"
-        }
-
-        $serverFull = [IO.Path]::GetFullPath($ServerRoot).TrimEnd([char[]]@('\', '/'))
-        $target = [IO.Path]::GetFullPath((Join-Path $ServerRoot $relative))
-        $prefix = $serverFull + [IO.Path]::DirectorySeparatorChar
-        if (-not $target.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
-            throw "Verification path escaped server/game/csgo for '$($Addon.name)': $relative"
-        }
-        if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
-            [void]$missing.Add("server/game/csgo/$($relative.Replace('\', '/'))")
-        }
-    }
+    # Do not report/commit a version unless all required paths and runtime globs exist.
+    $missing = @(Get-AddonMissingFiles $Addon)
     if ($missing.Count -gt 0) {
-        throw ("Add-on '$($Addon.name)' did not install all declared verify_paths:" + [Environment]::NewLine + ($missing -join [Environment]::NewLine))
+        throw ("Add-on '$($Addon.name)' did not install all declared runtime requirements:" + [Environment]::NewLine + ($missing -join [Environment]::NewLine))
     }
 
     return $version
@@ -686,13 +731,19 @@ foreach ($addon in $addons) {
             $release = Get-ReleaseForAddon $addon
             $version = Normalize-Version $release.tag_name
 
+            $missingFiles = @(Get-AddonMissingFiles $addon)
+            $needsRepair = $missingFiles.Count -gt 0
             $needsUpdate = [bool]$Force -or
                 -not [bool]$addon.installed -or
-                ([string]$addon.version -ne $version)
+                ([string]$addon.version -ne $version) -or
+                $needsRepair
 
             if (-not $needsUpdate) {
-                Write-Info "Already at $version"
+                Write-Info "Already at $version; all required files are present."
                 continue
+            }
+            if ($needsRepair) {
+                Write-Warn ("Runtime requirements are missing; reinstalling $($addon.name) $version:" + [Environment]::NewLine + ($missingFiles -join [Environment]::NewLine))
             }
 
             $newVersion = Install-ReleaseAddon $addon $release

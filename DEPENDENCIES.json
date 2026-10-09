@@ -35,8 +35,13 @@
       "verify_paths": [
         "addons/counterstrikesharp/api/CounterStrikeSharp.API.dll",
         "addons/counterstrikesharp/bin/win64/counterstrikesharp.dll",
-        "addons/counterstrikesharp/dotnet/dotnet.exe",
-        "addons/counterstrikesharp/dotnet/shared/Microsoft.NETCore.App/System.Private.CoreLib.dll"
+        "addons/counterstrikesharp/dotnet/dotnet.exe"
+      ],
+      "runtime_required": true,
+      "required_asset_name_contains": "with-runtime-windows",
+      "verify_globs": [
+        "addons/counterstrikesharp/dotnet/shared/Microsoft.NETCore.App/*/System.Private.CoreLib.dll",
+        "addons/counterstrikesharp/dotnet/host/fxr/*/hostfxr.dll"
       ]
     },
     {

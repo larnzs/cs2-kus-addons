@@ -106,6 +106,31 @@ if ($VerifyAddons) {
             }
             else { $checked++ }
         }
+
+        if ($addon.PSObject.Properties.Name -contains "verify_globs") {
+            foreach ($globValue in @($addon.verify_globs)) {
+                $relativeGlob = ([string]$globValue).Replace('/', '\')
+                if ([string]::IsNullOrWhiteSpace($relativeGlob) -or
+                    [IO.Path]::IsPathRooted($relativeGlob) -or
+                    $relativeGlob -match '(^|[\\/])\.\.([\\/]|$)') {
+                    throw "Unsafe verify_globs entry for '$($addon.name)': $relativeGlob"
+                }
+                $guardRelative = $relativeGlob -replace '[*?]', 'wildcard'
+                $guardFull = [IO.Path]::GetFullPath((Join-Path $CsgoRoot $guardRelative))
+                $rootPrefix = [IO.Path]::GetFullPath($CsgoRoot).TrimEnd([char[]]@('\', '/')) + [IO.Path]::DirectorySeparatorChar
+                if (-not $guardFull.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+                    throw "Verification glob escaped the runtime root for '$($addon.name)': $relativeGlob"
+                }
+                $matches = @(Get-ChildItem -Path (Join-Path $CsgoRoot $relativeGlob) -File -ErrorAction SilentlyContinue)
+                if ($matches.Count -eq 0) {
+                    [void]$missing.Add("$($addon.name): server/game/csgo/$relativeGlob (no file matched runtime requirement)")
+                }
+                else {
+                    $checked++
+                    Write-Host "Runtime requirement matched $($matches.Count) file(s): $relativeGlob" -ForegroundColor DarkGray
+                }
+            }
+        }
         Write-Host "Checked $($addon.name) $($addon.version)" -ForegroundColor Green
     }
 
