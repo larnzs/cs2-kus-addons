@@ -93,7 +93,7 @@ if not "%RC%"=="0" (
     goto :finish
 )
 echo.
-echo Initial installation completed. The server was NOT started.
+echo SteamCMD installation check and server preparation completed. The server was NOT started.
 echo Copy examples\run-template\instance.example.ini to instance.ini, configure it, then launch run.vbs.
 set "RC=0"
 

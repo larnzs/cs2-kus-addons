@@ -23,11 +23,12 @@ The upstream `custom_files/` and `custom_files_example/` trees are intentionally
 ## Windows installation and operation
 
 1. Clone this private repository to the Windows server machine with GitHub access.
-2. Run `install.bat`. It downloads SteamCMD if needed, installs CS2 only when the required game files are missing, then calls `win.bat` to patch and validate the installation. It does not start the server.
+2. Run `install.bat`. It downloads SteamCMD if needed, then always runs `app_update 730 validate` against `server/`. This installs a missing game and checks, updates, or repairs an existing/copied game tree as needed. Validation can take time. It then calls `win.bat` to patch and verify the runtime. It does not start the server.
 3. Copy `examples/run-template/instance.example.ini` to `examples/run-template/instance.ini`, set the instance options and secrets, then start `run.vbs` (hidden) or `run.bat` (visible console).
 
-**Windows command responsibilities are intentionally separate:**
+**Windows command responsibilities are intentionally separate, except that setup/repair also checks the game:**
 
+- `install.bat` downloads SteamCMD if needed and always runs `app_update 730 validate`, including when game files already exist. It can update or repair an existing/copied game tree before preparing the runtime. It does not start the server.
 - `win.bat` patches `gameinfo.gi` idempotently and verifies the managed files. It does not pull Git, run SteamCMD, copy a staging tree, or launch the server.
 - `update.bat` only performs a fast-forward-only Git pull and then validates the installation. It refuses local/untracked changes.
 - `game-update.bat` explicitly updates the CS2 game with SteamCMD. Stop every CS2 instance first.
@@ -206,6 +207,8 @@ Use `addons-inspect.bat -Only CounterStrikeSharp` to inspect an upstream release
 
 KUS base plugins that are not listed as automated add-ons remain tracked at their final runtime paths and arrive through Git updates. Do not run the old KUS Bash release updater on Windows or treat it as the authority for the Larnz manifest. Its historical notes remain available in `docs/upstream/KUS-README.md`.
 
+Note: `install.bat` also invokes SteamCMD with validation even when CS2 appears to be installed. Use `game-update.bat` when you intend to run the dedicated manual game-update workflow, and use `update.bat` for Git changes only.
+
 A normal server start does not run Git, SteamCMD, or the add-on release updater. Stop the supervisor and server before changing runtime files.
 
 ## Share the love
@@ -359,7 +362,7 @@ cd cs2-kus-addons
 install.bat
 ```
 
-`install.bat` downloads SteamCMD if needed and installs CS2 into `server/\` only when the game executable or Steam app manifest is missing. It then calls `win.bat` to patch `gameinfo.gi` and verify the managed runtime files. It does not start the server.
+`install.bat` downloads SteamCMD if needed and always runs `app_update 730 validate` in `server/\`. It installs missing files and checks, updates, or repairs existing/copied game files when needed, then calls `win.bat` to patch `gameinfo.gi` and verify the runtime. Validation may take time. It does not start the server.
 
 ### 2. Configure and run an instance
 
@@ -371,6 +374,7 @@ Launch `examples/run-template/run.vbs` for hidden operation or `run.bat` for a v
 
 | Command | Responsibility |
 | --- | --- |
+| `install.bat` | Runs SteamCMD `app_update 730 validate` every time; installs a missing game or checks/updates/repairs an existing/copied game tree, then prepares the runtime. Does not start CS2. |
 | `win.bat` | Idempotently adds the Metamod entry if needed and verifies installed files; does not start CS2. |
 | `update.bat` | Fast-forward-only pull of the private Git repository, then validation. Requires a clean working tree. |
 | `game-update.bat` | Explicit SteamCMD update of CS2; refuses to run while a `cs2.exe` process is detected. |
@@ -378,7 +382,7 @@ Launch `examples/run-template/run.vbs` for hidden operation or `run.bat` for a v
 | `addons-update.bat` | Apply add-on release updates; successful updates are committed separately. |
 | `addons-inspect.bat` | Inspect upstream release assets and resolved archive layouts without installing them. |
 
-These are separate operations by design: Git updates do not update the game, game updates do not update plugin releases, and a server start does not implicitly run any updater. Stop the supervisor and all server instances before updating the game.
+These are separate operations by design, with one setup/repair exception: `install.bat` always asks SteamCMD to validate the game tree and may update or repair its files. `update.bat` itself does not update the game, `game-update.bat` is the dedicated manual game-update command, plugin releases remain separate, and a server start does not implicitly run any updater. Stop the supervisor and all server instances before updating the game.
 
 Allow the selected game port through Windows Firewall and the router/cloud firewall. Use a valid Game Server Login Token for a public server. Keep API keys, login tokens, RCON passwords, and instance-specific settings out of tracked files.
 
