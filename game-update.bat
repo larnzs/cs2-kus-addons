@@ -38,6 +38,7 @@ if not "%STEAMCMD_RC%"=="0" (
     goto :finish
 )
 
+rem Re-deploy runtime and re-apply the KUS-compatible gameinfo.gi patch after SteamCMD updates.
 call "%ROOT_DIR%win.bat" --no-pause
 set "RC=%ERRORLEVEL%"
 if not "%RC%"=="0" (
