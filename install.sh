@@ -279,6 +279,8 @@ fi
 # KUS deployment model: clear plugin-owned trees to remove stale files, then copy the source payload.
 rm -rf "$GAME_ROOT/addons" "$GAME_ROOT/cfg/settings"
 cp -R "$PAYLOAD_ROOT/." "$GAME_ROOT/"
+# The windows/ tree is a staging overlay only; Linux runs the shared/base payload.
+rm -rf "$GAME_ROOT/addons/windows"
 
 chown -R "${user}:${user}" "/home/${user}/cs2"
 cd "/home/${user}/cs2" || exit

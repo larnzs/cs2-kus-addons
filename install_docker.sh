@@ -144,6 +144,8 @@ cp -v /home/${user}/cs2/game/bin/linuxsteamrt64/*.so "$GAME_ROOT/bin/linuxsteamr
 echo "Deploying tracked KUS/Larnz payload"
 rm -rf "$GAME_ROOT/addons" "$GAME_ROOT/cfg/settings"
 cp -R "$PAYLOAD_ROOT/." "$GAME_ROOT/"
+# The windows/ tree is a staging overlay only; Linux runs the shared/base payload.
+rm -rf "$GAME_ROOT/addons/windows"
 
 chown -R ${user}:${user} /home/${user}
 
