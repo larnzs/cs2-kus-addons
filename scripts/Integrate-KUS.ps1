@@ -74,7 +74,7 @@ foreach ($item in Get-ChildItem -LiteralPath $KusRootResolved -Force) {
     $target = Join-Path $RepoRoot $item.Name
     if ($item.PSIsContainer) {
         $exclude = @()
-        if ($item.Name -eq ".github") { $exclude = @("workflows/auto-update-mods.yml") }
+        if ($item.Name -eq ".github") { $exclude = @("workflows/auto-update-mods.yml", "workflows/docker-image.yml") }
         Copy-Tree -Source $item.FullName -Destination $target -ExcludePaths $exclude -OnlyMissing -TrackText -Rel "" 
     } else {
         if (Test-Path -LiteralPath $target) { continue }
@@ -92,7 +92,8 @@ $originals = @(
     @{ Source = "start.sh"; Target = "start.sh" },
     @{ Source = "install_docker.sh"; Target = "install_docker.sh" },
     @{ Source = "run.sh"; Target = "run.sh" },
-    @{ Source = ".github/workflows/auto-update-mods.yml"; Target = "auto-update-mods.yml" }
+    @{ Source = ".github/workflows/auto-update-mods.yml"; Target = "auto-update-mods.yml" },
+    @{ Source = ".github/workflows/docker-image.yml"; Target = "docker-image.yml" }
 )
 foreach ($original in $originals) {
     $src = Join-Path $KusRootResolved $original.Source
@@ -105,7 +106,7 @@ foreach ($path in $script:ImportedText) { Rewrite-Paths -Path $path }
 # Re-apply idempotent path normalization to all KUS-owned support files.
 # This repairs a partial earlier import while leaving cfg/custom file layers out.
 $excludedTop = @(".git", ".env", ".gitignore", "README.md", "game", "custom_files", "custom_files_example", "win.bat", "update.bat", "win.ini")
-$excludedExact = @(".github/workflows/auto-update-mods.yml")
+$excludedExact = @(".github/workflows/auto-update-mods.yml", ".github/workflows/docker-image.yml")
 foreach ($sourceFile in Get-ChildItem -LiteralPath $KusRootResolved -File -Recurse -Force) {
     $relative = $sourceFile.FullName.Substring($KusRootResolved.Length).TrimStart("\", "/").Replace("\", "/")
     $top = $relative.Split("/")[0]
