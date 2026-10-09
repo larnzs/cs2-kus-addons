@@ -73,8 +73,7 @@ $SettingsTrackedRoots = @(
     (Join-Path $PayloadRoot "cfg\settings"),
     (Join-Path $WindowsOverlay "cfg\settings")
 )
-$CssTrackedRoots = @(
-)
+
 $BackupAddons = Join-Path $WorkRoot "addons.previous"
 $BackupSettings = Join-Path $WorkRoot "settings.previous"
 $BackupConfig = Join-Path $WorkRoot "css-configs.previous"
