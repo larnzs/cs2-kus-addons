@@ -4,7 +4,7 @@ A private, single-repository Counter-Strike 2 dedicated-server distribution. It 
 
 **The repository's canonical runtime path is server/game/csgo/.** The old KUS staging path, game/csgo/, is not used as a second source tree. KUS runtime payloads—including its Windows-specific add-on payload—are imported directly into the canonical path. There is no second KUS checkout and no batch step that copies all plugins from a staging folder into the server.
 
-The original Larnz guide is preserved at [docs/Larnz-Addons-README.md](docs/Larnz-Addons-README.md). The original KUS guide is retained for reference. The Windows instructions below are the current unified workflow for this repository; the Google Cloud, Linux, and Docker sections remain upstream reference for now and will be migrated separately.
+This README combines Larnz's manifest-managed add-ons with KUS's base plugins, game modes, configuration guidance, workshop-map catalog and troubleshooting notes. Historical source documents remain under `docs/upstream/`; where an archived guide differs from this file, the unified instructions here take precedence. The old dual-repository workflow in `docs/Larnz-Addons-README.md` is historical, not an active setup guide.
 
 ## Repository ownership and paths
 
@@ -14,11 +14,11 @@ The original Larnz guide is preserved at [docs/Larnz-Addons-README.md](docs/Larn
 | server/game/csgo/addons/ | KUS and Larnz plugin payloads in their final runtime locations. |
 | server/game/csgo/cfg/ | Runtime configuration tree. Existing Larnz settings are preserved during KUS imports. |
 | DEPENDENCIES.json | Larnz add-on updater manifest. |
-| scripts/update/ | Upstream KUS update helpers, retained and path-normalized for the unified layout. |
+| scripts/update/ | Imported upstream KUS helpers; treat as legacy until the Linux updater is migrated. |
 | examples/run-template/ | Reusable Windows runner and VBS supervisor template. |
 | docs/upstream/ | KUS source snapshot metadata and archived upstream entrypoints/workflows. |
 
-The KUS root-level custom_files/ and custom_files_example/ trees are not imported or merged. Personal configuration generation and custom files remain under the Larnz-managed configuration workflow. Existing local secret folders and per-instance settings must stay private.
+The upstream `custom_files/` and `custom_files_example/` trees are intentionally not imported. On Windows, use the external per-instance override directory selected by `CUSTOM_FOLDER` in `examples/run-template/instance.ini`. Never store tokens, passwords or private database credentials in tracked files.
 
 ## Windows installation and operation
 
@@ -64,17 +64,23 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 - AnyBaseLibCS2, PlayerSettingsCS2 and MenuManagerCS2 provide shared APIs used by dependent plugins.
 - The release updater keeps the manifest, versions and runtime file layout synchronized. Fixed configuration paths are deliberately protected from incoming add-on release archives.
 
-## Upstream attribution and license
+## Project provenance
 
-The KUS source is [kus/cs2-modded-server](https://github.com/kus/cs2-modded-server). Its full guide, release table, game-mode documentation, dependency notes and troubleshooting material are preserved below. The upstream LGPL-3.0 license is retained in LICENSE; third-party plugins continue to be subject to their own licenses.
+The base project is [kus/cs2-modded-server](https://github.com/kus/cs2-modded-server). This private integrated distribution is not an official KUS release. The upstream LGPL-3.0 license is retained in `LICENSE`; each third-party plugin remains subject to its own license. Original KUS notes and installer workflows are archived in `docs/upstream/` for provenance, not as active installation instructions.
 
-This is a private integrated distribution, not an official KUS release. The archived original KUS installer scripts and automation definitions are in docs/upstream/kus-original/ for reference; the unified scripts in this repository define the active one-repository path behavior.
+## Quick navigation
 
-## Full upstream KUS guide (reference)
+- [Windows setup and maintenance](#running-on-windows)
+- [Server capabilities and game modes](#server-capabilities-and-game-modes)
+- [KUS bundled plugin catalog](#kus-bundled-and-optional-plugin-catalog)
+- [Update responsibilities](#updating-the-integrated-repository-and-add-ons)
+- [Configuration and per-instance overrides](#configuration-and-per-instance-overrides)
+- [Online, LAN and server settings](#creating-an-online-server)
+- [Workshop maps and map groups](#playing-workshop-mapscollections)
+- [Deployment status for all platforms](#deployment-status)
+- [FAQ and troubleshooting](#faq)
 
-The complete upstream KUS README and its plugin tables, dependency notes, game-mode documentation, and troubleshooting material are preserved below. Some original sections describe the old staging/copy workflow; those sections are reference only. The unified installation and path rules in this document's introduction are authoritative for this repository.
-
-# Counter-Strike 2 (CS2) Modded Dedicated Server
+## Compatibility after CS2 updates
 
 > [!IMPORTANT]
 > **Are we broken?**
@@ -86,7 +92,7 @@ The complete upstream KUS README and its plugin tables, dependency notes, game-m
 
 If you are looking for the CS:GO version you can still access that [here](https://github.com/kus/csgo-modded-server/tree/csgo).
 
-## About
+## Server capabilities and game modes
 
 A single modded Counter-Strike 2 (CS2) Modded Dedicated Server that you can [change the active mod](#changing-game-modes) on the server from chat or server console. [Maps are preconfigured per game mode](#what-maps-are-preconfigured-with-each-mode) and change when the game mode changes.
 
@@ -122,30 +128,6 @@ You can also enable modifiers in game modes from the `!settings` menu in chat i.
 - Roll The Dice - Roll the dice to get either a positive or negative effect for the current round.
 - Bunny hopping
 
-Every time you want to boot the server, you should run `gcp.sh` (if on Google Cloud) or `install.sh` (on Linux) or `update.bat` (on Windows) and it will ensure your OS is up to date, CS2 is up to date, and pull down the latest patches from this mod (any updates that I push up).
-
-Obviously, any changes you have made to the files in this mod will be overwritten so I have created a "[custom files](#custom-files)" folder where you mirror the contents of the `server/game/csgo/` folder, and any files you want to tweak, you put in there in the same spot and they will always overwrite the mods default files. Read more about it [here](#custom-files).
-
-The simple quick setup:
-
-1. [Create your firewall rules](#create-firewall-rule)
-2. [Provision your server on Google Cloud](#create-instance)
-3. [SSH into server](#ssh-to-server)
-4. [Install mod](#install-mod)
-5. [Create your custom files for hostname, admins etc](#custom-files)
-6. [Add admins](#acessing-admin-menu)
-7. Ensure you have followed the steps for creating an [online server](#creating-an-online-server) or [LAN server](#creating-a-lan-server)
-8. Kill server if running `./stop.sh` and start again `gcp.sh` (if on Google Cloud) or `install.sh` (on Linux)
-
-Your server should be up and running!
-
-To check everything is working correctly run the following commands in the server console:
-
-- `meta list` and you should see `CounterStrikeSharp` in the output
-- `css_plugins list` and you should see a few plugins in the output
-
-If you see content in both; everything is working.
-
 > [!IMPORTANT]
 > Using RCON whilst connected to the server does not work. See discussion [here](https://www.reddit.com/r/GlobalOffensive/comments/167spzi/cs2_rcon/).
 > The current work arounds are:
@@ -154,26 +136,17 @@ If you see content in both; everything is working.
 > - You can disconnect from the server and use `rcon_address IP:PORT` in console and you can use rcon commands.
 > - Use an external RCON program which has implemented the RCON protocol such as [this](https://github.com/fpaezf/CS2-RCON-Tool-V2).
 
-Useful things to know:
+## First-start verification
 
-- [Access admin menu](#acessing-admin-menu)
-- [Changing game mode](#changing-game-modes)
-- [Changing maps](#changing-maps)
-- [Player commands](#player-commands)
+After the server is running, use the server console to check `meta list` for Metamod and the expected native plugins, then run `css_plugins list` to inspect CounterStrikeSharp plugins. CounterStrikeSharp should load with its bundled .NET runtime; the CI validation checks the runtime files but does not replace a real server-load smoke test.
 
-Getting up and running:
+The list below records the KUS catalog when this runtime snapshot was imported. These version labels are reference metadata, not a promise that every optional module is enabled or current. CounterStrikeSharp is intentionally documented only in the Larnz-managed table above: this branch installs the Windows **with-runtime** archive and rejects the no-runtime asset. The KUS SimpleAdmin and the Larnz-managed CS2-SimpleAdmin are distinct projects and are kept separately.
 
-- [Running on Google Cloud](#running-on-google-cloud)
-- [Running on Linux](#running-on-linux)
-- [Running in Docker](#running-in-docker)
-- [Running on Windows](#running-on-windows)
+## KUS bundled and optional plugin catalog
 
-## Mods installed
-
-Mod | Version | Why
+Mod | Version in the upstream snapshot | Purpose
 --- | --- | ---
 [Metamod:Source](https://www.metamodsource.net/downloads.php?branch=dev) | `2.0.0-1473` | Sits between the Game and the Engine, and allows plugins to intercept calls that flow between
-[CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) | `1.0.376` | Attempts to implement a .NET Core scripting layer on top of a Metamod Source Plugin, allowing developers to create plugins that interact with the game server in a modern language (C#)
 [MultiAddonManager](https://github.com/Source2ZE/MultiAddonManager) | `1.6.2` | Allows you to use multiple workshop addons at once and have clients download them [How?](#i-want-to-permanently-enable-multi-addon-manager)
 [ServerListPlayersFix](https://github.com/Source2ZE/ServerListPlayersFix) | `2.0` | Fixes players not showing up in the server browser
 [MovementUnlocker](https://github.com/Source2ZE/MovementUnlocker) | `2.0.1` | Removes max speed limitation from players on the ground, feels like CS:S [How?](#i-run-a-surfkzbhop-server-and-want-movementunlocker-and-cs2fixes-rampbugfix-permanently-on)
@@ -219,27 +192,21 @@ Mod | Version | Why
 [cs2-TeleportKill](https://github.com/rodopoulos1/cs2-TeleportKill) | `1.0.1` |  Instantly teleport to the location of the enemy you kill.
 [CS2-BotAI](https://github.com/Austinbots/CS2-BotAI) | `1.0` | Improves the built in bots AI and also makes them run with a gun intead of a knife or nade.
 
-### Updating the mods in this repo
+## Updating the integrated repository and add-ons
 
-> [!NOTE]
-> This is for maintaining the repo (or your fork of it), not for updating a running server. To update a server just re-run the install script for your platform.
+There are three independent update operations. Keep them separate so a routine Git update cannot unexpectedly change the CS2 game build or download plugin releases.
 
-Keeping the table above current used to be a manual chore: check every project for a new release, download it, copy the right files into `/game/`, bump the version and commit. That is now scripted in [`/scripts/update/`](scripts/update/) and needs no AI, it is plain bash.
+| Operation | Command | What it changes |
+| --- | --- | --- |
+| Update tracked KUS + Larnz files | `update.bat` | Fast-forward-only pull of this private repository, followed by validation. It refuses a dirty working tree. |
+| Update the CS2 game | `game-update.bat` | Runs SteamCMD for app 730. Stop all CS2 instances first. |
+| Update Larnz-managed add-ons | `addons-update.bat -DryRun`, then `addons-update.bat` | Resolves release assets from `DEPENDENCIES.json`, maps files into `server/game/csgo/`, verifies required paths and commits successful add-on updates. |
 
-```bash
-./scripts/update/update.sh --dry-run   # what is out of date and exactly what would change, touches nothing
-./scripts/update/update.sh             # apply it, one commit per mod in the style "- UPDATED: MatchZy 0.8.14 > 0.8.15"
-./scripts/update/update.sh --list      # every mod, its slug and whether it has an update script yet
-```
+Use `addons-inspect.bat -Only CounterStrikeSharp` to inspect an upstream release archive without installing it. The CounterStrikeSharp rule in `DEPENDENCIES.json` requires `counterstrikesharp-with-runtime-windows-{version}.zip`; the updater refuses a no-runtime asset. Its post-install verification checks both the API/plugin files and versioned .NET runtime files.
 
-How it works:
+KUS base plugins that are not listed as automated add-ons remain tracked at their final runtime paths and arrive through Git updates. Do not run the old KUS Bash release updater on Windows or treat it as the authority for the Larnz manifest. Its historical notes remain available in `docs/upstream/KUS-README.md`.
 
-- It goes down the table above, one mod at a time, and compares the version in the table with the latest release on GitHub (or the Metamod:Source download page).
-- If there is a newer release **and** a script exists for that mod in `/scripts/update/plugins/`, it downloads the release, copies the files into place the same way the manual updates always did, bumps the version in the table and commits. Mods without a script are just listed so you can update them by hand or [write a script](scripts/update/README.md#adding-a-plugin-script) for them.
-- Config files you may have customised (`/server/game/csgo/cfg/MatchZy/`, `/server/game/csgo/cfg/gungame/` etc.) are never overwritten. New upstream settings are printed so you can port them by hand.
-- It refuses to run on a dirty working tree, checks everything before touching a file, and can be re-run safely. Anything unexpected is flagged with what is wrong.
-
-Requirements: `bash`, `git`, `curl`, `jq`, `unzip`, `tar` and `rsync` (macOS and Linux are fine, including the stock macOS bash). Being logged in with `gh auth login` (or setting `GITHUB_TOKEN`) avoids GitHub's anonymous API rate limit but is optional. See [`/scripts/update/README.md`](scripts/update/README.md) for the details and how to add a mod.
+A normal server start does not run Git, SteamCMD, or the add-on release updater. Stop the supervisor and server before changing runtime files.
 
 ## Share the love
 
@@ -253,74 +220,94 @@ Subscribe to release notifications and stay up to date with the latest features 
 
 <img alt="Subscribe to updates" src="https://github.com/kus/cs2-modded-server/blob/assets/assets/watch.png?raw=true&sanitize=true">
 
-## Custom files
+## Configuration and per-instance overrides
 
-> [!NOTE]  
-> Any reference to a path is always the root of the installation. Which on Linux will typically be `/home/steam/cs2/` and on Windows where ever you extracted the zip.
->
-> For example on Linux:
-> `/custom_files/addons/counterstrikesharp/configs/admins.json` full path is `/home/steam/cs2/custom_files/addons/counterstrikesharp/configs/admins.json`
-> `/server/game/csgo/addons/counterstrikesharp/configs/admins.json` full path is `/home/steam/cs2/server/game/csgo/addons/counterstrikesharp/configs/admins.json`
+This unified repository deliberately does **not** use the upstream KUS `custom_files/` or `custom_files_example/` overlay. Those directories and the old startup-time rebuild workflow were not imported.
 
-Any changes you have made to the files in this mod will be overwritten when the update scripts are ran. I have created a folder `/custom_files/` in the root of the project, where you mirror the contents of the `csgo/` folder, and any files you want to tweak, you put in there in the same spot and they will always overwrite the mods default files.
+### Shared configuration
 
-So this can be used to set the server hostname to something you want, set the RCON or serverpassword or set the admins of the server.
+The canonical shared files are already stored at their final runtime locations:
 
-You can see an example of what I use on my server in the `/custom_files_example/` directory, which sets the hostname, server image and admins.
+- `server/game/csgo/cfg/` — server and game-mode configuration.
+- `server/game/csgo/addons/counterstrikesharp/configs/` — CounterStrikeSharp admins, groups and plugin configuration.
+- `server/game/csgo/gamemodes_server.txt` and `server/game/csgo/subscribed_file_ids.txt` — shared map-group and Workshop subscription configuration when those files exist in the runtime tree.
 
-For example; if you want to add yourself as an admin, that file is located `/server/game/csgo/addons/counterstrikesharp/configs/admins.json`. So to make your tweak to it, you would copy that file to `/custom_files/addons/counterstrikesharp/configs/admins.json` and add yourself as an admin at the bottom. Then when the update scripts run, it will copy your custom file at `/custom_files/addons/counterstrikesharp/configs/admins.json` and overwrite the default mod file at `/server/game/csgo/addons/counterstrikesharp/configs/admins.json`.
+Changes made directly to tracked files become local Git changes. Commit them intentionally if they should be part of this private repo. `update.bat` refuses to pull when local or untracked changes exist, rather than silently overwriting your work.
 
-If you want to change the server name, or make any changes to any mod settings use the `/cfg/custom_MOD.cfg` as it executes at the end and can overwrite any setting. So if you wanted to change the server name for GunGame, you would copy `/server/game/csgo/cfg/custom_dm.cfg` to `/custom_files/cfg/custom_dm.cfg` and and write `hostname "shipREKT GunGame +Deathmatch +Turbo"` and any other settings you want and this file will overwrite `/server/game/csgo/cfg/custom_dm.cfg` each time the `gcp.sh`/`install.sh`/`win.bat` script is ran, and these settings will run at the end when you load the GunGame mod.
+### Per-instance overrides on Windows
 
-### Dynamically creates config files in plugin folder
+The Windows runner can apply optional `cfg/` and `addons/` overrides before it launches CS2. Set `CUSTOM_FOLDER` in `examples/run-template/instance.ini` to a directory containing these subfolders. For private settings, prefer an absolute path outside the repository, for example:
 
-If a plugin creates a config file in the plugins folder where the dll is (i.e.: `/server/game/csgo/addons/counterstrikesharp/plugins/disabled/Advertisement/advertisement.json`) it will be deleted when the server starts as the `addons` folder is deleted to make sure old plugins are removed if I removed them. You need to copy this file and your changes to your `/custom_files/` folder so it merges it back in. You would put the example file in `/custom_files/addons/counterstrikesharp/plugins/disabled/Advertisement/advertisement.json` and every time the server starts it will merge it back in and you will have your changes.
+```text
+D:\CS2-private\aim\
+├── cfg\
+│   └── custom_all.cfg
+└── addons\
+    └── counterstrikesharp\
+        └── configs\
+            └── admins.json
+```
 
-To generate this directory, you can run the `gcp.sh` script (if on Google Cloud), `install.sh` script on Linux once or on `win.bat` script on Windows where you extracted the mod zip and this is where you would put your custom modifications.
+The runner copies the override folder's `cfg/` into `server/game/csgo/cfg/` and its `addons/` into `server/game/csgo/addons/`. This is an additive/overwrite copy: it does not delete runtime files. Because the override is applied at startup, it can be used to keep one instance's hostname, admins, RCON-related config, plugin settings or game-mode configuration separate from the shared tracked files.
+
+For example, to add admins for one instance, copy the current `server/game/csgo/addons/counterstrikesharp/configs/admins.json` to:
+
+```text
+<CUSTOM_FOLDER>\addons\counterstrikesharp\configs\admins.json
+```
+
+Edit that private copy and restart the instance. For a shared admin list, edit the canonical runtime file and commit the change instead. A KUS example config may be helpful as a reference, but inspect it before using it because this unified branch's installed plugins and versions may differ.
+
+To change settings for one game mode, put a relevant override in `<CUSTOM_FOLDER>/cfg/` (for example `custom_dm.cfg`) and ensure the mode's config executes it. Files such as `gamemodes_server.txt` and `subscribed_file_ids.txt` are root-level files, not children of `cfg/` or `addons/`; the current runner does not overlay root-level files, so edit those at their canonical path and track the change.
+
+### Plugin-generated configuration files
+
+The current unified Windows runner no longer rebuilds the entire `addons/` tree on every start. A file created by a plugin is not automatically deleted by that runner. For a persistent, instance-specific override, put a same-path file under `<CUSTOM_FOLDER>/addons/`; for a shared setting, use the canonical configuration path. The add-on updater also protects `cfg/` and CounterStrikeSharp's `configs/` from incoming release archives.
+
+**Do not commit real secrets.** Keep `instance.ini`, API keys, Game Server Login Tokens, RCON passwords and database credentials out of tracked files.
 
 ## Creating an online server
 
-If you are hosting an online server, you need to create a Steam [Game Login Token](https://steamcommunity.com/dev/managegameservers), your server will not run online without this. Put this value in the `STEAM_ACCOUNT` environment variable.
+For a public server, create a Steam [Game Server Login Token](https://steamcommunity.com/dev/managegameservers) and store it in the private `STEAM_ACCOUNT` field of `examples/run-template/instance.ini`. The Windows runner passes that value to CS2 only when non-empty.
 
-You also need to create an [authorization key](http://steamcommunity.com/dev/apikey) which will allow your server to download maps from the workshop. Put this value in the `API_KEY` environment variable.
+Create a [Steam Web API key](https://steamcommunity.com/dev/apikey) and set `API_KEY` in the same private INI if the server needs to download Workshop content. Set `IP` to the reachable public address if the server needs an explicit advertised address; `BIND_IP=0.0.0.0` controls the local listen address.
 
-See all available [environment variables](#environment-variables).
-
-**You must connect to the server from the public IP, not the LAN IP even if you are on the same network. The script logs the public IP `Starting server on XXX.XXX.XXX.XXX:27015`**
+Allow the selected game port (default `27085` in the current example INI) through Windows Firewall and your router/cloud firewall. Use the same port when connecting from the internet. Keep the Game Server Login Token, API key and RCON password private.
 
 ## Creating a LAN server
 
-Set the environment variable `LAN` to `1`.
+For a LAN-only Windows instance, set `LAN=1` in `examples/run-template/instance.ini`. You can leave `STEAM_ACCOUNT` empty for a private LAN server unless your intended server registration setup requires otherwise.
 
-You also need to create an [authorization key](http://steamcommunity.com/dev/apikey) which will allow your server to download maps from the workshop. Put this value in the `API_KEY` environment variable.
+If the LAN server needs Workshop downloads, set `API_KEY` in the private INI. Ensure the host firewall allows the selected port from the local network.
 
-See all available [environment variables](#environment-variables).
+## Windows runner settings
 
-## Environment variables
+The active Windows runner reads `examples/run-template/instance.ini`, not environment variables and not `win.ini`. Copy `instance.example.ini` to `instance.ini`; the latter is excluded by Git.
 
-### Available via environment variable only
+| Setting | Example default | Purpose |
+| --- | --- | --- |
+| `SERVER_DIR` | `..\..\server` | Path to the SteamCMD game installation, relative to the template folder or absolute. |
+| `IP` | empty | Optional public address passed as `+net_public_adr`. |
+| `BIND_IP` | `0.0.0.0` | Local listen address. |
+| `CUSTOM_FOLDER` | `aim` | Optional folder whose `cfg/` and `addons/` are overlaid before launch; use a private external path for secrets and local configs. |
+| `PORT` | `27085` | Player connection port in the current example. |
+| `TICKRATE` | `128` | Requested tickrate in the example; use a value supported by the installed server and plugins. |
+| `MAXPLAYERS` | `64` | Maximum player count in the current example. |
+| `LAN` | `0` | `0` for public/internet mode; `1` for LAN-only mode. |
+| `STEAM_ACCOUNT` | empty | Game Server Login Token; required for normal public-server registration. |
+| `API_KEY` | empty | Optional Steam Web API key for Workshop operations. |
+| `SERVER_PASSWORD` | empty | Optional join password. |
+| `RCON_PASSWORD` | placeholder | Replace with a strong private value before exposing the server. |
+| `EXEC` | `aim.cfg` | Config file requested at launch. |
+| `MAPGROUP` | `mg_aim` | Map group requested at launch. |
+| `MAP` | `de_mirage` | Initial map requested at launch. |
+| `WORKSHOP_COLLECTION` | empty | Optional Workshop collection ID. |
 
-*On Windows set these in `win.ini`.*
-
-Key | Default value | What is it
---- | --- | ---
-`API_KEY` | `changeme` | To download maps from the workshop, your server needs access to the steam web api. To allow this you'll need an authorization key which you can generate [here](http://steamcommunity.com/dev/apikey)
-`IP` | `` | Not required. Allows the server IP to be set. Useful if a CS2 server needs to be bound to a specific IP address.
-`PORT` | `27015` | Server port
-`TICKRATE` | `128` | Server tickrate MM is 64, Faceit is 128
-`MAXPLAYERS` | `32` | Max player limit
-`CUSTOM_FOLDER` | `custom_files` | Folder of your own modifications to the mod that mirror the csgo/ structure and overwrite the mode files. More on that [here](#custom-files)
-`RCON_PASSWORD` | `changeme` | RCON password to control server from console also remotely configure
-`STEAM_ACCOUNT` | `` | To host a server online, you need to create a Steam [Game Login Token](https://steamcommunity.com/dev/managegameservers). Your server will not run online without this
-`SERVER_PASSWORD` | `` | If you want a password protected server
-`LAN` | `0` | If the server is a LAN only server
-`EXEC` | `on_boot.cfg` | Config file to run when server boots. If switching gamemode, it's recommended to do a delay see the example `on_boot.cfg` file
-`DUCK_DOMAIN` | `` | (Linux only) [Duck DNS](https://www.duckdns.org/) domain if you want to utalise the free service to get a domain for your server instead of IP
-`DUCK_TOKEN` | `` | (Linux only) [Duck DNS](https://www.duckdns.org/) access token to update domain when server boots
+`run.bat` / `run.vbs` only starts and supervises the server process and applies per-instance `cfg/` and `addons/` overrides. These scripts do not pull Git, update the game or fetch new add-on releases. Linux and Google Cloud environment-variable settings have not yet been migrated to the unified layout; the old KUS `gcp.sh` and `install.sh` examples are not active instructions for this branch.
 
 ## Playing workshop maps/collections
 
-To download maps from the workshop, your server needs access to the steam web api. To allow this you'll need an authorization key which you can generate [here](http://steamcommunity.com/dev/apikey) and set `API_KEY` to the key.
+To download maps from the Workshop, the server needs a Steam Web API key. Generate one [here](https://steamcommunity.com/dev/apikey) and put it in the private `API_KEY` field of `examples/run-template/instance.ini`. For a Workshop collection, set its ID in `WORKSHOP_COLLECTION`.
 
 The console command for hosting a workshop map is `host_workshop_map fileid` where `fileid` is the number that comes after `?id=` in the workshop URL for example: [https://steamcommunity.com/sharedfiles/filedetails/?id=2433686680](https://steamcommunity.com/sharedfiles/filedetails/?id=2433686680)
 
@@ -328,224 +315,37 @@ The console command for hosting a workshop collection is `host_workshop_collecti
 
 ## Setting maps for different game modes
 
-Copy the file `/server/game/csgo/gamemodes_server.txt` following the [custom files](#custom-files) steps (`/custom_files/gamemodes_server.txt`) and add the maps you want per gamemode. Most gamemodes fall under casual, but I have created unique groups for each mode so adding your own maps is easy by updating this one file.
+Add your maps by editing the tracked `server/game/csgo/gamemodes_server.txt` and selecting the relevant mode's map group. Most gamemodes fall under casual, but this distribution has unique groups so you can maintain each mode independently. The current Windows runner overlays only `cfg/` and `addons/`; it does not copy root-level files such as `gamemodes_server.txt`.
 
-It isn't required, but you should add the fileid into `/server/game/csgo/subscribed_file_ids.txt` following the [custom files](#custom-files) steps (`/custom_files/subscribed_file_ids.txt`) so the server keeps it up to date.
+For Workshop maps, add their file IDs to the canonical `server/game/csgo/subscribed_file_ids.txt` when that file is used by your setup. Commit shared changes to this private repo so they can be reproduced on a clean checkout.
 
 If you have python available, you can use our tool available to add a map to your custom game mode map groups: `python scripts/add-map.py <group_name> <map_name> [workshop_id] --custom`. Refer to `scripts/add-map.py` for more information.
-## Running on Google Cloud
 
-### Create firewall rule
+## Deployment status
 
-```
-gcloud compute firewall-rules create source \
---allow tcp:27015-27020,tcp:80,udp:27015-27020
-```
+The unified and CI-verified deployment path currently targets Windows. The original KUS setup guide covered Linux, Google Cloud, Docker and Kubernetes, but those entrypoints have not yet been migrated to the single-repository runtime. The active runtime path is still `server/game/csgo/`; the limitation is the platform bootstrap/update scripts, not the tracked plugin tree.
 
-### Create instance
+### Running on Google Cloud
 
-Ensure you have all the settings for your [environment variables](#environment-variables).
+Provisioning and managing a Google Cloud VM is still possible, but the integrated repository's GCP bootstrap has not yet been completed. Do not use the archived startup command that downloads `gcp.sh` from the public KUS repository: that script belongs to the former separate-repository workflow and may not operate on this private tree.
 
-If you have issues with the server not handling load, you may want to consider [compute-optimized](https://cloud.google.com/compute/vm-instance-pricing#compute-optimized_machine_types) machine `c4-standard-4`.
+When GCP support is migrated, this section will document the VM image, disk, firewall, metadata/secrets and game update handoff. For historical VM lifecycle commands, see [the archived KUS guide](docs/upstream/KUS-README.md#running-on-google-cloud); treat it as reference only.
 
-```
-gcloud beta compute instances create <instance-name> \
---maintenance-policy=TERMINATE \
---project=<project> \
---zone=australia-southeast1-c \
---machine-type=c4-standard-4 \
---network-tier=PREMIUM \
---metadata=RCON_PASSWORD=changeme,STEAM_ACCOUNT=changeme,API_KEY=changeme,DUCK_DOMAIN=changeme,DUCK_TOKEN=changeme,startup-script="echo \"Delaying for 30 seconds...\" && sleep 30 && cd / && /gcp.sh" \
---no-restart-on-failure \
---scopes=https://www.googleapis.com/auth/devstorage.read_only,https://www.googleapis.com/auth/compute.readonly,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/trace.append \
---tags=source \
---image-family=ubuntu-2404-lts-amd64 \
---image-project=ubuntu-os-cloud \
---boot-disk-size=100GB \
---boot-disk-type=hyperdisk-balanced \
---boot-disk-device-name=<instance-name>
-```
+### Running on Linux
 
-### SSH to server
+The unified Linux install/start/update workflow has not yet been completed and verified. The imported `install.sh`, `gcp.sh` and shell updater helpers still originate from the KUS workflow and should not be treated as the active install path for this branch.
 
-```
-gcloud compute ssh <instance-name> \
---zone=australia-southeast1-c
-```
+The canonical runtime directory remains `server/game/csgo/`. See [the archived Linux guide](docs/upstream/KUS-README.md#running-on-linux) for context only; do not run its raw-GitHub installer commands against this integrated checkout.
 
-### Install mod
+### Running in Docker
 
-```
-sudo su
-cd / && curl --silent --output "gcp.sh" "https://raw.githubusercontent.com/kus/cs2-modded-server/master/gcp.sh" && chmod +x gcp.sh && bash gcp.sh
-```
+The upstream Docker examples still assume the original KUS image and override mount structure. The Docker build, persistent `server/` storage and update lifecycle have not yet been migrated and verified for this repo, so the old Docker command examples are not presented as working commands here.
 
-If the installation has paused for a long time, restart the server and do it again.
+The historical KUS container notes remain in [the archived Docker guide](docs/upstream/KUS-README.md#running-in-docker). The unified Docker instructions will be added when the image entrypoint consumes this repository's canonical runtime tree directly.
 
-### Stop server
+### Running in Kubernetes
 
-```
-gcloud compute instances stop <instance-name> \
---zone australia-southeast1-c
-```
-
-### Start server
-
-```
-gcloud compute instances start <instance-name> \
---zone australia-southeast1-c
-```
-
-### Delete server
-
-```
-gcloud compute instances delete <instance-name> \
---zone australia-southeast1-c
-```
-
-### Push file to server from local machine
-
-For example a map:
-
-```
-On local:
-gcloud config set project <project>
-cd /path/to/folder
-gcloud compute scp de_kus.vpk root@<instance-name>:/home/steam/cs2/server/game/csgo/maps --zone australia-southeast1-c
-
-On server SSH:
-cd /home/steam/cs2/server/game/csgo/maps
-chown steam:steam de_kus.vpk
-chmod 644 de_kus.vpk
-```
-
-### Download from server
-
-`gcloud compute scp root@<instance-name>:/home/steam/cs2/gamecsgo/cfg/comp.cfg  ~/Desktop/`
-
-### Turn VM off at 3:30AM every day
-
-SSH into the VM
-
-Switch to root `sudo su`
-
-Check the timezone your server is running in `sudo hwclock --show`
-
-Open crontab file `nano /etc/crontab`
-
-Append to the end of the crontab file `30 3    * * *   root    shutdown -h now`
-
-Save `CTRL + X`
-
-## Running on Linux
-
-Make sure you have **60GB free space**.
-
-Ensure you have all the settings for your [environment variables](#environment-variables).
-
-- **If setting up internet server:**
-
-   Set environment variable `STEAM_ACCOUNT` to your [Game Server Login Token](https://steamcommunity.com/dev/managegameservers)
-
-   Make sure you [port forward](https://portforward.com/router.htm) on your router TCP: `27015` and UDP: `27015` & `27020` so players can connect from the internet.
-
-   **You must connect to the server from the public IP, not the LAN IP even if you are on the same network. The script logs the public IP `Starting server on XXX.XXX.XXX.XXX:27015`**
-
-- **If setting up LAN server:**
-
-   Set environment variable `LAN` to `1`
-
-```
-sudo su
-export RCON_PASSWORD="changeme"
-export API_KEY="changeme"
-export STEAM_ACCOUNT=""
-export SERVER_PASSWORD=""
-export PORT="27015"
-export TICKRATE="128"
-export MAXPLAYERS="32"
-cd / && curl --silent --output "install.sh" "https://raw.githubusercontent.com/kus/cs2-modded-server/master/install.sh" && chmod +x install.sh && bash install.sh
-```
-
-- **If running for the first time**
-
-To check everything is working correctly run the following commands in the server console:
-
-- `meta list` and you should see `CounterStrikeSharp` in the output
-- `css_plugins list` and you should see a few plugins in the output
-
-If you see content in both; everything is working.
-
-When you join the server you can [change game modes](#changing-game-modes).
-
-## Running in Docker
-
-Make sure Docker is installed and about 40 GB disk space is free.
-
-- **If setting up for internet server:**
-
-   Set 'STEAM_ACCOUNT' variable in '.env'-file in the root if the repository.
-   For workshop maps set 'API_KEY' in '.env'-file.
-
-   Or provide via -e to the run command
-
-It is also recommended to have a cron to reboot the container once a day, this will allow for the server to auto-update when new CS versions are released
-
-```bash
-docker run
-  --name='cs2'
-  -e 'API_KEY'='REPLACE_ME'
-  -p '27015:27015/tcp'
-  -p '27015:27015/udp'
-  -p '27020:27020/udp'
-  -v '/SOME/DIR/STORES_MAIN_INSTALL/':'/home/steam/cs2/':'rw'
-  -v '/SOME/DIR/STORES_CUSTOM_OVERRIDES':'/home/custom_files/':'rw'
-  'ghcr.io/kus/cs2-modded-server:latest' 
-```
-
-Note: if you don't mount `/home/steam/cs2/` it will download the game every launch
-Note: If you find issues between version upgrades your first step should be to blat `/SOME/DIR/STORES_MAIN_INSTALL/` so that it downloads completely fresh
-
-Or to build yourself
-
-You can either Download this repo and extract it to where you want your server (i.e. C:\Server\cs2-modded-server) or use git and clone the repo `git clone https://github.com/kus/cs2-modded-server.git` and run your server from inside of it. This way you can simply git pull updates.
-
-- **Build docker image:**
-
-   `docker build -t cs2-modded-server .`
-
-- **Run the server**
-
-   `docker compose up`
-
-## Running in Kubernetes
-
-You should have a Kubernetes distribution already running. To set up a K8s Cluster please refer to [RKE2 Quickstart](https://docs.rke2.io/install/quickstart)
-
-First create a namespace for your deployment with `kubectl create ns game-server`
-
-To securly pass .env vars to the container, *Kubernetes Secrets* are used. Make a file called `cs2-secret.yaml`. Your keys need to be base64 encoded. Simply `echo "my_key" | base64` in your bash shell and then put them in the data section of your Secret manifest.
-
-```
-apiVersion: v1
-kind: Secret
-metadata:
-  name: cs2-secret
-  namespace: game-server
-type: Opaque
-data:
-  STEAM_ACCOUNT: {your_steam_account_key_goes_here}
-  API_KEY: {your_api_key_goes_here}
-```
-
-Assuming you already have a `defaultStorageClass` and a `defaultLoadBalancerClass` you can apply the manifest with
-
-```kubectl apply -f manifest.yaml```
-
-Note: `custom_files` is mounted as a `hostPath` this wont work for multi-node setups. For this there are several solutions such as initContainer or Operators to automatically update the `custom_files` 
-
-Your service will receive an external IP and can be found with `kubectl get svc -n game-server`.
-
+Kubernetes deployment is not currently maintained for the unified distribution. The upstream manifest uses the previous container and `custom_files` layout; do not apply it directly to this branch. Consult [the archived Kubernetes notes](docs/upstream/KUS-README.md#running-in-kubernetes) for provenance only.
 
 ## Running on Windows
 
@@ -602,15 +402,15 @@ You can also start a specific game mode vote by typing `!comp`, `!wingman`, `!dm
 
 ### I want MatchZy to record demos automatically
 
-We have SourceTV defaultly disabled for the best compatability with the widest range of setups.
+SourceTV is disabled by default for compatibility with a wider range of setups. To enable it on the current Windows runner, create `custom_all.cfg` under `<CUSTOM_FOLDER>/cfg/` in your external per-instance override directory and add:
 
-If you want to enable SourceTV create this file using [custom files](#custom-files) steps (`/custom_files/cfg/custom_all.cfg`) and add `tv_enable 1` to it (you can look at other commands you can change [here](https://github.com/kus/cs2-modded-server/blob/master/server/game/csgo/cfg/server.cfg#L116)).
+```cfg
+tv_enable 1
+```
 
-`/custom_files/cfg/custom_all.cfg` is executed after the servers `server.cfg` is executed so you can make your changes and when you pull updates from here it won't overwrite your changes.
+The runner overlays that `cfg/` directory before launching the server. You can review the available server commands in the [KUS server.cfg reference](https://github.com/kus/cs2-modded-server/blob/master/server/game/csgo/cfg/server.cfg). For MatchZy demos, leave `tv_autorecord 0` because MatchZy manages recording start and stop.
 
-If you specifically want MatchZy to make the demos make sure you leave `tv_autorecord 0` as MatchZy automatically starts and stops the recordings.
-
-To check SourceTV is working on your server type `tv_status` from the server console. You can also try record a short demo with `tv_record <filename>` and stop with `tv_stoprecord`.
+Check SourceTV with `tv_status` from the server console. You can also test with `tv_record <filename>` and stop with `tv_stoprecord`.
 
 ### What maps are preconfigured with each mode?
 
@@ -742,23 +542,15 @@ To check SourceTV is working on your server type `tv_status` from the server con
 
 [Download SourceAdminTool](https://nightly.link/Drifter321/admintool/workflows/build/master) ([source](https://github.com/Drifter321/admintool)) for your OS (you can read about it [here](https://forums.alliedmods.net/showthread.php?t=289370)) and click `Servers > Add Servers` and put in the `<IP>:27015` and when you see the server show in the list, down the bottom left type in your RCON password and click `Login` and you should be able to execute commands from the bottom text box i.e. `exec dm.cfg`
 
-**You must connect to the server from the public IP if hosting an online server, not the LAN IP even if you are on the same network. The script logs the public IP `Starting server on XXX.XXX.XXX.XXX:27015`**
+**For a public server, connect to its reachable public IP and port. If autodetection or NAT is an issue, configure the advertised `IP` in the private Windows `instance.ini` and confirm that the router/cloud firewall forwards the selected port.**
 
-### Acessing admin menu
+### Accessing the admin menu
 
-Admins are managed by [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) using the [Admin Framework](https://docs.cssharp.dev/docs/admin-framework/defining-admins.html). You define admins and their flags and most plugins now utilise this framework.
+Admins are managed by CounterStrikeSharp's [Admin Framework](https://docs.cssharp.dev/docs/admin-framework/defining-admins.html). The canonical file is `server/game/csgo/addons/counterstrikesharp/configs/admins.json`.
 
-You must use the [custom files](#custom-files) to set your admins, as they will be overwritten when you update your server.
+For a per-instance admin list, copy the current file to `<CUSTOM_FOLDER>/addons/counterstrikesharp/configs/admins.json` in the external override folder and edit the private copy. For a shared admin list, edit the canonical tracked file and commit the change. The [KUS example admins.json](https://github.com/kus/cs2-modded-server/blob/master/custom_files_example/addons/counterstrikesharp/configs/admins.json) is a reference example only; review it before applying because the unified branch's plugin versions can differ.
 
-To see an example of my admins you can look at this file [/custom_files_example/addons/counterstrikesharp/configs/admins.json](https://github.com/kus/cs2-modded-server/blob/master/custom_files_example/addons/counterstrikesharp/configs/admins.json).
-
-If you don't want to define any new groups, you can copy this file [/custom_files_example/addons/counterstrikesharp/configs/admins.json](https://github.com/kus/cs2-modded-server/blob/master/custom_files_example/addons/counterstrikesharp/configs/admins.json) into `/custom_files/addons/counterstrikesharp/configs/admins.json` and set your own admins and this will overwrite the default admins from this mod.
-
-Ensure your `.json` files are valid JSON by using [this website](https://jsonformatter.org/json-viewer).
-
-If you have added the admins correctly you should see `Loaded admin data with X admins.` in the server logs when it starts.
-
-If you modify the server whilst the server is on you can run `css_admins_reload` and `css_groups_reload` to reload the admins and see the admins with `css_admins_list` and `css_groups_list`.
+Ensure JSON files are valid. On startup, look for the admin-loading message in the server log. If you modify admin settings while the server is running, use `css_admins_reload` and `css_groups_reload`; inspect the result with `css_admins_list` and `css_groups_list`.
 
 ### Use number keys to operate menu instead of typing !1 in chat
 
@@ -814,7 +606,7 @@ The current work arounds are:
 
 If it still doesn't work, make sure you try connect from CS2 outside of a game via console:
 
-**You must connect to the server from the public IP if hosting an online server, not the LAN IP even if you are on the same network. The script logs the public IP `Starting server on XXX.XXX.XXX.XXX:27015`**
+**For a public server, connect to the reachable public IP and port. Configure the advertised `IP` in `instance.ini` if needed, and verify firewall/NAT forwarding.**
 
 ```bash
 rcon_address ip:port
@@ -846,45 +638,36 @@ Windows:
 
 ### How do I add more bots?
 
-By default bots are enabled in deathmatch, gungame, gungame ffa, retakes, scoutsknives and wingman.
+By default, bots are enabled in deathmatch, gungame, gungame FFA, retakes, scoutsknives and wingman. The default behavior adds one bot when only one human is present and removes the need for bots when two or more humans join.
 
-The default is set to add 1 bot if only 1 human is in the server, and then if there is 2 or more humans there will be no bots.
+To override bot settings for one Windows instance, put a customized `custom_bots.cfg` in `<CUSTOM_FOLDER>/cfg/`; the runner overlays it into the runtime config tree before launch. The upstream starting point is [custom_bots.cfg](https://github.com/kus/cs2-modded-server/blob/master/server/game/csgo/cfg/custom_bots.cfg).
 
-You can overwrite the settings for the bots by creating a "[custom file](#custom-files)" for this file [custom_bots.cfg](https://github.com/kus/cs2-modded-server/blob/master/server/game/csgo/cfg/custom_bots.cfg).
-
-If you copy [custom_bots.cfg](https://github.com/kus/cs2-modded-server/blob/master/server/game/csgo/cfg/custom_bots.cfg) and put it in the `custom_files/cfg/` directory (`/home/steam/cs2/custom_files/cfg/` on default Linux setup) and you can modify it and change say `bot_quota` to `10` if you want 10 players at all times. When the server starts (on Linux and Windows) it will merge this file into the game cfg and it will execute every time `bots.cfg` executes.
-
-You can also just login to RCON `rcon_password yourpassword` and use `rcon bot_add_ct` and `rcon bot_add_t`.
-
-If you want to remove bots you use `rcon bot_kick`.
+You can also manage bots through RCON with `bot_add_ct`, `bot_add_t` and `bot_kick`.
 
 ### Why can't I set the server to start automatically with a mod loaded
 
 Because the way the server is setup with several mods it's not possible. You can't use `+exec` in the server launcher as that executes to quick before SourceMod is loaded. You can monitor the server once it's started (via RCON) and then load a mod i.e. `exec dm.cfg`.
 
-### Manually updating Metamod:Source and CounterStrikeSharp
+### Updating Metamod:Source and CounterStrikeSharp
 
-If you are on a unix based system, you can run `scripts/check-updates.sh` which will check the current versions of each plugin installed in this repo vs what the latest is, this makes it easier than going through each one manually.
+CounterStrikeSharp is managed by `DEPENDENCIES.json` and the Windows `addons-update.bat` workflow. Preview and update it with:
 
-Go to the Releases page for [Metamod:Source](http://www.sourcemm.net/downloads.php?branch=master) and [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) and download the latest. You need to merge the `addons` folder from the zips into the `/server/game/csgo/addons` of this repo. This is easy to do with unix based systems with rsync:
+```bat
+addons-update.bat -DryRun -Only CounterStrikeSharp
+addons-update.bat -Only CounterStrikeSharp
+```
 
-First open terminal and `cd` into the folder where you unzipped the zips i.e.: `cd ~/Downloads` then update the command below with the full path to the repo and run it:
+The manifest requires the Windows **with-runtime** archive and CI checks that .NET runtime files are present. Do not manually copy a no-runtime CSS archive over this runtime tree.
 
-`rsync -rhavz --exclude "._*" --exclude ".DS_Store" --partial --progress --stats ./addons/ /Users/kus/dev/personal/counter-strike/cs2-modded-server/game/csgo/addons/`
-
-If you are on Windows, from the [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp/releases) with runtime zip, you need to copy the `api`,`bin`, `dotnet` folders from the `/addons/counterstrikesharp` folder to `/server/game/csgo/addons/windows/counterstrikesharp` in this repo.
+Metamod:Source is a KUS base component, not a Larnz release-manifest entry. Keep its runtime files in the tracked repository and update them only through a reviewed integration change; do not manually overlay files into a separate `game/csgo/` staging directory. The legacy `scripts/check-updates.sh` and upstream Bash updater are not the active Windows update workflow.
 
 ### Quake Sounds
 
-This requires Multi Addon Manager to be [enabled](#i-want-to-permanently-enable-multi-addon-manager).
+Quake Sounds is disabled by default and can be toggled by players with `!qs` when enabled. To enable it for a Windows instance:
 
-Quake Sounds is disabled by default, when it is enabled, players can disable it by typing `!qs` in chat.
-
-If you want to use it on your server, you need to modify two files using the [custom files](#custom-files) method.
-
-Copy `server/game/csgo/cfg/multiaddonmanager/multiaddonmanager.cfg` to `/custom_files/cfg/multiaddonmanager/multiaddonmanager.cfg` and add `3461824328` to `mm_extra_addons`.
-
-Copy `server/game/csgo/cfg/settings/quake_sounds.cfg` to `/custom_files/cfg/settings/quake_sounds.cfg` uncomment this line `// css_plugins load "plugins/disabled/QuakeSounds/QuakeSounds.dll"`.
+1. In the external override folder, create or copy `<CUSTOM_FOLDER>/cfg/multiaddonmanager/multiaddonmanager.cfg` and add Workshop ID `3461824328` to `mm_extra_addons`.
+2. Put `<CUSTOM_FOLDER>/cfg/settings/quake_sounds.cfg` in place and uncomment the `css_plugins load "plugins/disabled/QuakeSounds/QuakeSounds.dll"` line.
+3. Ensure MultiAddonManager is enabled as described below, then restart that instance.
 
 ### Skin changer
 
@@ -912,77 +695,67 @@ On the server type `!ws` and it should update your skins to what you have set.
 > [!CAUTION]  
 > Your server can be banned by Valve for using this plugin (see their [server guidelines](https://blog.counter-strike.net/index.php/server_guidelines)). Use at your own risk.
 
-If you **DO NOT** want to use this plugin; change `FollowCS2ServerGuidelines` to `true` in `addons/counterstrikesharp/configs/core.json`. It is recommended to do this via [custom files](#custom-files).
+If you **DO NOT** want to use this plugin; change `FollowCS2ServerGuidelines` to `true` in `addons/counterstrikesharp/configs/core.json`. It is recommended to do this via [per-instance overrides](#configuration-and-per-instance-overrides).
 
 ### I want to permanently enable Multi Addon Manager
 
-Utilising [custom files](#custom-files), copy:
+The KUS runtime includes MultiAddonManager, but its Metamod auto-load entry is optional. To enable it for one Windows instance, copy:
 
-`server/game/csgo/addons/multiaddonmanager/multiaddonmanager.vdf` to `/custom_files/addons/metamod/multiaddonmanager.vdf`
+```text
+server/game/csgo/addons/multiaddonmanager/multiaddonmanager.vdf
+```
 
-This will enable [MultiAddonManager](https://github.com/Source2ZE/MultiAddonManager) on your server when it boots.
+to:
 
-To check type `meta list` in console and you should see `MultiAddonManager` in the list of loaded plugins.
+```text
+<CUSTOM_FOLDER>/addons/metamod/multiaddonmanager.vdf
+```
+
+The runner overlays that file at the Metamod configuration path on startup. To check whether it loaded, run `meta list` in the server console and look for MultiAddonManager.
 
 ### Model changer
 
-This requires Multi Addon Manager to be [enabled](#i-want-to-permanently-enable-multi-addon-manager).
+Custom player models can be enabled in `!settings` under the custom player-model option. You also need a Workshop addon containing the model files; the KUS guide links [one example Workshop addon](https://steamcommunity.com/sharedfiles/filedetails/?id=3163629484).
 
-You have the abililty to have custom player models. You can turn it on va `!settings` > `Enable` > `Custom Player Models` and it will change the map to de_dust2 and the models will stay on for the future maps/modes unless turned off via `!settings` > `Disable` > `Custom Player Models`.
+Add the Workshop ID to the shared `server/game/csgo/cfg/multiaddonmanager/multiaddonmanager.cfg` or a per-instance override at `<CUSTOM_FOLDER>/cfg/multiaddonmanager/multiaddonmanager.cfg`. Configure model entries in `server/game/csgo/addons/counterstrikesharp/configs/plugins/PlayerModelChanger/PlayerModelChanger.json`, or create the same relative path below `<CUSTOM_FOLDER>/addons/` for a per-instance override.
 
-It requires that you have a Workshop Addon with the models, for my server I just use [this one](https://steamcommunity.com/sharedfiles/filedetails/?id=3163629484) which has over 200 models.
+To inspect assets in a Workshop addon, subscribe to it in the CS2 client and use [Source 2 Viewer](https://valveresourceformat.github.io/) to browse the downloaded content.
 
-You need to have the Addon ID in your `cfg/multiaddonmanager/multiaddonmanager.cfg` i.e. `mm_extra_addons     "3461824328,3163629484"`.
+### I run a Surf/KZ/Bhop server and want MovementUnlocker and CS2Fixes-RampbugFix permanently enabled
 
-Then you need to define the models from the Workshop Addon in `addons\counterstrikesharp\configs\plugins\PlayerModelChanger\PlayerModelChanger.json`, I have some in there that I use if you want more you will need to add them yourself.
+The runtime tree includes Windows/Linux payloads for [MovementUnlocker](https://github.com/Source2ZE/MovementUnlocker) and [CS2Fixes-RampbugFix](https://github.com/Interesting-exe/CS2Fixes-RampbugFix). The corresponding Metamod VDF files are under `server/game/csgo/addons/surf/`.
 
-The easiest way to see what is in a Workshop Addon is Subscribe to it and wait for it to download (it will download to `C:\Program Files (x86)\Steam\steamapps\workshop\content\730\<workshop-id>\`), then download and open [Source 2 Viewer](https://valveresourceformat.github.io/) and browse to Counter-Strike 2 > the Workshop Addon and you can see the files and paths in it.
+For one Windows instance, copy the files from `server/game/csgo/addons/surf/windows/addons/metamod/` to `<CUSTOM_FOLDER>/addons/metamod/`. Confirm the exact filenames in the current tree, restart the server, and check `meta list` for the loaded plugins.
 
-### I run a Surf/KZ/Bhop server and want [MovementUnlocker](https://github.com/Source2ZE/MovementUnlocker) and [CS2Fixes-RampbugFix](https://github.com/Interesting-exe/CS2Fixes-RampbugFix) permanently on
-
-Based on your OS; copy:
-
-`server/game/csgo/addons/surf/<linux|windows>/addons/metamod/cs2fixes-rampbugfix.vdf` to `/custom_files/addons/metamod/cs2fixes-rampbugfix.vdf`
-`server/game/csgo/addons/surf/<linux|windows>/addons/metamod/MovementUnlocker.vdf` to `/custom_files/addons/metamod/MovementUnlocker.vdf`
-
-This will enable [MovementUnlocker](https://github.com/Source2ZE/MovementUnlocker) and [CS2Fixes-RampbugFix](https://github.com/Interesting-exe/CS2Fixes-RampbugFix) on your server when it boots.
-
-To check type `meta list` in console and you should see `Movement Unlocker` and `Rampbugfix` in the list of loaded plugins.
-
-If you only want to turn it on ad hoc then in chat use the command `!settings` > `Enable` > `Surf` and it will load them and change the map to de_dust to avoid the server crashing, then change the map back to what you want with `!maps`.
+For an ad-hoc mode, the KUS game-mode menu can enable the surf settings using `!settings`; follow with `!maps` to select the desired map.
 
 ### Setup MySQL database
 
-Setting up a MySQL Database is outside the scope of this repo.
+Database hosting is outside the scope of this repository. Plugin configuration files are generally under `server/game/csgo/addons/counterstrikesharp/configs/plugins/`.
 
-It is recommended to use 5.2 or higher.
+For example, K4-Arenas configuration is typically at `server/game/csgo/addons/counterstrikesharp/configs/plugins/K4-Arenas/K4-Arenas.json`. For a per-instance database connection, place your private version at `<CUSTOM_FOLDER>/addons/counterstrikesharp/configs/plugins/K4-Arenas/K4-Arenas.json`; for a shared setting, edit the canonical file. If the real config does not exist, check for the plugin's `.example` template before creating one.
 
-You can set one up yourself or use a hosted one (there are also some free options such as [filess.io](https://filess.io/#DBMS) [aiven.io](https://aiven.io/pricing?product=mysql) but reliability isn't guaranteed).
-
-Once you have the connection details; the config files are generally located in `/server/game/csgo/addons/counterstrikesharp/configs/plugins/` which you would need to update via [custom files](#custom-files).
-
-For this example; I'll use K4-Arenas. The config is located at `/server/game/csgo/addons/counterstrikesharp/configs/plugins/K4-Arenas/K4-Arenas.json` which you would put in `/custom_files/addons/counterstrikesharp/configs/plugins/K4-Arenas/K4-Arenas.json` so it is not overwritten/deleted and open the file `K4-Arenas.json` and add your database connection details to `"database-settings"`.
-
-> [!TIP]
-> If `K4-Arenas.json` does not exist, copy `K4-Arenas.json.example` and remove `.example` from the name and use that.
-
-Restart your server.
+Never commit database passwords, connection strings or other credentials.
 
 ### Enable advertisements
 
-If you want to enable a whitelist on your server load the plugin by putting this `css_plugins load "plugins/disabled/Advertisement/Advertisement.dll"` in one of your `.cfg` files.
+The Advertisement plugin is disabled by default. To load it, add this command to the relevant mode config or to a per-instance `<CUSTOM_FOLDER>/cfg/custom_all.cfg`:
 
-If you want it to load on every mod on your server, you can put it in your `/custom_files/cfg/custom_all.cfg` file.
+```cfg
+css_plugins load "plugins/disabled/Advertisement/Advertisement.dll"
+```
 
-The config file is located at `/server/game/csgo/addons/counterstrikesharp/plugins/disabled/Advertisement/advertisement.json` which you would put in `/custom_files/addons/counterstrikesharp/plugins/disabled/Advertisement/advertisement.json` so it is not overwritten/deleted.
+Its settings file is under `server/game/csgo/addons/counterstrikesharp/plugins/disabled/Advertisement/advertisement.json`. For a per-instance override, place your file at the same relative path below `<CUSTOM_FOLDER>/addons/`.
 
 ### Enable Whitelist so only a list of people can play
 
-If you want to enable a whitelist on your server load the plugin by putting this `css_plugins load "plugins/disabled/WhiteList/WhiteList.dll"` in one of your `.cfg` files.
+The Whitelist plugin is disabled by default. To load it, add this command to the relevant mode config or a per-instance `<CUSTOM_FOLDER>/cfg/custom_all.cfg`:
 
-If you want it to load on every mod on your server, you can put it in your `/custom_files/cfg/custom_all.cfg` file.
+```cfg
+css_plugins load "plugins/disabled/WhiteList/WhiteList.dll"
+```
 
-The whitelist file is located at `/server/game/csgo/addons/counterstrikesharp/plugins/disabled/WhiteList/whitelist.txt` which you would put in `/custom_files/addons/counterstrikesharp/plugins/disabled/WhiteList/whitelist.txt` so it is not overwritten.
+Its settings file is `server/game/csgo/addons/counterstrikesharp/plugins/disabled/WhiteList/whitelist.txt`. For a per-instance override, place your private file at the same relative path below `<CUSTOM_FOLDER>/addons/`.
 
 ### Failed to open libtier0.so
 
