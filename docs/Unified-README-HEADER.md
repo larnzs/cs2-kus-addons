@@ -2,7 +2,7 @@
 
 A private, single-repository Counter-Strike 2 dedicated-server distribution. It combines the KUS server setup, its bundled plugins and dependency files with the Larnz-managed add-ons and configuration layout.
 
-**The repository follows KUS's staged payload model.** game/csgo/ is the tracked source payload; server/ is the local Windows SteamCMD install ignored by Git. Windows deploys the source payload into server/game/csgo/ and flattens game/csgo/addons/windows/ only at deployment time.
+**The repository follows KUS's staged payload model.** `game/csgo/` is the tracked source payload; `server/` is the local Windows SteamCMD install ignored by Git. Windows deploys the payload into `server/game/csgo/` and flattens `game/csgo/addons/windows/` only at deployment time.
 
 The full original Larnz guide is preserved at [docs/Larnz-Addons-README.md](docs/Larnz-Addons-README.md). The complete KUS guide and its tables are included below for reference. When an older upstream section describes the old staging/copy workflow, use the unified installation commands in this introduction instead.
 
@@ -10,9 +10,9 @@ The full original Larnz guide is preserved at [docs/Larnz-Addons-README.md](docs
 
 | Path | Purpose |
 | --- | --- |
-| server/ | Canonical SteamCMD installation root. The large downloaded game binaries remain local and are not committed. |
-| game/csgo/addons/ | KUS and Larnz plugin payloads in their final runtime locations. |
-| game/csgo/cfg/ | Runtime configuration tree. Existing Larnz settings are preserved during KUS imports. |
+| `server/` | Local SteamCMD installation root; downloaded game binaries remain local and are not committed. |
+| `game/csgo/addons/` | Tracked KUS and Larnz plugin payload source. |
+| `game/csgo/cfg/` | Tracked shared configuration source, deployed into the installed runtime. |
 | DEPENDENCIES.json | Larnz add-on updater manifest. |
 | scripts/update/ | Upstream KUS update helpers, retained and path-normalized for the unified layout. |
 | examples/run-template/ | Reusable Windows runner and VBS supervisor template. |
@@ -23,10 +23,10 @@ The KUS root-level custom_files/ and custom_files_example/ trees are not importe
 ## Windows installation and operation
 
 1. Clone this private repository to the server machine.
-2. Run install.bat. It downloads SteamCMD if needed, installs CS2 into server/ only when the required game files are missing, and runs win.bat to validate the installation and ensure the Metamod entry is present.
+2. Run `install.bat`. It downloads SteamCMD if needed and runs KUS-style `app_update 730` against `server/`, then calls `win.bat` to deploy `game/csgo/`, patch installed `gameinfo.gi`, and verify the runtime. It does not start the server.
 3. In examples/run-template/, copy instance.example.ini to instance.ini and edit the instance settings and secrets. Then launch run.vbs.
 
-win.bat does not copy or delete the addons/ directory, does not merge a second repository and does not run SteamCMD. update.bat only pulls this unified Git repository and validates the server. Neither script updates the CS2 game on an ordinary server restart.
+`win.bat` deploys tracked `game/csgo/` to `server/game/csgo/` and flattens the Windows overlay; it does not run SteamCMD or start CS2. `update.bat` pulls the private repository and redeploys the payload. Regular server starts do not run an updater.
 
 To refresh Larnz-managed add-ons from the upstream releases, use addons-update.bat -DryRun to inspect the proposed changes, then run addons-update.bat when ready. This is separate from repository pulls and server restarts.
 

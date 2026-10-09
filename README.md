@@ -2,7 +2,7 @@
 
 A private, single-repository Counter-Strike 2 dedicated-server distribution. It combines the KUS server setup, its bundled plugins and dependency files with the Larnz-managed add-ons and configuration layout.
 
-**The repository follows KUS's staged payload model.** game/csgo/ is the tracked source payload; server/ is the local Windows SteamCMD install and is ignored by Git. win.bat deploys the source payload into server/game/csgo/, flattens game/csgo/addons/windows/ on Windows, patches gameinfo.gi and verifies deployed files. Linux uses only the shared/base payload.
+**The repository follows KUS's staged payload model.** `game/csgo/` is the tracked source payload; `server/` is the local Windows SteamCMD installation and is ignored by Git. `win.bat` deploys the tracked payload into `server/game/csgo/`, flattens `game/csgo/addons/windows/` on Windows, patches the installed `gameinfo.gi`, and verifies the deployed files. Linux and Docker now use the staged source layout but have not been live-tested.
 
 This README combines Larnz's manifest-managed add-ons with KUS's base plugins, game modes, configuration guidance, workshop-map catalog and troubleshooting notes. Historical source documents remain under `docs/upstream/`; where an archived guide differs from this file, the unified instructions here take precedence. The old dual-repository workflow in `docs/Larnz-Addons-README.md` is historical, not an active setup guide.
 
@@ -10,9 +10,9 @@ This README combines Larnz's manifest-managed add-ons with KUS's base plugins, g
 
 | Path | Purpose |
 | --- | --- |
-| server/ | Local Windows SteamCMD installation root; ignored by Git. |
-| game/csgo/addons/ | Tracked KUS and Larnz payloads, including platform-neutral/Linux base files. |
-| game/csgo/cfg/ | Tracked shared configuration source, deployed into the runtime. |
+| `server/` | Local Windows SteamCMD installation root; ignored by Git. |
+| `game/csgo/addons/` | Tracked KUS and Larnz payload source, including platform-neutral/Linux files and the Windows overlay. |
+| `game/csgo/cfg/` | Tracked shared configuration source, deployed into the installed runtime. |
 | DEPENDENCIES.json | Larnz add-on updater manifest. |
 | scripts/update/ | Imported upstream KUS helpers; treat as legacy until the Linux updater is migrated. |
 | examples/run-template/ | Reusable Windows runner and VBS supervisor template. |
@@ -23,13 +23,13 @@ The upstream `custom_files/` and `custom_files_example/` trees are intentionally
 ## Windows installation and operation
 
 1. Clone this private repository to the Windows server machine with GitHub access.
-2. Run `install.bat`. It downloads SteamCMD if needed, then always runs `app_update 730 validate` against `server/`. This installs a missing game and checks, updates, or repairs an existing/copied game tree as needed. Validation can take time. It then calls `win.bat` to patch and verify the runtime. It does not start the server.
+2. Run `install.bat`. It downloads SteamCMD if needed and runs the KUS-style `app_update 730` command against `server/`, even when game files already exist. It then calls `win.bat` to deploy the tracked payload, patch the installed `gameinfo.gi`, and verify the runtime. It does not start the server; SteamCMD's optional `validate` flag is not used.
 3. Copy `examples/run-template/instance.example.ini` to `examples/run-template/instance.ini`, set the instance options and secrets, then start `run.vbs` (hidden) or `run.bat` (visible console).
 
 **Windows command responsibilities are intentionally separate, except that setup/repair also checks the game:**
 
-- `install.bat` downloads SteamCMD if needed and always runs `app_update 730 validate`, including when game files already exist. It can update or repair an existing/copied game tree before preparing the runtime. It does not start the server.
-- `win.bat` patches `gameinfo.gi` idempotently and verifies the managed files. It does not pull Git, run SteamCMD, copy a staging tree, or launch the server.
+- `install.bat` downloads SteamCMD if needed and runs `app_update 730` in `server/` on every invocation. It omits the optional `validate` flag and does not start the server.
+- `win.bat` stages `game/csgo/`, overlays `game/csgo/addons/windows/` into `server/game/csgo/`, patches the installed `gameinfo.gi` idempotently, and verifies deployed files. It does not pull Git, run SteamCMD, or launch CS2.
 - `update.bat` only performs a fast-forward-only Git pull and then validates the installation. It refuses local/untracked changes.
 - `game-update.bat` explicitly updates the CS2 game with SteamCMD. Stop every CS2 instance first.
 - `addons-update.bat -DryRun` previews Larnz-managed release updates; `addons-update.bat` applies them. This updater preserves fixed config paths and commits each successful add-on update.
@@ -201,13 +201,13 @@ There are three independent update operations. Keep them separate so a routine G
 | --- | --- | --- |
 | Update tracked KUS + Larnz files | `update.bat` | Fast-forward-only pull of this private repository, followed by validation. It refuses a dirty working tree. |
 | Update the CS2 game | `game-update.bat` | Runs SteamCMD for app 730. Stop all CS2 instances first. |
-| Update Larnz-managed add-ons | `addons-update.bat -DryRun`, then `addons-update.bat` | Resolves release assets from `DEPENDENCIES.json`, maps files into `server/game/csgo/`, verifies required paths and commits successful add-on updates. |
+| Update Larnz-managed add-ons | `addons-update.bat -DryRun`, then `addons-update.bat` | Resolves release assets from `DEPENDENCIES.json`, maps files into tracked `game/csgo/` (Windows CounterStrikeSharp is kept under `game/csgo/addons/windows/`), verifies required paths and commits successful updates. |
 
 Use `addons-inspect.bat -Only CounterStrikeSharp` to inspect an upstream release archive without installing it. The CounterStrikeSharp rule in `DEPENDENCIES.json` requires `counterstrikesharp-with-runtime-windows-{version}.zip`; the updater refuses a no-runtime asset. Its post-install verification checks both the API/plugin files and versioned .NET runtime files.
 
 KUS base plugins that are not listed as automated add-ons remain tracked at their final runtime paths and arrive through Git updates. Do not run the old KUS Bash release updater on Windows or treat it as the authority for the Larnz manifest. Its historical notes remain available in `docs/upstream/KUS-README.md`.
 
-Note: `install.bat` also invokes SteamCMD with validation even when CS2 appears to be installed. Use `game-update.bat` when you intend to run the dedicated manual game-update workflow, and use `update.bat` for Git changes only.
+Note: `install.bat` invokes KUS-style `app_update 730` even when CS2 appears to be installed; it does not pass `validate`. Use `game-update.bat` for the dedicated game-update workflow and `update.bat` for Git-only changes.
 
 A normal server start does not run Git, SteamCMD, or the add-on release updater. Stop the supervisor and server before changing runtime files.
 
@@ -251,9 +251,9 @@ D:\CS2-private\aim\
             └── admins.json
 ```
 
-The runner copies the override folder's `cfg/` into `game/csgo/cfg/` and its `addons/` into `server/game/csgo/addons/`. This is an additive/overwrite copy: it does not delete runtime files. Because the override is applied at startup, it can be used to keep one instance's hostname, admins, RCON-related config, plugin settings or game-mode configuration separate from the shared tracked files.
+The runner copies the override folder's `cfg/` and `addons/` into the installed runtime under `server/game/csgo/`; it does not rewrite the tracked payload source.
 
-For example, to add admins for one instance, copy the current `game/csgo/addons/counterstrikesharp/configs/admins.json` to:
+For example, to add admins for one instance, copy the deployed file `server/game/csgo/addons/counterstrikesharp/configs/admins.json` to:
 
 ```text
 <CUSTOM_FOLDER>\addons\counterstrikesharp\configs\admins.json
@@ -261,7 +261,7 @@ For example, to add admins for one instance, copy the current `game/csgo/addons/
 
 Edit that private copy and restart the instance. For a shared admin list, edit the canonical runtime file and commit the change instead. A KUS example config may be helpful as a reference, but inspect it before using it because this unified branch's installed plugins and versions may differ.
 
-To change settings for one game mode, put a relevant override in `<CUSTOM_FOLDER>/cfg/` (for example `custom_dm.cfg`) and ensure the mode's config executes it. Files such as `gamemodes_server.txt` and `subscribed_file_ids.txt` are root-level files, not children of `cfg/` or `addons/`; the current runner does not overlay root-level files, so edit those at their canonical path and track the change.
+To change settings for one game mode, put a relevant override in `<CUSTOM_FOLDER>/cfg/` (for example `custom_dm.cfg`) and ensure the mode's config executes it. Root-level files such as `gamemodes_server.txt` are deployed from the tracked `game/csgo/` payload by `win.bat`; the per-instance runner does not overlay them.
 
 ### Plugin-generated configuration files
 
@@ -322,27 +322,27 @@ Add your maps by editing the tracked `game/csgo/gamemodes_server.txt` and select
 
 For Workshop maps, add their file IDs to the canonical `game/csgo/subscribed_file_ids.txt` when that file is used by your setup. Commit shared changes to this private repo so they can be reproduced on a clean checkout.
 
-If you have python available, you can use our tool available to add a map to your custom game mode map groups: `python scripts/add-map.py <group_name> <map_name> [workshop_id] --custom`. Refer to `scripts/add-map.py` for more information.
+Add a map to the tracked game mode payload with `python scripts/add-map.py <group_name> <map_name> [workshop_id]`.
 
 ## Deployment status
 
-The unified and CI-verified deployment path currently targets Windows. The original KUS setup guide covered Linux, Google Cloud, Docker and Kubernetes, but those entrypoints have not yet been migrated to the single-repository runtime. The active runtime path is still `server/game/csgo/`; the limitation is the platform bootstrap/update scripts, not the tracked plugin tree.
+The Windows deployment path is CI-checked. The local Linux installer and Docker entrypoints have been aligned to KUS's tracked `game/csgo/` payload model, but neither has been live-tested. Google Cloud still needs an end-to-end VM/metadata check; Kubernetes remains unmaintained.
 
 ### Running on Google Cloud
 
-Provisioning and managing a Google Cloud VM is still possible, but the integrated repository's GCP bootstrap has not yet been completed. Do not use the archived startup command that downloads `gcp.sh` from the public KUS repository: that script belongs to the former separate-repository workflow and may not operate on this private tree.
+`gcp.sh` now runs the local `install.sh` from this private checkout instead of fetching the public KUS installer. The full VM provisioning, firewall, disk, metadata, and secrets lifecycle still needs an end-to-end test. See [the archived KUS guide](docs/upstream/KUS-README.md#running-on-google-cloud) for historical context.
 
 When GCP support is migrated, this section will document the VM image, disk, firewall, metadata/secrets and game update handoff. For historical VM lifecycle commands, see [the archived KUS guide](docs/upstream/KUS-README.md#running-on-google-cloud); treat it as reference only.
 
 ### Running on Linux
 
-The unified Linux install/start/update workflow has not yet been completed and verified. The imported `install.sh`, `gcp.sh` and shell updater helpers still originate from the KUS workflow and should not be treated as the active install path for this branch.
+The local `install.sh` and `start.sh` now consume the tracked `game/csgo/` payload and use the SteamCMD installation's `<install-root>/game/csgo/` runtime. They are aligned to KUS's layout but have not been tested on a live Linux host. Run only scripts from this private checkout, not archived commands that download public KUS scripts over them.
 
-The canonical runtime directory remains `server/game/csgo/`. See [the archived Linux guide](docs/upstream/KUS-README.md#running-on-linux) for context only; do not run its raw-GitHub installer commands against this integrated checkout.
+The tracked source payload is `game/csgo/`; the actual Linux runtime is `<install-root>/game/csgo/`. See [the archived Linux guide](docs/upstream/KUS-README.md#running-on-linux) for historical context.
 
 ### Running in Docker
 
-The upstream Docker examples still assume the original KUS image and override mount structure. The Docker build, persistent `server/` storage and update lifecycle have not yet been migrated and verified for this repo, so the old Docker command examples are not presented as working commands here.
+`Dockerfile`, `install_docker.sh`, and `docker-compose.yml` now use the tracked `game/csgo/` payload and keep the installed CS2 game in the persistent SteamCMD volume. This follows KUS's staged layout, but the container has not been live-tested. See [the archived Docker guide](docs/upstream/KUS-README.md#running-in-docker) for historical context.
 
 The historical KUS container notes remain in [the archived Docker guide](docs/upstream/KUS-README.md#running-in-docker). The unified Docker instructions will be added when the image entrypoint consumes this repository's canonical runtime tree directly.
 
@@ -362,7 +362,7 @@ cd cs2-kus-addons
 install.bat
 ```
 
-`install.bat` downloads SteamCMD if needed and always runs `app_update 730 validate` in `server/\`. It installs missing files and checks, updates, or repairs existing/copied game files when needed, then calls `win.bat` to patch `gameinfo.gi` and verify the runtime. Validation may take time. It does not start the server.
+`install.bat` downloads SteamCMD if needed and runs KUS-style `app_update 730` in `server/`, then calls `win.bat` to deploy `game/csgo/`, patch the installed `gameinfo.gi`, and verify the runtime. It does not start the server or pass SteamCMD's optional `validate` flag.
 
 ### 2. Configure and run an instance
 
@@ -374,15 +374,15 @@ Launch `examples/run-template/run.vbs` for hidden operation or `run.bat` for a v
 
 | Command | Responsibility |
 | --- | --- |
-| `install.bat` | Runs SteamCMD `app_update 730 validate` every time; installs a missing game or checks/updates/repairs an existing/copied game tree, then prepares the runtime. Does not start CS2. |
-| `win.bat` | Idempotently adds the Metamod entry if needed and verifies installed files; does not start CS2. |
+| `install.bat` | Runs KUS-style SteamCMD `app_update 730` every time; installs/updates the game in `server/` then prepares the runtime. Does not start CS2. |
+| `win.bat` | Deploys `game/csgo/` to `server/game/csgo/`, flattens the Windows overlay, patches Metamod in `gameinfo.gi`, and verifies deployed files; does not start CS2. |
 | `update.bat` | Fast-forward-only pull of the private Git repository, then validation. Requires a clean working tree. |
 | `game-update.bat` | Explicit SteamCMD update of CS2; refuses to run while a `cs2.exe` process is detected. |
 | `addons-update.bat -DryRun` | Preview Larnz-managed add-on release updates without writing files. |
 | `addons-update.bat` | Apply add-on release updates; successful updates are committed separately. |
 | `addons-inspect.bat` | Inspect upstream release assets and resolved archive layouts without installing them. |
 
-These are separate operations by design, with one setup/repair exception: `install.bat` always asks SteamCMD to validate the game tree and may update or repair its files. `update.bat` itself does not update the game, `game-update.bat` is the dedicated manual game-update command, plugin releases remain separate, and a server start does not implicitly run any updater. Stop the supervisor and all server instances before updating the game.
+These are separate operations by design: `install.bat` and `game-update.bat` run SteamCMD's KUS-style `app_update 730` without the optional `validate` flag, `update.bat` updates Git and redeploys the tracked payload, plugin releases remain separate, and server start does not implicitly run an updater.
 
 Allow the selected game port through Windows Firewall and the router/cloud firewall. Use a valid Game Server Login Token for a public server. Keep API keys, login tokens, RCON passwords, and instance-specific settings out of tracked files.
 
@@ -663,7 +663,7 @@ addons-update.bat -Only CounterStrikeSharp
 
 The manifest requires the Windows **with-runtime** archive and CI checks that .NET runtime files are present. Do not manually copy a no-runtime CSS archive over this runtime tree.
 
-Metamod:Source is a KUS base component, not a Larnz release-manifest entry. Keep its runtime files in the tracked repository and update them only through a reviewed integration change; do not manually overlay files into a separate `game/csgo/` staging directory. The legacy `scripts/check-updates.sh` and upstream Bash updater are not the active Windows update workflow.
+Metamod:Source is a KUS base component, not a Larnz release-manifest entry. Keep its files in tracked `game/csgo/`, keep Windows-only payload in `game/csgo/addons/windows/`, and update them through reviewed integration changes. `win.bat` deploys these files into `server/game/csgo/`.
 
 ### Quake Sounds
 
@@ -727,9 +727,9 @@ To inspect assets in a Workshop addon, subscribe to it in the CS2 client and use
 
 ### I run a Surf/KZ/Bhop server and want MovementUnlocker and CS2Fixes-RampbugFix permanently enabled
 
-The runtime tree includes Windows/Linux payloads for [MovementUnlocker](https://github.com/Source2ZE/MovementUnlocker) and [CS2Fixes-RampbugFix](https://github.com/Interesting-exe/CS2Fixes-RampbugFix). The corresponding Metamod VDF files are under `server/game/csgo/addons/surf/`.
+The tracked source payload includes Windows/Linux files for [MovementUnlocker](https://github.com/Source2ZE/MovementUnlocker) and [CS2Fixes-RampbugFix](https://github.com/Interesting-exe/CS2Fixes-RampbugFix). Their platform-specific Metamod VDF files are under `game/csgo/addons/surf/`.
 
-For one Windows instance, copy the files from `server/game/csgo/addons/surf/windows/addons/metamod/` to `<CUSTOM_FOLDER>/addons/metamod/`. Confirm the exact filenames in the current tree, restart the server, and check `meta list` for the loaded plugins.
+For one Windows instance, copy the files from `game/csgo/addons/surf/windows/addons/metamod/` to `<CUSTOM_FOLDER>/addons/metamod/`.
 
 For an ad-hoc mode, the KUS game-mode menu can enable the surf settings using `!settings`; follow with `!maps` to select the desired map.
 
