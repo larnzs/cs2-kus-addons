@@ -1,12 +1,7 @@
 name: Restructure KUS staged payload
 
 on:
-  push:
-    branches:
-      - integration/kus-monorepo
-    paths:
-      - "scripts/Restructure-KUS-Payload.ps1"
-      - ".github/workflows/migrate-kus-payload.yml"
+  workflow_dispatch:
 
 permissions:
   contents: write

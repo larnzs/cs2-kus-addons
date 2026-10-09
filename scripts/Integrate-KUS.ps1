@@ -32,7 +32,9 @@ function Rewrite-Paths {
     param([string]$Path)
     # KUS differentiates the tracked payload from the installed runtime.
     return
-}$RepoRoot = (git rev-parse --show-toplevel 2>$null)
+}
+
+$RepoRoot = (git rev-parse --show-toplevel 2>$null)
 if (-not $RepoRoot) { throw "Run inside the unified repository's Git checkout." }
 $RepoRoot = [IO.Path]::GetFullPath($RepoRoot.Trim())
 $branch = (git -C $RepoRoot branch --show-current).Trim()
@@ -141,7 +143,7 @@ $kusReadme = [IO.File]::ReadAllText((Join-Path $KusRootResolved "README.md"))
 Write-Utf8 -Path (Join-Path $RepoRoot "docs/upstream/KUS-README.md") -Text $kusReadme
 # Keep local SteamCMD output separate from the tracked payload.
 $ignorePath = Join-Path $RepoRoot ".gitignore"
-$ignoreMarker = "# Unified KUS/Larnz server: only the managed payload trees are tracked."
+$ignoreMarker = "# KUS-style architecture: tracked source payload and local SteamCMD install are separate."
 $ignoreText = [IO.File]::ReadAllText($ignorePath)
 $markerIndex = $ignoreText.IndexOf($ignoreMarker, [StringComparison]::Ordinal)
 if ($markerIndex -ge 0) {
@@ -151,10 +153,12 @@ if ($markerIndex -ge 0) {
 }
 $ignoreText += @'
 
-# Unified KUS/Larnz server: only the managed payload trees are tracked.
+# KUS-style architecture: tracked source payload and local SteamCMD install are separate.
 .env
 /steamcmd/
 /server/
+/game/*
+!/game/csgo/
 /custom_files/*
 !/custom_files/.gitkeep
 '@
@@ -189,7 +193,7 @@ $metadata = [ordered]@{
     runtime_file_count = $runtimeFiles.Count
     runtime_bytes = $runtimeBytes
     windows_overlay_policy = "Keep Windows-specific payloads under game/csgo/addons/windows; flatten only during Windows deployment."
-    excluded = @(".env", "custom_files", "custom_files_example", "the old KUS game/ staging root")
+    excluded = @(".env", "custom_files", "custom_files_example", "the old merged server/game/csgo runtime root")
 }
 Write-Utf8 -Path $marker -Text ($metadata | ConvertTo-Json -Depth 5)
 Write-Host "KUS integration completed. Runtime files: $($runtimeFiles.Count); bytes: $runtimeBytes; source commit: $kusCommit"
