@@ -33,7 +33,8 @@ function Rewrite-Paths {
     $ext = [IO.Path]::GetExtension($Path).ToLowerInvariant()
     if ($ext -notin @(".sh", ".bat", ".cmd", ".ps1", ".md", ".yml", ".yaml", ".json", ".ini", ".txt", ".xml", ".toml", ".py") -and (Split-Path -Leaf $Path) -ne "Dockerfile") { return }
     $text = [IO.File]::ReadAllText($Path)
-    $text = $text.Replace("game/csgo", "server/game/csgo").Replace("game\csgo", "server\game\csgo")
+    $text = [regex]::Replace($text, '(?<!server/)game/csgo', 'server/game/csgo')
+    $text = [regex]::Replace($text, '(?<!server\\)game\\csgo', 'server\game\csgo')
     Write-Utf8 -Path $Path -Text $text
 }
 
@@ -101,6 +102,19 @@ foreach ($original in $originals) {
     }
 }
 foreach ($path in $script:ImportedText) { Rewrite-Paths -Path $path }
+# Re-apply idempotent path normalization to all KUS-owned support files.
+# This repairs a partial earlier import while leaving cfg/custom file layers out.
+$excludedTop = @(".git", ".env", ".gitignore", "README.md", "game", "custom_files", "custom_files_example", "win.bat", "update.bat", "win.ini")
+$excludedExact = @(".github/workflows/auto-update-mods.yml")
+foreach ($sourceFile in Get-ChildItem -LiteralPath $KusRootResolved -File -Recurse -Force) {
+    $relative = $sourceFile.FullName.Substring($KusRootResolved.Length).TrimStart("\", "/").Replace("\", "/")
+    $top = $relative.Split("/")[0]
+    if ($excludedTop -contains $top) { continue }
+    if ($excludedExact -contains $relative) { continue }
+    $targetFile = Join-Path $RepoRoot ($relative.Replace("/", [IO.Path]::DirectorySeparatorChar))
+    if (Test-Path -LiteralPath $targetFile -PathType Leaf) { Rewrite-Paths -Path $targetFile }
+}
+
 
 # Merge both guides so the root README keeps the Larnz notes and every KUS section/table.
 $readmePath = Join-Path $RepoRoot "README.md"
@@ -112,7 +126,8 @@ if (Test-Path -LiteralPath $larnzBackupPath) {
     Write-Utf8 -Path $larnzBackupPath -Text $larnzReadme
 }
 $kusReadme = [IO.File]::ReadAllText((Join-Path $KusRootResolved "README.md"))
-$kusReadme = $kusReadme.Replace("game/csgo", "server/game/csgo").Replace("game\csgo", "server\game\csgo")
+$kusReadme = [regex]::Replace($kusReadme, '(?<!server/)game/csgo', 'server/game/csgo')
+$kusReadme = [regex]::Replace($kusReadme, '(?<!server\\)game\\csgo', 'server\game\csgo')
 $note = @'
 ## Unified repository layout
 
