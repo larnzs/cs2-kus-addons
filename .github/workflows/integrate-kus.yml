@@ -1,4 +1,5 @@
 name: Integrate KUS into the unified server tree
+# Canonical paths: all managed runtime payloads live under server/game/csgo.
 
 on:
   push:
