@@ -1,0 +1,5 @@
+# Machine-specific settings and credentials
+instance.ini
+
+# Optional runner logs
+*.log

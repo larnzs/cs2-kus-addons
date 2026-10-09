@@ -223,6 +223,10 @@ parent/
 
 The KUS repository is not copied into this repository and is not vendored here.
 
+## Example: multi-instance runner template
+
+The reusable template based on the supplied \`run.bat\` + VBS supervisor is in [\`examples/run-template/\`](./examples/run-template/). It includes a safe \`instance.example.ini\`; copy it to the ignored local file \`instance.ini\` and fill in machine-specific settings and credentials. The template starts/restarts an instance only; it does not run SteamCMD or update the CS2 game.
+
 ## File layout
 
 ```text
@@ -235,6 +239,13 @@ cs2-kus-addons/
 ├── update.bat
 ├── addons-update.bat
 ├── addons-inspect.bat
+├── examples/
+│   └── run-template/
+│       ├── run.bat
+│       ├── run.vbs
+│       ├── instance.example.ini
+│       ├── .gitignore
+│       └── README.md
 ├── scripts/
 │   ├── Inspect-Releases.ps1
 │   ├── Test-AddonOverlay.ps1
