@@ -133,7 +133,10 @@ jobs:
           assert 'call "%ROOT_DIR%win.bat" --no-pause' in game_update_bat
           assert 'Copy-TreeContent -Source $WindowsOverlay -Destination $IncomingRoot' in deploy
           assert "Copy-UntrackedRuntimeFiles" in deploy
-          assert "$SettingsTrackedRoots" in deploy and "$CssTrackedRoots" in deploy
+          assert "$SettingsTrackedRoots" in deploy
+          assert "Copy-TreeContent -Source $ConfigDestination -Destination $BackupConfig" in deploy
+          assert "Remove-Item -LiteralPath $ConfigDestination -Recurse -Force" in deploy
+          assert "Existing CounterStrikeSharp configs preserved unchanged." in deploy
           assert "Copy-TreeContent -Source $BackupSettings -Destination $RuntimeSettings" not in deploy
           assert "Copy-TreeContent -Source $PreserveSettings -Destination $RuntimeSettings" in deploy
           assert "gameinfo.gi" in deploy
