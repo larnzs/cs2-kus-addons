@@ -2,7 +2,7 @@
 
 A private, single-repository Counter-Strike 2 dedicated-server distribution. It combines the KUS server setup, its bundled plugins and dependency files with the Larnz-managed add-ons and configuration layout.
 
-**The repository's canonical runtime path is server/game/csgo/.** The old KUS staging path, game/csgo/, is not used as a second source tree. KUS runtime payloads—including its Windows-specific add-on payload—are imported directly into the canonical path. There is no second KUS checkout and no batch step that copies all plugins from a staging folder into the server.
+**The repository follows KUS's staged payload model.** game/csgo/ is the tracked source payload; server/ is the local Windows SteamCMD install and is ignored by Git. win.bat deploys the source payload into server/game/csgo/, flattens game/csgo/addons/windows/ on Windows, patches gameinfo.gi and verifies deployed files. Linux uses only the shared/base payload.
 
 This README combines Larnz's manifest-managed add-ons with KUS's base plugins, game modes, configuration guidance, workshop-map catalog and troubleshooting notes. Historical source documents remain under `docs/upstream/`; where an archived guide differs from this file, the unified instructions here take precedence. The old dual-repository workflow in `docs/Larnz-Addons-README.md` is historical, not an active setup guide.
 
@@ -10,9 +10,9 @@ This README combines Larnz's manifest-managed add-ons with KUS's base plugins, g
 
 | Path | Purpose |
 | --- | --- |
-| server/ | Canonical SteamCMD installation root. The large downloaded game binaries remain local and are not committed. |
-| server/game/csgo/addons/ | KUS and Larnz plugin payloads in their final runtime locations. |
-| server/game/csgo/cfg/ | Runtime configuration tree. Existing Larnz settings are preserved during KUS imports. |
+| server/ | Local Windows SteamCMD installation root; ignored by Git. |
+| game/csgo/addons/ | Tracked KUS and Larnz payloads, including platform-neutral/Linux base files. |
+| game/csgo/cfg/ | Tracked shared configuration source, deployed into the runtime. |
 | DEPENDENCIES.json | Larnz add-on updater manifest. |
 | scripts/update/ | Imported upstream KUS helpers; treat as legacy until the Linux updater is migrated. |
 | examples/run-template/ | Reusable Windows runner and VBS supervisor template. |
@@ -229,11 +229,11 @@ This unified repository deliberately does **not** use the upstream KUS `custom_f
 
 ### Shared configuration
 
-The canonical shared files are already stored at their final runtime locations:
+Tracked shared files live under game/csgo/ and are deployed into the SteamCMD runtime:
 
-- `server/game/csgo/cfg/` — server and game-mode configuration.
-- `server/game/csgo/addons/counterstrikesharp/configs/` — CounterStrikeSharp admins, groups and plugin configuration.
-- `server/game/csgo/gamemodes_server.txt` and `server/game/csgo/subscribed_file_ids.txt` — shared map-group and Workshop subscription configuration when those files exist in the runtime tree.
+- `game/csgo/cfg/` — server and game-mode configuration.
+- `game/csgo/addons/counterstrikesharp/configs/` — CounterStrikeSharp admins, groups and plugin configuration.
+- `game/csgo/gamemodes_server.txt` and `game/csgo/subscribed_file_ids.txt` — shared map-group and Workshop subscription configuration when those files exist in the runtime tree.
 
 Changes made directly to tracked files become local Git changes. Commit them intentionally if they should be part of this private repo. `update.bat` refuses to pull when local or untracked changes exist, rather than silently overwriting your work.
 
@@ -251,9 +251,9 @@ D:\CS2-private\aim\
             └── admins.json
 ```
 
-The runner copies the override folder's `cfg/` into `server/game/csgo/cfg/` and its `addons/` into `server/game/csgo/addons/`. This is an additive/overwrite copy: it does not delete runtime files. Because the override is applied at startup, it can be used to keep one instance's hostname, admins, RCON-related config, plugin settings or game-mode configuration separate from the shared tracked files.
+The runner copies the override folder's `cfg/` into `game/csgo/cfg/` and its `addons/` into `server/game/csgo/addons/`. This is an additive/overwrite copy: it does not delete runtime files. Because the override is applied at startup, it can be used to keep one instance's hostname, admins, RCON-related config, plugin settings or game-mode configuration separate from the shared tracked files.
 
-For example, to add admins for one instance, copy the current `server/game/csgo/addons/counterstrikesharp/configs/admins.json` to:
+For example, to add admins for one instance, copy the current `game/csgo/addons/counterstrikesharp/configs/admins.json` to:
 
 ```text
 <CUSTOM_FOLDER>\addons\counterstrikesharp\configs\admins.json
@@ -318,9 +318,9 @@ The console command for hosting a workshop collection is `host_workshop_collecti
 
 ## Setting maps for different game modes
 
-Add your maps by editing the tracked `server/game/csgo/gamemodes_server.txt` and selecting the relevant mode's map group. Most gamemodes fall under casual, but this distribution has unique groups so you can maintain each mode independently. The current Windows runner overlays only `cfg/` and `addons/`; it does not copy root-level files such as `gamemodes_server.txt`.
+Add your maps by editing the tracked `game/csgo/gamemodes_server.txt` and selecting the relevant mode's map group. Most gamemodes fall under casual, but this distribution has unique groups so you can maintain each mode independently. The current Windows runner overlays only `cfg/` and `addons/`; it does not copy root-level files such as `gamemodes_server.txt`.
 
-For Workshop maps, add their file IDs to the canonical `server/game/csgo/subscribed_file_ids.txt` when that file is used by your setup. Commit shared changes to this private repo so they can be reproduced on a clean checkout.
+For Workshop maps, add their file IDs to the canonical `game/csgo/subscribed_file_ids.txt` when that file is used by your setup. Commit shared changes to this private repo so they can be reproduced on a clean checkout.
 
 If you have python available, you can use our tool available to add a map to your custom game mode map groups: `python scripts/add-map.py <group_name> <map_name> [workshop_id] --custom`. Refer to `scripts/add-map.py` for more information.
 
@@ -412,7 +412,7 @@ SourceTV is disabled by default for compatibility with a wider range of setups. 
 tv_enable 1
 ```
 
-The runner overlays that `cfg/` directory before launching the server. You can review the available server commands in the [KUS server.cfg reference](https://github.com/kus/cs2-modded-server/blob/master/server/game/csgo/cfg/server.cfg). For MatchZy demos, leave `tv_autorecord 0` because MatchZy manages recording start and stop.
+The runner overlays that `cfg/` directory before launching the server. You can review the available server commands in the [KUS server.cfg reference](https://github.com/kus/cs2-modded-server/blob/master/game/csgo/cfg/server.cfg). For MatchZy demos, leave `tv_autorecord 0` because MatchZy manages recording start and stop.
 
 Check SourceTV with `tv_status` from the server console. You can also test with `tv_record <filename>` and stop with `tv_stoprecord`.
 
@@ -550,7 +550,7 @@ Check SourceTV with `tv_status` from the server console. You can also test with 
 
 ### Accessing the admin menu
 
-Admins are managed by CounterStrikeSharp's [Admin Framework](https://docs.cssharp.dev/docs/admin-framework/defining-admins.html). The canonical file is `server/game/csgo/addons/counterstrikesharp/configs/admins.json`.
+Admins are managed by CounterStrikeSharp's [Admin Framework](https://docs.cssharp.dev/docs/admin-framework/defining-admins.html). The canonical file is `game/csgo/addons/counterstrikesharp/configs/admins.json`.
 
 For a per-instance admin list, copy the current file to `<CUSTOM_FOLDER>/addons/counterstrikesharp/configs/admins.json` in the external override folder and edit the private copy. For a shared admin list, edit the canonical tracked file and commit the change. The [KUS example admins.json](https://github.com/kus/cs2-modded-server/blob/master/custom_files_example/addons/counterstrikesharp/configs/admins.json) is a reference example only; review it before applying because the unified branch's plugin versions can differ.
 
@@ -644,7 +644,7 @@ Windows:
 
 By default, bots are enabled in deathmatch, gungame, gungame FFA, retakes, scoutsknives and wingman. The default behavior adds one bot when only one human is present and removes the need for bots when two or more humans join.
 
-To override bot settings for one Windows instance, put a customized `custom_bots.cfg` in `<CUSTOM_FOLDER>/cfg/`; the runner overlays it into the runtime config tree before launch. The upstream starting point is [custom_bots.cfg](https://github.com/kus/cs2-modded-server/blob/master/server/game/csgo/cfg/custom_bots.cfg).
+To override bot settings for one Windows instance, put a customized `custom_bots.cfg` in `<CUSTOM_FOLDER>/cfg/`; the runner overlays it into the runtime config tree before launch. The upstream starting point is [custom_bots.cfg](https://github.com/kus/cs2-modded-server/blob/master/game/csgo/cfg/custom_bots.cfg).
 
 You can also manage bots through RCON with `bot_add_ct`, `bot_add_t` and `bot_kick`.
 
@@ -721,7 +721,7 @@ The runner overlays that file at the Metamod configuration path on startup. To c
 
 Custom player models can be enabled in `!settings` under the custom player-model option. You also need a Workshop addon containing the model files; the KUS guide links [one example Workshop addon](https://steamcommunity.com/sharedfiles/filedetails/?id=3163629484).
 
-Add the Workshop ID to the shared `server/game/csgo/cfg/multiaddonmanager/multiaddonmanager.cfg` or a per-instance override at `<CUSTOM_FOLDER>/cfg/multiaddonmanager/multiaddonmanager.cfg`. Configure model entries in `server/game/csgo/addons/counterstrikesharp/configs/plugins/PlayerModelChanger/PlayerModelChanger.json`, or create the same relative path below `<CUSTOM_FOLDER>/addons/` for a per-instance override.
+Add the Workshop ID to the shared `game/csgo/cfg/multiaddonmanager/multiaddonmanager.cfg` or a per-instance override at `<CUSTOM_FOLDER>/cfg/multiaddonmanager/multiaddonmanager.cfg`. Configure model entries in `game/csgo/addons/counterstrikesharp/configs/plugins/PlayerModelChanger/PlayerModelChanger.json`, or create the same relative path below `<CUSTOM_FOLDER>/addons/` for a per-instance override.
 
 To inspect assets in a Workshop addon, subscribe to it in the CS2 client and use [Source 2 Viewer](https://valveresourceformat.github.io/) to browse the downloaded content.
 
@@ -735,9 +735,9 @@ For an ad-hoc mode, the KUS game-mode menu can enable the surf settings using `!
 
 ### Setup MySQL database
 
-Database hosting is outside the scope of this repository. Plugin configuration files are generally under `server/game/csgo/addons/counterstrikesharp/configs/plugins/`.
+Database hosting is outside the scope of this repository. Plugin configuration files are generally under `game/csgo/addons/counterstrikesharp/configs/plugins/`.
 
-For example, K4-Arenas configuration is typically at `server/game/csgo/addons/counterstrikesharp/configs/plugins/K4-Arenas/K4-Arenas.json`. For a per-instance database connection, place your private version at `<CUSTOM_FOLDER>/addons/counterstrikesharp/configs/plugins/K4-Arenas/K4-Arenas.json`; for a shared setting, edit the canonical file. If the real config does not exist, check for the plugin's `.example` template before creating one.
+For example, K4-Arenas configuration is typically at `game/csgo/addons/counterstrikesharp/configs/plugins/K4-Arenas/K4-Arenas.json`. For a per-instance database connection, place your private version at `<CUSTOM_FOLDER>/addons/counterstrikesharp/configs/plugins/K4-Arenas/K4-Arenas.json`; for a shared setting, edit the canonical file. If the real config does not exist, check for the plugin's `.example` template before creating one.
 
 Never commit database passwords, connection strings or other credentials.
 
@@ -749,7 +749,7 @@ The Advertisement plugin is disabled by default. To load it, add this command to
 css_plugins load "plugins/disabled/Advertisement/Advertisement.dll"
 ```
 
-Its settings file is under `server/game/csgo/addons/counterstrikesharp/plugins/disabled/Advertisement/advertisement.json`. For a per-instance override, place your file at the same relative path below `<CUSTOM_FOLDER>/addons/`.
+Its settings file is under `game/csgo/addons/counterstrikesharp/plugins/disabled/Advertisement/advertisement.json`. For a per-instance override, place your file at the same relative path below `<CUSTOM_FOLDER>/addons/`.
 
 ### Enable Whitelist so only a list of people can play
 
@@ -759,7 +759,7 @@ The Whitelist plugin is disabled by default. To load it, add this command to the
 css_plugins load "plugins/disabled/WhiteList/WhiteList.dll"
 ```
 
-Its settings file is `server/game/csgo/addons/counterstrikesharp/plugins/disabled/WhiteList/whitelist.txt`. For a per-instance override, place your private file at the same relative path below `<CUSTOM_FOLDER>/addons/`.
+Its settings file is `game/csgo/addons/counterstrikesharp/plugins/disabled/WhiteList/whitelist.txt`. For a per-instance override, place your private file at the same relative path below `<CUSTOM_FOLDER>/addons/`.
 
 ### Failed to open libtier0.so
 

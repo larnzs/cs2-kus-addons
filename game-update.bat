@@ -8,16 +8,13 @@ cd /d "%~dp0"
 
 set "ROOT_DIR=%~dp0"
 set "SERVER_DIR=%ROOT_DIR%server"
-set "STEAMCMD=%ROOT_DIR%steamcmd\steamcmd.exe"
+set "STEAMCMD_DIR=%ROOT_DIR%steamcmd"
+set "STEAMCMD=%STEAMCMD_DIR%\steamcmd.exe"
 set "CS2_EXE=%SERVER_DIR%\game\bin\win64\cs2.exe"
 set "APP_MANIFEST=%SERVER_DIR%\steamapps\appmanifest_730.acf"
 
 if not exist "%CS2_EXE%" (
     echo ERROR: CS2 is not installed. Run install.bat first.
-    goto :finish
-)
-if not exist "%APP_MANIFEST%" (
-    echo ERROR: CS2 app manifest was not found. Run install.bat first.
     goto :finish
 )
 if not exist "%STEAMCMD%" (
@@ -31,10 +28,13 @@ if not errorlevel 1 (
     goto :finish
 )
 
-echo Updating CS2 game files through SteamCMD...
-"%STEAMCMD%" +force_install_dir "%SERVER_DIR%" +login anonymous +app_update 730 validate +quit
-if errorlevel 1 (
-    echo ERROR: SteamCMD game update failed.
+echo Updating/checking CS2 game files through SteamCMD (KUS-compatible command)...
+pushd "%STEAMCMD_DIR%"
+start "" /wait "%STEAMCMD%" +force_install_dir ..\server +login anonymous +app_update 730 +quit
+set "STEAMCMD_RC=%ERRORLEVEL%"
+popd
+if not "%STEAMCMD_RC%"=="0" (
+    echo ERROR: SteamCMD game update failed. Check steamcmd\logs\stderr.txt.
     goto :finish
 )
 

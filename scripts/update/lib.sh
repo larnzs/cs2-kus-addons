@@ -100,7 +100,7 @@ assert_delete_target() {
 }
 
 # Writes are allowed inside a PLUGIN_PATHS entry, or to an ancestor of one
-# (e.g. rsync of <archive>/addons/ into server/game/csgo/addons/). Anything that lands
+# (e.g. rsync of <archive>/addons/ into game/csgo/addons/). Anything that lands
 # outside PLUGIN_PATHS is still caught afterwards by verify_containment.
 assert_write_target() {
     check_repo_relative "$1" || exit 1

@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $ManifestPath = Join-Path $RepoRoot "DEPENDENCIES.json"
 $CacheRoot = Join-Path $RepoRoot "tmp\releases"
-$ServerRoot = Join-Path $RepoRoot "server\game\csgo"
+$PayloadRoot = Join-Path $RepoRoot "game\csgo"
 $UserAgent = "cs2-kus-addons"
 
 function Write-Info([string]$Message) {
@@ -184,7 +184,7 @@ function Resolve-InspectionTargets($Addon, [string]$ExtractRoot, [string]$AssetN
             [void]$targets.Add(@{
                 MergeMode = $merge
                 SourceRoot = $sourceRoot
-                DestinationDisplay = 'server\game\csgo'
+                DestinationDisplay = 'game\csgo'
             })
             continue
         }
@@ -205,17 +205,17 @@ function Resolve-InspectionTargets($Addon, [string]$ExtractRoot, [string]$AssetN
                 throw "Configured source_path was not found in '$AssetName': $sourceRoot"
             }
 
-            $destinationRoot = Join-Path $ServerRoot $installPath
-            $serverFull = [IO.Path]::GetFullPath($ServerRoot).TrimEnd('\') + '\'
+            $destinationRoot = Join-Path $PayloadRoot $installPath
+            $payloadFull = [IO.Path]::GetFullPath($PayloadRoot).TrimEnd('\') + '\'
             $destinationFull = [IO.Path]::GetFullPath($destinationRoot)
-            if (-not $destinationFull.StartsWith($serverFull, [StringComparison]::OrdinalIgnoreCase)) {
-                throw "Release install_path escapes server/game/csgo for '$AssetName': $installPath"
+            if (-not $destinationFull.StartsWith($payloadFull, [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Release install_path escapes game/csgo for '$AssetName': $installPath"
             }
 
             [void]$targets.Add(@{
                 MergeMode = $merge
                 SourceRoot = $sourceRoot
-                DestinationDisplay = "server\game\csgo\$installPath"
+                DestinationDisplay = "game\csgo\$installPath"
             })
             continue
         }
@@ -279,7 +279,7 @@ function Inspect-Addon($Addon) {
         $lines.Add("ASSET: $($asset.name)")
         $lines.Add("ARCHIVE: $archive")
         $lines.Add("EXTRACT ROOT: $extract")
-        $lines.Add("DESTINATION ROOT: $ServerRoot")
+        $lines.Add("DESTINATION ROOT: $PayloadRoot")
         $lines.Add("")
         $lines.Add("SOURCE -> DESTINATION")
         $lines.Add("----------------------------------------")

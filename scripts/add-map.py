@@ -96,32 +96,9 @@ if __name__ == "__main__":
         default=None,
         help="The workshop ID of the map. E.g. 3078701726",
     )
-    parser.add_argument(
-        "--custom",
-        action="store_true",
-        help="Use custom file paths" "instead of global ones.",
-    )
-
     args = parser.parse_args()
-    gamemodes_server_path = pathlib.Path(
-        "custom_files/gamemodes_server.txt"
-        if args.custom
-        else "server/game/csgo/gamemodes_server.txt"
-    )
-    subscribed_file_ids_path = pathlib.Path(
-        "custom_files/subscribed_file_ids.txt"
-        if args.custom
-        else "server/game/csgo/subscribed_file_ids.txt"
-    )
-
-    if args.custom and (
-        not gamemodes_server_path.exists() or not subscribed_file_ids_path.exists()
-    ):
-        print(
-            "Error: Custom files do not exist. Please create the custom files before "
-            "using this tool."
-        )
-        sys.exit(1)
+    gamemodes_server_path = pathlib.Path("game/csgo/gamemodes_server.txt")
+    subscribed_file_ids_path = pathlib.Path("game/csgo/subscribed_file_ids.txt")
 
     add_map_to_group(
         gamemodes_server_path, args.group_name, args.map_name, args.workshop_id

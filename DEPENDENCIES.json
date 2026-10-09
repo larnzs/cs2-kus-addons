@@ -3,10 +3,15 @@
   "name": "cs2-kus-addons",
   "architecture": {
     "base_repository": "kus/cs2-modded-server",
-    "target_root": "server/game/csgo",
+    "target_root": "game/csgo",
     "merge_mode": "non-destructive-overlay",
     "deletes_owned_files": false,
-    "overwrite_existing_files": true
+    "overwrite_existing_files": true,
+    "platform_overlay_root": "game/csgo/addons/windows",
+    "runtime_roots": {
+      "windows": "server/game/csgo",
+      "linux": "<SteamCMD install root>/game/csgo"
+    }
   },
   "not_managed_by_this_repo": [
     "Source2ZE/MultiAddonManager",
@@ -31,18 +36,29 @@
         "KUS:Metamod:Source"
       ],
       "installed": true,
-      "merge": "release_csgo_root",
+      "merge": "release_plugin_directory",
       "verify_paths": [
-        "addons/counterstrikesharp/api/CounterStrikeSharp.API.dll",
-        "addons/counterstrikesharp/bin/win64/counterstrikesharp.dll",
-        "addons/counterstrikesharp/dotnet/dotnet.exe"
+        "addons/windows/addons/counterstrikesharp/api/CounterStrikeSharp.API.dll",
+        "addons/windows/addons/counterstrikesharp/bin/win64/counterstrikesharp.dll",
+        "addons/windows/addons/counterstrikesharp/dotnet/dotnet.exe"
       ],
       "runtime_required": true,
       "required_asset_name_contains": "with-runtime-windows",
       "verify_globs": [
-        "addons/counterstrikesharp/dotnet/shared/Microsoft.NETCore.App/*/System.Private.CoreLib.dll",
-        "addons/counterstrikesharp/dotnet/host/fxr/*/hostfxr.dll"
-      ]
+        "addons/windows/addons/counterstrikesharp/dotnet/shared/Microsoft.NETCore.App/*/System.Private.CoreLib.dll",
+        "addons/windows/addons/counterstrikesharp/dotnet/host/fxr/*/hostfxr.dll"
+      ],
+      "source_path": "addons/counterstrikesharp",
+      "install_path": "addons/windows/addons/counterstrikesharp",
+      "asset_mappings": {
+        "counterstrikesharp-with-runtime-windows-{version}.zip": [
+          {
+            "merge": "release_plugin_directory",
+            "source_path": "addons/counterstrikesharp",
+            "install_path": "addons/windows/addons/counterstrikesharp"
+          }
+        ]
+      }
     },
     {
       "order": 2,

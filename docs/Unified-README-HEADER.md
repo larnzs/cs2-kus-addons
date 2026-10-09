@@ -2,7 +2,7 @@
 
 A private, single-repository Counter-Strike 2 dedicated-server distribution. It combines the KUS server setup, its bundled plugins and dependency files with the Larnz-managed add-ons and configuration layout.
 
-**The repository's canonical runtime path is server/game/csgo/.** The old KUS staging path, game/csgo/, is not used as a second source tree. KUS runtime payloads—including its Windows-specific add-on payload—are imported directly into the canonical path. There is no second KUS checkout and no batch step that copies all plugins from a staging folder into the server.
+**The repository follows KUS's staged payload model.** game/csgo/ is the tracked source payload; server/ is the local Windows SteamCMD install ignored by Git. Windows deploys the source payload into server/game/csgo/ and flattens game/csgo/addons/windows/ only at deployment time.
 
 The full original Larnz guide is preserved at [docs/Larnz-Addons-README.md](docs/Larnz-Addons-README.md). The complete KUS guide and its tables are included below for reference. When an older upstream section describes the old staging/copy workflow, use the unified installation commands in this introduction instead.
 
@@ -11,8 +11,8 @@ The full original Larnz guide is preserved at [docs/Larnz-Addons-README.md](docs
 | Path | Purpose |
 | --- | --- |
 | server/ | Canonical SteamCMD installation root. The large downloaded game binaries remain local and are not committed. |
-| server/game/csgo/addons/ | KUS and Larnz plugin payloads in their final runtime locations. |
-| server/game/csgo/cfg/ | Runtime configuration tree. Existing Larnz settings are preserved during KUS imports. |
+| game/csgo/addons/ | KUS and Larnz plugin payloads in their final runtime locations. |
+| game/csgo/cfg/ | Runtime configuration tree. Existing Larnz settings are preserved during KUS imports. |
 | DEPENDENCIES.json | Larnz add-on updater manifest. |
 | scripts/update/ | Upstream KUS update helpers, retained and path-normalized for the unified layout. |
 | examples/run-template/ | Reusable Windows runner and VBS supervisor template. |

@@ -30,15 +30,9 @@ function Copy-Tree {
 
 function Rewrite-Paths {
     param([string]$Path)
-    $ext = [IO.Path]::GetExtension($Path).ToLowerInvariant()
-    if ($ext -notin @(".sh", ".bat", ".cmd", ".ps1", ".md", ".yml", ".yaml", ".json", ".ini", ".txt", ".xml", ".toml", ".py") -and (Split-Path -Leaf $Path) -ne "Dockerfile") { return }
-    $text = [IO.File]::ReadAllText($Path)
-    $text = [regex]::Replace($text, '(?:server/)*game/csgo', 'server/game/csgo')
-    $text = [regex]::Replace($text, '(?:server\\)*game\\csgo', 'server\game\csgo')
-    Write-Utf8 -Path $Path -Text $text
-}
-
-$RepoRoot = (git rev-parse --show-toplevel 2>$null)
+    # KUS differentiates the tracked payload from the installed runtime.
+    return
+}$RepoRoot = (git rev-parse --show-toplevel 2>$null)
 if (-not $RepoRoot) { throw "Run inside the unified repository's Git checkout." }
 $RepoRoot = [IO.Path]::GetFullPath($RepoRoot.Trim())
 $branch = (git -C $RepoRoot branch --show-current).Trim()
@@ -54,24 +48,24 @@ $marker = Join-Path $RepoRoot "docs/upstream/KUS-IMPORT.json"
 
 $script:ImportedText = [System.Collections.Generic.List[string]]::new()
 $kusCommit = (git -C $KusRootResolved rev-parse HEAD).Trim()
-$runtimeRoot = Join-Path $RepoRoot "server/game/csgo"
+$runtimeRoot = Join-Path $RepoRoot "game/csgo"
 $tempOverlay = Join-Path ([IO.Path]::GetTempPath()) ("larnz-overlay-" + [guid]::NewGuid().ToString("N"))
 $overlayManifest = Join-Path $RepoRoot "docs/upstream/LARNZ-RUNTIME-FILES.txt"
 
 # Capture the pre-integration Larnz file list once. On later imports this manifest prevents
 # all previously imported KUS files from being misidentified as personal overlay files.
 if (-not (Test-Path -LiteralPath $overlayManifest)) {
-    $trackedOverlay = @(git -C $RepoRoot ls-files -- "server/game/csgo" | Where-Object { $_ -and $_.StartsWith("server/game/csgo/") })
+    $trackedOverlay = @(git -C $RepoRoot ls-files -- "game/csgo" | Where-Object { $_ -and $_.StartsWith("game/csgo/") })
     if ($trackedOverlay.Count -eq 0) { throw "Could not discover the original tracked Larnz runtime overlay." }
     Write-Utf8 -Path $overlayManifest -Text ($trackedOverlay -join [Environment]::NewLine)
 }
 New-Item -ItemType Directory -Force -Path $tempOverlay | Out-Null
 foreach ($trackedPath in Get-Content -LiteralPath $overlayManifest) {
     $trackedPath = $trackedPath.Trim()
-    if (-not $trackedPath.StartsWith("server/game/csgo/")) { continue }
+    if (-not $trackedPath.StartsWith("game/csgo/")) { continue }
     $sourcePath = Join-Path $RepoRoot ($trackedPath.Replace("/", [IO.Path]::DirectorySeparatorChar))
     if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { continue }
-    $relativePath = $trackedPath.Substring("server/game/csgo/".Length).Replace("/", [IO.Path]::DirectorySeparatorChar)
+    $relativePath = $trackedPath.Substring("game/csgo/".Length).Replace("/", [IO.Path]::DirectorySeparatorChar)
     $destinationPath = Join-Path $tempOverlay $relativePath
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destinationPath) | Out-Null
     Copy-Item -LiteralPath $sourcePath -Destination $destinationPath -Force
@@ -85,9 +79,8 @@ foreach ($protectedRelative in @("cfg", "addons/counterstrikesharp/configs")) {
 }
 
 Write-Host "Importing KUS payloads into $runtimeRoot"
-Copy-Tree -Source $KusRuntime -Destination $runtimeRoot -SkipWindows
-$windowsTree = Join-Path $KusRuntime "addons/windows"
-if (Test-Path -LiteralPath $windowsTree -PathType Container) { Copy-Tree -Source $windowsTree -Destination $runtimeRoot }
+Copy-Tree -Source $KusRuntime -Destination $runtimeRoot
+
 if (Test-Path -LiteralPath $tempOverlay -PathType Container) {
     Copy-Tree -Source $tempOverlay -Destination $runtimeRoot
     Remove-Item -LiteralPath $tempOverlay -Recurse -Force
@@ -143,30 +136,10 @@ foreach ($sourceFile in Get-ChildItem -LiteralPath $KusRootResolved -File -Recur
 }
 
 
-# Build the root README from the authoritative unified header plus the full upstream guide.
-$readmePath = Join-Path $RepoRoot "README.md"
-$larnzBackupPath = Join-Path $RepoRoot "docs/Larnz-Addons-README.md"
-if (Test-Path -LiteralPath $larnzBackupPath) {
-    $larnzReadme = [IO.File]::ReadAllText($larnzBackupPath)
-} else {
-    $larnzReadme = [IO.File]::ReadAllText($readmePath)
-    Write-Utf8 -Path $larnzBackupPath -Text $larnzReadme
-}
-$headerPath = Join-Path $RepoRoot "docs/Unified-README-HEADER.md"
-$rootHeader = if (Test-Path -LiteralPath $headerPath) { [IO.File]::ReadAllText($headerPath) } else { $larnzReadme }
+# Keep the unified README authoritative; archive the source README as a reference.
 $kusReadme = [IO.File]::ReadAllText((Join-Path $KusRootResolved "README.md"))
-$kusReadme = [regex]::Replace($kusReadme, '(?:server/)*game/csgo', 'server/game/csgo')
-$kusReadme = [regex]::Replace($kusReadme, '(?:server\\)*game\\csgo', 'server\game\csgo')
-$referenceNote = @'
-## Full upstream KUS guide (reference)
-
-The complete upstream KUS README and its plugin tables, dependency notes, game-mode documentation, and troubleshooting material are preserved below. Some original sections describe the old staging/copy workflow; those sections are reference only. The unified installation and path rules in this document's introduction are authoritative for this repository.
-'@
-$joined = $rootHeader.TrimEnd() + [Environment]::NewLine + [Environment]::NewLine + $referenceNote + [Environment]::NewLine + [Environment]::NewLine + $kusReadme.TrimStart()
-Write-Utf8 -Path $readmePath -Text $joined
 Write-Utf8 -Path (Join-Path $RepoRoot "docs/upstream/KUS-README.md") -Text $kusReadme
-
-# The combined repository owns the final server path; keep the SteamCMD installation local.
+# Keep local SteamCMD output separate from the tracked payload.
 $ignorePath = Join-Path $RepoRoot ".gitignore"
 $ignoreMarker = "# Unified KUS/Larnz server: only the managed payload trees are tracked."
 $ignoreText = [IO.File]::ReadAllText($ignorePath)
@@ -181,19 +154,7 @@ $ignoreText += @'
 # Unified KUS/Larnz server: only the managed payload trees are tracked.
 .env
 /steamcmd/
-/server/*
-!/server/game/
-/server/game/*
-!/server/game/csgo/
-/server/game/csgo/*
-!/server/game/csgo/addons/
-!/server/game/csgo/addons/**
-!/server/game/csgo/cfg/
-/server/game/csgo/cfg/*
-!/server/game/csgo/gamemodes_server.txt
-!/server/game/csgo/mapcycle.txt
-!/server/game/csgo/subscribed_collection_ids.txt
-!/server/game/csgo/subscribed_file_ids.txt
+/server/
 /custom_files/*
 !/custom_files/.gitkeep
 '@
@@ -224,10 +185,10 @@ $metadata = [ordered]@{
     upstream_branch = "master"
     upstream_commit = $kusCommit
     imported_at_utc = [DateTime]::UtcNow.ToString("o")
-    runtime_root = "server/game/csgo"
+    runtime_root = "game/csgo"
     runtime_file_count = $runtimeFiles.Count
     runtime_bytes = $runtimeBytes
-    windows_overlay_policy = "Flatten Windows-specific payloads into server/game/csgo, then restore Larnz overlay last."
+    windows_overlay_policy = "Keep Windows-specific payloads under game/csgo/addons/windows; flatten only during Windows deployment."
     excluded = @(".env", "custom_files", "custom_files_example", "the old KUS game/ staging root")
 }
 Write-Utf8 -Path $marker -Text ($metadata | ConvertTo-Json -Depth 5)

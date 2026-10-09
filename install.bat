@@ -57,10 +57,10 @@ if not exist "%STEAMCMD%" (
 
 if exist "%CS2_EXE%" (
     echo Existing CS2 files detected in the server directory.
-    echo SteamCMD will verify, update, and repair this installation as needed.
+    echo SteamCMD will check/update the existing game with the KUS-compatible command.
 ) else (
     echo CS2 files were not found in the server directory.
-    echo SteamCMD will install the game now.
+    echo SteamCMD will install the game with the KUS-compatible command.
 )
 if not exist "%SERVER_DIR%\" (
     mkdir "%SERVER_DIR%"
@@ -69,10 +69,12 @@ if not exist "%SERVER_DIR%\" (
         goto :finish
     )
 )
-"%STEAMCMD%" +force_install_dir "%SERVER_DIR%" +login anonymous +app_update 730 validate +quit
+pushd "%STEAMCMD_DIR%"
+start "" /wait "%STEAMCMD%" +force_install_dir ..\server +login anonymous +app_update 730 +quit
 set "STEAMCMD_RC=%ERRORLEVEL%"
+popd
 if not "%STEAMCMD_RC%"=="0" (
-    echo ERROR: SteamCMD failed to install, update, or validate CS2 ^(exit code %STEAMCMD_RC%^).
+    echo ERROR: SteamCMD failed to install or update CS2. Check steamcmd\logs\stderr.txt. ^(exit code %STEAMCMD_RC%^).
     set "RC=%STEAMCMD_RC%"
     goto :finish
 )

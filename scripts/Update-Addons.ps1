@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $ManifestPath = Join-Path $RepoRoot "DEPENDENCIES.json"
 $ReadmePath = Join-Path $RepoRoot "README.md"
-$ServerRoot = Join-Path $RepoRoot "server\game\csgo"
+$PayloadRoot = Join-Path $RepoRoot "game\csgo"
 $CacheRoot = Join-Path $RepoRoot "tmp\releases"
 $UserAgent = "cs2-kus-addons"
 
@@ -110,7 +110,7 @@ function Get-ReleaseAssets($Release, $Addon) {
 
 function Get-AddonMissingFiles($Addon) {
     $missing = New-Object System.Collections.Generic.List[string]
-    $rootFull = [IO.Path]::GetFullPath($ServerRoot).TrimEnd([char[]]@('\', '/'))
+    $rootFull = [IO.Path]::GetFullPath($PayloadRoot).TrimEnd([char[]]@('\', '/'))
     $rootPrefix = $rootFull + [IO.Path]::DirectorySeparatorChar
 
     foreach ($relativeValue in @($Addon.verify_paths)) {
@@ -121,12 +121,12 @@ function Get-AddonMissingFiles($Addon) {
             throw "Unsafe verify_paths entry for '$($Addon.name)': $relative"
         }
 
-        $fullPath = [IO.Path]::GetFullPath((Join-Path $ServerRoot $relative))
+        $fullPath = [IO.Path]::GetFullPath((Join-Path $PayloadRoot $relative))
         if (-not $fullPath.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
-            throw "Verification path escaped server/game/csgo for '$($Addon.name)': $relative"
+            throw "Verification path escaped game/csgo for '$($Addon.name)': $relative"
         }
         if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
-            [void]$missing.Add("server/game/csgo/$($relative.Replace('\', '/'))")
+            [void]$missing.Add("game/csgo/$($relative.Replace('\', '/'))")
         }
     }
 
@@ -142,15 +142,15 @@ function Get-AddonMissingFiles($Addon) {
             # Normalize wildcard characters only for the containment check; keep the
             # original pattern for Get-ChildItem's real wildcard matching.
             $guardRelative = $relative -replace '[*?]', 'wildcard'
-            $guardFull = [IO.Path]::GetFullPath((Join-Path $ServerRoot $guardRelative))
+            $guardFull = [IO.Path]::GetFullPath((Join-Path $PayloadRoot $guardRelative))
             if (-not $guardFull.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
-                throw "Verification glob escaped server/game/csgo for '$($Addon.name)': $relative"
+                throw "Verification glob escaped game/csgo for '$($Addon.name)': $relative"
             }
 
-            $pattern = Join-Path $ServerRoot $relative
+            $pattern = Join-Path $PayloadRoot $relative
             $matches = @(Get-ChildItem -Path $pattern -File -ErrorAction SilentlyContinue)
             if ($matches.Count -eq 0) {
-                [void]$missing.Add("server/game/csgo/$relative (no file matched runtime requirement)")
+                [void]$missing.Add("game/csgo/$relative (no file matched runtime requirement)")
             }
         }
     }
@@ -186,7 +186,7 @@ function Find-CsgoRoot([string]$ExtractRoot) {
     #   <archive>/addons/...
     #   <archive>/csgo/addons/...
     #   <archive>/<wrapper>/csgo/addons/...
-    # Return the directory that must be merged into server/game/csgo.
+    # Return the directory that must be merged into game/csgo.
     if (Test-Path (Join-Path $ExtractRoot "addons") -PathType Container) {
         return $ExtractRoot
     }
@@ -226,13 +226,13 @@ function Write-ReleaseLayout([string]$Archive, [string]$ExtractRoot, [string]$Cs
     $lines.Add("ARCHIVE: $Archive")
     $lines.Add("EXTRACT ROOT: $ExtractRoot")
     $lines.Add("CS2 ROOT DETECTED: $CsgoRoot")
-    $lines.Add("TARGET ROOT: $ServerRoot")
+    $lines.Add("TARGET ROOT: $PayloadRoot")
     $lines.Add("")
     $lines.Add("SOURCE -> DESTINATION")
 
     Get-ChildItem -LiteralPath $CsgoRoot -Recurse -File | Sort-Object FullName | ForEach-Object {
         $relative = $_.FullName.Substring($CsgoRoot.Length).TrimStart("\")
-        $lines.Add("$relative -> server\game\csgo\$relative")
+        $lines.Add("$relative -> game\csgo\$relative")
     }
 
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $OutputFile) | Out-Null
@@ -258,7 +258,7 @@ function Write-ReleaseMetadata(
         asset = $AssetName
         archive = $Archive
         extract_root = $ExtractRoot
-        destination_root = $ServerRoot
+        destination_root = $PayloadRoot
         merge_mode = 'non-destructive-overlay'
         mappings = @($Targets | ForEach-Object {
             [ordered]@{
@@ -277,9 +277,9 @@ function Write-ReleaseMetadata(
     )
 }
 function Test-IsProtectedConfigDestination([string]$DestinationPath) {
-    $serverRootFull = [IO.Path]::GetFullPath($ServerRoot).TrimEnd([char[]]@('\', '/'))
+    $payloadRootFull = [IO.Path]::GetFullPath($PayloadRoot).TrimEnd([char[]]@('\', '/'))
     $destinationFull = [IO.Path]::GetFullPath($DestinationPath)
-    $prefix = $serverRootFull + [IO.Path]::DirectorySeparatorChar
+    $prefix = $payloadRootFull + [IO.Path]::DirectorySeparatorChar
 
     if (-not $destinationFull.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
         return $false
@@ -288,7 +288,7 @@ function Test-IsProtectedConfigDestination([string]$DestinationPath) {
     $relative = $destinationFull.Substring($prefix.Length).Replace('\', '/')
     return (
         $relative -match '^(?i:cfg)(/|$)' -or
-        $relative -match '^(?i:addons/counterstrikesharp/configs)(/|$)'
+        $relative -match '^(?i:addons/(windows/addons/)?counterstrikesharp/configs)(/|$)'
     )
 }
 
@@ -377,8 +377,8 @@ function Resolve-ReleaseInstallTargets($Addon, [string]$ExtractRoot, [string]$As
             [void]$targets.Add(@{
                 MergeMode = $merge
                 SourceRoot = $sourceRoot
-                DestinationRoot = $ServerRoot
-                DestinationDisplay = 'server\game\csgo'
+                DestinationRoot = $PayloadRoot
+                DestinationDisplay = 'game\csgo'
             })
             continue
         }
@@ -399,18 +399,18 @@ function Resolve-ReleaseInstallTargets($Addon, [string]$ExtractRoot, [string]$As
                 throw "Configured release source_path was not found for '$AssetName': $sourceRoot"
             }
 
-            $destinationRoot = Join-Path $ServerRoot $installPath
-            $serverFull = [IO.Path]::GetFullPath($ServerRoot).TrimEnd('\') + '\'
+            $destinationRoot = Join-Path $PayloadRoot $installPath
+            $payloadFull = [IO.Path]::GetFullPath($PayloadRoot).TrimEnd('\') + '\'
             $destinationFull = [IO.Path]::GetFullPath($destinationRoot)
-            if (-not $destinationFull.StartsWith($serverFull, [StringComparison]::OrdinalIgnoreCase)) {
-                throw "Release install_path escapes server/game/csgo for '$AssetName': $installPath"
+            if (-not $destinationFull.StartsWith($payloadFull, [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Release install_path escapes game/csgo for '$AssetName': $installPath"
             }
 
             [void]$targets.Add(@{
                 MergeMode = $merge
                 SourceRoot = $sourceRoot
                 DestinationRoot = $destinationRoot
-                DestinationDisplay = "server\game\csgo\$installPath"
+                DestinationDisplay = "game\csgo\$installPath"
             })
             continue
         }
@@ -559,7 +559,7 @@ function Install-SourceBuildAddon($Addon, $Commit) {
         throw "Build completed but expected output was not found: $built"
     }
 
-    $destination = Join-Path $ServerRoot ([string]$Addon.install_path)
+    $destination = Join-Path $PayloadRoot ([string]$Addon.install_path)
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
     Copy-Item -LiteralPath $built -Destination $destination -Force
 
@@ -586,7 +586,7 @@ function Commit-AddonUpdate([string]$AddonName, [string]$Version) {
         throw "git is required to commit addon updates."
     }
 
-    & git -C $RepoRoot add -- server/game/csgo README.md DEPENDENCIES.json
+    & git -C $RepoRoot add -- game/csgo README.md DEPENDENCIES.json
     if ($LASTEXITCODE -ne 0) {
         throw "git add failed."
     }
@@ -598,7 +598,7 @@ function Commit-AddonUpdate([string]$AddonName, [string]$Version) {
 
     foreach ($file in $staged) {
         if ($file -ne "README.md" -and $file -ne "DEPENDENCIES.json" -and
-            -not $file.StartsWith("server/game/csgo/", [StringComparison]::OrdinalIgnoreCase)) {
+            -not $file.StartsWith("game/csgo/", [StringComparison]::OrdinalIgnoreCase)) {
             throw "Unexpected staged path: $file"
         }
     }
@@ -701,11 +701,11 @@ if ($Only) {
     $addons = $selected
 }
 
-if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $ServerRoot | Out-Null }
+if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $PayloadRoot | Out-Null }
 
 Write-Host ""
 Write-Host "CS2 KUS Addons updater" -ForegroundColor Cyan
-Write-Host "Target: $ServerRoot"
+Write-Host "Target: $PayloadRoot"
 if ($DryRun) {
     Write-Host "Mode: DRY RUN" -ForegroundColor Yellow
 }
