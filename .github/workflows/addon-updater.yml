@@ -109,11 +109,11 @@ jobs:
           if ($templateVbs -notmatch 'run\.bat' -or $templateVbs -notmatch 'instance\.ini') {
             throw "Example run.vbs must supervise run.bat and validate its configuration."
           }
-          if ($templateIni -match '(?im)^(API_KEY|STEAM_ACCOUNT)\s*=\s*\S') {
+          if ($templateIni -match '(?im)^(API_KEY|STEAM_ACCOUNT)[ \t]*=[ \t]*\S') {
             throw "Example INI must not contain real API or game-server credentials."
           }
-          if ($templateIni -notmatch '(?im)^RCON_PASSWORD=CHANGE_ME_TO_A_STRONG_PASSWORD\s*$' -or
-              $templateIgnore -notmatch '(?im)^instance\.ini\s*$') {
+          if ($templateIni -notmatch '(?im)^RCON_PASSWORD=CHANGE_ME_TO_A_STRONG_PASSWORD[ \t]*$' -or
+              $templateIgnore -notmatch '(?im)^instance\.ini[ \t]*$') {
             throw "Example INI must use a placeholder RCON password and ignore local instance.ini."
           }
           Write-Host "Example runner template safety checks passed."
