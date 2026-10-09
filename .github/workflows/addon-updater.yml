@@ -98,6 +98,8 @@ jobs:
       - name: Smoke-test explicit release archive mappings
         if: github.event_name != 'schedule'
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $selected = @("SLAYER_AntiCamp", "SLAYER_HeadshotOnly", "VIPCore", "CS2-TeamLimiter")
           $ErrorActionPreference = "Stop"

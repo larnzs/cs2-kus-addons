@@ -26,11 +26,17 @@ function Normalize-Version([string]$Tag) {
 }
 
 function Get-Headers() {
-    return @{
+    $headers = @{
         Accept = "application/vnd.github+json"
         "User-Agent" = $UserAgent
         "X-GitHub-Api-Version" = "2022-11-28"
     }
+
+    if ($env:GITHUB_TOKEN) {
+        $headers.Authorization = "Bearer $($env:GITHUB_TOKEN)"
+    }
+
+    return $headers
 }
 
 function Get-RepoSlug([string]$Url) {
