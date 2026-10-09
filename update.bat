@@ -1,12 +1,15 @@
 @echo off
 setlocal EnableExtensions
 title CS2 KUS Addons - Update Repository
+set "PAUSE_ON_EXIT=1"
+if /I "%~1"=="--no-pause" set "PAUSE_ON_EXIT=0"
+set "RC=1"
 cd /d "%~dp0"
 
 git rev-parse --is-inside-work-tree >nul 2>&1
 if errorlevel 1 (
     echo ERROR: This directory is not a Git checkout. Clone the private repository first.
-    exit /b 1
+    goto :finish
 )
 git diff --quiet
 if errorlevel 1 goto :dirty
@@ -17,15 +20,32 @@ for /f "delims=" %%A in ('git status --porcelain') do goto :dirty
 echo Pulling the unified repository (fast-forward only)...
 git pull --ff-only
 if errorlevel 1 (
-    echo ERROR: git pull failed. Check credentials, branch, or repository state.
-    exit /b 1
+    echo ERROR: git pull failed. Check credentials, branch, network, and repository state.
+    set "RC=1"
+    goto :finish
 )
 
-call "%~dp0win.bat"
+call "%~dp0win.bat" --no-pause
 set "RC=%ERRORLEVEL%"
-exit /b %RC%
+if not "%RC%"=="0" echo ERROR: Post-pull server preparation failed with code %RC%.
+goto :finish
 
 :dirty
 echo ERROR: The repository has local changes or untracked files.
 echo Commit or stash them before updating. Ignored downloaded game files are not affected.
-exit /b 1
+set "RC=1"
+goto :finish
+
+:finish
+echo.
+if "%RC%"=="0" (
+    echo Result: SUCCESS
+) else (
+    echo Result: FAILED ^(exit code %RC%^)
+)
+if "%PAUSE_ON_EXIT%"=="1" (
+    echo.
+    echo Press any key to close this window . . .
+    pause >nul
+)
+endlocal & exit /b %RC%

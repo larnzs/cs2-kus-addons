@@ -1,6 +1,9 @@
 @echo off
 setlocal EnableExtensions
 title CS2 KUS Addons - Prepare and Validate
+set "PAUSE_ON_EXIT=1"
+if /I "%~1"=="--no-pause" set "PAUSE_ON_EXIT=0"
+set "RC=1"
 cd /d "%~dp0"
 
 set "ROOT_DIR=%~dp0"
@@ -18,51 +21,65 @@ echo.
 
 if not exist "%ROOT_DIR%DEPENDENCIES.json" (
     echo ERROR: DEPENDENCIES.json is missing. Run this from the repository root.
-    exit /b 1
+    goto :finish
 )
 if not exist "%CS2_EXE%" (
     echo ERROR: CS2 is not installed. Run install.bat first.
-    exit /b 1
+    goto :finish
 )
 if not exist "%GAMEINFO%" (
     echo ERROR: gameinfo.gi is missing. Verify the CS2 installation.
-    exit /b 1
+    goto :finish
 )
 if not exist "%METAMOD_DLL%" (
     echo ERROR: Windows Metamod binary is missing:
     echo        %METAMOD_DLL%
-    exit /b 1
+    goto :finish
 )
 if not exist "%SERVER_DIR%\game\csgo\addons\multiaddonmanager\bin\multiaddonmanager.dll" (
     echo ERROR: KUS MultiAddonManager binary is missing.
-    exit /b 1
+    goto :finish
 )
 if not exist "%SERVER_DIR%\game\csgo\addons\serverlistplayersfix_mm\bin\win64\serverlistplayersfix_mm.dll" (
     echo ERROR: KUS ServerListPlayersFix binary is missing.
-    exit /b 1
+    goto :finish
 )
 if not exist "%SERVER_DIR%\game\csgo\addons\MovementUnlocker\bin\win64\MovementUnlocker.dll" (
     echo ERROR: KUS MovementUnlocker binary is missing.
-    exit /b 1
+    goto :finish
 )
 if not exist "%SERVER_DIR%\game\csgo\addons\cs2fixes-rampbugfix\bin\win64\cs2fixes-rampbugfix.dll" (
     echo ERROR: KUS RampbugFix binary is missing.
-    exit /b 1
+    goto :finish
 )
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT_DIR%scripts\Patch-GameInfo.ps1" -GameInfoPath "%GAMEINFO%"
 if errorlevel 1 (
     echo ERROR: Could not patch gameinfo.gi.
-    exit /b 1
+    goto :finish
 )
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT_DIR%scripts\Test-AddonOverlay.ps1" -VerifyAddons
 if errorlevel 1 (
     echo ERROR: Managed runtime verification failed.
-    exit /b 1
+    goto :finish
 )
 
 echo.
 echo SUCCESS: server\game\csgo is the canonical runtime path.
 echo No plugin copying, deletion, SteamCMD update, Git pull, or server launch was performed.
-exit /b 0
+set "RC=0"
+
+:finish
+echo.
+if "%RC%"=="0" (
+    echo Result: SUCCESS
+) else (
+    echo Result: FAILED ^(exit code %RC%^)
+)
+if "%PAUSE_ON_EXIT%"=="1" (
+    echo.
+    echo Press any key to close this window . . .
+    pause >nul
+)
+endlocal & exit /b %RC%
