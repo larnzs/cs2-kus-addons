@@ -112,8 +112,8 @@ jobs:
           if ($templateIni -match '(?im)^(API_KEY|STEAM_ACCOUNT)[ \t]*=[ \t]*\S') {
             throw "Example INI must not contain real API or game-server credentials."
           }
-          if ($templateIni -notmatch '(?im)^RCON_PASSWORD=CHANGE_ME_TO_A_STRONG_PASSWORD[ \t]*$' -or
-              $templateIgnore -notmatch '(?im)^instance\.ini[ \t]*$') {
+          if ($templateIni -notmatch '(?im)^RCON_PASSWORD=CHANGE_ME_TO_A_STRONG_PASSWORD[ \t\r]*$' -or
+              $templateIgnore -notmatch '(?im)^instance\.ini[ \t\r]*$') {
             throw "Example INI must use a placeholder RCON password and ignore local instance.ini."
           }
           Write-Host "Example runner template safety checks passed."
