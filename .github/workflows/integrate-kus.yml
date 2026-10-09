@@ -1,0 +1,69 @@
+name: Integrate KUS into the unified server tree
+
+on:
+  push:
+    branches:
+      - integration/kus-monorepo
+    paths:
+      - scripts/Integrate-KUS.ps1
+      - .github/workflows/integrate-kus.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kus-integration-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    name: Import KUS assets into server/
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the integration branch
+        uses: actions/checkout@v4
+        with:
+          path: repo
+          fetch-depth: 1
+
+      - name: Checkout the KUS source snapshot
+        uses: actions/checkout@v4
+        with:
+          repository: kus/cs2-modded-server
+          ref: master
+          path: kus-source
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate PowerShell syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/repo/scripts/Integrate-KUS.ps1", [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_ }
+            exit 1
+          }
+
+      - name: Import the KUS payloads
+        shell: pwsh
+        working-directory: repo
+        run: ./scripts/Integrate-KUS.ps1 -KusRoot ../kus-source
+
+      - name: Commit the integrated tree
+        shell: bash
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          chmod +x install.sh start.sh run.sh 2>/dev/null || true
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The integration script produced no changes."
+            exit 0
+          fi
+          git status --short
+          git commit -m "Integrate KUS runtime assets into server tree"
+          git push origin HEAD:integration/kus-monorepo
