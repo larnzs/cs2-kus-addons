@@ -8,15 +8,16 @@ function Write-Utf8 {
 }
 
 function Copy-Tree {
-    param([string]$Source, [string]$Destination, [string]$Rel = "", [switch]$SkipWindows, [switch]$OnlyMissing, [switch]$TrackText)
+    param([string]$Source, [string]$Destination, [string]$Rel = "", [string[]]$ExcludePaths = @(), [switch]$SkipWindows, [switch]$OnlyMissing, [switch]$TrackText)
     if (-not (Test-Path -LiteralPath $Source -PathType Container)) { throw "Missing source directory: $Source" }
     New-Item -ItemType Directory -Force -Path $Destination | Out-Null
     foreach ($item in Get-ChildItem -LiteralPath $Source -Force) {
         $relative = if ($Rel) { "$Rel/$($item.Name)" } else { $item.Name }
         $normalized = $relative.Replace("\", "/")
+        if ($ExcludePaths -contains $normalized) { continue }
         if ($SkipWindows -and ($normalized -eq "addons/windows" -or $normalized.StartsWith("addons/windows/"))) { continue }
         if ($item.PSIsContainer) {
-            Copy-Tree -Source $item.FullName -Destination (Join-Path $Destination $item.Name) -Rel $relative -SkipWindows:$SkipWindows -OnlyMissing:$OnlyMissing -TrackText:$TrackText
+            Copy-Tree -Source $item.FullName -Destination (Join-Path $Destination $item.Name) -Rel $relative -ExcludePaths $ExcludePaths -SkipWindows:$SkipWindows -OnlyMissing:$OnlyMissing -TrackText:$TrackText
         } else {
             $target = Join-Path $Destination $item.Name
             if ($OnlyMissing -and (Test-Path -LiteralPath $target)) { continue }
@@ -72,8 +73,8 @@ foreach ($item in Get-ChildItem -LiteralPath $KusRootResolved -Force) {
     $target = Join-Path $RepoRoot $item.Name
     if ($item.PSIsContainer) {
         $exclude = @()
-        if ($item.Name -eq ".github") { $exclude = @(".github/workflows/auto-update-mods.yml") }
-        Copy-Tree -Source $item.FullName -Destination $target -OnlyMissing -TrackText -Rel "" 
+        if ($item.Name -eq ".github") { $exclude = @("workflows/auto-update-mods.yml") }
+        Copy-Tree -Source $item.FullName -Destination $target -ExcludePaths $exclude -OnlyMissing -TrackText -Rel "" 
     } else {
         if (Test-Path -LiteralPath $target) { continue }
         Copy-Item -LiteralPath $item.FullName -Destination $target -Force
