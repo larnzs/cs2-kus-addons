@@ -287,7 +287,26 @@ jobs:
             throw ("Unexpected uncommitted changes remain after updater:" + [Environment]::NewLine + $status)
           }
 
+          git fetch origin integration/kus-monorepo
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not fetch the latest integration branch before pushing updater commits."
+          }
+
+          $ahead = git rev-list --count origin/integration/kus-monorepo..HEAD
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not compare updater commits with the latest remote branch."
+          }
+          if ([int]$ahead -eq 0) {
+            Write-Host "No updater commits need pushing; the remote already contains this checkout or has advanced."
+            exit 0
+          }
+
+          git rebase origin/integration/kus-monorepo
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not rebase successful addon updates onto the latest integration branch. Resolve the conflict and retry."
+          }
+
           git push origin HEAD:integration/kus-monorepo
           if ($LASTEXITCODE -ne 0) {
-            throw "Push to main failed."
+            throw "Push to integration/kus-monorepo failed after fetching and rebasing."
           }
