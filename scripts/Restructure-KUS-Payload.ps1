@@ -13,7 +13,10 @@ function Copy-TreeContent([string]$Source, [string]$Destination, [string]$Relati
     New-Item -ItemType Directory -Force -Path $Destination | Out-Null
     foreach ($item in Get-ChildItem -LiteralPath $Source -Force) {
         $rel = if ($Relative) { "$Relative/$($item.Name)" } else { $item.Name }
-        if ($rel -ceq "cfg/settings/MatchZy/lang/pt-pt.json") {
+        if (
+            $rel -ceq "cfg/settings/MatchZy/lang/pt-pt.json" -or
+            $rel -ceq "addons/counterstrikesharp/plugins/disabled/MatchZy/lang/pt-pt.json"
+        ) {
             $archive = Join-Path $script:RepoRoot "docs/upstream/runtime-case-collisions/MatchZy/lang/pt-pt.json"
             New-Item -ItemType Directory -Force -Path (Split-Path -Parent $archive) | Out-Null
             Copy-Item -LiteralPath $item.FullName -Destination $archive -Force
