@@ -74,8 +74,6 @@ $SettingsTrackedRoots = @(
     (Join-Path $WindowsOverlay "cfg\settings")
 )
 $CssTrackedRoots = @(
-    (Join-Path $PayloadRoot "addons\counterstrikesharp\configs"),
-    (Join-Path $PayloadRoot "addons\windows\addons\counterstrikesharp\configs")
 )
 $BackupAddons = Join-Path $WorkRoot "addons.previous"
 $BackupSettings = Join-Path $WorkRoot "settings.previous"
@@ -94,9 +92,13 @@ try {
     Copy-TreeContent -Source $WindowsOverlay -Destination $IncomingRoot
     Write-Host "Prepared $(@(Get-ChildItem -LiteralPath $IncomingRoot -Recurse -File -Force).Count) payload files."
 
+    # Preserve the entire live CounterStrikeSharp configs tree, including tracked paths.
+    # Repo payload configs are defaults for a fresh install; they must not overwrite an
+    # existing server's personalized settings during subsequent deployments.
     if (Test-Path -LiteralPath $ConfigDestination -PathType Container) {
-        Copy-UntrackedRuntimeFiles -Source $ConfigDestination -Destination $BackupConfig -TrackedRoots $CssTrackedRoots
+        Copy-TreeContent -Source $ConfigDestination -Destination $BackupConfig
         $configBackupCreated = Test-Path -LiteralPath $BackupConfig -PathType Container
+        Write-Host "Backed up the complete runtime CounterStrikeSharp configs directory."
     }
     Copy-PayloadFiles -Source $IncomingRoot -Destination $RuntimeRoot
 
@@ -121,8 +123,12 @@ try {
         }
     }
     if ($configBackupCreated) {
+        if (Test-Path -LiteralPath $ConfigDestination -PathType Container) {
+            Remove-Item -LiteralPath $ConfigDestination -Recurse -Force
+        }
         New-Item -ItemType Directory -Force -Path $ConfigDestination | Out-Null
         Copy-TreeContent -Source $BackupConfig -Destination $ConfigDestination
+        Write-Host "SUCCESS: Existing CounterStrikeSharp configs preserved unchanged."
     }
     if ($addonsBackupCreated -and (Test-Path -LiteralPath $BackupAddons)) { Remove-Item -LiteralPath $BackupAddons -Recurse -Force }
     Write-Host "SUCCESS: tracked payload files deployed; runtime-only cfg/settings and CSS config files preserved."
