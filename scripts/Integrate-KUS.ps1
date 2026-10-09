@@ -143,7 +143,7 @@ foreach ($sourceFile in Get-ChildItem -LiteralPath $KusRootResolved -File -Recur
 }
 
 
-# Merge both guides so the root README keeps the Larnz notes and every KUS section/table.
+# Build the root README from the authoritative unified header plus the full upstream guide.
 $readmePath = Join-Path $RepoRoot "README.md"
 $larnzBackupPath = Join-Path $RepoRoot "docs/Larnz-Addons-README.md"
 if (Test-Path -LiteralPath $larnzBackupPath) {
@@ -152,23 +152,30 @@ if (Test-Path -LiteralPath $larnzBackupPath) {
     $larnzReadme = [IO.File]::ReadAllText($readmePath)
     Write-Utf8 -Path $larnzBackupPath -Text $larnzReadme
 }
+$headerPath = Join-Path $RepoRoot "docs/Unified-README-HEADER.md"
+$rootHeader = if (Test-Path -LiteralPath $headerPath) { [IO.File]::ReadAllText($headerPath) } else { $larnzReadme }
 $kusReadme = [IO.File]::ReadAllText((Join-Path $KusRootResolved "README.md"))
-$kusReadme = [regex]::Replace($kusReadme, '(?<!server/)game/csgo', 'server/game/csgo')
-$kusReadme = [regex]::Replace($kusReadme, '(?<!server\\)game\\csgo', 'server\game\csgo')
-$note = @'
-## Unified repository layout
+$kusReadme = [regex]::Replace($kusReadme, '(?:server/)*game/csgo', 'server/game/csgo')
+$kusReadme = [regex]::Replace($kusReadme, '(?:server\\)*game\\csgo', 'server\game\csgo')
+$referenceNote = @'
+## Full upstream KUS guide (reference)
 
-All managed KUS and Larnz runtime payloads are stored directly under server/game/csgo/. The old game/csgo staging directory is not retained. The KUS Windows-specific payload is flattened into the canonical runtime tree during this one-time import. The existing Larnz overlay and personal settings are restored last.
-
-The complete KUS guide follows below to retain the upstream plugin tables, dependency notes, deployment instructions, and troubleshooting material. The upstream source is https://github.com/kus/cs2-modded-server and its LGPL-3.0 license is retained in LICENSE.
+The complete upstream KUS README and its plugin tables, dependency notes, game-mode documentation, and troubleshooting material are preserved below. Some original sections describe the old staging/copy workflow; those sections are reference only. The unified installation and path rules in this document's introduction are authoritative for this repository.
 '@
-$joined = $larnzReadme.TrimEnd() + [Environment]::NewLine + [Environment]::NewLine + $note + [Environment]::NewLine + [Environment]::NewLine + $kusReadme.TrimStart()
+$joined = $rootHeader.TrimEnd() + [Environment]::NewLine + [Environment]::NewLine + $referenceNote + [Environment]::NewLine + [Environment]::NewLine + $kusReadme.TrimStart()
 Write-Utf8 -Path $readmePath -Text $joined
 Write-Utf8 -Path (Join-Path $RepoRoot "docs/upstream/KUS-README.md") -Text $kusReadme
 
 # The combined repository owns the final server path; keep the SteamCMD installation local.
 $ignorePath = Join-Path $RepoRoot ".gitignore"
-$ignoreText = [IO.File]::ReadAllText($ignorePath).TrimEnd()
+$ignoreMarker = "# Unified KUS/Larnz server: only the managed payload trees are tracked."
+$ignoreText = [IO.File]::ReadAllText($ignorePath)
+$markerIndex = $ignoreText.IndexOf($ignoreMarker, [StringComparison]::Ordinal)
+if ($markerIndex -ge 0) {
+    $ignoreText = $ignoreText.Substring(0, $markerIndex).TrimEnd()
+} else {
+    $ignoreText = $ignoreText.TrimEnd()
+}
 $ignoreText += @'
 
 # Unified KUS/Larnz server: only the managed payload trees are tracked.
@@ -193,11 +200,11 @@ $ignoreText += @'
 $cfgRoot = Join-Path $runtimeRoot "cfg"
 if (Test-Path -LiteralPath $cfgRoot -PathType Container) {
     foreach ($dir in Get-ChildItem -LiteralPath $cfgRoot -Directory -Recurse | Sort-Object { $_.FullName.Length }) {
-        $relative = $dir.FullName.Substring($RepoRoot.Length).Replace("\", "/")
+        $relative = $dir.FullName.Substring($RepoRoot.Length).TrimStart("\", "/").Replace("\", "/")
         $ignoreText += [Environment]::NewLine + "!/$relative/"
     }
     foreach ($file in Get-ChildItem -LiteralPath $cfgRoot -File) {
-        $relative = $file.FullName.Substring($RepoRoot.Length).Replace("\", "/")
+        $relative = $file.FullName.Substring($RepoRoot.Length).TrimStart("\", "/").Replace("\", "/")
         $ignoreText += [Environment]::NewLine + "!/$relative"
     }
 }
