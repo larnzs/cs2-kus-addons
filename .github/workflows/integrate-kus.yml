@@ -2,12 +2,7 @@ name: Integrate KUS into the unified server tree
 # Canonical paths: all managed runtime payloads live under server/game/csgo.
 
 on:
-  push:
-    branches:
-      - integration/kus-monorepo
-    paths:
-      - scripts/Integrate-KUS.ps1
-      - .github/workflows/integrate-kus.yml
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -18,7 +13,7 @@ concurrency:
 
 jobs:
   import:
-    name: Import KUS assets into server/
+    name: Refresh tracked KUS payload
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the integration branch

@@ -13,10 +13,9 @@ on:
       - "install.bat"
       - "update.bat"
       - "game-update.bat"
-      - "server/game/csgo/**"
+      - "game/csgo/**"
       - "README.md"
       - "examples/**"
-      - ".github/workflows/addon-updater.yml"
   schedule:
     - cron: "17 3 * * *"
   workflow_dispatch:
@@ -57,7 +56,8 @@ jobs:
           $paths = @(
             ".\scripts\Update-Addons.ps1",
             ".\scripts\Test-AddonOverlay.ps1",
-            ".\scripts\Inspect-Releases.ps1"
+            ".\scripts\Inspect-Releases.ps1",
+            ".\scripts\Deploy-Runtime.ps1"
           )
           foreach ($path in $paths) {
             $tokens = $null
@@ -80,9 +80,20 @@ jobs:
           if ([string]$css.required_asset_name_contains -ne "with-runtime-windows") {
             throw "CounterStrikeSharp runtime asset marker is missing or incorrect."
           }
+          $cssMapping = @($css.asset_mappings.PSObject.Properties | Where-Object Name -eq "counterstrikesharp-with-runtime-windows-{version}.zip") | Select-Object -First 1
+          if (-not $cssMapping) { throw "CounterStrikeSharp Windows with-runtime mapping is missing." }
+          $cssTargets = @($cssMapping.Value)
+          if ($cssTargets.Count -ne 1 -or
+              [string]$cssTargets[0].merge -ne "release_plugin_directory" -or
+              [string]$cssTargets[0].install_path -ne "addons/windows/addons/counterstrikesharp") {
+            throw "CounterStrikeSharp Windows with-runtime must install into the KUS Windows overlay."
+          }
+          if (-not (Test-Path -LiteralPath ".\game\csgo\addons\counterstrikesharp\bin\linuxsteamrt64\counterstrikesharp.so")) {
+            throw "Shared Linux CounterStrikeSharp binary is missing from game/csgo."
+          }
           foreach ($requiredGlob in @(
-            "addons/counterstrikesharp/dotnet/shared/Microsoft.NETCore.App/*/System.Private.CoreLib.dll",
-            "addons/counterstrikesharp/dotnet/host/fxr/*/hostfxr.dll"
+            "addons/windows/addons/counterstrikesharp/dotnet/shared/Microsoft.NETCore.App/*/System.Private.CoreLib.dll",
+            "addons/windows/addons/counterstrikesharp/dotnet/host/fxr/*/hostfxr.dll"
           )) {
             if (@($css.verify_globs | Where-Object { $_ -eq $requiredGlob }).Count -ne 1) {
               throw "CounterStrikeSharp runtime verification glob is missing: $requiredGlob"
@@ -260,9 +271,9 @@ jobs:
             throw "Addon overlay validation failed."
           }
 
-          $root = Join-Path $PWD "server\game\csgo"
+          $root = Join-Path $PWD "game\csgo"
           $allFiles = @(Get-ChildItem -LiteralPath $root -Recurse -File -Force)
-          Write-Host "Runtime overlay contains $($allFiles.Count) files."
+          Write-Host "Tracked KUS payload contains $($allFiles.Count) files."
           Write-Host "Top-level addons:"
           Get-ChildItem -LiteralPath (Join-Path $root "addons") -Directory |
             Sort-Object Name |

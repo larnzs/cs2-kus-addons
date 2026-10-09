@@ -469,6 +469,14 @@ foreach ($batName in @("install.bat", "game-update.bat")) {
 # Update the optional KUS re-import script to keep its platform overlay nested.
 $integratorPath = Join-Path $RepoRoot "scripts/Integrate-KUS.ps1"
 $integrator = Get-Content -LiteralPath $integratorPath -Raw
+$rewriteStart = $integrator.IndexOf("function Rewrite-Paths {")
+$rewriteEnd = $integrator.IndexOf([Environment]::NewLine + [Environment]::NewLine + '$RepoRoot =', $rewriteStart)
+if ($rewriteStart -lt 0 -or $rewriteEnd -lt $rewriteStart) { throw "Could not isolate Rewrite-Paths in Integrate-KUS.ps1." }
+$newRewrite = 'function Rewrite-Paths {' + [Environment]::NewLine +
+    '    param([string]$Path)' + [Environment]::NewLine +
+    '    # KUS differentiates the tracked payload from the installed runtime.' + [Environment]::NewLine +
+    '    return' + [Environment]::NewLine + '}'
+$integrator = $integrator.Substring(0, $rewriteStart) + $newRewrite + $integrator.Substring($rewriteEnd + (2 * [Environment]::NewLine.Length))
 $integrator = $integrator.Replace('$runtimeRoot = Join-Path $RepoRoot "server/game/csgo"', '$runtimeRoot = Join-Path $RepoRoot "game/csgo"')
 $integrator = $integrator.Replace('git -C $RepoRoot ls-files -- "server/game/csgo"', 'git -C $RepoRoot ls-files -- "game/csgo"')
 $integrator = $integrator.Replace('$_.StartsWith("server/game/csgo/")', '$_.StartsWith("game/csgo/")')
@@ -500,24 +508,7 @@ $integrator = $integrator.Replace('runtime_root = "server/game/csgo"', 'runtime_
 $integrator = $integrator.Replace('windows_overlay_policy = "Flatten Windows-specific payloads into server/game/csgo, then restore Larnz overlay last."', 'windows_overlay_policy = "Keep Windows-specific payloads under game/csgo/addons/windows; flatten only during Windows deployment."')
 Write-Utf8 -Path $integratorPath -Text $integrator
 
-$integrateWorkflowPath = Join-Path $RepoRoot ".github/workflows/integrate-kus.yml"
-$integrateWorkflow = Get-Content -LiteralPath $integrateWorkflowPath -Raw
-$integrateWorkflow = [regex]::Replace($integrateWorkflow, '(?ms)^on:\r?\n  push:\r?\n    branches:\r?\n      - integration/kus-monorepo\r?\n    paths:\r?\n      - scripts/Integrate-KUS\.ps1\r?\n      - \.github/workflows/integrate-kus\.yml\r?\n', "on:" + [Environment]::NewLine + "  workflow_dispatch:" + [Environment]::NewLine, 1)
-if ($integrateWorkflow -match '(?m)^  push:') { throw "The old KUS importer workflow still has an automatic push trigger." }
-$integrateWorkflow = $integrateWorkflow.Replace("Import KUS assets into server/", "Refresh tracked KUS payload")
-Write-Utf8 -Path $integrateWorkflowPath -Text $integrateWorkflow
-
-$updaterWorkflowPath = Join-Path $RepoRoot ".github/workflows/addon-updater.yml"
-$updaterWorkflow = Get-Content -LiteralPath $updaterWorkflowPath -Raw
-$updaterWorkflow = $updaterWorkflow.Replace('"server/game/csgo/**"', '"game/csgo/**"')
-$updaterWorkflow = $updaterWorkflow.Replace('addons/counterstrikesharp/dotnet/shared/Microsoft.NETCore.App/*/System.Private.CoreLib.dll', 'addons/windows/addons/counterstrikesharp/dotnet/shared/Microsoft.NETCore.App/*/System.Private.CoreLib.dll')
-$updaterWorkflow = $updaterWorkflow.Replace('addons/counterstrikesharp/dotnet/host/fxr/*/hostfxr.dll', 'addons/windows/addons/counterstrikesharp/dotnet/host/fxr/*/hostfxr.dll')
-$updaterWorkflow = $updaterWorkflow.Replace('$root = Join-Path $PWD "server\game\csgo"', '$root = Join-Path $PWD "game\csgo"')
-$updaterWorkflow = $updaterWorkflow.Replace('Runtime overlay contains', 'Tracked KUS payload contains')
-if ($updaterWorkflow -notmatch 'Deploy-Runtime\.ps1') {
-    $updaterWorkflow = $updaterWorkflow.Replace('".\scripts\Inspect-Releases.ps1"', '".\scripts\Inspect-Releases.ps1",' + [Environment]::NewLine + '            ".\scripts\Deploy-Runtime.ps1"')
-}
-Write-Utf8 -Path $updaterWorkflowPath -Text $updaterWorkflow
+# Workflow YAML is managed through the repository API; do not edit .github/workflows from this runner.
 
 # Keep shared map tools writing to the tracked payload.
 $addMapPath = Join-Path $RepoRoot "scripts/add-map.py"
