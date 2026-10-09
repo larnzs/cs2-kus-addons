@@ -49,7 +49,7 @@ $KusRuntime = Join-Path $KusRootResolved "game/csgo"
 if (-not (Test-Path -LiteralPath $KusRuntime -PathType Container)) { throw "KUS runtime tree not found: $KusRuntime" }
 
 $marker = Join-Path $RepoRoot "docs/upstream/KUS-IMPORT.json"
-if (Test-Path -LiteralPath $marker) { Write-Host "KUS was already imported on this branch."; exit 0 }
+# Safe to re-run: existing Larnz files are saved/restored and the original README is kept separately.
 
 $script:ImportedText = [System.Collections.Generic.List[string]]::new()
 $kusCommit = (git -C $KusRootResolved rev-parse HEAD).Trim()
@@ -104,8 +104,13 @@ foreach ($path in $script:ImportedText) { Rewrite-Paths -Path $path }
 
 # Merge both guides so the root README keeps the Larnz notes and every KUS section/table.
 $readmePath = Join-Path $RepoRoot "README.md"
-$larnzReadme = [IO.File]::ReadAllText($readmePath)
-Write-Utf8 -Path (Join-Path $RepoRoot "docs/Larnz-Addons-README.md") -Text $larnzReadme
+$larnzBackupPath = Join-Path $RepoRoot "docs/Larnz-Addons-README.md"
+if (Test-Path -LiteralPath $larnzBackupPath) {
+    $larnzReadme = [IO.File]::ReadAllText($larnzBackupPath)
+} else {
+    $larnzReadme = [IO.File]::ReadAllText($readmePath)
+    Write-Utf8 -Path $larnzBackupPath -Text $larnzReadme
+}
 $kusReadme = [IO.File]::ReadAllText((Join-Path $KusRootResolved "README.md"))
 $kusReadme = $kusReadme.Replace("game/csgo", "server/game/csgo").Replace("game\csgo", "server\game\csgo")
 $note = @'
@@ -133,7 +138,7 @@ $ignoreText += @'
 !/server/game/csgo/
 /server/game/csgo/*
 !/server/game/csgo/addons/
-/server/game/csgo/addons/**
+!/server/game/csgo/addons/**
 !/server/game/csgo/cfg/
 /server/game/csgo/cfg/*
 !/server/game/csgo/gamemodes_server.txt
