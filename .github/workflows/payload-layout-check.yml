@@ -17,6 +17,7 @@ on:
       - "update.bat"
       - "win.bat"
       - "game-update.bat"
+      - "examples/run-template/run.bat"
       - "install.sh"
       - "start.sh"
       - "install_docker.sh"
@@ -129,8 +130,11 @@ jobs:
           assert 'call "%ROOT_DIR%win.bat" --no-pause' in install_bat
           update_bat = Path("update.bat").read_text(encoding="utf-8")
           game_update_bat = Path("game-update.bat").read_text(encoding="utf-8")
+          runner_bat = Path("examples/run-template/run.bat").read_text(encoding="utf-8")
           assert 'call "%~dp0win.bat" --no-pause' in update_bat
           assert 'call "%ROOT_DIR%win.bat" --no-pause' in game_update_bat
+          assert r'/XD "%CUSTOM_DIR%\addons\counterstrikesharp\configs"' in runner_bat
+          assert r'%CUSTOM_DIR%\addons\windows\addons\counterstrikesharp\configs' in runner_bat
           assert 'Copy-TreeContent -Source $WindowsOverlay -Destination $IncomingRoot' in deploy
           assert "Copy-UntrackedRuntimeFiles" in deploy
           assert "$SettingsTrackedRoots" in deploy
