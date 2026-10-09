@@ -30,7 +30,7 @@ The upstream `custom_files/` and `custom_files_example/` trees are intentionally
 
 - `install.bat` downloads SteamCMD if needed and runs `app_update 730` in `server/` on every invocation. It omits the optional `validate` flag and does not start the server.
 - `win.bat` stages `game/csgo/`, overlays `game/csgo/addons/windows/` into `server/game/csgo/`, patches the installed `gameinfo.gi` idempotently, and verifies deployed files. It does not pull Git, run SteamCMD, or launch CS2.
-- `update.bat` only performs a fast-forward-only Git pull and then validates the installation. It refuses local/untracked changes.
+- `update.bat` performs a fast-forward-only Git pull, then calls `win.bat` to deploy and verify the tracked payload. It refuses local/untracked changes.
 - `game-update.bat` explicitly updates the CS2 game with SteamCMD. Stop every CS2 instance first.
 - `addons-update.bat -DryRun` previews Larnz-managed release updates; `addons-update.bat` applies them. This updater preserves fixed config paths and commits each successful add-on update.
 - A server restart through `run.bat`/`run.vbs` does not implicitly update Git, the CS2 game, or releases.
@@ -41,7 +41,7 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 
 | Add-on | Version | Purpose |
 | --- | --- | --- |
-| CounterStrikeSharp | 1.0.376 | Installed from the Windows **with-runtime** release; the bundled .NET runtime is kept under `addons/counterstrikesharp/dotnet/`. |
+| CounterStrikeSharp | 1.0.376 | Windows with-runtime files (including bundled .NET) are staged under `game/csgo/addons/windows/addons/counterstrikesharp/`; the shared/Linux payload remains under `game/csgo/addons/counterstrikesharp/`. |
 | CS2UpdateMonitor | 1.1.0 | Detects a new game build and signals the external supervisor |
 | WeaponPaints | 466 | Player-side weapon customization |
 | CS2-SimpleAdmin | 1.9.0 | Additional administration features |
@@ -199,13 +199,13 @@ There are three independent update operations. Keep them separate so a routine G
 
 | Operation | Command | What it changes |
 | --- | --- | --- |
-| Update tracked KUS + Larnz files | `update.bat` | Fast-forward-only pull of this private repository, followed by validation. It refuses a dirty working tree. |
+| Update tracked KUS + Larnz files | `update.bat` | Fast-forward-only pull of the private repository, followed by payload deployment and installed-runtime verification. |
 | Update the CS2 game | `game-update.bat` | Runs SteamCMD for app 730. Stop all CS2 instances first. |
 | Update Larnz-managed add-ons | `addons-update.bat -DryRun`, then `addons-update.bat` | Resolves release assets from `DEPENDENCIES.json`, maps files into tracked `game/csgo/` (Windows CounterStrikeSharp is kept under `game/csgo/addons/windows/`), verifies required paths and commits successful updates. |
 
 Use `addons-inspect.bat -Only CounterStrikeSharp` to inspect an upstream release archive without installing it. The CounterStrikeSharp rule in `DEPENDENCIES.json` requires `counterstrikesharp-with-runtime-windows-{version}.zip`; the updater refuses a no-runtime asset. Its post-install verification checks both the API/plugin files and versioned .NET runtime files.
 
-KUS base plugins that are not listed as automated add-ons remain tracked at their final runtime paths and arrive through Git updates. Do not run the old KUS Bash release updater on Windows or treat it as the authority for the Larnz manifest. Its historical notes remain available in `docs/upstream/KUS-README.md`.
+KUS base plugins that are not listed as automated add-ons remain tracked under `game/csgo/` and are deployed into the installed runtime by `win.bat`. Do not run the old KUS Bash release updater on Windows or treat it as the authority for the Larnz manifest; its historical notes remain available in `docs/upstream/KUS-README.md`.
 
 Note: `install.bat` invokes KUS-style `app_update 730` even when CS2 appears to be installed; it does not pass `validate`. Use `game-update.bat` for the dedicated game-update workflow and `update.bat` for Git-only changes.
 
@@ -318,7 +318,7 @@ The console command for hosting a workshop collection is `host_workshop_collecti
 
 ## Setting maps for different game modes
 
-Add your maps by editing the tracked `game/csgo/gamemodes_server.txt` and selecting the relevant mode's map group. Most gamemodes fall under casual, but this distribution has unique groups so you can maintain each mode independently. The current Windows runner overlays only `cfg/` and `addons/`; it does not copy root-level files such as `gamemodes_server.txt`.
+Add maps by editing the tracked `game/csgo/gamemodes_server.txt` and selecting the relevant mode's map group. `win.bat` deploys this root-level file as part of the source payload; the per-instance runner only overlays `cfg/` and `addons/`.
 
 For Workshop maps, add their file IDs to the canonical `game/csgo/subscribed_file_ids.txt` when that file is used by your setup. Commit shared changes to this private repo so they can be reproduced on a clean checkout.
 

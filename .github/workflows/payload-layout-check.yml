@@ -24,6 +24,8 @@ on:
       - "docker-compose.yml"
       - ".gitignore"
       - "DEPENDENCIES.json"
+      - "README.md"
+      - "docs/Unified-README-HEADER.md"
       - ".github/workflows/payload-layout-check.yml"
   workflow_dispatch:
 
