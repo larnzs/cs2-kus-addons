@@ -2,6 +2,9 @@
 setlocal EnableExtensions DisableDelayedExpansion
 
 title CS2 Instance Runner
+set "PAUSE_ON_EXIT=1"
+if /I "%~1"=="--no-pause" set "PAUSE_ON_EXIT=0"
+set "RC=2"
 set "INSTANCE_DIR=%~dp0"
 if "%INSTANCE_DIR:~-1%"=="\" set "INSTANCE_DIR=%INSTANCE_DIR:~0,-1%"
 for %%I in ("%INSTANCE_DIR%\..\..") do set "REPO_ROOT=%%~fI"
@@ -10,7 +13,8 @@ set "INI_FILE=%INSTANCE_DIR%\instance.ini"
 if not exist "%INI_FILE%" (
     echo ERROR: Missing instance configuration: %INI_FILE%
     echo Copy instance.example.ini to instance.ini and edit it first.
-    exit /b 2
+    set "RC=2"
+    goto :finish
 )
 
 for /f "usebackq eol=; tokens=1,* delims==" %%A in ("%INI_FILE%") do set "%%A=%%B"
@@ -52,16 +56,19 @@ set "METAMOD_DLL=%GAME_DIR%\addons\metamod\bin\win64\metamod.2.cs2.dll"
 if not exist "%CS2_EXE%" (
     echo ERROR: CS2 was not found: %CS2_EXE%
     echo Run install.bat from the repository root first.
-    exit /b 2
+    set "RC=2"
+    goto :finish
 )
 if not exist "%GAMEINFO%" (
     echo ERROR: gameinfo.gi was not found: %GAMEINFO%
     echo Run install.bat or win.bat from the repository root first.
-    exit /b 2
+    set "RC=2"
+    goto :finish
 )
 if not exist "%METAMOD_DLL%" (
     echo ERROR: Windows Metamod binary was not found: %METAMOD_DLL%
-    exit /b 2
+    set "RC=2"
+    goto :finish
 )
 
 set "AUTH_ARGS="
@@ -97,7 +104,17 @@ echo.
 echo [%date% %time%] Syncing optional instance overrides...
 if exist "%CUSTOM_DIR%\cfg\" (
     robocopy "%CUSTOM_DIR%\cfg" "%GAME_DIR%\cfg" /E /COPY:DAT /DCOPY:DAT /R:2 /W:1 >nul
-    if errorlevel 8 goto :sync_failed
+    if errorlevel 8 goto :finish
+echo.
+echo Result: FAILED (exit code %RC%)
+if "%PAUSE_ON_EXIT%"=="1" (
+    echo.
+    echo Press any key to close this window . . .
+    pause >nul
+)
+endlocal & exit /b %RC%
+
+:sync_failed
 )
 if exist "%CUSTOM_DIR%\addons\" (
     rem Keep CounterStrikeSharp configs user-managed; do not overlay them from CUSTOM_FOLDER.
