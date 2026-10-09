@@ -77,7 +77,7 @@ WriteLog "After CS2 exits, game-update.bat and (if successful) update.bat will r
 
 Do
     WriteLog "Launching the instance runner."
-    shell.Run Chr(34) & batPath & Chr(34), 0, False
+    shell.Run Chr(34) & batPath & Chr(34) & " --no-pause", 0, False
 
     If WaitForServerExit() Then
         WriteLog "CS2 exited. Preparing unattended maintenance."
