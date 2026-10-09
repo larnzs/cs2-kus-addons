@@ -3,7 +3,7 @@
 # August 2026: its index is still published but the .deb files are gone, so every
 # apt-get install on that base now fails with 404s. Upstream CS2 projects moved for the
 # same reason (joedwards32/CS2 in September 2026, Source2ZE build containers ship
-# steamrt3 + steamrt4). All the plugin binaries shipped in server/game/csgo need at most
+# steamrt3 + steamrt4). All the plugin binaries shipped in game/csgo need at most
 # GLIBC_2.29, well below the 2.41 this image provides, so they load unchanged.
 FROM registry.gitlab.steamos.cloud/steamrt/steamrt4/platform:latest-container-runtime-depot
 
@@ -47,15 +47,13 @@ ENV SRC_DIR="/home/cs2-modded-server"
 
 WORKDIR $SRC_DIR
 
-COPY custom_files $SRC_DIR/custom_files
-
 COPY install_docker.sh \
     run.sh \
     start.sh \
     stop.sh \
     $SRC_DIR
 
-COPY server/game/csgo $SRC_DIR/server/game/csgo
+COPY game/csgo $SRC_DIR/game/csgo
 
 USER steam
 

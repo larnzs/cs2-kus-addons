@@ -1,2 +1,12 @@
+.git
 .github
+.env
+server/
+steamcmd/
+tmp/
+custom_files
 custom_files_example
+custom_files_secret
+*.zip
+*.part
+*.log

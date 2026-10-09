@@ -2,15 +2,6 @@
 
 # Variables
 user="steam"
-BRANCH="master"
-
-# Check if MOD_BRANCH is set and not empty
-if [ -n "$MOD_BRANCH" ]; then
-    BRANCH="$MOD_BRANCH"
-fi
-
-CUSTOM_FILES="${CUSTOM_FOLDER:-custom_files}"
-
 # 32 or 64 bit Operating System
 # If BITS environment variable is not set, try determine it
 if [ -z "$BITS" ]; then
@@ -137,22 +128,29 @@ cp -v /steamcmd/linux64/steamclient.so /home/${user}/.steam/sdk64/steamclient.so
 	echo "ERROR: Failed to copy 64-bit libraries"
 }
 
-# Copy .so files needed after 16.9.2025 update
-# https://discord.com/channels/1160907911501991946/1160907912445710479/1417806634503372851
-cp -v /home/${user}/cs2/game/bin/linuxsteamrt64/*.so  /home/${user}/cs2/server/game/csgo/bin/linuxsteamrt64/
+# Copy Steam runtime libraries into the actual SteamCMD game tree.
+PAYLOAD_ROOT="/home/cs2-modded-server/game/csgo"
+GAME_ROOT="/home/${user}/cs2/game/csgo"
+if [ ! -d "$PAYLOAD_ROOT/addons" ]; then
+    echo "ERROR: Tracked payload is missing: $PAYLOAD_ROOT/addons"
+    exit 1
+fi
+mkdir -p "$GAME_ROOT/bin/linuxsteamrt64"
+cp -v /home/${user}/cs2/game/bin/linuxsteamrt64/*.so "$GAME_ROOT/bin/linuxsteamrt64/" || {
+    echo "ERROR: Failed to copy Steam runtime libraries."
+    exit 1
+}
 
-echo "Installing mods"
-cp -R /home/cs2-modded-server/game/csgo/ /home/${user}/cs2/game/
-
-echo "Merging in custom files"
-cp -RT /home/custom_files/ /home/${user}/cs2/server/game/csgo/
+echo "Deploying tracked KUS/Larnz payload"
+rm -rf "$GAME_ROOT/addons" "$GAME_ROOT/cfg/settings"
+cp -R "$PAYLOAD_ROOT/." "$GAME_ROOT/"
 
 chown -R ${user}:${user} /home/${user}
 
 cd /home/${user}/cs2 || exit
 
 # Define the file name
-FILE="server/game/csgo/gameinfo.gi"
+FILE="game/csgo/gameinfo.gi"
 
 # Define the pattern to search for and the line to add
 PATTERN="Game_LowViolence[[:space:]]*csgo_lv // Perfect World content override"
