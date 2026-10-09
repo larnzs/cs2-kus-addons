@@ -25,6 +25,25 @@ function Copy-TreeContent {
         }
     }
 }
+function Copy-UntrackedRuntimeFiles {
+    param([string]$Source, [string]$Destination, [string[]]$TrackedRoots)
+    if (-not (Test-Path -LiteralPath $Source -PathType Container)) { return }
+    $sourcePrefix = [IO.Path]::GetFullPath($Source).TrimEnd([char[]]@('\', '/')) + [IO.Path]::DirectorySeparatorChar
+    foreach ($file in Get-ChildItem -LiteralPath $Source -Recurse -File -Force) {
+        $relative = $file.FullName.Substring($sourcePrefix.Length)
+        $isTracked = $false
+        foreach ($root in $TrackedRoots) {
+            if (Test-Path -LiteralPath (Join-Path $root $relative) -PathType Leaf) {
+                $isTracked = $true
+                break
+            }
+        }
+        if ($isTracked) { continue }
+        $target = Join-Path $Destination $relative
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
+        Copy-Item -LiteralPath $file.FullName -Destination $target -Force
+    }
+}
 function Copy-PayloadFiles {
     param([string]$Source, [string]$Destination, [string]$RelativePath = "")
     foreach ($item in Get-ChildItem -LiteralPath $Source -Force) {
@@ -49,6 +68,15 @@ $RuntimeAddons = Join-Path $RuntimeRoot "addons"
 $IncomingAddons = Join-Path $IncomingRoot "addons"
 $RuntimeSettings = Join-Path $RuntimeRoot "cfg\settings"
 $IncomingSettings = Join-Path $IncomingRoot "cfg\settings"
+$PreserveSettings = Join-Path $WorkRoot "settings.runtime-only"
+$SettingsTrackedRoots = @(
+    (Join-Path $PayloadRoot "cfg\settings"),
+    (Join-Path $WindowsOverlay "cfg\settings")
+)
+$CssTrackedRoots = @(
+    (Join-Path $PayloadRoot "addons\counterstrikesharp\configs"),
+    (Join-Path $PayloadRoot "addons\windows\addons\counterstrikesharp\configs")
+)
 $BackupAddons = Join-Path $WorkRoot "addons.previous"
 $BackupSettings = Join-Path $WorkRoot "settings.previous"
 $BackupConfig = Join-Path $WorkRoot "css-configs.previous"
@@ -67,9 +95,8 @@ try {
     Write-Host "Prepared $(@(Get-ChildItem -LiteralPath $IncomingRoot -Recurse -File -Force).Count) payload files."
 
     if (Test-Path -LiteralPath $ConfigDestination -PathType Container) {
-        New-Item -ItemType Directory -Force -Path $BackupConfig | Out-Null
-        Copy-TreeContent -Source $ConfigDestination -Destination $BackupConfig
-        $configBackupCreated = $true
+        Copy-UntrackedRuntimeFiles -Source $ConfigDestination -Destination $BackupConfig -TrackedRoots $CssTrackedRoots
+        $configBackupCreated = Test-Path -LiteralPath $BackupConfig -PathType Container
     }
     Copy-PayloadFiles -Source $IncomingRoot -Destination $RuntimeRoot
 
@@ -80,22 +107,25 @@ try {
     Move-Item -LiteralPath $IncomingAddons -Destination $RuntimeAddons
     $addonsInstalled = $true
 
-    if (Test-Path -LiteralPath $RuntimeSettings -PathType Container) {
-        Move-Item -LiteralPath $RuntimeSettings -Destination $BackupSettings
-        $settingsBackupCreated = $true
-    }
     if (Test-Path -LiteralPath $IncomingSettings -PathType Container) {
+        if (Test-Path -LiteralPath $RuntimeSettings -PathType Container) {
+            Copy-UntrackedRuntimeFiles -Source $RuntimeSettings -Destination $PreserveSettings -TrackedRoots $SettingsTrackedRoots
+            Move-Item -LiteralPath $RuntimeSettings -Destination $BackupSettings
+            $settingsBackupCreated = $true
+        }
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $RuntimeSettings) | Out-Null
         Move-Item -LiteralPath $IncomingSettings -Destination $RuntimeSettings
         $settingsInstalled = $true
+        if (Test-Path -LiteralPath $PreserveSettings -PathType Container) {
+            Copy-TreeContent -Source $PreserveSettings -Destination $RuntimeSettings
+        }
     }
-    if ($settingsBackupCreated -and (Test-Path -LiteralPath $BackupSettings)) { Copy-TreeContent -Source $BackupSettings -Destination $RuntimeSettings }
     if ($configBackupCreated) {
         New-Item -ItemType Directory -Force -Path $ConfigDestination | Out-Null
         Copy-TreeContent -Source $BackupConfig -Destination $ConfigDestination
     }
     if ($addonsBackupCreated -and (Test-Path -LiteralPath $BackupAddons)) { Remove-Item -LiteralPath $BackupAddons -Recurse -Force }
-    Write-Host "SUCCESS: payload deployed; cfg/settings and CSS configs were preserved."
+    Write-Host "SUCCESS: tracked payload files deployed; runtime-only cfg/settings and CSS config files preserved."
 }
 catch {
     if ($settingsInstalled -and (Test-Path -LiteralPath $RuntimeSettings -PathType Container)) { Remove-Item -LiteralPath $RuntimeSettings -Recurse -Force }

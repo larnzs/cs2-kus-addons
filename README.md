@@ -265,7 +265,7 @@ To change settings for one game mode, put a relevant override in `<CUSTOM_FOLDER
 
 ### Plugin-generated configuration files
 
-The current unified Windows runner no longer rebuilds the entire `addons/` tree on every start. A file created by a plugin is not automatically deleted by that runner. For a persistent, instance-specific override, put a same-path file under `<CUSTOM_FOLDER>/addons/`; for a shared setting, use the canonical configuration path. The add-on updater also protects `cfg/` and CounterStrikeSharp's `configs/` from incoming release archives.
+The regular per-instance Windows runner does not rebuild the runtime tree on every start. When `win.bat` deploys, tracked files from `game/csgo/` (including shared configs) are authoritative; runtime-only generated config files with no matching tracked source are preserved. For a persistent per-instance override, put a same-path file under `<CUSTOM_FOLDER>/addons/` or `<CUSTOM_FOLDER>/cfg/`. The add-on updater protects `cfg/` and CounterStrikeSharp's `configs/` from overwrites by incoming release archives.
 
 **Do not commit real secrets.** Keep `instance.ini`, API keys, Game Server Login Tokens, RCON passwords and database credentials out of tracked files.
 
