@@ -1,0 +1,16 @@
+{
+  "upstream_repository": "https://github.com/kus/cs2-modded-server",
+  "upstream_branch": "master",
+  "upstream_commit": "1901323d831f59979c4911df921b36788754e0f8",
+  "imported_at_utc": "2026-10-09T01:10:51.1414714Z",
+  "runtime_root": "server/game/csgo",
+  "runtime_file_count": 3073,
+  "runtime_bytes": 985391672,
+  "windows_overlay_policy": "Flatten Windows-specific payloads into server/game/csgo, then restore Larnz overlay last.",
+  "excluded": [
+    ".env",
+    "custom_files",
+    "custom_files_example",
+    "the old KUS game/ staging root"
+  ]
+}

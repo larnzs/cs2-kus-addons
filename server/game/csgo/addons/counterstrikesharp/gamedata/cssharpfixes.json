@@ -1,0 +1,50 @@
+﻿{
+  "CheckJumpButtonWater": {
+    "signatures": {
+      "library": "server",
+      "windows": "C8 42 EB  ? 4C 39 67 30",
+      "linux": "C8 42 EB  ? 48 89 DF E8  ?  ?  ?  ?"
+    }
+  },
+  "CPhysBox_Use": {
+    "signatures": {
+      "library": "server",
+      "windows": "4C 8B 43  ? 48 8D 8F  ?  ?  ?  ? 48 8B 13 E8  ?  ?  ?  ? 48 8B 5C 24  ? 48 83 C4  ? 5F C3 CC CC CC CC 40 53",
+      "linux": "49 8B 54 24  ? 45 31 C9 45 31 C0 C7 45  ?  ?  ?  ?  ? 49 8B 34 24 48 8D 4D  ? 66 0F EF C0 48 C7 45  ?  ?  ?  ?  ? 48 8D BB  ?  ?  ?  ? E8  ?  ?  ?  ? F6 45  ?  ? 74  ? 48 8B 05  ?  ?  ?  ? 48 8B 75  ? 48 8B 38 48 8B 07 FF 50  ? 48 83 C4"
+    }
+  },
+  "BotNavIgnore": {
+    "signatures": {
+      "library": "server",
+      "windows": "\\x0F\\x84\\x2A\\x2A\\x2A\\x2A\\x80\\xB8\\x2A\\x2A\\x2A\\x2A\\x00\\x0F\\x84\\x2A\\x2A\\x2A\\x2A\\x80\\x3D\\x2A\\x2A\\x2A\\x2A\\x00\\x74\\x15",
+      "linux": "\\x0F\\x84\\x2A\\x2A\\x2A\\x2A\\x44\\x0F\\xB6\\xB0\\x2A\\x2A\\x2A\\x2A\\x45\\x84\\xF6\\x0F\\x84"
+    }
+  },
+  "ProcessUsercmds": {
+    "signatures": {
+      "library": "server",
+      "windows": "48 8B C4 44 88 48 20 44 89 40 18 48 89 50 10 53",
+      "linux": "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 89 FB 48 83 EC  ? 89 4D"
+    }
+  },
+  "TriggerPush_Touch": {
+    "signatures": {
+      "library": "server",
+      "windows": "40 55 53 57 48 8D 6C 24  ? 48 81 EC  ?  ?  ?  ? 48 8B 02 48 8B F9",
+      "linux": "55 48 89 E5 41 57 41 56 41 55 49 89 F5 41 54 53 48 89 FB 48 83 EC  ? E8  ?  ?  ?  ? 84 C0"
+    }
+  },
+  "SetGroundEntity": {
+    "signatures": {
+      "library": "server",
+      "windows": "48 89 5C 24  ? 48 89 6C 24  ? 56 57 41 54 48 83 EC  ? 44 8B 89",
+      "linux": "55 48 8D 87  ?  ?  ?  ? 48 89 E5 41 57 41 56 49 89 D6"
+    }
+  },
+  "PassesTriggerFilters": {
+    "offsets": {
+      "windows": 269,
+      "linux": 270
+    }
+  }
+}
