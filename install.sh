@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 
 # As root (sudo su)
-# cd / && curl -s -H "Cache-Control: no-cache" -o "install.sh" "https://raw.githubusercontent.com/kus/cs2-modded-server/master/install.sh" && chmod +x install.sh && bash install.sh
+# Run as root from a clone of this private repository.
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "ERROR: Run install.sh from a clone of the private cs2-kus-addons repository."
+    exit 1
+fi
 
 # Function to safely enable unprivileged user namespaces.
 # Steam's runtime sandboxes the game with bwrap (pressure-vessel), which needs
@@ -56,14 +61,6 @@ enable_unprivileged_namespaces() {
 
 # Variables
 user="steam"
-BRANCH="master"
-
-# Check if MOD_BRANCH is set and not empty
-if [ -n "$MOD_BRANCH" ]; then
-    BRANCH="$MOD_BRANCH"
-fi
-
-CUSTOM_FILES="${CUSTOM_FOLDER:-custom_files}"
 
 # 32 or 64 bit Operating System
 # If BITS environment variable is not set, try determine it
@@ -183,11 +180,6 @@ else
 fi
 
 # Download latest stop script
-curl -s -H "Cache-Control: no-cache" -o "stop.sh" "https://raw.githubusercontent.com/kus/cs2-modded-server/${BRANCH}/stop.sh" && chmod +x stop.sh
-
-# Download latest start script
-curl -s -H "Cache-Control: no-cache" -o "start.sh" "https://raw.githubusercontent.com/kus/cs2-modded-server/${BRANCH}/start.sh" && chmod +x start.sh
-
 PUBLIC_IP=$(dig -4 +short myip.opendns.com @resolver1.opendns.com)
 
 if [ -z "$PUBLIC_IP" ]; then
@@ -267,7 +259,7 @@ cp -v /steamcmd/linux64/steamclient.so /home/${user}/.steam/sdk64/steamclient.so
 
 # Copy .so files needed after 16.9.2025 update
 # https://discord.com/channels/1160907911501991946/1160907912445710479/1417806634503372851
-cp -v /home/${user}/cs2/game/bin/linuxsteamrt64/*.so  /home/${user}/cs2/server/game/csgo/bin/linuxsteamrt64/
+cp -v /home/${user}/cs2/game/bin/linuxsteamrt64/*.so  /home/${user}/cs2/game/csgo/bin/linuxsteamrt64/
 
 if [ "${DISTRO_OS}" == "Ubuntu" ]; then
 	if [ "${DISTRO_VERSION}" == "22.04" ]; then
@@ -276,38 +268,22 @@ if [ "${DISTRO_OS}" == "Ubuntu" ]; then
 	fi
 fi
 
-# Delete addons folder as if we remove something later in git it won't get deleted
-rm -r /home/${user}/cs2/server/game/csgo/addons
-
-# Delete cfg/settings folder as if we remove something later in git it won't get deleted
-rm -r /home/${user}/cs2/server/game/csgo/cfg/settings
-
-echo "Downloading mod files..."
-wget --quiet https://github.com/kus/cs2-modded-server/archive/${BRANCH}.zip
-unzip -o -qq ${BRANCH}.zip
-# Delete custom_files_example as I use this for my server and as a demo for others and I want it to always reflect git
-rm -r /home/${user}/cs2/custom_files_example/
-cp -R cs2-modded-server-${BRANCH}/custom_files_example/ /home/${user}/cs2/custom_files_example/
-# Merge mod files into server files
-cp -R cs2-modded-server-${BRANCH}/server/game/csgo/ /home/${user}/cs2/game/
-# Merge custom files into server files
-if [ ! -d "/home/${user}/cs2/custom_files/" ]; then
-    # If the target directory doesn't exist, copy the source directory to the target location
-    cp -R cs2-modded-server-${BRANCH}/custom_files/ /home/${user}/cs2/custom_files/
-else
-    # If the target directory exists, copy all the contents of the source directory to the target directory
-    cp -RT cs2-modded-server-${BRANCH}/custom_files/ /home/${user}/cs2/custom_files/
+echo "Deploying tracked KUS/Larnz payload..."
+PAYLOAD_ROOT="$ROOT_DIR/game/csgo"
+GAME_ROOT="/home/${user}/cs2/game/csgo"
+if [ ! -d "$PAYLOAD_ROOT/addons" ]; then
+    echo "ERROR: Tracked payload is missing: $PAYLOAD_ROOT/addons"
+    exit 1
 fi
 
-echo "Merging in custom files from ${CUSTOM_FILES}"
-cp -RT /home/${user}/cs2/${CUSTOM_FILES}/ /home/${user}/cs2/server/game/csgo/
+# KUS deployment model: clear plugin-owned trees to remove stale files, then copy the source payload.
+rm -rf "$GAME_ROOT/addons" "$GAME_ROOT/cfg/settings"
+cp -R "$PAYLOAD_ROOT/." "$GAME_ROOT/"
 
-chown -R ${user}:${user} /home/${user}/cs2
-
-cd /home/${user}/cs2
-
+chown -R "${user}:${user}" "/home/${user}/cs2"
+cd "/home/${user}/cs2" || exit
 # Define the file name
-FILE="server/game/csgo/gameinfo.gi"
+FILE="game/csgo/gameinfo.gi"
 
 # Define the pattern to search for and the line to add
 PATTERN="Game_LowViolence[[:space:]]*csgo_lv // Perfect World content override"
@@ -330,7 +306,6 @@ else
     echo "$FILE successfully patched for Metamod."
 fi
 
-rm -r /home/${user}/cs2-modded-server-${BRANCH} /home/${user}/${BRANCH}.zip
 
 # Try to enable unprivileged namespaces
 enable_unprivileged_namespaces

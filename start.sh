@@ -5,7 +5,7 @@
 # Useful for testing and modifying files on the server
 
 # As root (sudo su)
-# cd / && curl -s -H "Cache-Control: no-cache" -o "start.sh" "https://raw.githubusercontent.com/kus/cs2-modded-server/master/start.sh" && chmod +x start.sh && bash start.sh
+# Local startup helper from this checkout; the KUS-style payload is deployed by install.sh/win.bat.
 
 
 # Function to safely enable unprivileged user namespaces.
@@ -308,7 +308,7 @@ cp -v /steamcmd/linux64/steamclient.so /home/${user}/.steam/sdk64/steamclient.so
 
 # Copy .so files needed after 16.9.2025 update
 # https://discord.com/channels/1160907911501991946/1160907912445710479/1417806634503372851
-cp -v /home/${user}/cs2/game/bin/linuxsteamrt64/*.so  /home/${user}/cs2/server/game/csgo/bin/linuxsteamrt64/
+cp -v /home/${user}/cs2/game/bin/linuxsteamrt64/*.so  /home/${user}/cs2/game/csgo/bin/linuxsteamrt64/
 
 if [ "${DISTRO_OS}" == "Ubuntu" ]; then
 	if [ "${DISTRO_VERSION}" == "22.04" ]; then
@@ -322,7 +322,7 @@ chown -R ${user}:${user} /home/${user}/cs2
 cd /home/${user}/cs2
 
 # Define the file name
-FILE="server/game/csgo/gameinfo.gi"
+FILE="game/csgo/gameinfo.gi"
 
 # Define the pattern to search for and the line to add
 PATTERN="Game_LowViolence[[:space:]]*csgo_lv // Perfect World content override"
