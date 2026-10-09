@@ -36,7 +36,7 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 
 | Add-on | Version | Purpose |
 | --- | --- | --- |
-| CounterStrikeSharp | 1.0.376 | CounterStrikeSharp runtime for managed plugins |
+| CounterStrikeSharp | 1.0.376 | Installed from the Windows **with-runtime** release; the bundled .NET runtime is kept under `addons/counterstrikesharp/dotnet/`. |
 | CS2UpdateMonitor | 1.1.0 | Detects a new game build and signals the external supervisor |
 | WeaponPaints | 466 | Player-side weapon customization |
 | CS2-SimpleAdmin | 1.9.0 | Additional administration features |
