@@ -33,8 +33,8 @@ function Rewrite-Paths {
     $ext = [IO.Path]::GetExtension($Path).ToLowerInvariant()
     if ($ext -notin @(".sh", ".bat", ".cmd", ".ps1", ".md", ".yml", ".yaml", ".json", ".ini", ".txt", ".xml", ".toml", ".py") -and (Split-Path -Leaf $Path) -ne "Dockerfile") { return }
     $text = [IO.File]::ReadAllText($Path)
-    $text = [regex]::Replace($text, '(?<!server/)game/csgo', 'server/game/csgo')
-    $text = [regex]::Replace($text, '(?<!server\\)game\\csgo', 'server\game\csgo')
+    $text = [regex]::Replace($text, '(?:server/)*game/csgo', 'server/game/csgo')
+    $text = [regex]::Replace($text, '(?:server\\)*game\\csgo', 'server\game\csgo')
     Write-Utf8 -Path $Path -Text $text
 }
 
