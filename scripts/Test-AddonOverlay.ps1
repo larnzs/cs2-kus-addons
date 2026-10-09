@@ -24,7 +24,7 @@ function Resolve-VerificationPath([string]$RelativePath) {
 }
 function Get-ProtectedConfigSnapshot {
     $items = New-Object 'System.Collections.Generic.List[object]'
-    foreach ($relativeRoot in @("cfg", "addons\counterstrikesharp\configs")) {
+    foreach ($relativeRoot in @("cfg", "addons\counterstrikesharp\configs", "addons\windows\addons\counterstrikesharp\configs")) {
         $absoluteRoot = Join-Path $CsgoRoot $relativeRoot
         if (-not (Test-Path -LiteralPath $absoluteRoot -PathType Container)) { continue }
         Get-ChildItem -LiteralPath $absoluteRoot -Recurse -File -Force | ForEach-Object {
