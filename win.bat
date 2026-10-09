@@ -1,5 +1,5 @@
 @echo off
-setlocal EnableExtensions
+setlocal EnableExtensions EnableDelayedExpansion
 title CS2 KUS Addons - Prepare and Deploy
 set "PAUSE_ON_EXIT=1"
 if /I "%~1"=="--no-pause" set "PAUSE_ON_EXIT=0"
@@ -49,8 +49,63 @@ if not exist "%PAYLOAD_DIR%\addons\cs2fixes-rampbugfix\bin\win64\cs2fixes-rampbu
 )
 powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT_DIR%scripts\Deploy-Runtime.ps1"
 if errorlevel 1 (echo ERROR: Payload deployment failed.& goto :finish)
-powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT_DIR%scripts\Patch-GameInfo.ps1" -GameInfoPath "%GAMEINFO%"
-if errorlevel 1 (echo ERROR: Could not patch the installed gameinfo.gi.& goto :finish)
+rem Patch gameinfo.gi using the same substring-based insertion method as upstream KUS.
+set "GAMEINFO_BAK=%GAMEINFO%.bak"
+set "GAMEINFO_TMP=%GAMEINFO%.tmp"
+set "SEARCHSTRING=Game	csgo/addons/metamod"
+set "INSERTAFTER=Game_LowViolence	csgo_lv"
+if not exist "%GAMEINFO_BAK%" (
+    copy "%GAMEINFO%" "%GAMEINFO_BAK%" >nul
+    if errorlevel 1 (echo ERROR: Could not back up gameinfo.gi.& goto :finish)
+)
+findstr /m /c:"%SEARCHSTRING%" "%GAMEINFO%" >nul
+if not errorlevel 1 goto :gameinfo_patched
+findstr /m /c:"%INSERTAFTER%" "%GAMEINFO%" >nul
+if errorlevel 1 (
+    echo ERROR: Could not find the KUS Game_LowViolence csgo_lv insertion marker in gameinfo.gi.
+    goto :finish
+)
+echo Patching gameinfo.gi for MetaMod using the KUS-compatible method...
+> "%GAMEINFO_TMP%" (
+    set "ADDED=0"
+    for /f "tokens=* delims=" %%A in ('findstr /n "^" "%GAMEINFO%"') do (
+        set "LINE=%%A"
+        setlocal EnableDelayedExpansion
+        set "LINE=!LINE:*:=!"
+        if "!LINE!" neq "" (
+            if "!LINE!"=="!LINE:%INSERTAFTER%=!" (
+                echo(!LINE!
+            ) else (
+                echo(!LINE!
+                if "!ADDED!"=="0" (
+                    echo(           Game	csgo/addons/metamod
+                    set "ADDED=1"
+                )
+            )
+        ) else (
+            echo(
+        )
+        endlocal & set "ADDED=!ADDED!"
+    )
+)
+if not exist "%GAMEINFO_TMP%" (
+    echo ERROR: Could not create the patched gameinfo temporary file.
+    goto :finish
+)
+findstr /m /c:"%SEARCHSTRING%" "%GAMEINFO_TMP%" >nul
+if errorlevel 1 (
+    del /q "%GAMEINFO_TMP%" >nul 2>&1
+    echo ERROR: MetaMod entry was not inserted into gameinfo.gi.
+    goto :finish
+)
+move /y "%GAMEINFO_TMP%" "%GAMEINFO%" >nul
+if errorlevel 1 (echo ERROR: Could not replace gameinfo.gi with the patched file.& goto :finish)
+:gameinfo_patched
+findstr /m /c:"%SEARCHSTRING%" "%GAMEINFO%" >nul
+if errorlevel 1 (
+    echo ERROR: gameinfo.gi is missing the required MetaMod entry.
+    goto :finish
+)
 if not exist "%SERVER_DIR%\game\csgo\addons\metamod\bin\win64\metamod.2.cs2.dll" (echo ERROR: Windows Metamod binary is missing after deployment.& goto :finish)
 if not exist "%SERVER_DIR%\game\csgo\addons\multiaddonmanager\bin\multiaddonmanager.dll" (echo ERROR: KUS MultiAddonManager is missing after deployment.& goto :finish)
 if not exist "%SERVER_DIR%\game\csgo\addons\serverlistplayersfix_mm\bin\win64\serverlistplayersfix_mm.dll" (echo ERROR: KUS ServerListPlayersFix is missing after deployment.& goto :finish)
