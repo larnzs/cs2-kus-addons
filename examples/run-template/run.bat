@@ -104,17 +104,7 @@ echo.
 echo [%date% %time%] Syncing optional instance overrides...
 if exist "%CUSTOM_DIR%\cfg\" (
     robocopy "%CUSTOM_DIR%\cfg" "%GAME_DIR%\cfg" /E /COPY:DAT /DCOPY:DAT /R:2 /W:1 >nul
-    if errorlevel 8 goto :finish
-echo.
-echo Result: FAILED (exit code %RC%)
-if "%PAUSE_ON_EXIT%"=="1" (
-    echo.
-    echo Press any key to close this window . . .
-    pause >nul
-)
-endlocal & exit /b %RC%
-
-:sync_failed
+    if errorlevel 8 goto :sync_failed
 )
 if exist "%CUSTOM_DIR%\addons\" (
     rem Keep CounterStrikeSharp configs user-managed; do not overlay them from CUSTOM_FOLDER.
@@ -143,3 +133,13 @@ echo ERROR: Optional instance override sync failed. Check paths and permissions.
 echo Retrying in 10 seconds...
 timeout /t 10 /nobreak >nul
 goto :loop
+
+:finish
+echo.
+echo Result: FAILED (exit code %RC%)
+if "%PAUSE_ON_EXIT%"=="1" (
+    echo.
+    echo Press any key to close this window . . .
+    pause >nul
+)
+endlocal & exit /b %RC%
