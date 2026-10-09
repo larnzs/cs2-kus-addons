@@ -23,7 +23,7 @@ if ($metamodMatches.Count -eq 1) {
 }
 
 # Like KUS, search the marker anywhere within its line, not only at column 1.
-$markerPattern = '(?m)^[^\r\n]*Game_LowViolence[ \t]+csgo_lv[^\r\n]*
+$markerPattern = '(?m)^[^\r\n]*Game_LowViolence[ \t]+csgo_lv[^\r\n]*$'
 $marker = [regex]::Match($text, $markerPattern)
 if (-not $marker.Success) {
     throw "Could not find the Game_LowViolence csgo_lv insertion marker in gameinfo.gi."
