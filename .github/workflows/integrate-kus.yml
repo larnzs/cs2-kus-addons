@@ -40,7 +40,7 @@ jobs:
         run: |
           $tokens = $null
           $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/scripts/Integrate-KUS.ps1", [ref]$tokens, [ref]$errors) | Out-Null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/repo/scripts/Integrate-KUS.ps1", [ref]$tokens, [ref]$errors) | Out-Null
           if ($errors.Count -gt 0) {
             $errors | ForEach-Object { Write-Error $_ }
             exit 1
@@ -66,4 +66,7 @@ jobs:
           fi
           git status --short
           git commit -m "Integrate KUS runtime assets into server tree"
+          # Rebase any small concurrent script/workflow commit made while the payloads were importing.
+          git fetch origin integration/kus-monorepo
+          git rebase origin/integration/kus-monorepo
           git push origin HEAD:integration/kus-monorepo
