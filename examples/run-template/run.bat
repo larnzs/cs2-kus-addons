@@ -3,11 +3,20 @@ setlocal EnableExtensions DisableDelayedExpansion
 
 title CS2 Instance Runner
 set "PAUSE_ON_EXIT=1"
-if /I "%~1"=="--no-pause" set "PAUSE_ON_EXIT=0"
+set "SUPERVISED_ONCE=0"
 set "RC=2"
+
+:parse_args
+if "%~1"=="" goto :args_done
+if /I "%~1"=="--no-pause" set "PAUSE_ON_EXIT=0"
+if /I "%~1"=="--supervised" set "SUPERVISED_ONCE=1"
+shift
+goto :parse_args
+
+:args_done
 set "INSTANCE_DIR=%~dp0"
 if "%INSTANCE_DIR:~-1%"=="\" set "INSTANCE_DIR=%INSTANCE_DIR:~0,-1%"
-for %%I in ("%INSTANCE_DIR%\..\..") do set "REPO_ROOT=%%~fI"
+set "REPO_ROOT=%CS2_REPO_ROOT%"
 
 set "INI_FILE=%INSTANCE_DIR%\instance.ini"
 if not exist "%INI_FILE%" (
@@ -23,6 +32,8 @@ if "%SERVER_DIR:~0,2%"=="\\" goto :resolve_server
 if "%SERVER_DIR:~1,1%"==":" goto :resolve_server
 for %%I in ("%INSTANCE_DIR%\%SERVER_DIR%") do set "SERVER_DIR=%%~fI"
 :resolve_server
+
+if not defined REPO_ROOT for %%I in ("%SERVER_DIR%\..") do set "REPO_ROOT=%%~fI"
 
 if not defined CUSTOM_FOLDER set "CUSTOM_FOLDER=aim"
 if "%CUSTOM_FOLDER:~0,2%"=="\\" (
@@ -124,19 +135,34 @@ start "" /wait "%CS2_EXE%" ^
 
 set "SERVER_EXIT=%ERRORLEVEL%"
 echo WARNING: CS2 exited with code %SERVER_EXIT%.
+
+if "%SUPERVISED_ONCE%"=="1" (
+    echo Returning control to run.vbs for maintenance before restarting CS2.
+    set "RC=0"
+    goto :finish
+)
+
 echo Restarting this instance in 5 seconds. Close run.vbs/run.bat to stop supervision.
 timeout /t 5 /nobreak >nul
 goto :loop
 
 :sync_failed
 echo ERROR: Optional instance override sync failed. Check paths and permissions.
+if "%SUPERVISED_ONCE%"=="1" (
+    set "RC=3"
+    goto :finish
+)
 echo Retrying in 10 seconds...
 timeout /t 10 /nobreak >nul
 goto :loop
 
 :finish
 echo.
-echo Result: FAILED (exit code %RC%)
+if "%RC%"=="0" (
+    echo Result: SUCCESS
+) else (
+    echo Result: FAILED (exit code %RC%)
+)
 if "%PAUSE_ON_EXIT%"=="1" (
     echo.
     echo Press any key to close this window . . .
