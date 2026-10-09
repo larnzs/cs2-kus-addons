@@ -35,7 +35,8 @@
       "verify_paths": [
         "addons/counterstrikesharp/api/CounterStrikeSharp.API.dll",
         "addons/counterstrikesharp/bin/win64/counterstrikesharp.dll",
-        "addons/counterstrikesharp/dotnet/dotnet.exe"
+        "addons/counterstrikesharp/dotnet/dotnet.exe",
+        "addons/counterstrikesharp/dotnet/shared/Microsoft.NETCore.App/System.Private.CoreLib.dll"
       ]
     },
     {
