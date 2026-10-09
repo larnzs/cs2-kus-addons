@@ -56,9 +56,35 @@ $script:ImportedText = [System.Collections.Generic.List[string]]::new()
 $kusCommit = (git -C $KusRootResolved rev-parse HEAD).Trim()
 $runtimeRoot = Join-Path $RepoRoot "server/game/csgo"
 $tempOverlay = Join-Path ([IO.Path]::GetTempPath()) ("larnz-overlay-" + [guid]::NewGuid().ToString("N"))
+$overlayManifest = Join-Path $RepoRoot "docs/upstream/LARNZ-RUNTIME-FILES.txt"
+
+# Capture the pre-integration Larnz file list once. On later imports this manifest prevents
+# all previously imported KUS files from being misidentified as personal overlay files.
+if (-not (Test-Path -LiteralPath $overlayManifest)) {
+    $trackedOverlay = @(git -C $RepoRoot ls-files -- "server/game/csgo" | Where-Object { $_ -and $_.StartsWith("server/game/csgo/") })
+    if ($trackedOverlay.Count -eq 0) { throw "Could not discover the original tracked Larnz runtime overlay." }
+    Write-Utf8 -Path $overlayManifest -Text ($trackedOverlay -join [Environment]::NewLine)
+}
+New-Item -ItemType Directory -Force -Path $tempOverlay | Out-Null
+foreach ($trackedPath in Get-Content -LiteralPath $overlayManifest) {
+    $trackedPath = $trackedPath.Trim()
+    if (-not $trackedPath.StartsWith("server/game/csgo/")) { continue }
+    $sourcePath = Join-Path $RepoRoot ($trackedPath.Replace("/", [IO.Path]::DirectorySeparatorChar))
+    if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { continue }
+    $relativePath = $trackedPath.Substring("server/game/csgo/".Length).Replace("/", [IO.Path]::DirectorySeparatorChar)
+    $destinationPath = Join-Path $tempOverlay $relativePath
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destinationPath) | Out-Null
+    Copy-Item -LiteralPath $sourcePath -Destination $destinationPath -Force
+}
+# Personal/user-managed configuration remains protected even if added after the initial manifest.
+foreach ($protectedRelative in @("cfg", "addons/counterstrikesharp/configs")) {
+    $protectedSource = Join-Path $runtimeRoot $protectedRelative
+    if (Test-Path -LiteralPath $protectedSource -PathType Container) {
+        Copy-Tree -Source $protectedSource -Destination (Join-Path $tempOverlay $protectedRelative)
+    }
+}
 
 Write-Host "Importing KUS payloads into $runtimeRoot"
-if (Test-Path -LiteralPath $runtimeRoot -PathType Container) { Copy-Tree -Source $runtimeRoot -Destination $tempOverlay }
 Copy-Tree -Source $KusRuntime -Destination $runtimeRoot -SkipWindows
 $windowsTree = Join-Path $KusRuntime "addons/windows"
 if (Test-Path -LiteralPath $windowsTree -PathType Container) { Copy-Tree -Source $windowsTree -Destination $runtimeRoot }
