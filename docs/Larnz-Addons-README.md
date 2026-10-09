@@ -17,7 +17,7 @@ When the layer is applied:
 - Files that exist only in the destination are not removed by the overlay.
 - Our custom files are applied after the addon layer.
 
-The repository's `server/game/csgo/` directory is a **staging/overlay tree**, not a second CS2 installation.
+The repository's `server/game/csgo/` directory is the **canonical runtime tree**. The CS2 base game is installed into `server/`; plugin and config files tracked here already live at their final `server/game/csgo/` paths.
 
 ## KUS vs. cs2-kus-addons
 
@@ -72,7 +72,7 @@ They are intentionally **not reinstalled or managed by this repository**.
 
 ## Dependency order
 
-Dependencies are explicit in [DEPENDENCIES.json](./DEPENDENCIES.json). The Windows updater verifies dependencies before installing an addon.
+Dependencies are explicit in [DEPENDENCIES.json](./DEPENDENCIES.json). The Windows manifest-driven updater verifies dependencies before installing an addon. Add-on release updates are separate from Git repository updates and SteamCMD game updates.
 
 The core chain is:
 

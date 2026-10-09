@@ -4,7 +4,7 @@ A private, single-repository Counter-Strike 2 dedicated-server distribution. It 
 
 **The repository's canonical runtime path is server/game/csgo/.** The old KUS staging path, game/csgo/, is not used as a second source tree. KUS runtime payloads—including its Windows-specific add-on payload—are imported directly into the canonical path. There is no second KUS checkout and no batch step that copies all plugins from a staging folder into the server.
 
-The full original Larnz guide is preserved at [docs/Larnz-Addons-README.md](docs/Larnz-Addons-README.md). The complete KUS guide and its tables are included below for reference. When an older upstream section describes the old staging/copy workflow, use the unified installation commands in this introduction instead.
+The original Larnz guide is preserved at [docs/Larnz-Addons-README.md](docs/Larnz-Addons-README.md). The original KUS guide is retained for reference. The Windows instructions below are the current unified workflow for this repository; the Google Cloud, Linux, and Docker sections remain upstream reference for now and will be migrated separately.
 
 ## Repository ownership and paths
 
@@ -22,13 +22,17 @@ The KUS root-level custom_files/ and custom_files_example/ trees are not importe
 
 ## Windows installation and operation
 
-1. Clone this private repository to the server machine.
-2. Run install.bat. It downloads SteamCMD if needed, installs CS2 into server/ only when the required game files are missing, and runs win.bat to validate the installation and ensure the Metamod entry is present.
-3. In examples/run-template/, copy instance.example.ini to instance.ini and edit the instance settings and secrets. Then launch run.vbs.
+1. Clone this private repository to the Windows server machine with GitHub access.
+2. Run `install.bat`. It downloads SteamCMD if needed, installs CS2 only when the required game files are missing, then calls `win.bat` to patch and validate the installation. It does not start the server.
+3. Copy `examples/run-template/instance.example.ini` to `examples/run-template/instance.ini`, set the instance options and secrets, then start `run.vbs` (hidden) or `run.bat` (visible console).
 
-win.bat does not copy or delete the addons/ directory, does not merge a second repository and does not run SteamCMD. update.bat only pulls this unified Git repository and validates the server. Neither script updates the CS2 game on an ordinary server restart.
+**Windows command responsibilities are intentionally separate:**
 
-To refresh Larnz-managed add-ons from the upstream releases, use addons-update.bat -DryRun to inspect the proposed changes, then run addons-update.bat when ready. This is separate from repository pulls and server restarts.
+- `win.bat` patches `gameinfo.gi` idempotently and verifies the managed files. It does not pull Git, run SteamCMD, copy a staging tree, or launch the server.
+- `update.bat` only performs a fast-forward-only Git pull and then validates the installation. It refuses local/untracked changes.
+- `game-update.bat` explicitly updates the CS2 game with SteamCMD. Stop every CS2 instance first.
+- `addons-update.bat -DryRun` previews Larnz-managed release updates; `addons-update.bat` applies them. This updater preserves fixed config paths and commits each successful add-on update.
+- A server restart through `run.bat`/`run.vbs` does not implicitly update Git, the CS2 game, or releases.
 
 ## Larnz-managed add-ons
 
@@ -545,56 +549,38 @@ Your service will receive an external IP and can be found with `kubectl get svc 
 
 ## Running on Windows
 
-Make sure you have **60GB free space** and **Steam installed** (you don't need to be logged in, just have Steam installed and updated).
+Use a Windows x64 server with Git installed and at least 60 GB of free disk space. This is a private repository, so authenticate to GitHub before cloning it.
 
-If you have git installed; it is recommended to use git and clone the repo `git clone https://github.com/kus/cs2-modded-server.git` and run your server from inside of it. This way you can simply `git pull` updates (or run `update.bat`). Alternatively you can [Download this repo](https://github.com/kus/cs2-modded-server/archive/master.zip) and extract it to where you want your server (i.e. `C:\Server\cs2-modded-server`) but you will manually have to handle updates.
+### 1. Clone and install
 
-All the following instructions will use the repo folder location as the root.
+```bat
+git clone --branch integration/kus-monorepo https://github.com/larnzs/cs2-kus-addons.git
+cd cs2-kus-addons
+install.bat
+```
 
-~~Create a folder `steamcmd` and [download SteamCMD](https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip) and extract it inside `steamcmd` so you should have `\steamcmd\steamcmd.exe`.~~
+`install.bat` downloads SteamCMD if needed and installs CS2 into `server/\` only when the game executable or Steam app manifest is missing. It then calls `win.bat` to patch `gameinfo.gi` and verify the managed runtime files. It does not start the server.
 
-* Manual download of SteamCMD is no longer necessary as the startup script will handle it for you now.
+### 2. Configure and run an instance
 
-To download maps from the workshop, your server [needs access](https://developer.valvesoftware.com/wiki/Counter-Strike:_Global_Offensive/Dedicated_Servers#Steam_Workshop) to the Steam Web API. To allow this, open `\win.ini` and set `cs_api_key` to your [Steam Web API Key](http://steamcommunity.com/dev/apikey).
+Copy `examples/run-template/instance.example.ini` to `examples/run-template/instance.ini`. Edit the port, map/map group, reachable public IP (optional), Game Server Login Token, and a strong RCON password. Keep `instance.ini` private; it is excluded from Git.
 
-- **If setting up internet server:**
+Launch `examples/run-template/run.vbs` for hidden operation or `run.bat` for a visible console. The runner uses `server/game/csgo/` and can apply optional per-instance `cfg/` and `addons/` overrides from the configured local folder. It does not update anything automatically.
 
-   Open `\win.ini`
+### Maintenance commands
 
-   Set `IP` to your [public ip](http://checkip.amazonaws.com/)
+| Command | Responsibility |
+| --- | --- |
+| `win.bat` | Idempotently adds the Metamod entry if needed and verifies installed files; does not start CS2. |
+| `update.bat` | Fast-forward-only pull of the private Git repository, then validation. Requires a clean working tree. |
+| `game-update.bat` | Explicit SteamCMD update of CS2; refuses to run while a `cs2.exe` process is detected. |
+| `addons-update.bat -DryRun` | Preview Larnz-managed add-on release updates without writing files. |
+| `addons-update.bat` | Apply add-on release updates; successful updates are committed separately. |
+| `addons-inspect.bat` | Inspect upstream release assets and resolved archive layouts without installing them. |
 
-   Set `STEAM_ACCOUNT` to your [Game Server Login Token](https://steamcommunity.com/dev/managegameservers)
+These are separate operations by design: Git updates do not update the game, game updates do not update plugin releases, and a server start does not implicitly run any updater. Stop the supervisor and all server instances before updating the game.
 
-   Set `API_KEY` to your [Steam Web API key](http://steamcommunity.com/dev/apikey) (required to play workshop maps)
-
-   Make sure you [port forward](https://portforward.com/router.htm) on your router TCP: `27015` and UDP: `27015` & `27020` so players can connect from the internet.
-
-   **You must connect to the server from the public IP, not the LAN IP even if you are on the same network.**
-
-- **If setting up LAN server:**
-
-   Open `\win.ini`
-
-   Set `LAN` to `1`
-
-   Set `API_KEY` to your [Steam Web API key](http://steamcommunity.com/dev/apikey) (required to play workshop maps)
-
-[Add admins](#acessing-admin-menu)
-
-Run `win.bat`
-
-Accept both Private and Public connections on Windows Firewall.
-
-- **If running for the first time**
-
-To check everything is working correctly run the following commands in the server console:
-
-- `meta list` and you should see `CounterStrikeSharp` in the output
-- `css_plugins list` and you should see a few plugins in the output
-
-If you see content in both; everything is working.
-
-When you join the server you can [change game modes](#changing-game-modes).
+Allow the selected game port through Windows Firewall and the router/cloud firewall. Use a valid Game Server Login Token for a public server. Keep API keys, login tokens, RCON passwords, and instance-specific settings out of tracked files.
 
 ## FAQ
 

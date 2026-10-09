@@ -1,11 +1,11 @@
 @echo off
 setlocal EnableExtensions
-title CS2 KUS Addons - Update Unified Repository
+title CS2 KUS Addons - Update Repository
 cd /d "%~dp0"
 
 git rev-parse --is-inside-work-tree >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: This directory is not a Git checkout.
+    echo ERROR: This directory is not a Git checkout. Clone the private repository first.
     exit /b 1
 )
 git diff --quiet
@@ -14,17 +14,18 @@ git diff --cached --quiet
 if errorlevel 1 goto :dirty
 for /f "delims=" %%A in ('git status --porcelain') do goto :dirty
 
-echo Pulling the unified repository...
+echo Pulling the unified repository (fast-forward only)...
 git pull --ff-only
 if errorlevel 1 (
-    echo ERROR: git pull failed. Resolve the repository state before retrying.
+    echo ERROR: git pull failed. Check credentials, branch, or repository state.
     exit /b 1
 )
 
 call "%~dp0win.bat"
-exit /b %ERRORLEVEL%
+set "RC=%ERRORLEVEL%"
+exit /b %RC%
 
 :dirty
 echo ERROR: The repository has local changes or untracked files.
-echo Commit or stash changes before updating.
+echo Commit or stash them before updating. Ignored downloaded game files are not affected.
 exit /b 1

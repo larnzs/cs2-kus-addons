@@ -1,28 +1,24 @@
-# CS2 instance runner template
+# CS2 Windows instance runner
 
-This folder is a reusable example of the Windows runner/supervisor pair:
+This template runs a CS2 instance from the repository's canonical `server/` installation:
 
-- \`run.bat\` reads settings from \`instance.ini\`, syncs the instance's custom \`cfg/\` and \`addons/\` files, starts CS2, and restarts the instance 5 seconds after the game process exits.
-- \`run.vbs\` launches \`run.bat\` hidden and supervises it, matching the style of the supplied \`27100_run.bat\` and \`27100.vbs\`.
-- \`instance.example.ini\` contains the editable settings template.
+- `run.bat` reads local values from `instance.ini`, optionally overlays only the selected instance's `cfg/` and `addons/` folders, launches CS2, and restarts the server process after it exits.
+- `run.vbs` starts the batch runner hidden and supervises it. It is intended to stay running until you stop it.
+- `instance.example.ini` is a safe template. It contains no public IP address, Game Server Login Token, API key, or real password.
 
-## Set it up
+## Setup
 
-1. Copy this folder for each server instance, for example \`instances/aim/\`.
-2. Copy \`instance.example.ini\` to \`instance.ini\`.
-3. Edit \`SERVER_DIR\` so it points to the KUS server installation directory containing \`game\\bin\\win64\\cs2.exe\`.
-4. Edit \`IP\`, \`PORT\`, \`CUSTOM_FOLDER\`, \`MAP\`, and \`EXEC\` for the specific instance.
-5. Fill in \`STEAM_ACCOUNT\` and a strong \`RCON_PASSWORD\` in the local \`instance.ini\` only. Set \`API_KEY\` only if your setup needs it.
-6. Start \`run.vbs\` when the installation is ready.
+1. Run `install.bat` from the repository root once.
+2. Copy `instance.example.ini` to `instance.ini` in this folder.
+3. Set `SERVER_DIR=..\..\server`, `PORT`, `MAP`, `MAPGROUP` and the public `IP` when applicable.
+4. Set `STEAM_ACCOUNT` for an internet server and replace `RCON_PASSWORD` with a strong value. Keep `instance.ini` private; the folder's `.gitignore` excludes it.
+5. Launch `run.vbs` for hidden operation or `run.bat` for a visible console.
 
-The folder's \`.gitignore\` excludes \`instance.ini\` so local credentials and per-machine settings are not committed. Leave \`instance.example.ini\` safe to share.
+## Behavior and maintenance
 
-## Paths and behavior
-
-- \`SERVER_DIR\` may be an absolute path (drive or UNC) or a path relative to this folder.
-- \`CUSTOM_FOLDER\` may be absolute or relative to this folder. The runner merges only its \`cfg/\` and \`addons/\` children into \`SERVER_DIR\\game\\csgo\`; it does not delete other files.
-- \`BIND_IP\` controls the local listen address, defaulting to \`0.0.0.0\`. \`IP\` is passed to \`+net_public_adr\` as the advertised public address.
-- \`WORKSHOP_COLLECTION\` is optional and is omitted from the launch arguments when blank.
-- \`API_KEY\` and \`STEAM_ACCOUNT\` are only added to the launch arguments when non-empty.
-- The runner does not run SteamCMD or update CS2. The initial game install and the later update-checker/VBS update handoff are handled separately by the main repository workflow.
-- The VBS supervisor is designed to run continuously. Stop it to stop automatic restarts.
+- The repository's runtime files live under `server\game\csgo\`; the runner does not use a second KUS checkout or staging tree.
+- `CUSTOM_FOLDER` may be absolute or relative to this folder. Only its `cfg/` and `addons/` children are copied as optional per-instance overrides. This is an additive/overwrite overlay; the runner never deletes runtime files.
+- `BIND_IP` controls the local listen address and defaults to `0.0.0.0`. `IP` is optional and, when set, is passed as `+net_public_adr`.
+- `API_KEY`, `STEAM_ACCOUNT`, and `WORKSHOP_COLLECTION` are only passed when non-empty.
+- The runner does not call SteamCMD, pull Git, or update add-on releases. Stop the server/supervisor before using `game-update.bat` or `update.bat`.
+- `win.bat` only patches/validates the installed server; it never launches the game.

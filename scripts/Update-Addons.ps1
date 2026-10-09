@@ -99,18 +99,20 @@ function Download-Asset($Asset, [string]$Destination) {
     $parent = Split-Path -Parent $Destination
     New-Item -ItemType Directory -Force -Path $parent | Out-Null
 
-    if ((Test-Path $Destination) -and -not $Force) {
-        return
+    if (-not (Test-Path $Destination) -or $Force) {
+        Write-Info "Downloading $($Asset.name)"
+        Invoke-WebRequest -Uri $Asset.browser_download_url -Headers (Get-GitHubHeaders) -OutFile $Destination -UseBasicParsing
+    }
+    else {
+        Write-Info "Using cached archive $($Asset.name)"
     }
 
-    Write-Info "Downloading $($Asset.name)"
-    Invoke-WebRequest -Uri $Asset.browser_download_url -Headers (Get-GitHubHeaders) -OutFile $Destination -UseBasicParsing
-
+    # Verify cached files too; an interrupted/corrupt download must not be trusted.
     if ($Asset.digest -and $Asset.digest -match "^sha256:(.+)$") {
         $expected = $Matches[1].ToLowerInvariant()
         $actual = (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($actual -ne $expected) {
-            throw "SHA256 mismatch for $($Asset.name): expected $expected, got $actual"
+            throw "SHA256 mismatch for $($Asset.name): expected $expected, got $actual. Re-run with -Force to download it again."
         }
         Write-Info "SHA256 verified"
     }
@@ -428,6 +430,30 @@ function Install-ReleaseAddon($Addon, $Release) {
         Write-Info "Metadata written to $metadataFile"
     }
 
+    # Do not report/commit a version unless its declared runtime files landed at the expected paths.
+    $missing = New-Object System.Collections.Generic.List[string]
+    foreach ($relativeValue in @($Addon.verify_paths)) {
+        $relative = ([string]$relativeValue).Replace('/', '\')
+        if ([string]::IsNullOrWhiteSpace($relative) -or
+            [IO.Path]::IsPathRooted($relative) -or
+            $relative -match '(^|[\\/])\.\.([\\/]|$)') {
+            throw "Unsafe verify_paths entry for '$($Addon.name)': $relative"
+        }
+
+        $serverFull = [IO.Path]::GetFullPath($ServerRoot).TrimEnd([char[]]@('\', '/'))
+        $target = [IO.Path]::GetFullPath((Join-Path $ServerRoot $relative))
+        $prefix = $serverFull + [IO.Path]::DirectorySeparatorChar
+        if (-not $target.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Verification path escaped server/game/csgo for '$($Addon.name)': $relative"
+        }
+        if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
+            [void]$missing.Add("server/game/csgo/$($relative.Replace('\', '/'))")
+        }
+    }
+    if ($missing.Count -gt 0) {
+        throw ("Add-on '$($Addon.name)' did not install all declared verify_paths:" + [Environment]::NewLine + ($missing -join [Environment]::NewLine))
+    }
+
     return $version
 }
 
@@ -585,6 +611,11 @@ if (-not (Test-Path (Join-Path $RepoRoot ".git"))) {
 }
 
 if (-not $DryRun) {
+    $runningCs2 = @(Get-Process -Name "cs2" -ErrorAction SilentlyContinue)
+    if ($runningCs2.Count -gt 0) {
+        throw "A cs2.exe process is running. Stop the server and its supervisor before updating add-ons."
+    }
+
     $status = @(& git -C $RepoRoot status --porcelain)
     if ($LASTEXITCODE -ne 0) {
         throw "Could not read Git working tree status."
