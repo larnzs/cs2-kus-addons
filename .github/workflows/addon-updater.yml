@@ -145,7 +145,18 @@ jobs:
               $templateBat -match '(?im)^\s*exit /b 2\s*$') {
             throw "Example run.bat must pause for direct-launch preflight errors and support --no-pause for the VBS supervisor."
           }
-          if ($templateBat -notmatch '(?im)^set "SUPERVISED_ONCE=0"
+          if ($templateBat -notmatch '(?im)^set "SUPERVISED_ONCE=0"$' -or
+              $templateBat -notmatch '(?im)^if /I "%~1"=="--supervised" set "SUPERVISED_ONCE=1"$' -or
+              $templateBat -notmatch '(?im)^\s*if "%SUPERVISED_ONCE%"=="1" \($') {
+            throw "Example run.bat must support the supervisor's one-shot mode without changing direct-run restart behavior."
+          }
+          if ($templateVbs -notmatch ' --no-pause --supervised' -or
+              $templateVbs -notmatch 'shell\.Run\(launchCommand, 0, True\)' -or
+              $templateVbs -notmatch 'FindRepositoryRoot\(serverDir, root\)' -or
+              $templateVbs -notmatch 'RunBatch\(gameUpdatePath, "game-update\.bat"\)' -or
+              $templateVbs -notmatch 'RunBatch\(repoUpdatePath, "update\.bat"\)') {
+            throw "Example run.vbs must resolve the repository from SERVER_DIR, wait for one run.bat process to exit, and run both update steps sequentially."
+          }
           if ($templateIni -match '(?im)^(API_KEY|STEAM_ACCOUNT)[ \t]*=[ \t]*\S') {
             throw "Example INI must not contain real API or game-server credentials."
           }
