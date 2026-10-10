@@ -242,7 +242,7 @@ goto :CheckLockWithoutOwner
 :CheckLockOwner
 set "LOCK_OWNER_PID="
 set /p LOCK_OWNER_PID=<"%LOCK_DIR%\owner.pid"
-if not defined LOCK_OWNER_PID goto :WaitForLock
+if not defined LOCK_OWNER_PID goto :CheckLockWithoutOwner
 powershell -NoProfile -Command "if(Get-Process -Id %LOCK_OWNER_PID% -ErrorAction SilentlyContinue){exit 0}else{exit 1}" >nul 2>&1
 if errorlevel 1 (
     echo [%date% %time%] Removing stale maintenance lock from a stopped runner.
