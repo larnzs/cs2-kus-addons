@@ -243,6 +243,10 @@ For CounterStrikeSharp, `addons-inspect.bat -Only CounterStrikeSharp` can inspec
 
 KUS base plugins that are not listed as automated add-ons remain tracked under `game/csgo/` and are deployed by the runtime. Do not run the old KUS Bash release updater on Windows; its historical notes remain in `docs/upstream/KUS-README.md`.
 
+### Why MetaMod uses a special release selector
+
+GitHub's generic `/releases/latest` endpoint can return MetaMod's legacy `1.12.0` release line. The updater therefore lists recent releases and selects the newest non-draft tag matching `2.0.0.<build>`, which is the CS2 development line tracked by KUS. A release that does not match that pattern is ignored rather than installed.
+
 ## Share the love
 
 If you appreciate the project then please take the time to star the repository 🙏
@@ -685,7 +689,7 @@ addons-update.bat -Only CounterStrikeSharp
 
 The manifest requires the Windows **with-runtime** archive and CI checks that .NET runtime files are present. Do not manually copy a no-runtime CSS archive over this runtime tree.
 
-Metamod:Source is a KUS base component, not a Larnz release-manifest entry. Keep its files in tracked `game/csgo/`, keep Windows-only payload in `game/csgo/addons/windows/`, and update them through reviewed integration changes. `win.bat` deploys these files into `server/game/csgo/`.
+Metamod:Source is now managed by `DEPENDENCIES.json` and the same release updater as the other add-ons. The updater selects the current CS2 `2.0.0.<build>` release line (not the unrelated legacy `1.12.0` stable line), downloads the Windows ZIP first, then the Linux TAR.GZ, and overlays both into `game/csgo/` as KUS does. CounterStrikeSharp remains on the official latest release and now updates both with-runtime platform archives: Windows files are also staged under `game/csgo/addons/windows/`, while Linux/shared files remain in `game/csgo/addons/`. The normal runner then overlays these tracked files into `server/game/csgo/`.
 
 ### Quake Sounds
 

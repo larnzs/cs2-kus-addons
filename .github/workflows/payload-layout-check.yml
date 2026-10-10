@@ -99,7 +99,16 @@ jobs:
           css = next(addon for addon in manifest["addons"] if addon["name"] == "CounterStrikeSharp")
           assert css["runtime_required"] is True
           assert css["install_path"] == "addons/windows/addons/counterstrikesharp"
-          assert css["assets"] == ["counterstrikesharp-with-runtime-windows-{version}.zip"]
+          assert css["assets"] == [
+              "counterstrikesharp-with-runtime-windows-{version}.zip",
+              "counterstrikesharp-with-runtime-linux-{version}.zip",
+          ]
+          metamod = next(addon for addon in manifest["addons"] if addon["name"] == "Metamod:Source")
+          assert metamod["version_format"] == "metamod"
+          assert metamod["readme_url"] == "https://www.metamodsource.net/downloads.php?branch=dev"
+          assert metamod["assets"] == ["mmsource-*-windows.zip", "mmsource-*-linux.tar.gz"]
+          assert "addons/metamod/bin/win64/metamod.2.cs2.dll" in metamod["verify_paths"]
+          assert "addons/metamod/bin/linuxsteamrt64/metamod.2.cs2.so" in metamod["verify_paths"]
           assert Path("game/csgo/addons/counterstrikesharp/bin/linuxsteamrt64/counterstrikesharp.so").is_file()
           assert Path("game/csgo/addons/windows/addons/counterstrikesharp/dotnet/dotnet.exe").is_file()
           for script in ("install.sh", "install_docker.sh"):

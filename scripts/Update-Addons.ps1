@@ -68,6 +68,23 @@ function Get-RepoSlug([string]$Url) {
 function Get-ReleaseForAddon($Addon) {
     $repo = Get-RepoSlug $Addon.repository
 
+    if ($Addon.PSObject.Properties.Name -contains "version_format" -and
+        [string]$Addon.version_format -eq "metamod") {
+        # GitHub's /releases/latest may select the older stable 1.12.0 line.
+        # KUS tracks the CS2 development builds; choose the newest listed 2.0.0.<git> release.
+        $releases = Invoke-GitHubApi "https://api.github.com/repos/$repo/releases?per_page=30"
+        $release = @(
+            $releases | Where-Object {
+                -not $_.draft -and [string]$_.tag_name -match '^2\.0\.0\.\d+$'
+            }
+        ) | Select-Object -First 1
+        if (-not $release) {
+            $seen = ($releases | ForEach-Object { [string]$_.tag_name }) -join ", "
+            throw "No CS2 Metamod release matching tag 2.0.0.<build> was found in $repo. Tags seen: $seen"
+        }
+        return $release
+    }
+
     if ($Addon.track -eq "pinned") {
         $wanted = [string]$Addon.version
         $releases = Invoke-GitHubApi "https://api.github.com/repos/$repo/releases?per_page=30"
@@ -657,7 +674,7 @@ function Update-ReadmeVersion([string]$Name, [string]$Repository, [string]$Displ
     $escapedUrl = [regex]::Escape($Repository)
     $escapedName = [regex]::Escape($Name)
     $backtick = [char]96
-    $pattern = "(?m)^\|\s*\[$escapedName\]\($escapedUrl\)\s*\|[^|\r\n]*\|"
+    $pattern = "(?m)^[ \t]*\|?[ \t]*\[$escapedName\]\($escapedUrl\)[ \t]*\|[^|\r\n]*\|"
     $replacement = "| [$Name]($Repository) | $backtick$DisplayVersion$backtick |"
     $newText = [regex]::Replace($text, $pattern, $replacement, 1)
 
