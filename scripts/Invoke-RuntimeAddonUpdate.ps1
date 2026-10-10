@@ -25,43 +25,31 @@ function Invoke-GitCapture {
         [Parameter(Mandatory = $true)][string[]]$GitArgs
     )
 
-    # Windows PowerShell 5.1 can turn native Git stderr progress (for example
-    # "From https://...") into ErrorRecords. With ErrorActionPreference=Stop,
-    # that can abort a successful git fetch. Redirect stderr to a file so the
-    # real native exit code, not progress text, determines success.
-    $stderrPath = Join-Path ([IO.Path]::GetTempPath()) ("cs2-kus-git-" + [guid]::NewGuid().ToString("N") + ".stderr")
+    # Windows PowerShell 5.1 can treat native Git stderr progress (such as
+    # "From https://...") as a NativeCommandError. Keep that behavior non-fatal
+    # for this invocation, capture the merged output, and trust Git's exit code.
+    $savedErrorActionPreference = $ErrorActionPreference
     try {
-        $stdout = @(& git -C $Path @GitArgs 2> $stderrPath)
+        $ErrorActionPreference = "Continue"
+        $output = @(& git -C $Path @GitArgs 2>&1)
         $exitCode = $LASTEXITCODE
-        $stderrText = ""
-        if (Test-Path -LiteralPath $stderrPath) {
-            $stderrText = [IO.File]::ReadAllText($stderrPath)
-        }
-
-        $lines = New-Object System.Collections.Generic.List[string]
-        foreach ($line in $stdout) {
-            if ($null -ne $line) {
-                $lines.Add([string]$line)
-            }
-        }
-        if (-not [string]::IsNullOrWhiteSpace($stderrText)) {
-            foreach ($line in ($stderrText -split "\r?\n")) {
-                if ($line.Length -gt 0) {
-                    $lines.Add($line)
-                }
-            }
-        }
-
-        return [pscustomobject]@{
-            ExitCode = [int]$exitCode
-            Output = [string[]]$lines.ToArray()
-        }
     }
     finally {
-        Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue
+        $ErrorActionPreference = $savedErrorActionPreference
+    }
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    foreach ($line in $output) {
+        if ($null -ne $line) {
+            $lines.Add([string]$line)
+        }
+    }
+
+    return [pscustomobject]@{
+        ExitCode = [int]$exitCode
+        Output = [string[]]$lines.ToArray()
     }
 }
-
 function Invoke-Git {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
