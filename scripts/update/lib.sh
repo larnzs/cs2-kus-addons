@@ -350,7 +350,7 @@ remove_extracted() {
     rm -rf "$d"
 }
 
-RSYNC_FLAGS=(-rhavz --exclude "._*" --exclude ".DS_Store" --partial --stats)
+RSYNC_FLAGS=(-rhavz --exclude "._*" --exclude ".DS_Store" --exclude "/counterstrikesharp/configs/***" --exclude "/windows/addons/counterstrikesharp/configs/***" --partial --stats)
 
 # rsync <src>/ -> <dest>/ (merge; never deletes files at the destination).
 sync_dir() {
