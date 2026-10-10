@@ -33,8 +33,10 @@ function Invoke-Git {
             ($GitArgs -join " "), $code, [Environment]::NewLine, $details)
     }
 
-    foreach ($line in @($output)) {
-        [string]$line
+    foreach ($line in $output) {
+        if ($null -ne $line) {
+            [string]$line
+        }
     }
 }
 
