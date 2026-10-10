@@ -3,7 +3,7 @@
   "CheckIntervalSeconds": 300,
   "InitialCheckDelaySeconds": 20,
   "SteamAppId": 730,
-  "SteamCmdPath": "steamcmd\\steamcmd.exe",
+  "SteamCmdPath": "W:\\cs2-kus-modded\\steamcmd\\steamcmd.exe",
   "SteamCmdTimeoutSeconds": 120,
   "UpdateInstallTimeoutSeconds": 1800,
   "AppManifestPath": "auto",
