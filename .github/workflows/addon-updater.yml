@@ -131,7 +131,8 @@ jobs:
           $runtimeAddonUpdater = Get-Content -LiteralPath ".\scripts\Invoke-RuntimeAddonUpdate.ps1" -Raw
           if ($runtimeAddonUpdater -notmatch 'scripts\\Update-Addons\.ps1' -or
               $runtimeAddonUpdater -notmatch '"worktree", "add"' -or
-              $runtimeAddonUpdater -notmatch 'push origin' -or
+              $runtimeAddonUpdater -notmatch 'Invoke-GitCapture' -or
+              $runtimeAddonUpdater -notmatch '"push", "origin", "HEAD:refs/heads/\$Branch"' -or
               $runtimeAddonUpdater -notmatch 'worktree remove') {
             throw "Runtime addon updates must use an isolated worktree and publish successful commits to the private branch."
           }
