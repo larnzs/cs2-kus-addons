@@ -7,14 +7,14 @@
 # Process (reconstructed from the "UPDATED: RollTheDice" commits, e.g. 26.05.1 > 26.07.1):
 #   1. Download the release zip, e.g. cs2-roll-the-dice-release-26.07.1.zip
 #   2. Extract it; the archive root is RollTheDice/. Replace
-#        <extracted>/RollTheDice -> server/game/csgo/addons/counterstrikesharp/plugins/disabled/RollTheDice
+#        <extracted>/RollTheDice -> game/csgo/addons/counterstrikesharp/plugins/disabled/RollTheDice
 #   3. Delete the extracted folder
 #
-# Not touched: server/game/csgo/addons/counterstrikesharp/configs/plugins/RollTheDice/RollTheDice.json
+# Not touched: game/csgo/addons/counterstrikesharp/configs/plugins/RollTheDice/RollTheDice.json
 # (customised, not shipped by the release).
 
 PLUGIN_PATHS=(
-    "server/game/csgo/addons/counterstrikesharp/plugins/disabled/RollTheDice"
+    "game/csgo/addons/counterstrikesharp/plugins/disabled/RollTheDice"
 )
 
 plugin_assets() {
@@ -22,7 +22,7 @@ plugin_assets() {
 }
 
 plugin_preflight() {
-    require_dir "server/game/csgo/addons/counterstrikesharp/plugins/disabled/RollTheDice"
+    require_dir "game/csgo/addons/counterstrikesharp/plugins/disabled/RollTheDice"
 }
 
 plugin_apply() {
@@ -31,8 +31,8 @@ plugin_apply() {
 
     require_file "$x/RollTheDice/RollTheDice.dll"
 
-    remove_path "server/game/csgo/addons/counterstrikesharp/plugins/disabled/RollTheDice"
-    copy_dir "$x/RollTheDice" "server/game/csgo/addons/counterstrikesharp/plugins/disabled/RollTheDice"
+    remove_path "game/csgo/addons/counterstrikesharp/plugins/disabled/RollTheDice"
+    copy_dir "$x/RollTheDice" "game/csgo/addons/counterstrikesharp/plugins/disabled/RollTheDice"
 
     remove_extracted "$x"
 }
