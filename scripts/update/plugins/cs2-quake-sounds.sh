@@ -7,14 +7,14 @@
 # Process (reconstructed from the "UPDATED: cs2-quake-sounds" commits, e.g. 26.06.2 > 26.08.1):
 #   1. Download the release zip, e.g. cs2-quake-sounds-release-26.08.1.zip
 #   2. Extract it; the archive root is QuakeSounds/. Replace
-#        <extracted>/QuakeSounds -> server/game/csgo/addons/counterstrikesharp/plugins/disabled/QuakeSounds
+#        <extracted>/QuakeSounds -> game/csgo/addons/counterstrikesharp/plugins/disabled/QuakeSounds
 #   3. Delete the extracted folder
 #
-# Not touched: server/game/csgo/addons/counterstrikesharp/configs/plugins/QuakeSounds/QuakeSounds.json
+# Not touched: game/csgo/addons/counterstrikesharp/configs/plugins/QuakeSounds/QuakeSounds.json
 # (customised, not shipped by the release).
 
 PLUGIN_PATHS=(
-    "server/game/csgo/addons/counterstrikesharp/plugins/disabled/QuakeSounds"
+    "game/csgo/addons/counterstrikesharp/plugins/disabled/QuakeSounds"
 )
 
 plugin_assets() {
@@ -22,7 +22,7 @@ plugin_assets() {
 }
 
 plugin_preflight() {
-    require_dir "server/game/csgo/addons/counterstrikesharp/plugins/disabled/QuakeSounds"
+    require_dir "game/csgo/addons/counterstrikesharp/plugins/disabled/QuakeSounds"
 }
 
 plugin_apply() {
@@ -31,8 +31,8 @@ plugin_apply() {
 
     require_file "$x/QuakeSounds/QuakeSounds.dll"
 
-    remove_path "server/game/csgo/addons/counterstrikesharp/plugins/disabled/QuakeSounds"
-    copy_dir "$x/QuakeSounds" "server/game/csgo/addons/counterstrikesharp/plugins/disabled/QuakeSounds"
+    remove_path "game/csgo/addons/counterstrikesharp/plugins/disabled/QuakeSounds"
+    copy_dir "$x/QuakeSounds" "game/csgo/addons/counterstrikesharp/plugins/disabled/QuakeSounds"
 
     remove_extracted "$x"
 }

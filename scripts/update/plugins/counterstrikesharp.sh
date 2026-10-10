@@ -7,19 +7,19 @@
 # Manual process this automates:
 #   1. Download the latest "with-runtime" Windows and Linux zips from GitHub releases
 #      e.g. counterstrikesharp-with-runtime-windows-1.0.374.zip / ...-linux-1.0.374.zip
-#   2. Extract Windows, rsync <extracted>/addons/ -> server/game/csgo/addons/
-#   3. (Windows special treatment) empty server/game/csgo/addons/windows/addons/counterstrikesharp/
+#   2. Extract Windows, rsync <extracted>/addons/ -> game/csgo/addons/
+#   3. (Windows special treatment) empty game/csgo/addons/windows/addons/counterstrikesharp/
 #      then copy <extracted>/addons/counterstrikesharp/{api,bin,dotnet} into it
 #   4. Delete the extracted Windows folder
-#   5. Extract Linux, rsync <extracted>/addons/ -> server/game/csgo/addons/, delete the extracted folder
+#   5. Extract Linux, rsync <extracted>/addons/ -> game/csgo/addons/, delete the extracted folder
 #
 # Windows MUST be applied before Linux so the Linux runtime/binaries end up on top in
-# server/game/csgo/addons/counterstrikesharp/ (bin/win64 from Windows + bin/linuxsteamrt64 from Linux).
+# game/csgo/addons/counterstrikesharp/ (bin/win64 from Windows + bin/linuxsteamrt64 from Linux).
 
 PLUGIN_PATHS=(
-    "server/game/csgo/addons/counterstrikesharp"
-    "server/game/csgo/addons/metamod/counterstrikesharp.vdf"
-    "server/game/csgo/addons/windows/addons/counterstrikesharp"
+    "game/csgo/addons/counterstrikesharp"
+    "game/csgo/addons/metamod/counterstrikesharp.vdf"
+    "game/csgo/addons/windows/addons/counterstrikesharp"
 )
 
 plugin_assets() {
@@ -28,11 +28,11 @@ plugin_assets() {
 }
 
 plugin_preflight() {
-    require_dir  "server/game/csgo/addons/counterstrikesharp/api"
-    require_dir  "server/game/csgo/addons/counterstrikesharp/bin"
-    require_dir  "server/game/csgo/addons/counterstrikesharp/dotnet"
-    require_file "server/game/csgo/addons/metamod/counterstrikesharp.vdf"
-    require_dir  "server/game/csgo/addons/windows/addons/counterstrikesharp"
+    require_dir  "game/csgo/addons/counterstrikesharp/api"
+    require_dir  "game/csgo/addons/counterstrikesharp/bin"
+    require_dir  "game/csgo/addons/counterstrikesharp/dotnet"
+    require_file "game/csgo/addons/metamod/counterstrikesharp.vdf"
+    require_dir  "game/csgo/addons/windows/addons/counterstrikesharp"
 }
 
 plugin_apply() {
@@ -50,14 +50,14 @@ plugin_apply() {
     require_dir  "$linux/addons/counterstrikesharp/dotnet"
 
     # Windows first
-    sync_dir "$win/addons/" "server/game/csgo/addons/"
-    empty_dir "server/game/csgo/addons/windows/addons/counterstrikesharp"
-    copy_dir "$win/addons/counterstrikesharp/api"    "server/game/csgo/addons/windows/addons/counterstrikesharp/api"
-    copy_dir "$win/addons/counterstrikesharp/bin"    "server/game/csgo/addons/windows/addons/counterstrikesharp/bin"
-    copy_dir "$win/addons/counterstrikesharp/dotnet" "server/game/csgo/addons/windows/addons/counterstrikesharp/dotnet"
+    sync_dir "$win/addons/" "game/csgo/addons/"
+    empty_dir "game/csgo/addons/windows/addons/counterstrikesharp"
+    copy_dir "$win/addons/counterstrikesharp/api"    "game/csgo/addons/windows/addons/counterstrikesharp/api"
+    copy_dir "$win/addons/counterstrikesharp/bin"    "game/csgo/addons/windows/addons/counterstrikesharp/bin"
+    copy_dir "$win/addons/counterstrikesharp/dotnet" "game/csgo/addons/windows/addons/counterstrikesharp/dotnet"
     remove_extracted "$win"
 
     # then Linux
-    sync_dir "$linux/addons/" "server/game/csgo/addons/"
+    sync_dir "$linux/addons/" "game/csgo/addons/"
     remove_extracted "$linux"
 }
