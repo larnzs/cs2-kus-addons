@@ -539,27 +539,27 @@ plugin_files_changed() {
 readme_line_number() {   # $1 name, $2 url -> one row in KUS or Larnz table
     local nums count
     nums=$(awk -v link="[$1]($2)" '
-        /Mod[[:space:]]*\\|[[:space:]]*Version[[:space:]]*\\|[[:space:]]*Why/ { inside = 1; next }
+        /Mod[[:space:]]*[|][[:space:]]*Version[^|]*[|][[:space:]]*(Why|Purpose)/ { inside = 1; next }
         inside && /^[[:space:]]*$/ { if (saw) exit; next }
         inside {
             row = $0
-            sub(/^[[:space:]]*\\|?[[:space:]]*/, "", row)
-            if (index(row, link) == 1 && substr(row, length(link) + 1) ~ /^[[:space:]]*\\|/) print NR
+            sub(/^[[:space:]]*[|]?[[:space:]]*/, "", row)
+            if (index(row, link) == 1 && substr(row, length(link) + 1) ~ /^[[:space:]]*[|]/) print NR
             saw = 1
         }
     ' README.md)
-    count=$(printf '%s\\n' "$nums" | grep -c . || true)
+    count=$(printf '%s\n' "$nums" | grep -c . || true)
     if [ "$count" != "1" ]; then
         nums=$(awk -F'|' -v wanted="$1" '
             /^## Larnz-managed add-ons[[:space:]]*$/ { section = 1; next }
             /^## / && section { exit }
-            section && /^\\|/ {
+            section && /^[|]/ {
                 name = $2
                 gsub(/^[[:space:]]+|[[:space:]]+$/, "", name)
                 if (name == wanted) print NR
             }
         ' README.md)
-        count=$(printf '%s\\n' "$nums" | grep -c . || true)
+        count=$(printf '%s\n' "$nums" | grep -c . || true)
     fi
     [ "$count" = "1" ] || die "expected exactly one README version row for '$1' ($2 or Larnz-managed table), found $count"
     printf '%s' "$nums"

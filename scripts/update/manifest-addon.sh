@@ -12,13 +12,13 @@ manifest_addon_assets() {
 
 manifest_find_csgo_root() {
     local extract="$1" candidate d
-    if [ -d "$extract/addons" ]; then printf '%s\\n' "$extract"; return 0; fi
-    if [ -d "$extract/csgo/addons" ]; then printf '%s\\n' "$extract/csgo"; return 0; fi
+    if [ -d "$extract/addons" ]; then printf '%s\n' "$extract"; return 0; fi
+    if [ -d "$extract/csgo/addons" ]; then printf '%s\n' "$extract/csgo"; return 0; fi
     candidate=""
     while IFS= read -r d; do
         if [ -d "$d/addons" ]; then candidate="$d"; break; fi
     done < <(find "$extract" -type d -name csgo -print 2>/dev/null)
-    if [ -n "$candidate" ]; then printf '%s\\n' "$candidate"; return 0; fi
+    if [ -n "$candidate" ]; then printf '%s\n' "$candidate"; return 0; fi
     candidate=$(find "$extract" -type d -name addons -print 2>/dev/null | head -n 1)
     if [ -n "$candidate" ]; then dirname "$candidate"; return 0; fi
     return 1
@@ -137,7 +137,7 @@ manifest_plugin_apply() {
         while IFS= read -r mapping; do
             [ -n "$mapping" ] || continue
             manifest_apply_mapping "$addon" "$extract" "$mapping"
-        done < <(printf '%s\\n' "$mappings" | jq -c '.[]')
+        done < <(printf '%s\n' "$mappings" | jq -c '.[]')
         remove_extracted "$extract"
     done
     manifest_verify_addon "$addon"
