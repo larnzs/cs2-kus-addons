@@ -17,3 +17,6 @@ custom_files_secret/
 /server/
 /game/*
 !/game/csgo/
+
+# Per-server local Instances must stay outside version control.
+/instances/
