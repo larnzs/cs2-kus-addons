@@ -1,24 +1,29 @@
 # CS2 Windows instance runner
 
-This template runs a CS2 instance from the repository's canonical `server/` installation:
+This template runs a CS2 instance from the repository's canonical server/ installation.
 
-- `run.bat` reads local values from `instance.ini`, optionally overlays only the selected instance's `cfg/` and `addons/` folders, launches CS2, and restarts the server process after it exits.
-- `run.vbs` starts the batch runner hidden and supervises it. It is intended to stay running until you stop it.
-- `instance.example.ini` is a safe template. It contains no public IP address, Game Server Login Token, API key, or real password.
+- run.bat reads instance.ini, launches CS2, and owns restart plus maintenance after the game process exits.
+- run.vbs is only a hidden launcher/supervisor. It does not run SteamCMD, Git, or deployment scripts.
+- instance.example.ini is a safe template. It contains no public IP, Game Server Login Token, API key, or real password.
 
 ## Setup
 
-1. Run `install.bat` from the repository root once.
-2. Copy `instance.example.ini` to `instance.ini` in this folder.
-3. Set `SERVER_DIR=..\..\server`, `PORT`, `MAP`, `MAPGROUP` and the public `IP` when applicable.
-4. Set `STEAM_ACCOUNT` for an internet server and replace `RCON_PASSWORD` with a strong value. Keep `instance.ini` private; the folder's `.gitignore` excludes it.
-5. Launch `run.vbs` for hidden operation or `run.bat` for a visible console.
+1. Run install.bat from the repository root once.
+2. Copy instance.example.ini to instance.ini in this folder.
+3. Set SERVER_DIR to the repository's server directory, and configure PORT, MAP, MAPGROUP, and the public IP when applicable.
+4. Set STEAM_ACCOUNT for an internet server and use a strong RCON_PASSWORD. Keep instance.ini private; the folder's .gitignore excludes it.
+5. Copy run.bat and run.vbs to the actual Instance directory outside the repository if you want Instance files kept separate from the checkout. Keep instance.ini beside them.
+6. Launch run.vbs for hidden operation or run.bat for a visible console.
 
-## Behavior and maintenance
+## Maintenance behavior
 
-- The repository's runtime files live under `server\game\csgo\`; the runner does not use a second KUS checkout or staging tree.
-- `CUSTOM_FOLDER` may be absolute or relative to this folder. Only its `cfg/` and `addons/` children are copied as optional per-instance overrides. This is an additive/overwrite overlay; the runner never deletes runtime files.
-- `BIND_IP` controls the local listen address and defaults to `0.0.0.0`. `IP` is optional and, when set, is passed as `+net_public_adr`.
-- `API_KEY`, `STEAM_ACCOUNT`, and `WORKSHOP_COLLECTION` are only passed when non-empty.
-- The runner does not call SteamCMD, pull Git, or update add-on releases. Stop the server/supervisor before using `game-update.bat` or `update.bat`.
-- `win.bat` only patches/validates the installed server; it never launches the game.
+- Every maintenance cycle uses a machine-wide lock so multiple Instances cannot update the shared installation at the same time.
+- Before it updates the game or overlays payload files, the runner ensures no cs2.exe process is using the shared installation. On initial startup, if another Instance is already running, it skips shared-file updates and starts without applying this Instance's shared cfg/ and addons/ overrides. After a server exits and an update is due, that Instance waits for the other server processes to stop before touching the shared installation.
+- Game files are checked/updated directly through SteamCMD. The runner does not call game-update.bat, update.bat, win.bat, or the installer.
+- The runner pulls the latest integration/kus-monorepo commit from the private repository. The repository's remote updater workflow checks upstream add-on releases and publishes payload updates; the runner does not run addons-update.bat locally, because that script creates local commits and could make later fast-forward pulls fail.
+- Runtime payload deployment is overwrite-only. It uses direct file-level copies, never mirrors or deletes the runtime addons/ directory, and retains files that are no longer present in the payload. This intentionally means removed or renamed add-on files are not automatically deleted.
+- Existing addons/counterstrikesharp/configs/ and cfg/settings/ files are protected from the shared payload overlay. Per-Instance overrides are copied only while no CS2 server process is active.
+- BIND_IP controls the local listen address and defaults to 0.0.0.0. IP is optional and, when set, is passed as +net_public_adr.
+- API_KEY, STEAM_ACCOUNT, and WORKSHOP_COLLECTION are only passed when non-empty.
+
+The maintenance lock and last-success marker are stored under %TEMP%, outside the Git working tree. If a runner is forcibly killed in the middle of maintenance, other runner instances detect and clear a stale lock once its owner process is gone.
