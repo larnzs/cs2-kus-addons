@@ -9,6 +9,8 @@ on:
       - "scripts/Update-Addons.ps1"
       - "scripts/Test-AddonOverlay.ps1"
       - "scripts/Inspect-Releases.ps1"
+      - "scripts/Invoke-RuntimeAddonUpdate.ps1"
+      - ".github/workflows/addon-updater.yml"
       - "win.bat"
       - "install.bat"
       - "update.bat"
@@ -57,7 +59,8 @@ jobs:
             ".\scripts\Update-Addons.ps1",
             ".\scripts\Test-AddonOverlay.ps1",
             ".\scripts\Inspect-Releases.ps1",
-            ".\scripts\Deploy-Runtime.ps1"
+            ".\scripts\Deploy-Runtime.ps1",
+            ".\scripts\Invoke-RuntimeAddonUpdate.ps1"
           )
           foreach ($path in $paths) {
             $tokens = $null
@@ -125,6 +128,14 @@ jobs:
           if ($install -notmatch '(?i)\+app_update\s+730') {
             throw "install.bat must install CS2 during initial setup if it is missing."
           }
+          $runtimeAddonUpdater = Get-Content -LiteralPath ".\scripts\Invoke-RuntimeAddonUpdate.ps1" -Raw
+          if ($runtimeAddonUpdater -notmatch 'scripts\\Update-Addons\.ps1' -or
+              $runtimeAddonUpdater -notmatch 'worktree' -or
+              $runtimeAddonUpdater -notmatch 'push origin' -or
+              $runtimeAddonUpdater -notmatch 'worktree remove') {
+            throw "Runtime addon updates must use an isolated worktree and publish successful commits to the private branch."
+          }
+
           Write-Host "PowerShell syntax and unified updater role checks passed."
       - name: Validate example instance template
         shell: pwsh
@@ -148,6 +159,8 @@ jobs:
           foreach ($required in @(
             'git -C "%REPO_ROOT%" pull --ff-only origin integration/kus-monorepo',
             'app_update 730',
+            'call :UpdateUpstreamAddons',
+            'ForcePostExitMaintenance',
             ':AcquireLock',
             ':WaitForAllCS2',
             ':OverlayPayload',
