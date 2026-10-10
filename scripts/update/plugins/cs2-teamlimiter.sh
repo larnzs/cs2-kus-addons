@@ -15,6 +15,11 @@ plugin_resolve_assets() {
 }
 plugin_apply() {
     local extract project output destination publish
+    if is_dry; then
+        dry "download source commit $NEW_VERSION and build TeamLimiter.dll with dotnet"
+        dry "overlay game/csgo/addons/counterstrikesharp/plugins/TeamLimiter.dll"
+        return 0
+    fi
     extract=$(extract_asset "source.zip")
     project=$(jq -r --arg name "$PLUGIN_NAME" '.addons[] | select(.name == $name) | .project' DEPENDENCIES.json)
     output=$(jq -r --arg name "$PLUGIN_NAME" '.addons[] | select(.name == $name) | .output_file' DEPENDENCIES.json)

@@ -105,6 +105,10 @@ manifest_verify_addon() {
 
 manifest_update_version() {
     local name="$1" version="$2" repo type tag json tmp
+    if is_dry; then
+        dry "update DEPENDENCIES.json version for $name to $version"
+        return 0
+    fi
     repo=$(jq -r --arg name "$name" '.addons[] | select(.name == $name) | .repository' DEPENDENCIES.json)
     type=$(jq -r --arg name "$name" '.addons[] | select(.name == $name) | .type' DEPENDENCIES.json)
     tmp="DEPENDENCIES.json.tmp"
@@ -129,6 +133,13 @@ manifest_update_version() {
 
 manifest_plugin_apply() {
     local addon="$1" i asset extract mappings mapping
+    if is_dry; then
+        for asset in "${MATCHED_NAMES[@]}"; do
+            dry "apply $asset using the DEPENDENCIES.json mappings for $addon"
+        done
+        dry "verify declared runtime paths for $addon"
+        return 0
+    fi
     for i in "${!MATCHED_NAMES[@]}"; do
         asset="${MATCHED_NAMES[$i]}"
         extract=$(extract_asset "$asset")

@@ -295,6 +295,10 @@ process_mod() {   # $1 name, $2 url, $3 current version
 # ----------------------------------------------------------------------------- Larnz manifest add-ons
 process_manifest_addons() {
     [ -f DEPENDENCIES.json ] || return 0
+    if [ "$STOP_RUN" = 1 ]; then
+        info "skipping Larnz-managed addons because a prior KUS addon update failed"
+        return 0
+    fi
     local entry name url version track type branch latest repo automation slug
     while IFS= read -r entry; do
         [ -n "$entry" ] || continue
