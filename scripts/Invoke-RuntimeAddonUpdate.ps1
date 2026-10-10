@@ -54,7 +54,7 @@ function Try-UseStoredGitHubToken {
         return
     }
 
-    $slug = $Matches["slug"] -replace '\.git
+    $slug = $Matches["slug"] -replace '\.git$', ''
     $oldPrompt = $env:GIT_TERMINAL_PROMPT
     $oldGcmInteractive = $env:GCM_INTERACTIVE
     try {
