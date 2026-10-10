@@ -26,14 +26,17 @@ The upstream `custom_files/` and `custom_files_example/` trees are intentionally
 2. Run `install.bat`. It downloads SteamCMD if needed and runs the KUS-style `app_update 730` command against `server/`, even when game files already exist. It then calls `win.bat` to deploy the tracked payload, patch the installed `gameinfo.gi`, and verify the runtime. It does not start the server; SteamCMD's optional `validate` flag is not used.
 3. Copy `examples/run-template/instance.example.ini` to `examples/run-template/instance.ini`, set the instance options and secrets, then start `run.vbs` (hidden) or `run.bat` (visible console).
 
-**Windows command responsibilities are intentionally separate, except that setup/repair also checks the game:**
+**The manual maintenance commands are separate, but the per-instance runner orchestrates its own maintenance cycle.**
 
-- `install.bat` downloads SteamCMD if needed and runs `app_update 730` in `server/` on every invocation. It omits the optional `validate` flag and does not start the server.
-- `win.bat` stages `game/csgo/`, overlays `game/csgo/addons/windows/` into `server/game/csgo/`, patches the installed `gameinfo.gi` idempotently, and verifies deployed files. It does not pull Git, run SteamCMD, or launch CS2.
-- `update.bat` performs a fast-forward-only Git pull, then calls `win.bat` to deploy and verify the tracked payload. It refuses local/untracked changes.
-- `game-update.bat` explicitly updates the CS2 game with SteamCMD. Stop every CS2 instance first.
-- `addons-update.bat -DryRun` previews Larnz-managed release updates; `addons-update.bat` applies them. This updater preserves fixed config paths and commits each successful add-on update.
-- A server restart through `run.bat`/`run.vbs` does not implicitly update Git, the CS2 game, or releases.
+- `install.bat` downloads SteamCMD if needed and runs `app_update 730` in `server/` on every invocation. It then calls `win.bat` to deploy and validate the runtime. It does not start CS2 and does not pass SteamCMD's optional `validate` flag. Use it for initial setup or deliberate repair while every server instance is stopped.
+- `win.bat` prepares and deploys the tracked `game/csgo/` payload, flattens `game/csgo/addons/windows/` into the Windows runtime, patches the installed `gameinfo.gi` for MetaMod, and verifies required files. It does not pull Git, run SteamCMD, or launch CS2.
+  - **Important deployment behavior:** `win.bat` calls `scripts/Deploy-Runtime.ps1`, which replaces the runtime `addons/` directory with the staged payload. The existing CounterStrikeSharp `configs/` directory and selected runtime-only `cfg/settings` files are preserved, but runtime-only add-ons under `addons/` that are not present in the tracked payload may be removed.
+  - `win.bat` does not check whether a `cs2.exe` process is using the shared install. Do not run it while any CS2 instance is active.
+- `update.bat` checks that the Git working tree is clean, runs `git pull --ff-only`, then calls `win.bat`. Therefore it inherits the deployment behavior and the same shared-install safety warning: **stop every CS2 instance before using it**. It is not the normal update path for a live multi-instance installation.
+- `game-update.bat` explicitly checks for a running `cs2.exe`, then updates app 730 through SteamCMD and calls `win.bat` for post-update deployment/validation. Stop every CS2 instance first; the script refuses to continue when one is detected.
+- `addons-update.bat -DryRun` previews Larnz-managed release updates; `addons-update.bat` applies those manifest-based updates to the tracked payload and commits successful updates. This is a manual add-on maintenance path, separate from the runtime runner's per-exit upstream check.
+- `run.vbs` launches the visible/hidden `run.bat` runner; it does not itself implement the maintenance logic. `run.bat` performs a serialized maintenance cycle before launching CS2 and again after CS2 exits or crashes. The cycle pulls the private repository, checks configured upstream add-on releases and publishes successful updates to the private repo, pulls any resulting commits, updates CS2 through SteamCMD, patches `gameinfo.gi`, and applies the payload using overwrite-only copies.
+- The runner waits until no `cs2.exe` process is using the shared install before modifying shared game files. Its runtime overlay does not use destructive directory mirroring and does not delete existing add-ons or protected CounterStrikeSharp configuration files. **Use this runner for normal live operation; do not substitute manual `win.bat`/`update.bat` deployment into an active shared install.**
 
 ## Larnz-managed add-ons
 
@@ -195,21 +198,24 @@ Mod | Version in the upstream snapshot | Purpose
 
 ## Updating the integrated repository and add-ons
 
-There are three independent update operations. Keep them separate so a routine Git update cannot unexpectedly change the CS2 game build or download plugin releases.
+There are manual maintenance entrypoints and an automatic per-instance runner cycle. The batch files below each have a narrow job; `run.bat` intentionally coordinates several update steps for normal server operation.
 
 | Operation | Command | What it changes |
 | --- | --- | --- |
-| Update tracked KUS + Larnz files | `update.bat` | Fast-forward-only pull of the private repository, followed by payload deployment and installed-runtime verification. |
-| Update the CS2 game | `game-update.bat` | Runs SteamCMD for app 730. Stop all CS2 instances first. |
-| Update Larnz-managed add-ons | `addons-update.bat -DryRun`, then `addons-update.bat` | Resolves release assets from `DEPENDENCIES.json`, maps files into tracked `game/csgo/` (Windows CounterStrikeSharp is kept under `game/csgo/addons/windows/`), verifies required paths and commits successful updates. |
+| Initial install/setup | `install.bat` | Downloads SteamCMD if missing, runs app 730 install/update, then calls `win.bat` to deploy the payload. Does not start the server. |
+| Deploy tracked payload manually | `win.bat` | Applies the tracked payload, patches `gameinfo.gi`, and verifies runtime files. It replaces the runtime `addons/` tree, so stop all CS2 instances first; untracked/runtime-only add-ons may be removed. |
+| Pull repository and deploy manually | `update.bat` | Requires a clean Git worktree, performs `git pull --ff-only`, then runs `win.bat`. Stop all CS2 instances first because its deployment step can replace `addons/`. |
+| Update the CS2 game manually | `game-update.bat` | Checks that no `cs2.exe` is running, runs SteamCMD for app 730, then calls `win.bat`. Stop all CS2 instances first. |
+| Update manifest-managed add-ons manually | `addons-update.bat -DryRun`, then `addons-update.bat` | Resolves release assets from `DEPENDENCIES.json`, maps files into tracked `game/csgo/` (Windows CounterStrikeSharp is kept under `game/csgo/addons/windows/`), verifies required paths, and commits successful updates. |
+| Normal runtime maintenance | `run.bat` (usually launched by `run.vbs`) | Before launch and after a server exit/crash, checks/pulls the private repo, checks configured upstream add-on releases and publishes successful updates, refreshes the repo, runs SteamCMD app 730 update, patches `gameinfo.gi`, and applies the payload with a non-destructive overwrite-only overlay. Shared maintenance is serialized and waits until no `cs2.exe` is using the shared install. |
 
 Use `addons-inspect.bat -Only CounterStrikeSharp` to inspect an upstream release archive without installing it. The CounterStrikeSharp rule in `DEPENDENCIES.json` requires `counterstrikesharp-with-runtime-windows-{version}.zip`; the updater refuses a no-runtime asset. Its post-install verification checks both the API/plugin files and versioned .NET runtime files.
 
-KUS base plugins that are not listed as automated add-ons remain tracked under `game/csgo/` and are deployed into the installed runtime by `win.bat`. Do not run the old KUS Bash release updater on Windows or treat it as the authority for the Larnz manifest; its historical notes remain available in `docs/upstream/KUS-README.md`.
+KUS base plugins that are not listed as automated add-ons remain tracked under `game/csgo/` and are deployed into the installed runtime by the runtime runner. Do not run the old KUS Bash release updater on Windows or treat it as the authority for the Larnz manifest; its historical notes remain available in `docs/upstream/KUS-README.md`.
 
-Note: `install.bat` invokes KUS-style `app_update 730` even when CS2 appears to be installed; it does not pass `validate`. Use `game-update.bat` for the dedicated game-update workflow and `update.bat` for Git-only changes.
+The manual `update.bat` and `win.bat` paths are not equivalent to the runner's safe overlay. The former replace the runtime `addons/` directory and do not check whether another instance is active, so use them only while every instance is stopped. For normal live multi-instance operation, let `run.bat` perform its serialized maintenance cycle.
 
-A normal server start does not run Git, SteamCMD, or the add-on release updater. Stop the supervisor and server before changing runtime files.
+A start or restart through the current `run.bat`/`run.vbs` workflow does run maintenance: the runner checks the repo, upstream add-ons and game before launching, then forces a fresh check after CS2 exits or crashes. The VBS file is only the launcher; maintenance logic lives in `run.bat`.
 
 ## Share the love
 
@@ -306,7 +312,7 @@ The active Windows runner reads `examples/run-template/instance.ini`, not enviro
 | `MAP` | `de_mirage` | Initial map requested at launch. |
 | `WORKSHOP_COLLECTION` | empty | Optional Workshop collection ID. |
 
-`run.bat` / `run.vbs` only starts and supervises the server process and applies per-instance `cfg/` and `addons/` overrides. These scripts do not pull Git, update the game or fetch new add-on releases. Linux and Google Cloud environment-variable settings have not yet been migrated to the unified layout; the old KUS `gcp.sh` and `install.sh` examples are not active instructions for this branch.
+`run.vbs` launches `run.bat`; the runner performs serialized maintenance before launch and after CS2 exits/crashes. It checks/pulls the private repository, checks configured upstream add-on releases, updates CS2 through SteamCMD, and applies a non-destructive payload overlay before restarting the server. The runner also applies per-instance `cfg/` and `addons/` overrides. Linux and Google Cloud environment-variable settings have not yet been migrated to the unified layout; the old KUS `gcp.sh` and `install.sh` examples are not active instructions for this branch.
 
 ## Playing workshop maps/collections
 
@@ -368,7 +374,7 @@ install.bat
 
 Copy `examples/run-template/instance.example.ini` to `examples/run-template/instance.ini`. Edit the port, map/map group, reachable public IP (optional), Game Server Login Token, and a strong RCON password. Keep `instance.ini` private; it is excluded from Git.
 
-Launch `examples/run-template/run.vbs` for hidden operation or `run.bat` for a visible console. The runner uses `server/game/csgo/` and can apply optional per-instance `cfg/` and `addons/` overrides from the configured local folder. It does not update anything automatically.
+Launch `examples/run-template/run.vbs` for hidden operation or `run.bat` for a visible console. `run.vbs` is only the launcher; `run.bat` uses `server/game/csgo/`, can apply optional per-instance `cfg/` and `addons/` overrides, and automatically runs serialized repo/add-on/game maintenance before launch and after CS2 exits or crashes.
 
 ### Maintenance commands
 
@@ -382,7 +388,7 @@ Launch `examples/run-template/run.vbs` for hidden operation or `run.bat` for a v
 | `addons-update.bat` | Apply add-on release updates; successful updates are committed separately. |
 | `addons-inspect.bat` | Inspect upstream release assets and resolved archive layouts without installing them. |
 
-These are separate operations by design: `install.bat` and `game-update.bat` run SteamCMD's KUS-style `app_update 730` without the optional `validate` flag, `update.bat` updates Git and redeploys the tracked payload, plugin releases remain separate, and server start does not implicitly run an updater.
+The manual commands have separate responsibilities: `install.bat` and `game-update.bat` run SteamCMD's KUS-style `app_update 730` without the optional `validate` flag; `update.bat` pulls Git and then calls `win.bat`; and `addons-update.bat` manages manifest release updates. In contrast, the current `run.bat` runtime cycle coordinates repository checks, upstream add-on release checks/publishing, SteamCMD, and the safe payload overlay automatically before launch and after a CS2 exit/crash.
 
 Allow the selected game port through Windows Firewall and the router/cloud firewall. Use a valid Game Server Login Token for a public server. Keep API keys, login tokens, RCON passwords, and instance-specific settings out of tracked files.
 
