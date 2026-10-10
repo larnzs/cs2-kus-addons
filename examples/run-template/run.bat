@@ -236,26 +236,30 @@ if not errorlevel 1 (
     exit /b 0
 )
 
-if exist "%LOCK_DIR%\owner.pid" (
-    set "LOCK_OWNER_PID="
-    set /p LOCK_OWNER_PID=<"%LOCK_DIR%\owner.pid"
-    if defined LOCK_OWNER_PID (
-        powershell -NoProfile -Command "if(Get-Process -Id %LOCK_OWNER_PID% -ErrorAction SilentlyContinue){exit 0}else{exit 1}" >nul 2>&1
-        if errorlevel 1 (
-            echo [%date% %time%] Removing stale maintenance lock from a stopped runner.
-            rd /s /q "%LOCK_DIR%" >nul 2>&1
-            goto :AcquireLock
-        )
-    )
-) else (
-    powershell -NoProfile -Command "$d=Get-Item -LiteralPath $env:CS2_LOCK_DIR -ErrorAction SilentlyContinue; if($d -and ((Get-Date)-$d.CreationTime).TotalSeconds -gt 30){exit 1}else{exit 0}" >nul 2>&1
-    if errorlevel 1 (
-        echo [%date% %time%] Removing incomplete stale maintenance lock.
-        rd /s /q "%LOCK_DIR%" >nul 2>&1
-        goto :AcquireLock
-    )
+if exist "%LOCK_DIR%\owner.pid" goto :CheckLockOwner
+goto :CheckLockWithoutOwner
+
+:CheckLockOwner
+set "LOCK_OWNER_PID="
+set /p LOCK_OWNER_PID=<"%LOCK_DIR%\owner.pid"
+if not defined LOCK_OWNER_PID goto :WaitForLock
+powershell -NoProfile -Command "if(Get-Process -Id %LOCK_OWNER_PID% -ErrorAction SilentlyContinue){exit 0}else{exit 1}" >nul 2>&1
+if errorlevel 1 (
+    echo [%date% %time%] Removing stale maintenance lock from a stopped runner.
+    rd /s /q "%LOCK_DIR%" >nul 2>&1
+    goto :AcquireLock
+)
+goto :WaitForLock
+
+:CheckLockWithoutOwner
+powershell -NoProfile -Command "$d=Get-Item -LiteralPath $env:CS2_LOCK_DIR -ErrorAction SilentlyContinue; if($d -and ((Get-Date)-$d.CreationTime).TotalSeconds -gt 30){exit 1}else{exit 0}" >nul 2>&1
+if errorlevel 1 (
+    echo [%date% %time%] Removing incomplete stale maintenance lock.
+    rd /s /q "%LOCK_DIR%" >nul 2>&1
+    goto :AcquireLock
 )
 
+:WaitForLock
 timeout /t 2 /nobreak >nul
 goto :AcquireLock
 
