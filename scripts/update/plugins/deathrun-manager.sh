@@ -7,7 +7,7 @@
 # Process (reconstructed from the "UPDATED: deathrun-manager" commits, e.g. 0.1.0 > 0.5.0):
 #   1. Download the release zip, e.g. cs2-deathrun-manager-0.5.1.zip (tags look like V0.5.1)
 #   2. Extract it. Replace
-#        <extracted>/plugins/DeathrunManager -> server/game/csgo/addons/counterstrikesharp/plugins/disabled/DeathrunManager
+#        <extracted>/plugins/DeathrunManager -> game/csgo/addons/counterstrikesharp/plugins/disabled/DeathrunManager
 #      The archive's README-ME.txt and logs/ are ignored.
 #   3. Delete the extracted folder
 #
@@ -17,7 +17,7 @@
 # settings are reported for a manual port.
 
 PLUGIN_PATHS=(
-    "server/game/csgo/addons/counterstrikesharp/plugins/disabled/DeathrunManager"
+    "game/csgo/addons/counterstrikesharp/plugins/disabled/DeathrunManager"
 )
 
 plugin_assets() {
@@ -25,8 +25,8 @@ plugin_assets() {
 }
 
 plugin_preflight() {
-    require_dir  "server/game/csgo/addons/counterstrikesharp/plugins/disabled/DeathrunManager"
-    require_file "server/game/csgo/addons/counterstrikesharp/configs/plugins/DeathrunManager/DeathrunManager.json"
+    require_dir  "game/csgo/addons/counterstrikesharp/plugins/disabled/DeathrunManager"
+    require_file "game/csgo/addons/counterstrikesharp/configs/plugins/DeathrunManager/DeathrunManager.json"
 }
 
 plugin_apply() {
@@ -36,12 +36,12 @@ plugin_apply() {
     require_file "$x/plugins/DeathrunManager/DeathrunManager.dll"
     require_file "$x/configs/plugins/DeathrunManager/DeathrunManager.json"
 
-    remove_path "server/game/csgo/addons/counterstrikesharp/plugins/disabled/DeathrunManager"
-    copy_dir "$x/plugins/DeathrunManager" "server/game/csgo/addons/counterstrikesharp/plugins/disabled/DeathrunManager"
+    remove_path "game/csgo/addons/counterstrikesharp/plugins/disabled/DeathrunManager"
+    copy_dir "$x/plugins/DeathrunManager" "game/csgo/addons/counterstrikesharp/plugins/disabled/DeathrunManager"
 
     # heads-up only: the config is never written
     warn_new_settings "$x/configs/plugins/DeathrunManager/DeathrunManager.json" \
-                      "server/game/csgo/addons/counterstrikesharp/configs/plugins/DeathrunManager/DeathrunManager.json"
+                      "game/csgo/addons/counterstrikesharp/configs/plugins/DeathrunManager/DeathrunManager.json"
 
     remove_extracted "$x"
 }

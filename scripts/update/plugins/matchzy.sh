@@ -8,20 +8,21 @@
 #   1. Download the plain release zip, e.g. MatchZy-0.8.15.zip
 #      (NOT the "-with-cssharp-linux/-windows" bundles the release also ships)
 #   2. Extract it and copy <extracted>/addons/counterstrikesharp/plugins/MatchZy over
-#      server/game/csgo/addons/counterstrikesharp/plugins/disabled/MatchZy (merge: existing files are
+#      game/csgo/addons/counterstrikesharp/plugins/disabled/MatchZy (merge: existing files are
 #      overwritten, nothing is deleted - the plugin is kept disabled by default in this repo)
 #   3. Delete the extracted folder
 #
-# The release also ships cfg/MatchZy/*.cfg. The repo's server/game/csgo/cfg/MatchZy/ (and the copy in
+# The release also ships cfg/MatchZy/*.cfg. The repo's game/csgo/cfg/MatchZy/ (and the copy in
 # custom_files_example/cfg/MatchZy/) is customised, so it is NEVER overwritten here. When
 # upstream added a new setting (0.8.12 > 0.8.13 added matchzy_demo_recording_enabled) it was
 # merged into both customised copies by hand; this script only reports new upstream files/settings.
 #
-# Known quirk: the archive ships lang/pt-PT.json while the repo tracks lang/pt-pt.json. On the
-# case-insensitive macOS filesystem (core.ignorecase=true) the copy just updates the tracked file.
+# Known quirk: upstream renamed lang/pt-pt.json to lang/pt-PT.json (0.9.0). The merge-copy never
+# deletes, so on Linux both names ended up tracked; pt-pt.json was untracked by hand. If upstream
+# renames a file by case again, untrack the old name (see "Case-only renames" in the README).
 
 PLUGIN_PATHS=(
-    "server/game/csgo/addons/counterstrikesharp/plugins/disabled/MatchZy"
+    "game/csgo/addons/counterstrikesharp/plugins/disabled/MatchZy"
 )
 
 plugin_assets() {
@@ -29,8 +30,8 @@ plugin_assets() {
 }
 
 plugin_preflight() {
-    require_dir  "server/game/csgo/addons/counterstrikesharp/plugins/disabled/MatchZy"
-    require_file "server/game/csgo/cfg/MatchZy/config.cfg"
+    require_dir  "game/csgo/addons/counterstrikesharp/plugins/disabled/MatchZy"
+    require_file "game/csgo/cfg/MatchZy/config.cfg"
 }
 
 plugin_apply() {
@@ -42,10 +43,10 @@ plugin_apply() {
     require_dir  "$x/cfg/MatchZy"
 
     copy_dir "$x/addons/counterstrikesharp/plugins/MatchZy" \
-             "server/game/csgo/addons/counterstrikesharp/plugins/disabled/MatchZy"
+             "game/csgo/addons/counterstrikesharp/plugins/disabled/MatchZy"
 
     # heads-up only: the customised cfg/MatchZy copies are never written
-    warn_cfg_dir_changes "$x/cfg/MatchZy" "server/game/csgo/cfg/MatchZy"
+    warn_cfg_dir_changes "$x/cfg/MatchZy" "game/csgo/cfg/MatchZy"
     warn_cfg_dir_changes "$x/cfg/MatchZy" "custom_files_example/cfg/MatchZy" existing-only
 
     remove_extracted "$x"

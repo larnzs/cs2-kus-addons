@@ -7,15 +7,15 @@
 # Manual process this automates:
 #   1. Download the latest release zip from GitHub, e.g. InventorySimulator-v3.1.1.zip
 #   2. Extract it
-#   3. Delete server/game/csgo/addons/counterstrikesharp/plugins/InventorySimulator/
-#      and    server/game/csgo/addons/counterstrikesharp/gamedata/inventory-simulator.json
+#   3. Delete game/csgo/addons/counterstrikesharp/plugins/InventorySimulator/
+#      and    game/csgo/addons/counterstrikesharp/gamedata/inventory-simulator.json
 #   4. Copy <extracted>/addons/counterstrikesharp/plugins/InventorySimulator -> same path in the repo
 #      Copy <extracted>/addons/counterstrikesharp/gamedata/inventory-simulator.json -> same path in the repo
 #   5. Delete the extracted folder
 
 PLUGIN_PATHS=(
-    "server/game/csgo/addons/counterstrikesharp/plugins/InventorySimulator"
-    "server/game/csgo/addons/counterstrikesharp/gamedata/inventory-simulator.json"
+    "game/csgo/addons/counterstrikesharp/plugins/InventorySimulator"
+    "game/csgo/addons/counterstrikesharp/gamedata/inventory-simulator.json"
 )
 
 plugin_assets() {
@@ -23,8 +23,8 @@ plugin_assets() {
 }
 
 plugin_preflight() {
-    require_dir "server/game/csgo/addons/counterstrikesharp/plugins"
-    require_dir "server/game/csgo/addons/counterstrikesharp/gamedata"
+    require_dir "game/csgo/addons/counterstrikesharp/plugins"
+    require_dir "game/csgo/addons/counterstrikesharp/gamedata"
 }
 
 plugin_apply() {
@@ -34,13 +34,13 @@ plugin_apply() {
     require_dir  "$x/addons/counterstrikesharp/plugins/InventorySimulator"
     require_file "$x/addons/counterstrikesharp/gamedata/inventory-simulator.json"
 
-    remove_path "server/game/csgo/addons/counterstrikesharp/plugins/InventorySimulator"
-    remove_path "server/game/csgo/addons/counterstrikesharp/gamedata/inventory-simulator.json"
+    remove_path "game/csgo/addons/counterstrikesharp/plugins/InventorySimulator"
+    remove_path "game/csgo/addons/counterstrikesharp/gamedata/inventory-simulator.json"
 
     copy_dir  "$x/addons/counterstrikesharp/plugins/InventorySimulator" \
-              "server/game/csgo/addons/counterstrikesharp/plugins/InventorySimulator"
+              "game/csgo/addons/counterstrikesharp/plugins/InventorySimulator"
     copy_file "$x/addons/counterstrikesharp/gamedata/inventory-simulator.json" \
-              "server/game/csgo/addons/counterstrikesharp/gamedata/inventory-simulator.json"
+              "game/csgo/addons/counterstrikesharp/gamedata/inventory-simulator.json"
 
     remove_extracted "$x"
 }
