@@ -174,7 +174,7 @@ Mod | Version in the upstream snapshot | Purpose
 [CS2FunMatchPlugin](https://github.com/TitaniumLithium/CS2FunMatchPlugin) | `1.1.1` | Random fun mode every round
 [jRandomSkills](https://github.com/Juzlus/jRandomSkills) | `1.2.4.b3` | CS2, but every round is a SURPRISE. Inspiration from [NadeKings video](https://www.youtube.com/watch?v=OQQBUFB56Iw).
 [RollTheDice](https://github.com/Kandru/cs2-roll-the-dice) | `26.07.1` | Roll the dice to get either a positive or negative effect for the current round.
-[CS2-FixRandomSpawn](https://github.com/qstage/CS2-FixRandomSpawn) | `1.1.4.1` | Fixes ConVar `mp_randomspawn` for any game mode.
+[CS2-FixRandomSpawn](https://github.com/qstage/CS2-FixRandomSpawn) | `1.2.0` | Fixes ConVar `mp_randomspawn` for any game mode.
 [CS2-MutualScoringPlayers](https://github.com/qstage/CS2-MutualScoringPlayers) | `1.0.3` | Keeps score of kills between players.
 [CS2WarcraftMod](https://github.com/Wngui/CS2WarcraftMod) | `3.3.5` | An open-source Warcraft mod for CS2 featuring a fully-fledged RPG system.
 [cs2-advanced-weapon-system](https://github.com/schwarper/cs2-advanced-weapon-system) | `1.11` | An advanced weapon system that gives full control over weapon attributes, dynamic adjustments to weapon behaviour, restrictions and advanced customisation.
