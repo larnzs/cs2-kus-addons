@@ -129,7 +129,7 @@ echo Custom:     %CUSTOM_DIR%
 echo Address:    %IP%  Port: %PORT%
 echo Map:        %MAP%
 echo Maintenance: in-runner, serialized, non-destructive overlay
-echo Add-on source: private repository payload published by the remote updater workflow
+echo Add-on source: upstream release checks published to the private repository
 echo.
 
 if not exist "%CUSTOM_DIR%\" (
