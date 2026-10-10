@@ -188,53 +188,58 @@ Mod | Version in the upstream snapshot | Purpose
 
 ## Updating the integrated repository and add-ons
 
-The scripts have different responsibilities. In particular, manual deployment with `win.bat` is not the same as the safe runtime overlay used by `run.bat`.
+The important difference is **how each script updates files**. Some scripts perform a clean replacement of the runtime add-on directory (a soft reset); others only add and overwrite files. An overwrite-only update can leave obsolete or extra files behind, which may matter when troubleshooting a broken plugin.
 
-### 1. `win.bat` — Prepare and deploy
+### Two different update modes
 
-**Source:** `game/csgo/` → **Destination:** `server/game/csgo/`
+#### A. Soft reset of the installed runtime — `win.bat`
 
-`win.bat` prepares the tracked payload and deploys it into the installed CS2 runtime. It does four things:
+**Source:** `game/csgo/` → **Runtime:** `server/game/csgo/`
 
-1. Checks that the manifest, payload, installed game, `gameinfo.gi`, CounterStrikeSharp Windows with-runtime files, and required KUS DLLs exist.
-2. Runs `scripts/Deploy-Runtime.ps1` to prepare and deploy the tracked files, including the Windows-specific overlay at `game/csgo/addons/windows/`.
-3. Patches the installed `gameinfo.gi` to enable MetaMod, keeping a `.bak` backup of the original file.
-4. Verifies the MetaMod entry and required DLLs, then runs `scripts/Test-AddonOverlay.ps1` to validate the payload/runtime.
+`win.bat` runs `scripts/Deploy-Runtime.ps1`. That script prepares the current repository payload, backs up the installed `server/game/csgo/addons/` directory, and replaces it with the staged `addons/` tree. After a successful deploy, the temporary backup is removed. This means files that existed only in the installed runtime are removed instead of being left behind.
 
-It does **not** pull Git, update CS2 with SteamCMD, or start the server.
+This is useful as a **runtime add-on soft reset** when you suspect that the deployed copy of a plugin is damaged or has leftover files. It restores the runtime add-on directory to what is currently present in the repository payload.
+
+There are two important limits:
+
+- `win.bat` deploys the payload already in the local checkout. It does **not** fetch upstream releases, pull Git, or update CS2 through SteamCMD by itself.
+- It does not clean the repository payload first. If an obsolete or unwanted file is still under `game/csgo/addons/`, the soft reset can copy that file back into the runtime.
+
+The live CounterStrikeSharp `configs/` tree and the specifically preserved `cfg/settings/` files are handled separately. However, runtime-only add-ons that are absent from the tracked payload can be removed by this replacement.
+
+#### B. Non-destructive overlay — `addons-update.bat` and `run.bat`
+
+These two use overlay-style copying, but they operate at different stages:
+
+- **`addons-update.bat` updates the repository payload.** It checks configured upstream add-on releases and copies their files into `game/csgo/`. Existing files at matching paths are overwritten and new files are added, but files that the new release no longer contains are **not** removed from the payload. The updater also protects designated configuration paths. Use `addons-update.bat -Force` to re-download/reapply managed add-ons even when their recorded versions already match; this is still an overlay, not a clean-directory reinstall.
+- **`run.bat` deploys the payload to the live runtime with overwrite-only copies.** It adds and overwrites files without deleting existing runtime add-ons or runtime-only files. This is intentional for normal multi-instance operation: maintenance is serialized and waits until no `cs2.exe` process is using the shared install before changing shared files. It is safer for routine operation, but it is not a clean reset.
+
+**Why this distinction matters:** if a plugin's old extra file remains in the repository payload after an overlay update, `win.bat` will deploy that file again. If an old extra file exists only in the live runtime, `win.bat`'s clean replacement removes it, while `run.bat`'s overlay leaves it in place.
+
+### What each batch file does
+
+| File | Main job | How it updates add-on files | Updates CS2 through SteamCMD? | Starts the server? |
+| --- | --- | --- | --- | --- |
+| `install.bat` | Initial install/check of SteamCMD and CS2, then calls `win.bat`. | Clean-replaces the runtime `addons/` tree through `win.bat`. | Yes | No |
+| `game-update.bat` | Checks that no `cs2.exe` is running, updates CS2, then calls `win.bat`. | Clean-replaces the runtime `addons/` tree through `win.bat`. | Yes | No |
+| `update.bat` | Requires a clean Git checkout, pulls the configured branch with `git pull --ff-only`, then calls `win.bat`. | Clean-replaces the runtime `addons/` tree through `win.bat`. | No | No |
+| `win.bat` | Deploys the current tracked payload, patches `gameinfo.gi` for MetaMod, and verifies required files. | **Clean replacement / soft reset** of runtime `addons/`. | No | No |
+| `addons-update.bat` | Checks upstream releases and updates manifest-managed add-ons in the repository payload. | **Non-destructive overlay** into `game/csgo/`; it does not remove stale files omitted from a release. | No | No |
+| `addons-inspect.bat` | Inspects configured upstream release assets without installing them. | Inspection only; no payload or runtime deployment. | No | No |
+| `examples/run-template/run.bat` | Performs serialized maintenance before launch and after CS2 exits/crashes, then starts the instance. | **Overwrite-only overlay** into the runtime; does not delete existing add-on files. | Yes, during maintenance | Yes |
+
+`update.bat` only pulls versions already committed to this private repository; it does not check upstream releases directly. `game-update.bat` checks for a running `cs2.exe` before SteamCMD, but `win.bat`, `update.bat`, and `install.bat` do not provide that same active-process guard.
 
 > [!WARNING]
-> The manual deployment path replaces `server/game/csgo/addons/` with the staged payload. Existing CounterStrikeSharp `configs/` and selected runtime-only files in `cfg/settings/` are preserved, but add-ons present only in the runtime—and missing from the tracked payload—may be removed.
+> Do not run the manual install/update/deploy paths (`install.bat`, `game-update.bat`, `update.bat`, or `win.bat`) while any instance is using the shared CS2 installation. Stop all CS2 instances first. For regular multi-instance operation, use the runner in `examples/run-template/run.bat`, which coordinates maintenance and avoids replacing the live `addons/` tree.
 
-### 2. `update.bat` — Update the repository, then deploy
+### Which tool should I use to troubleshoot a broken plugin?
 
-`update.bat` performs these steps:
+- **The deployed runtime copy may be damaged, but the repository payload is trusted:** stop every CS2 instance, then run `win.bat`. It recreates the runtime add-on tree from the current payload. It does not fetch newer upstream releases.
+- **The repository payload needs fresh files from the configured upstream release:** run `addons-update.bat -Force` (or `addons-update.bat -Only CounterStrikeSharp -Force` for that managed add-on). This re-applies the release files to the payload, but it does not remove old extra files absent from the release.
+- **You suspect obsolete extra files are the cause:** remember that `-Force` does not delete those files from the payload. The affected add-on's stale files must be cleaned from the source payload as a targeted operation before deploying it again. Do not delete the whole shared runtime `addons/` tree manually while any CS2 instance is running.
 
-1. Confirms that the current directory is a Git checkout.
-2. Refuses to continue if the repository has modified, staged, or untracked files.
-3. Runs `git pull --ff-only` to pull the configured upstream branch without creating a merge commit.
-4. Calls `win.bat --no-pause` to deploy and verify the updated payload.
-
-It does **not** check upstream add-on releases directly, update CS2 through SteamCMD, or start the server. It only pulls versions already committed to this private repository, then delegates deployment to `win.bat`.
-
-### 3. The scripts at a glance
-
-| File | Main job | Updates game with SteamCMD? | Starts CS2? |
-| --- | --- | --- | --- |
-| `install.bat` | Initial installation or deliberate repair; installs/checks the game, then prepares the runtime through `win.bat`. | Yes | No |
-| `game-update.bat` | Updates app 730 through SteamCMD, then calls `win.bat` for deployment and validation. | Yes | No |
-| `update.bat` | Pulls the private Git repository, then calls `win.bat`. | No | No |
-| `win.bat` | Deploys the tracked payload, patches `gameinfo.gi`, and verifies required files. | No | No |
-| `addons-update.bat` | Updates manifest-managed upstream add-ons in the tracked payload and commits successful updates. | No | No |
-| `run.bat` | Runs serialized maintenance before launch and after CS2 exits/crashes, then starts the instance. | Yes, during maintenance | Yes |
-| `run.vbs` | Launches the runner in hidden mode; the maintenance logic lives in `run.bat`. | No work of its own | Launches `run.bat` |
-
-`run.bat` is the normal path for live multi-instance operation. It checks/pulls the private repository, checks configured upstream add-on releases and publishes successful updates, updates CS2 through SteamCMD, patches `gameinfo.gi`, then applies the payload with overwrite-only copies. It serializes maintenance and waits until no `cs2.exe` is using the shared installation before changing shared game files.
-
-> [!IMPORTANT]
-> `win.bat` does not check whether a CS2 instance is running. `update.bat` calls `win.bat`, and `install.bat` also uses it after the SteamCMD step. Do not run these manual deployment/install paths while any CS2 instance is active. `game-update.bat` checks for a running `cs2.exe` and refuses to update if one is detected, but it must also be run with all instances stopped. Manual deployment can replace runtime-only add-ons; the `run.bat` overlay is designed to avoid that destructive replacement.
-
-Use `addons-inspect.bat -Only CounterStrikeSharp` to inspect an upstream release archive without installing it. The CounterStrikeSharp rule in `DEPENDENCIES.json` requires `counterstrikesharp-with-runtime-windows-{version}.zip`; the updater refuses a no-runtime asset and verifies both plugin files and versioned .NET runtime files.
+For CounterStrikeSharp, `addons-inspect.bat -Only CounterStrikeSharp` can inspect an upstream release archive without installing it. The `DEPENDENCIES.json` rule requires the Windows with-runtime archive, and the updater validates the required plugin and .NET runtime files.
 
 KUS base plugins that are not listed as automated add-ons remain tracked under `game/csgo/` and are deployed by the runtime. Do not run the old KUS Bash release updater on Windows; its historical notes remain in `docs/upstream/KUS-README.md`.
 
@@ -292,7 +297,7 @@ To change settings for one game mode, put a relevant override in `<CUSTOM_FOLDER
 
 ### Plugin-generated configuration files
 
-The regular per-instance Windows runner does not rebuild the runtime tree on every start. When `win.bat` deploys, tracked files from `game/csgo/` (including shared configs) are authoritative; runtime-only generated config files with no matching tracked source are preserved. For a persistent per-instance override, put a same-path file under `<CUSTOM_FOLDER>/addons/` or `<CUSTOM_FOLDER>/cfg/`. The add-on updater protects `cfg/` and CounterStrikeSharp's `configs/` from overwrites by incoming release archives.
+The regular per-instance Windows runner does not rebuild the runtime tree on every start: it uses overwrite-only overlay copying. By contrast, `win.bat` replaces the runtime `addons/` directory from the repository payload; runtime-only add-ons can therefore be removed, while the live CounterStrikeSharp `configs/` tree and selected files under `cfg/settings/` are explicitly preserved. For a persistent per-instance override, put a same-path file under `<CUSTOM_FOLDER>/addons/` or `<CUSTOM_FOLDER>/cfg/`. The add-on updater protects `cfg/` and CounterStrikeSharp's `configs/` from overwrites by incoming release archives.
 
 **Do not commit real secrets.** Keep `instance.ini`, API keys, Game Server Login Tokens, RCON passwords and database credentials out of tracked files.
 
