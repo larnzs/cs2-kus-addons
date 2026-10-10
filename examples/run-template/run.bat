@@ -3,15 +3,13 @@ setlocal EnableExtensions DisableDelayedExpansion
 
 title CS2 Instance Runner
 set "PAUSE_ON_EXIT=1"
-set "SUPERVISED_ONCE=0"
-set "POST_EXIT=0"
+set "MAINTENANCE_ENABLED=1"
 set "RC=2"
 
 :parse_args
 if "%~1"=="" goto :args_done
 if /I "%~1"=="--no-pause" set "PAUSE_ON_EXIT=0"
-rem Kept for compatibility with older run.vbs copies. Maintenance now belongs to this batch.
-if /I "%~1"=="--supervised" set "SUPERVISED_ONCE=1"
+if /I "%~1"=="--no-update" set "MAINTENANCE_ENABLED=0"
 shift
 goto :parse_args
 
@@ -75,41 +73,50 @@ set "CS2_LAST_SUCCESS=%LAST_SUCCESS%"
 set "CS2_GAMEINFO=%GAMEINFO%"
 set "LOCK_HELD=0"
 
-if not exist "%REPO_ROOT%\DEPENDENCIES.json" (
-    echo ERROR: Could not resolve the cs2-kus-addons repository root.
-    echo Resolved path: %REPO_ROOT%
-    set "RC=2"
-    goto :finish
-)
-if not exist "%CS2_EXE%" (
-    echo ERROR: CS2 was not found: %CS2_EXE%
-    echo Run install.bat from the repository root first.
-    set "RC=2"
-    goto :finish
-)
-if not exist "%GAMEINFO%" (
-    echo ERROR: gameinfo.gi was not found: %GAMEINFO%
-    echo Run install.bat from the repository root first.
-    set "RC=2"
-    goto :finish
-)
-if not exist "%STEAMCMD%" (
-    echo ERROR: SteamCMD was not found: %STEAMCMD%
-    echo Run install.bat from the repository root first.
-    set "RC=2"
-    goto :finish
-)
-if not exist "%PAYLOAD_DIR%\addons\" (
-    echo ERROR: Tracked add-on payload is missing: %PAYLOAD_DIR%\addons
-    set "RC=2"
-    goto :finish
-)
-if not exist "%WINDOWS_OVERLAY%\addons\" (
-    echo ERROR: Windows add-on overlay is missing: %WINDOWS_OVERLAY%\addons
-    set "RC=2"
-    goto :finish
-)
+if not exist "%CS2_EXE%" goto :MissingCS2
+if not exist "%GAMEINFO%" goto :MissingGameInfo
+if "%MAINTENANCE_ENABLED%"=="0" goto :ValidationComplete
+if not exist "%REPO_ROOT%\DEPENDENCIES.json" goto :MissingRepository
+if not exist "%STEAMCMD%" goto :MissingSteamCmd
+if not exist "%PAYLOAD_DIR%\addons\" goto :MissingPayload
+if not exist "%WINDOWS_OVERLAY%\addons\" goto :MissingWindowsOverlay
+goto :ValidationComplete
 
+:MissingCS2
+echo ERROR: CS2 was not found: %CS2_EXE%
+echo Run install.bat from the repository root first.
+set "RC=2"
+goto :finish
+
+:MissingGameInfo
+echo ERROR: gameinfo.gi was not found: %GAMEINFO%
+echo Run install.bat from the repository root first.
+set "RC=2"
+goto :finish
+
+:MissingRepository
+echo ERROR: Could not resolve the cs2-kus-addons repository root.
+echo Resolved path: %REPO_ROOT%
+set "RC=2"
+goto :finish
+
+:MissingSteamCmd
+echo ERROR: SteamCMD was not found: %STEAMCMD%
+echo Run install.bat from the repository root first.
+set "RC=2"
+goto :finish
+
+:MissingPayload
+echo ERROR: Tracked add-on payload is missing: %PAYLOAD_DIR%\addons
+set "RC=2"
+goto :finish
+
+:MissingWindowsOverlay
+echo ERROR: Windows add-on overlay is missing: %WINDOWS_OVERLAY%\addons
+set "RC=2"
+goto :finish
+
+:ValidationComplete
 set "AUTH_ARGS="
 if defined API_KEY set "AUTH_ARGS=-authkey %API_KEY%"
 set "GSLT_ARGS="
@@ -128,8 +135,8 @@ echo Server:     %SERVER_DIR%
 echo Custom:     %CUSTOM_DIR%
 echo Address:    %IP%  Port: %PORT%
 echo Map:        %MAP%
-echo Maintenance: in-runner, serialized, non-destructive overlay
-echo Add-on source: upstream release checks published to the private repository
+if "%MAINTENANCE_ENABLED%"=="1" echo Maintenance: update/check on this launch; overwrite-only runtime overlay
+if "%MAINTENANCE_ENABLED%"=="0" echo Maintenance: skipped; fast launch mode (no Git, SteamCMD, or release checks)
 echo.
 
 if not exist "%CUSTOM_DIR%\" (
@@ -139,11 +146,15 @@ if not exist "%CUSTOM_DIR%\" (
 if "%LAN%"=="0" if not defined STEAM_ACCOUNT echo WARNING: STEAM_ACCOUNT is empty; the public server may not register.
 if "%LAN%"=="0" if not defined RCON_PASSWORD echo WARNING: RCON_PASSWORD is empty.
 
-:main_loop
+:main
+if "%MAINTENANCE_ENABLED%"=="1" goto :StartMaintenance
+goto :LaunchServer
+
+:StartMaintenance
 call :RunMaintenance
 if errorlevel 1 goto :maintenance_retry
 
-set "POST_EXIT=0"
+:LaunchServer
 call :SyncOverrides
 if errorlevel 1 goto :sync_failed
 
@@ -160,76 +171,56 @@ start "" /wait "%CS2_EXE%" ^
 
 set "SERVER_EXIT=%ERRORLEVEL%"
 echo WARNING: CS2 exited with code %SERVER_EXIT%.
-set "POST_EXIT=1"
-goto :main_loop
+set "RC=100"
+goto :finish
 
 :maintenance_retry
-echo.
-echo ERROR: Maintenance did not complete. This instance will remain stopped and retry in 60 seconds.
-timeout /t 60 /nobreak >nul
-goto :main_loop
+echo ERROR: Maintenance failed. The supervisor should fall back to the fast runner.
+set "RC=101"
+goto :finish
 
 :sync_failed
 echo ERROR: Optional instance override sync failed. Check paths and permissions.
-echo The server was not started; retrying in 60 seconds.
-timeout /t 60 /nobreak >nul
-goto :main_loop
+set "RC=3"
+goto :finish
 
 :RunMaintenance
 call :AcquireLock
 
-rem Keep the startup cooldown to prevent simultaneous runners from repeating
-rem maintenance, but NEVER apply it after CS2 exits: each crash/restart must
-rem perform a fresh game and upstream add-on check.
-if "%POST_EXIT%"=="1" goto :ForcePostExitMaintenance
+rem Suppress duplicate maintenance during the five-minute startup cooldown.
 call :IsRecentSuccess
 if not errorlevel 1 (
     echo [%date% %time%] Shared maintenance ran recently; skipping duplicate startup check.
     call :ReleaseLock
     exit /b 0
 )
-goto :MaintenanceCooldownChecked
-
-:ForcePostExitMaintenance
-echo [%date% %time%] CS2 exited; forcing a fresh game and add-on update check.
-:MaintenanceCooldownChecked
-if "%POST_EXIT%"=="1" goto :WaitForAllCS2
-call :AnyCS2Running
-if not errorlevel 1 goto :SkipStartupMaintenance
-goto :DoMaintenance
-
-:WaitForAllCS2
-call :AnyCS2Running
-if errorlevel 1 goto :DoMaintenance
-echo [%date% %time%] Another CS2 instance is still using the shared install.
-echo Updates are paused until all cs2.exe processes exit; no runtime files are being changed.
-timeout /t 5 /nobreak >nul
-goto :WaitForAllCS2
-
-:SkipStartupMaintenance
-echo [%date% %time%] Another CS2 instance is active. Skipping shared-file maintenance on startup.
-echo No game, add-on, or custom override files will be changed while it is running.
-call :ReleaseLock
-exit /b 0
 
 :DoMaintenance
-rem First sync the private repository so the checker runs on current updater code.
 call :UpdateRepository
 if errorlevel 1 goto :MaintenanceFailed
 
-rem Check upstream plugin releases in an isolated temporary Git worktree.
-rem Successful addon updates are committed and pushed to the private branch.
 call :UpdateUpstreamAddons
 if errorlevel 1 goto :MaintenanceFailed
 
-rem Pull any newly published addon commits into the main, clean checkout.
 call :UpdateRepository
 if errorlevel 1 goto :MaintenanceFailed
 
+rem SteamCMD can replace the game binaries, so only this part waits for all CS2 processes to stop.
+rem Add-on release checks and overwrite-only payload copies continue while other servers are running.
+call :AnyCS2Running
+if not errorlevel 1 goto :SkipGameUpdate
 call :UpdateGame
 if errorlevel 1 goto :MaintenanceFailed
+goto :GameUpdateDone
+
+:SkipGameUpdate
+echo [%date% %time%] Another cs2.exe is active; skipping only the SteamCMD game update.
+echo Add-on checks, gameinfo patching and overwrite-only payload copies will still run.
+
+:GameUpdateDone
 call :PatchGameInfo
 if errorlevel 1 goto :MaintenanceFailed
+
 call :OverlayPayload
 if errorlevel 1 goto :MaintenanceFailed
 
@@ -239,7 +230,7 @@ call :ReleaseLock
 exit /b 0
 
 :MaintenanceFailed
-echo ERROR: Maintenance failed. The server will remain stopped.
+echo ERROR: Maintenance failed. The runtime overlay never intentionally deletes files.
 call :ReleaseLock
 exit /b 1
 
@@ -426,6 +417,10 @@ exit /b 0
 echo.
 if "%RC%"=="0" (
     echo Result: SUCCESS
+) else if "%RC%"=="100" (
+    echo Result: CS2_EXITED (supervisor should restart with run-fast.bat)
+) else if "%RC%"=="101" (
+    echo Result: MAINTENANCE_FAILED (supervisor should fall back to run-fast.bat)
 ) else (
     echo Result: FAILED (exit code %RC%)
 )
