@@ -118,7 +118,11 @@ jobs:
           if (-not $metamod -or [string]$metamod.type -ne "github_release" -or
               [string]$metamod.version_format -ne "metamod" -or
               [string]$metamod.readme_url -ne "https://www.metamodsource.net/downloads.php?branch=dev") {
-            throw "Metamod:Source must be managed from its latest upstream GitHub release and update the KUS version row."
+            throw "Metamod:Source must be managed from the KUS development download page."
+          }
+          $normalizedMetaTag = [regex]::Replace([string]$metamod.release_tag, '^([0-9]+\.[0-9]+\.[0-9]+)\.(\d+)$', '$1-$2')
+          if ([string]$metamod.version -ne $normalizedMetaTag) {
+            throw "Metamod:Source DEPENDENCIES.json version must match its normalized release_tag."
           }
           foreach ($assetPattern in @("mmsource-*-windows.zip", "mmsource-*-linux.tar.gz")) {
             if (@($metamod.assets | Where-Object { $_ -eq $assetPattern }).Count -ne 1) {

@@ -488,7 +488,9 @@ verify_containment() {
     while IFS= read -r p; do
         [ -n "$p" ] || continue
         [ "$p" = "README.md" ] && continue
-        if [ "$p" = "DEPENDENCIES.json" ] && [ "${MANIFEST_ADDON_ACTIVE:-0}" = "1" ]; then
+        if [ "$p" = "DEPENDENCIES.json" ] && {
+            [ "${MANIFEST_ADDON_ACTIVE:-0}" = "1" ] || [ "${PLUGIN_NAME:-}" = "Metamod:Source" ];
+        }; then
             continue
         fi
         ok=0

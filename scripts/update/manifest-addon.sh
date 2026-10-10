@@ -112,7 +112,14 @@ manifest_update_version() {
     repo=$(jq -r --arg name "$name" '.addons[] | select(.name == $name) | .repository' DEPENDENCIES.json)
     type=$(jq -r --arg name "$name" '.addons[] | select(.name == $name) | .type' DEPENDENCIES.json)
     tmp="DEPENDENCIES.json.tmp"
-    if [ "$type" = "github_release" ]; then
+    if [ "$name" = "Metamod:Source" ]; then
+        # KUS resolves MetaMod from metamodsource.net, not GitHub's unrelated stable /releases/latest line.
+        tag=$(printf '%s' "$version" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)-([0-9]+)$/\1.\2/')
+        [ "$tag" != "$version" ] || die "could not derive the MetaMod release tag from version $version"
+        jq --arg name "$name" --arg version "$version" --arg tag "$tag" '
+            (.addons[] | select(.name == $name)) |= (.version = $version | .release_tag = $tag)
+        ' DEPENDENCIES.json > "$tmp" || die "could not update MetaMod manifest metadata"
+    elif [ "$type" = "github_release" ]; then
         json=$(github_api "repos/$(github_repo_from_url "$repo")/releases?per_page=30") || die "could not confirm release tag for $name"
         tag=$(printf '%s' "$json" | jq -r --arg version "$version" '
             [.[] | select(.draft == false) |

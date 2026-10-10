@@ -51,4 +51,7 @@ plugin_apply() {
     # then Linux
     sync_dir "$linux/addons/" "game/csgo/addons/"
     remove_extracted "$linux"
+
+    # Keep the PowerShell runtime updater's manifest in sync with the KUS dev-build version.
+    manifest_update_version "Metamod:Source" "$NEW_VERSION"
 }
