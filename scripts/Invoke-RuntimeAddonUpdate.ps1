@@ -247,7 +247,12 @@ try {
     }
 }
 catch {
-    Write-Error $_
+    # Do not call Write-Error under ErrorActionPreference=Stop: that would throw
+    # again and obscure the original git/updater failure in the final log.
+    Write-Host ("ERROR: " + $_.Exception.Message)
+    if (-not [string]::IsNullOrWhiteSpace($_.ScriptStackTrace)) {
+        Write-Host $_.ScriptStackTrace
+    }
     $ExitCode = 1
 }
 finally {
