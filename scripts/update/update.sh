@@ -302,6 +302,10 @@ process_manifest_addons() {
     local entry name url version track type branch latest repo automation slug
     while IFS= read -r entry; do
         [ -n "$entry" ] || continue
+        if [ "$STOP_RUN" = 1 ]; then
+            info "not processing manifest add-ons after an earlier add-on failure"
+            break
+        fi
         name=$(printf '%s' "$entry" | jq -r '.name')
         url=$(printf '%s' "$entry" | jq -r '.repository // empty')
         version=$(printf '%s' "$entry" | jq -r '.version // empty')

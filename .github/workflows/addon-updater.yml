@@ -61,6 +61,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y jq unzip rsync
+      - name: Validate syntax for every KUS and Larnz shell updater
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh scripts/update/manifest-addon.sh scripts/update/plugins/*.sh
+          echo "All KUS and Larnz add-on shell scripts passed bash -n."
       - name: Run KUS and manifest-backed per-add-on scripts
         shell: bash
         run: |
