@@ -19,24 +19,64 @@ $OriginalGitCommitterEmail = $env:GIT_COMMITTER_EMAIL
 $WorktreeCreated = $false
 $ExitCode = 0
 
+function Invoke-GitCapture {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string[]]$GitArgs
+    )
+
+    # Windows PowerShell 5.1 can turn native Git stderr progress (for example
+    # "From https://...") into ErrorRecords. With ErrorActionPreference=Stop,
+    # that can abort a successful git fetch. Redirect stderr to a file so the
+    # real native exit code, not progress text, determines success.
+    $stderrPath = Join-Path ([IO.Path]::GetTempPath()) ("cs2-kus-git-" + [guid]::NewGuid().ToString("N") + ".stderr")
+    try {
+        $stdout = @(& git -C $Path @GitArgs 2> $stderrPath)
+        $exitCode = $LASTEXITCODE
+        $stderrText = ""
+        if (Test-Path -LiteralPath $stderrPath) {
+            $stderrText = [IO.File]::ReadAllText($stderrPath)
+        }
+
+        $lines = New-Object System.Collections.Generic.List[string]
+        foreach ($line in $stdout) {
+            if ($null -ne $line) {
+                $lines.Add([string]$line)
+            }
+        }
+        if (-not [string]::IsNullOrWhiteSpace($stderrText)) {
+            foreach ($line in ($stderrText -split "\r?\n")) {
+                if ($line.Length -gt 0) {
+                    $lines.Add($line)
+                }
+            }
+        }
+
+        return [pscustomobject]@{
+            ExitCode = [int]$exitCode
+            Output = [string[]]$lines.ToArray()
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Invoke-Git {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
         [Parameter(Mandatory = $true)][string[]]$GitArgs
     )
 
-    $output = & git -C $Path @GitArgs 2>&1
-    $code = $LASTEXITCODE
-    if ($code -ne 0) {
-        $details = (@($output) | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
+    $result = Invoke-GitCapture -Path $Path -GitArgs $GitArgs
+    if ($result.ExitCode -ne 0) {
+        $details = (@($result.Output) | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
         throw ("git {0} failed with exit code {1}.{2}{3}" -f
-            ($GitArgs -join " "), $code, [Environment]::NewLine, $details)
+            ($GitArgs -join " "), $result.ExitCode, [Environment]::NewLine, $details)
     }
 
-    foreach ($line in $output) {
-        if ($null -ne $line) {
-            [string]$line
-        }
+    foreach ($line in $result.Output) {
+        [string]$line
     }
 }
 
@@ -177,25 +217,23 @@ try {
         for ($attempt = 1; $attempt -le 3; $attempt++) {
             Invoke-Git -Path $WorktreeRoot -GitArgs @("fetch", "origin", $Branch) | Out-Null
 
-            $rebaseOutput = & git -C $WorktreeRoot rebase $originRef 2>&1
-            $rebaseExitCode = $LASTEXITCODE
-            if ($rebaseExitCode -ne 0) {
+            $rebaseResult = Invoke-GitCapture -Path $WorktreeRoot -GitArgs @("rebase", $originRef)
+            if ($rebaseResult.ExitCode -ne 0) {
                 & git -C $WorktreeRoot rebase --abort *> $null
-                $details = (@($rebaseOutput) | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
+                $details = (@($rebaseResult.Output) | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
                 throw ("Could not rebase the new add-on commits onto origin/$Branch." +
                     [Environment]::NewLine + $details)
             }
 
-            $pushOutput = & git -C $WorktreeRoot push origin "HEAD:refs/heads/$Branch" 2>&1
-            $pushExitCode = $LASTEXITCODE
-            if ($pushExitCode -eq 0) {
+            $pushResult = Invoke-GitCapture -Path $WorktreeRoot -GitArgs @("push", "origin", "HEAD:refs/heads/$Branch")
+            if ($pushResult.ExitCode -eq 0) {
                 $published = $true
-                Write-Host (@($pushOutput) -join [Environment]::NewLine)
+                Write-Host (@($pushResult.Output) -join [Environment]::NewLine)
                 break
             }
 
             Write-Warning ("Push attempt {0} failed (exit {1}): {2}" -f
-                $attempt, $pushExitCode, ((@($pushOutput) | ForEach-Object { [string]$_ }) -join " "))
+                $attempt, $pushResult.ExitCode, ((@($pushResult.Output) | ForEach-Object { [string]$_ }) -join " "))
             if ($attempt -lt 3) {
                 Start-Sleep -Seconds 2
             }
