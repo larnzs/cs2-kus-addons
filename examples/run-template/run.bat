@@ -177,13 +177,22 @@ goto :main_loop
 
 :RunMaintenance
 call :AcquireLock
+
+rem Keep the startup cooldown to prevent simultaneous runners from repeating
+rem maintenance, but NEVER apply it after CS2 exits: each crash/restart must
+rem perform a fresh game and upstream add-on check.
+if "%POST_EXIT%"=="1" goto :ForcePostExitMaintenance
 call :IsRecentSuccess
 if not errorlevel 1 (
-    echo [%date% %time%] Shared maintenance ran recently; skipping duplicate update.
+    echo [%date% %time%] Shared maintenance ran recently; skipping duplicate startup check.
     call :ReleaseLock
     exit /b 0
 )
+goto :MaintenanceCooldownChecked
 
+:ForcePostExitMaintenance
+echo [%date% %time%] CS2 exited; forcing a fresh game and add-on update check.
+:MaintenanceCooldownChecked
 if "%POST_EXIT%"=="1" goto :WaitForAllCS2
 call :AnyCS2Running
 if not errorlevel 1 goto :SkipStartupMaintenance
@@ -204,8 +213,19 @@ call :ReleaseLock
 exit /b 0
 
 :DoMaintenance
+rem First sync the private repository so the checker runs on current updater code.
 call :UpdateRepository
 if errorlevel 1 goto :MaintenanceFailed
+
+rem Check upstream plugin releases in an isolated temporary Git worktree.
+rem Successful addon updates are committed and pushed to the private branch.
+call :UpdateUpstreamAddons
+if errorlevel 1 goto :MaintenanceFailed
+
+rem Pull any newly published addon commits into the main, clean checkout.
+call :UpdateRepository
+if errorlevel 1 goto :MaintenanceFailed
+
 call :UpdateGame
 if errorlevel 1 goto :MaintenanceFailed
 call :PatchGameInfo
@@ -302,6 +322,16 @@ if errorlevel 1 (
 )
 if not exist "%PAYLOAD_DIR%\addons\" (
     echo ERROR: Add-on payload is missing after Git pull.
+    exit /b 1
+)
+exit /b 0
+
+:UpdateUpstreamAddons
+echo.
+echo Checking upstream add-on releases and publishing any new versions to the private repository...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%REPO_ROOT%\scripts\Invoke-RuntimeAddonUpdate.ps1" -RepositoryRoot "%REPO_ROOT%" -Branch "integration/kus-monorepo"
+if errorlevel 1 (
+    echo ERROR: Upstream add-on check/update/publish failed.
     exit /b 1
 )
 exit /b 0
