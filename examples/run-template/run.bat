@@ -396,7 +396,7 @@ exit /b 0
 call :AnyCS2Running
 if not errorlevel 1 (
     echo Another CS2 instance is active; skipping this Instance's shared cfg/addons overrides.
-    echo Shared runtime files will not be touched while that process is running.
+    echo Per-instance override files will not be copied while that process is running.
     exit /b 0
 )
 
