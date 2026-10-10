@@ -190,7 +190,11 @@ process_mod() {   # $1 name, $2 url, $3 current version
     PLUGIN_SLUG=$(slugify "$PLUGIN_NAME")
     local latest last_updated script
 
-    latest=$(set +u; set +e; set +o pipefail; fetch_latest_release "$PLUGIN_URL" 2>/dev/null)
+    if [ -n "${4:-}" ]; then
+        latest="$4"
+    else
+        latest=$(set +u; set +e; set +o pipefail; fetch_latest_release "$PLUGIN_URL" 2>/dev/null)
+    fi
     if [ -z "$latest" ]; then
         last_updated=$(set +u; set +e; set +o pipefail; fetch_last_updated "$PLUGIN_URL" 2>/dev/null)
         if [ -n "$last_updated" ]; then
@@ -288,6 +292,52 @@ process_mod() {   # $1 name, $2 url, $3 current version
     return 0
 }
 
+# ----------------------------------------------------------------------------- Larnz manifest add-ons
+process_manifest_addons() {
+    [ -f DEPENDENCIES.json ] || return 0
+    local entry name url version track type branch latest repo automation slug
+    while IFS= read -r entry; do
+        [ -n "$entry" ] || continue
+        name=$(printf '%s' "$entry" | jq -r '.name')
+        url=$(printf '%s' "$entry" | jq -r '.repository // empty')
+        version=$(printf '%s' "$entry" | jq -r '.version // empty')
+        track=$(printf '%s' "$entry" | jq -r '.track // "latest"')
+        type=$(printf '%s' "$entry" | jq -r '.type // empty')
+        automation=$(printf '%s' "$entry" | jq -r '.automation_supported // true')
+        branch=$(printf '%s' "$entry" | jq -r '.branch // "main"')
+        [ "$automation" = "true" ] || { info "skipping $name: automation_supported=false"; continue; }
+        case "$name" in Metamod:Source|CounterStrikeSharp) continue ;; esac
+        selected "$name" "$(slugify "$name")" || continue
+        if [ "$track" = "pinned" ]; then
+            RES_UPTODATE+=("$name $version (pinned)")
+            continue
+        fi
+        [ -n "$url" ] && [ -n "$version" ] || { err "manifest entry '$name' lacks repository/version"; RES_FAILED+=("$name (invalid manifest entry)"); continue; }
+        slug=$(slugify "$name")
+        if [ ! -f "$PLUGIN_SCRIPT_DIR/$slug.sh" ]; then
+            err "missing per-add-on script: $PLUGIN_SCRIPT_DIR/$slug.sh"
+            RES_FAILED+=("$name (missing per-add-on script)")
+            continue
+        fi
+        MANIFEST_ADDON_ACTIVE=1
+        if [ "$type" = "github_source_build" ]; then
+            repo=$(github_repo_from_url "$url")
+            latest=$(github_api "repos/$repo/commits/$branch" | jq -r '.sha // empty') || latest=""
+            if [ -z "$latest" ]; then
+                RES_UNKNOWN+=("$name $version (could not check branch '$branch')")
+                MANIFEST_ADDON_ACTIVE=0
+                continue
+            fi
+            process_mod "$name" "$url" "$version" "$latest"
+        elif [ "$type" = "github_release" ]; then
+            process_mod "$name" "$url" "$version"
+        else
+            info "skipping $name: unsupported manifest type '$type'"
+        fi
+        MANIFEST_ADDON_ACTIVE=0
+    done < <(jq -c '.addons[] | select(.installed == true) | select(.name != "Metamod:Source" and .name != "CounterStrikeSharp")' DEPENDENCIES.json)
+}
+
 # ----------------------------------------------------------------------------- main
 print_list() {
     local name url version slug script status
@@ -345,6 +395,7 @@ main() {
         process_mod "$name" "$url" "$version"
     done <<< "$mods"
 
+    process_manifest_addons
     summary
     [ "${#RES_FAILED[@]}" -eq 0 ] && [ "$STOP_RUN" = 0 ]
 }
