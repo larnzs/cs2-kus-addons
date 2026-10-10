@@ -7,19 +7,19 @@
 # Manual process this automates:
 #   1. Download the pinned (latest) Windows zip and Linux tar.gz from the dev downloads page
 #      e.g. mmsource-2.0.0-git1469-windows.zip, mmsource-2.0.0-git1469-linux.tar.gz
-#   2. Extract Windows, rsync <extracted>/addons/ -> server/game/csgo/addons/, delete the extracted folder
-#   3. Extract Linux,   rsync <extracted>/addons/ -> server/game/csgo/addons/, delete the extracted folder
+#   2. Extract Windows, rsync <extracted>/addons/ -> game/csgo/addons/, delete the extracted folder
+#   3. Extract Linux,   rsync <extracted>/addons/ -> game/csgo/addons/, delete the extracted folder
 #
 # Windows MUST be applied before Linux: both archives ship addons/metamod.vdf,
 # addons/metamod_x64.vdf, addons/metamod/metaplugins.ini and addons/metamod/README.txt.
 # The Windows copies have CRLF line endings and point metamod_x64.vdf at bin/win64; the
 # Linux copies (applied last) are the ones the repo keeps. The Windows-specific
-# metamod_x64.vdf lives in server/game/csgo/addons/windows/addons/ and is not touched here.
+# metamod_x64.vdf lives in game/csgo/addons/windows/addons/ and is not touched here.
 
 PLUGIN_PATHS=(
-    "server/game/csgo/addons/metamod"
-    "server/game/csgo/addons/metamod.vdf"
-    "server/game/csgo/addons/metamod_x64.vdf"
+    "game/csgo/addons/metamod"
+    "game/csgo/addons/metamod.vdf"
+    "game/csgo/addons/metamod_x64.vdf"
 )
 
 plugin_assets() {
@@ -28,9 +28,9 @@ plugin_assets() {
 }
 
 plugin_preflight() {
-    require_dir  "server/game/csgo/addons/metamod/bin"
-    require_file "server/game/csgo/addons/metamod.vdf"
-    require_file "server/game/csgo/addons/metamod_x64.vdf"
+    require_dir  "game/csgo/addons/metamod/bin"
+    require_file "game/csgo/addons/metamod.vdf"
+    require_file "game/csgo/addons/metamod_x64.vdf"
 }
 
 plugin_apply() {
@@ -45,10 +45,10 @@ plugin_apply() {
     require_file "$linux/addons/metamod_x64.vdf"
 
     # Windows first
-    sync_dir "$win/addons/" "server/game/csgo/addons/"
+    sync_dir "$win/addons/" "game/csgo/addons/"
     remove_extracted "$win"
 
     # then Linux
-    sync_dir "$linux/addons/" "server/game/csgo/addons/"
+    sync_dir "$linux/addons/" "game/csgo/addons/"
     remove_extracted "$linux"
 }

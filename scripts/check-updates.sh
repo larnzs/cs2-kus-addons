@@ -14,7 +14,7 @@ extract_mods() {
         BEGIN { modsStarted = 0 }
         $0 == "Mod | Version | Why" { modsStarted = 1; next }  # Look for the specific header to start
         modsStarted == 1 && $0 ~ /^$/ { exit }  # Stop at the first empty line
-        modsStarted == 1 && /^\[/ {
+        modsStarted == 1 && /^[[:space:]]*\|?[[:space:]]*\[/ {
             # Extract mod name, URL, and version
             split($0, nameParts, /\[/)
             split(nameParts[2], name, /\]/)

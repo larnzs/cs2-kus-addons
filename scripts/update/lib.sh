@@ -319,6 +319,28 @@ extract_asset() {
     printf '%s\n' "$dir"
 }
 
+# Prints the first of several candidate directories that exists, for releases whose
+# archive root moves between versions. Fails if none of them do, so a third layout is
+# still caught rather than silently skipped.
+# In dry-run nothing has been extracted, so the first candidate is assumed and reported.
+# Use as: root=$(pick_dir "$x/new/layout" "$x/old/layout")
+pick_dir() {
+    local d
+    if is_dry; then
+        dry "use the first of these that exists: $*"
+        printf '%s\n' "$1"
+        return 0
+    fi
+    for d in "$@"; do
+        if [ -d "$d" ]; then
+            info "archive root: $d"
+            printf '%s\n' "$d"
+            return 0
+        fi
+    done
+    die "none of these directories exist in the extracted release, so the archive layout changed again: $*"
+}
+
 # Deletes a directory produced by extract_asset.
 remove_extracted() {
     local d="$1"
@@ -365,27 +387,21 @@ copy_file() {
     cp "$src" "$dest" || die "copy failed: $src -> $dest"
 }
 
-# Delete everything inside <dir> but keep the directory.
+# Non-destructive integration policy: installed payloads are never removed.
+# These helper names remain available so KUS scripts can be reused, but they only
+# report that a would-be deletion was skipped. Temporary archives use remove_extracted.
 empty_dir() {
     local d="$1"
     assert_delete_target "$d"
-    if is_dry; then dry "empty directory $d/ (delete its contents)"; return 0; fi
-    require_dir "$d"
-    step "emptying $d/"
-    find "$d" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || die "failed to empty $d"
+    if is_dry; then dry "retain existing contents of $d/ (non-destructive overlay policy)"; return 0; fi
+    warn "non-destructive overlay policy: preserving all existing contents of $d/"
 }
 
-# Delete a file or directory (no error if already absent - keeps re-runs idempotent).
 remove_path() {
     local p="$1"
     assert_delete_target "$p"
-    if is_dry; then dry "delete $p"; return 0; fi
-    if [ -e "$p" ]; then
-        step "deleting $p"
-        rm -rf "$p" || die "failed to delete $p"
-    else
-        info "(already absent) $p"
-    fi
+    if is_dry; then dry "retain existing path $p (non-destructive overlay policy)"; return 0; fi
+    warn "non-destructive overlay policy: retaining existing path $p"
 }
 
 # ----------------------------------------------------------------------------- config-file helpers
@@ -472,6 +488,9 @@ verify_containment() {
     while IFS= read -r p; do
         [ -n "$p" ] || continue
         [ "$p" = "README.md" ] && continue
+        if [ "$p" = "DEPENDENCIES.json" ] && [ "${MANIFEST_ADDON_ACTIVE:-0}" = "1" ]; then
+            continue
+        fi
         ok=0
         for o in "${PLUGIN_PATHS[@]}"; do
             if path_within "$p" "$o"; then ok=1; break; fi
@@ -479,6 +498,27 @@ verify_containment() {
         if [ "$ok" = 0 ]; then err "unexpected change outside the plugin's paths: $p"; bad=1; fi
     done < <(changed_paths)
     return "$bad"
+}
+
+# Two paths differing only in case cannot coexist on a case-insensitive filesystem, so
+# committing both breaks every macOS checkout: git picks one, and the other is reported
+# modified forever, and discarding it just flips which one is dirty. The Linux runner can
+# hold both quite happily, which is exactly why this has to be checked rather than noticed.
+# It happens when upstream renames a file by case only and a merge-style copy adds the new
+# name without removing the old one (MatchZy renamed lang/pt-pt.json to lang/pt-PT.json in
+# 0.9.0). Covers tracked and new-but-unignored files, because this runs before staging.
+verify_no_case_duplicates() {
+    local all dupes d
+    all=$(git ls-files --cached --others --exclude-standard)
+    dupes=$(printf '%s\n' "$all" | sort -f | uniq -di)
+    [ -z "$dupes" ] && return 0
+    err "these paths differ only in case, which breaks checkouts on macOS:"
+    while IFS= read -r d; do
+        [ -n "$d" ] || continue
+        printf '%s\n' "$all" | grep -ixF "$d" | sed 's/^/          /' >&3
+    done <<< "$dupes"
+    err "upstream probably renamed a file by case. Delete the stale name from the repo, then re-run."
+    return 1
 }
 
 # True if at least one changed path is inside PLUGIN_PATHS (i.e. the update changed files).
@@ -496,31 +536,53 @@ plugin_files_changed() {
 # Line number of the mod's row in the README "Mod | Version | Why" table. Only the
 # table region is searched (header to first blank line) and the row must START with
 # the link, because the same link can appear again in prose elsewhere in the README.
-readme_line_number() {   # $1 name, $2 url -> prints the single matching line number
+readme_line_number() {   # $1 name, $2 url -> one row in KUS or Larnz table
     local nums count
     nums=$(awk -v link="[$1]($2)" '
-        $0 == "Mod | Version | Why" { inside = 1; next }
-        inside && $0 ~ /^$/          { exit }
-        inside && index($0, link) == 1 && substr($0, length(link) + 1) ~ /^ *\|/ { print NR }
+        /Mod[[:space:]]*\\|[[:space:]]*Version[[:space:]]*\\|[[:space:]]*Why/ { inside = 1; next }
+        inside && /^[[:space:]]*$/ { if (saw) exit; next }
+        inside {
+            row = $0
+            sub(/^[[:space:]]*\\|?[[:space:]]*/, "", row)
+            if (index(row, link) == 1 && substr(row, length(link) + 1) ~ /^[[:space:]]*\\|/) print NR
+            saw = 1
+        }
     ' README.md)
-    count=$(printf '%s\n' "$nums" | grep -c . || true)
-    [ "$count" = 1 ] || die "expected exactly one row in the README.md mod table starting with [$1]($2), found $count"
+    count=$(printf '%s\\n' "$nums" | grep -c . || true)
+    if [ "$count" != "1" ]; then
+        nums=$(awk -F'|' -v wanted="$1" '
+            /^## Larnz-managed add-ons[[:space:]]*$/ { section = 1; next }
+            /^## / && section { exit }
+            section && /^\\|/ {
+                name = $2
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", name)
+                if (name == wanted) print NR
+            }
+        ' README.md)
+        count=$(printf '%s\\n' "$nums" | grep -c . || true)
+    fi
+    [ "$count" = "1" ] || die "expected exactly one README version row for '$1' ($2 or Larnz-managed table), found $count"
     printf '%s' "$nums"
 }
 
-# Replace `old` with `new` on the mod's line of the README version table.
-readme_set_version() {   # $1 name, $2 url, $3 old, $4 new
-    local n line occurrences
+readme_set_version() {   # $1 name, $2 URL, $3 old version, $4 new version
+    local n line oldtick newtick oldplain newplain replacement
     n=$(readme_line_number "$1" "$2")
     line=$(sed -n "${n}p" README.md)
-    occurrences=$(printf '%s' "$line" | awk -v tok="\`$3\`" '{ print gsub(tok, "") }')
-    [ "$occurrences" = 1 ] || die "README.md line $n does not contain \`$3\` exactly once (found $occurrences): $line"
-    if is_dry; then dry "update README.md line $n: \`$3\` -> \`$4\`"; return 0; fi
-    step "updating README.md line $n: \`$3\` -> \`$4\`"
-    awk -v n="$n" -v old="\`$3\`" -v new="\`$4\`" '
-        NR == n { i = index($0, old); if (i > 0) $0 = substr($0, 1, i - 1) new substr($0, i + length(old)) }
-        { print }
-    ' README.md > README.md.update-tmp || die "failed to rewrite README.md"
+    oldtick="`$3`"; newtick="`$4`"
+    oldplain="| $3 |"; newplain="| $4 |"
+    replacement="$line"
+    if [[ "$line" == *"$oldtick"* ]]; then
+        replacement="${line/"$oldtick"/"$newtick"}"
+    elif [[ "$line" == *"$oldplain"* ]]; then
+        replacement="${line/"$oldplain"/"$newplain"}"
+    else
+        replacement="${line/"$3"/"$4"}"
+    fi
+    [ "$replacement" != "$line" ] || die "README.md line $n does not contain version '$3': $line"
+    if is_dry; then dry "update README.md line $n: '$3' -> '$4'"; return 0; fi
+    step "updating README.md line $n: '$3' -> '$4'"
+    awk -v n="$n" -v replacement="$replacement" 'NR == n { $0 = replacement } { print }' README.md > README.md.update-tmp || die "failed to rewrite README.md"
     mv README.md.update-tmp README.md
 }
 

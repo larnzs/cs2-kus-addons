@@ -18,7 +18,26 @@ relative paths work from anywhere inside the repo):
 ./scripts/update/update.sh                # apply every available update, one commit per mod
 ./scripts/update/update.sh --only "Inventory Simulator" --only counterstrikesharp   # limit to some mods (name or slug)
 ./scripts/update/update.sh --list         # mods, current versions, slugs and which have an update script
+./scripts/update/update.sh --no-pull      # skip the pull a local run starts with
 ```
+
+**A local run pulls first.** The GitHub Action commits mod updates straight to `stage`,
+so a local checkout goes stale fast. Before reading any version the script fetches and
+fast-forwards the current branch, otherwise it would read the stale README, decide mods
+are outdated when the Action has already done them, and redo the work. It only ever
+fast-forwards, never merges or rebases:
+
+| Situation | What happens |
+| --- | --- |
+| Up to date | Nothing, just says so |
+| Behind, clean tree | Fast-forwards, then carries on |
+| Behind, dirty tree | Warns that versions may be stale and does not pull (a real run stops on the dirty tree anyway) |
+| Diverged from the remote | Stops, so you resolve it by hand |
+| No upstream, or detached HEAD | Warns and carries on |
+| Inside GitHub Actions | Skipped; the runner already checked out the exact ref |
+
+`--no-pull` runs against the local checkout as-is, for working offline or on a branch
+you do not want moved.
 
 Requirements: `bash` (3.2+ is fine), `git`, `curl`, `jq`, `unzip`, `tar`, `rsync`
 (macOS openrsync works). A **clean working tree** is required for a real run because
@@ -107,7 +126,7 @@ and the gotchas list below, then test it as described in "Testing a new or chang
 # Every repo path this update may create, change or delete (files or directories).
 # Used for: refusing deletes/writes elsewhere, verifying nothing else changed, git add.
 PLUGIN_PATHS=(
-    "server/game/csgo/addons/counterstrikesharp/plugins/<PluginDir>"
+    "game/csgo/addons/counterstrikesharp/plugins/<PluginDir>"
 )
 
 # One glob per line, matched against the release's asset file names. Each must match
@@ -118,7 +137,7 @@ plugin_assets() {
 
 # Optional: checks on the repo before anything is downloaded or changed.
 plugin_preflight() {
-    require_dir "server/game/csgo/addons/counterstrikesharp/plugins"
+    require_dir "game/csgo/addons/counterstrikesharp/plugins"
 }
 
 # The steps. Use only the helpers below; each one aborts the plugin on failure.
@@ -128,9 +147,9 @@ plugin_apply() {
     x=$(extract_asset "<Plugin>-*.zip")
     require_dir "$x/addons/counterstrikesharp/plugins/<PluginDir>"
 
-    remove_path "server/game/csgo/addons/counterstrikesharp/plugins/<PluginDir>"
+    remove_path "game/csgo/addons/counterstrikesharp/plugins/<PluginDir>"
     copy_dir    "$x/addons/counterstrikesharp/plugins/<PluginDir>" \
-                "server/game/csgo/addons/counterstrikesharp/plugins/<PluginDir>"
+                "game/csgo/addons/counterstrikesharp/plugins/<PluginDir>"
 
     remove_extracted "$x"
 }
@@ -154,10 +173,10 @@ Every existing script was derived this way. It takes ten minutes and avoids gues
    `<Name>/plugins/...`, `<Name>/...` - it differs per project. Ignore junk (`README-ME.txt`,
    `logs/`, `-no-map-configs` variants, `-with-cssharp-*` bundles, `steamrt4` builds).
 3. **Diff the extracted archive against the repo** (the repo is normally at the latest
-   version): `diff -rq <extracted>/<dir> server/game/csgo/...`. Identical files = what the manual
+   version): `diff -rq <extracted>/<dir> game/csgo/...`. Identical files = what the manual
    process copies. Differing files = what it keeps (customised configs). Files only in the repo
    = leftovers the manual process never deleted, or custom files.
-4. **Check the config history**: `git log --oneline -- server/game/csgo/cfg/<mod>` (and
+4. **Check the config history**: `git log --oneline -- game/csgo/cfg/<mod>` (and
    `configs/plugins/<Mod>`). Commits that are not "UPDATED: <mod>" mean it is customised.
    Customised config paths are NEVER written by a script (see the config policy below); use
    `warn_cfg_dir_changes` / `warn_new_settings` instead.
@@ -180,15 +199,43 @@ Every existing script was derived this way. It takes ten minutes and avoids gues
   config/vdf files and the Linux copies (LF endings, Linux paths) are the ones the repo keeps.
   Only replace the binaries the manual updates replaced; the per-platform `.vdf`s in the repo
   live elsewhere (`addons/windows/`, `addons/surf/`) and are managed by hand.
-- **Case-insensitive filesystem**: MatchZy ships `lang/pt-PT.json`, the repo tracks
-  `lang/pt-pt.json`. On macOS (`core.ignorecase=true`) a merge-copy just updates the tracked
-  file; a replace-whole would try to rename it. On Linux you would get both files.
+- **Case-only renames** (now guarded, see `verify_no_case_duplicates`, so a run refuses to
+  commit one): the repo is updated on both macOS (`core.ignorecase=true`) and Linux
+  (the GitHub Action), so a file must only ever be tracked under one case. MatchZy renamed
+  `lang/pt-pt.json` to `lang/pt-PT.json`; the Action's merge-copy added `pt-PT.json` next to the
+  old file, and on macOS the two then fought over one path (a permanent "modified" file that
+  discard just flips). The stale `pt-pt.json` was untracked; check with
+  `git ls-files | sort -f | uniq -di` (must print nothing) and untrack the stale name with
+  `git rm --cached` (a plain `git rm` on macOS deletes the surviving file too).
 - **Same link text elsewhere in the README**: the version bump only matches the row in the
   `Mod | Version | Why` table (anchored at line start), because e.g. the CounterStrikeSharp
   link also appears in prose.
 - **Files inside plugin folders that look like config** (`map_config/`, `spawns/`, `lang/`) are
   upstream-owned and byte-identical to the release here, so "replace whole" is fine - but check
   step 3 before assuming that for a new mod.
+- **A leading `v` in the README version never matches**: detection strips non-digits from the
+  tag, so a row reading `` `v1.2.4.b3` `` compares against `1.2.4.b3` and reports an update
+  on every run, forever. jRandomSkills was the only row with a `v` and it did exactly that.
+  Keep the bare version in the table however upstream writes its tags.
+- **Trust the files, not the commit message, for what version the repo holds**: the
+  jRandomSkills row claimed `v1.2.4.b4`, a version that has never existed upstream, with no
+  such release or tag. Its binaries were byte-identical to v1.2.4.b3, so the label was simply
+  wrong and a run would have "updated" the repo backwards. Compare the tracked binaries
+  against the release before trusting a version string.
+- **A case-only rename that already reached a branch** must be undone on every branch, not
+  just the one you noticed it on. While `master` tracked both names and `stage` tracked one,
+  every macOS checkout of `master` showed a permanently modified file. Merging the fixed
+  branch in removes the stale entry, but since both names were one physical file the merge
+  deletes it from disk, so finish with `git checkout -- <surviving path>`. If the merge
+  refuses because the dirty file is the one being deleted, discard it first with
+  `git checkout -- <stale path>`, which flips the dirtiness onto the surviving name, then
+  merge. Verify with `git ls-files | sort -f | uniq -di`, which must print nothing.
+- **The archive root can move between versions**: CS2 Deathmatch shipped
+  `Deathmatch/{plugins,shared}/` up to 1.3.5 and the standard
+  `addons/counterstrikesharp/{plugins,shared}/` from 1.3.6, with identical file names
+  inside. The `require_*` checks caught it before anything was written, so the failure
+  was clean, but the run still stopped. Use `pick_dir` to accept both roots rather than
+  hard coding one, and keep the oldest supported root as the last candidate.
 - **A README bump done in a separate commit** (cs2-quake-sounds 26.08.1) means the manual
   commit's file set lacks `README.md`; the script always bumps it in the same commit.
 
@@ -227,6 +274,7 @@ checkout to avoid re-downloading. Delete the clone afterwards.
 | --- | --- |
 | `extract_asset <glob>` | Extracts the matched archive into a fresh `EXTRACT_DIR/<archive name>/` and prints that path |
 | `asset_path <glob>` | Prints the path of the downloaded archive |
+| `pick_dir <dir> [dir...]` | Prints the first candidate that exists, for releases whose archive root moves between versions. Dies if none do, so a third layout is still caught. In dry-run it assumes the first. |
 | `remove_extracted <dir>` | Deletes a directory made by `extract_asset` |
 | `require_dir <path>`, `require_file <path>` | Fail unless it exists (reported as `would verify` for extracted paths in dry-run) |
 | `sync_dir <src> <dest>` | `rsync -rhavz --exclude "._*" --exclude ".DS_Store" --partial --stats src/ dest/` (merge, never deletes at dest) |
@@ -234,6 +282,7 @@ checkout to avoid re-downloading. Delete the clone afterwards.
 | `copy_file <src> <dest>` | Copy one file (parent directory created) |
 | `empty_dir <dir>` | Delete everything inside `<dir>`, keep the directory |
 | `remove_path <path>` | Delete a file or directory; no error if already absent |
+| `verify_no_case_duplicates` | Run automatically after every plugin's apply: fails the run before committing if two paths differ only in case. Not called from plugin scripts. |
 | `warn_cfg_dir_changes <archive dir> <repo dir> [existing-only]` | Heads-up only: lists new upstream config files, repo files upstream no longer ships, and new settings in files present on both sides. Writes nothing. |
 | `plugins/<slug>.ignore` (file, optional) | One setting key per line (`#` comments allowed). Keys listed here are never reported by the two helpers above - add a key once it has been reviewed (ported, or removed from your config on purpose) so it stops showing up on every update. |
 | `warn_new_settings <archive file> <repo file>` | Heads-up only: lists setting keys (`.cfg` first tokens / JSON keys) present upstream but missing from the repo's customised copy |
@@ -241,7 +290,7 @@ checkout to avoid re-downloading. Delete the clone afterwards.
 
 Deletes (`empty_dir`, `remove_path`) are only allowed *inside* a `PLUGIN_PATHS` entry.
 Writes are allowed inside an entry or to an ancestor of one (so `sync_dir "$x/addons/"
-"server/game/csgo/addons/"` works); anything that ends up changed outside `PLUGIN_PATHS` is
+"game/csgo/addons/"` works); anything that ends up changed outside `PLUGIN_PATHS` is
 caught after `plugin_apply` and blocks the commit.
 
 Sources other than GitHub releases and the Metamod:Source download page need
@@ -253,17 +302,19 @@ downloadable asset (size `0` if unknown).
 | Mod | Script | Notes |
 | --- | --- | --- |
 | Metamod:Source | `plugins/metamod-source.sh` | Assets come from the dev downloads page quick-download links. Windows zip is applied before the Linux tar.gz on purpose: both ship `metamod.vdf`, `metamod_x64.vdf`, `metaplugins.ini`, `README.txt`; the Linux copies (LF endings, `linux64` server path) are what the repo keeps. |
-| CounterStrikeSharp | `plugins/counterstrikesharp.sh` | Uses the `with-runtime` Windows and Linux zips. Windows first (rsync into `server/game/csgo/addons/`, then the special `server/game/csgo/addons/windows/addons/counterstrikesharp/` refresh of `api/ bin/ dotnet/`), then Linux rsync on top. |
+| CounterStrikeSharp | `plugins/counterstrikesharp.sh` | Uses the `with-runtime` Windows and Linux zips. Windows first (rsync into `game/csgo/addons/`, then the special `game/csgo/addons/windows/addons/counterstrikesharp/` refresh of `api/ bin/ dotnet/`), then Linux rsync on top. |
 | Inventory Simulator | `plugins/inventory-simulator.sh` | Replaces the plugin directory and the `inventory-simulator.json` gamedata file. |
-| MultiAddonManager | `plugins/multiaddonmanager.sh` | Windows zip + Linux `steamrt3` tar.gz (the `steamrt4` build is ignored). Replaces only the two binaries in `server/game/csgo/addons/multiaddonmanager/bin/`; the `.vdf` is left alone and the customised `server/game/csgo/cfg/multiaddonmanager/multiaddonmanager.cfg` is never written, only compared (new settings reported). |
+| MultiAddonManager | `plugins/multiaddonmanager.sh` | Windows zip + Linux `steamrt3` tar.gz (the `steamrt4` build is ignored). Replaces only the two binaries in `game/csgo/addons/multiaddonmanager/bin/`; the `.vdf` is left alone and the customised `game/csgo/cfg/multiaddonmanager/multiaddonmanager.cfg` is never written, only compared (new settings reported). |
 | ServerListPlayersFix | `plugins/serverlistplayersfix.sh` | Windows zip + Linux `steamrt3` tar.gz. Replaces only `bin/win64/*.dll` and `bin/linuxsteamrt64/*.so`; the repo's per-platform `.vdf` copies are left alone. |
 | MovementUnlocker | `plugins/movementunlocker.sh` | Windows zip + Linux `steamrt3` tar.gz. Replaces only `bin/win64/*.dll` and `bin/linuxsteamrt64/*.so`; the `.vdf` copies under `addons/surf/` are left alone. |
 | CS2 Retakes | `plugins/cs2-retakes.sh` | Uses the full `RetakesPlugin-<v>.zip` (not the `-no-map-configs` one). Replaces `plugins/disabled/RetakesPlugin` (the plugin is kept disabled in this repo, so it is NOT at `plugins/RetakesPlugin`) and `shared/RetakesPluginShared`. |
-| MatchZy | `plugins/matchzy.sh` | Plain `MatchZy-<v>.zip` (not the `-with-cssharp-*` bundles). Merge-copies the plugin folder over `plugins/disabled/MatchZy` (nothing deleted). `server/game/csgo/cfg/MatchZy/` and `custom_files_example/cfg/MatchZy/` are customised and never written; new upstream files/settings are only reported for a manual port. |
-| GunGame | `plugins/gungame.sh` | Merge-copies `plugins/disabled/GG2` and `shared/GunGameAPI` (old leftovers like `Dapper.dll`/`runtimes/` are kept, as the manual updates did). `server/game/csgo/cfg/gungame/` is customised and never written; new upstream files, removed files and new settings are reported for a manual port. |
-| CS2 Deathmatch | `plugins/cs2-deathmatch.sh` | Asset is always `Deathmatch.zip`, archive root `Deathmatch/`. Replaces `plugins/disabled/Deathmatch` and `shared/DeathmatchAPI` whole. `configs/plugins/Deathmatch/` and `gamedata/Deathmatch.json` are not shipped and not touched. |
+| MatchZy | `plugins/matchzy.sh` | Plain `MatchZy-<v>.zip` (not the `-with-cssharp-*` bundles). Merge-copies the plugin folder over `plugins/disabled/MatchZy` (nothing deleted). `game/csgo/cfg/MatchZy/` and `custom_files_example/cfg/MatchZy/` are customised and never written; new upstream files/settings are only reported for a manual port. |
+| GunGame | `plugins/gungame.sh` | Merge-copies `plugins/disabled/GG2` and `shared/GunGameAPI` (old leftovers like `Dapper.dll`/`runtimes/` are kept, as the manual updates did). `game/csgo/cfg/gungame/` is customised and never written; new upstream files, removed files and new settings are reported for a manual port. |
+| CS2 Deathmatch | `plugins/cs2-deathmatch.sh` | Asset is always `Deathmatch.zip`. Archive root is `addons/counterstrikesharp/` from 1.3.6 and `Deathmatch/` before it; `pick_dir` accepts either. Replaces `plugins/disabled/Deathmatch` and `shared/DeathmatchAPI` whole. `configs/plugins/Deathmatch/` and `gamedata/Deathmatch.json` are not shipped and not touched. |
 | deathrun-manager | `plugins/deathrun-manager.sh` | Replaces `plugins/disabled/DeathrunManager` whole. The shipped `configs/plugins/DeathrunManager/DeathrunManager.json` is never written, only compared (new settings reported). Archive junk (`README-ME.txt`, `logs/`) ignored. |
 | RollTheDice | `plugins/rollthedice.sh` | Archive root `RollTheDice/`; replaces `plugins/disabled/RollTheDice` whole. `configs/plugins/RollTheDice/` not touched. |
+| CS2-FixRandomSpawn | `plugins/cs2-fixrandomspawn.sh` | Asset renamed to `CS2-FixRandomSpawn.zip` in 1.2.0 (`FixRandomSpawn.zip` before). 1.2.0 also restructured the archive to `plugins/` + `gamedata/`, relative to `addons/counterstrikesharp/`; the older flat layout is not supported. Plugin lives at `plugins/FixRandomSpawn` (not disabled) and is replaced whole, which also drops the stale plugin-local `gamedata/` the flat archive left behind. The top-level `gamedata/FixRandomSpawn.json` is upstream signature data and is replaced, because 1.2.0 renamed its keys and it has to match the dll. |
+| jRandomSkills | `plugins/jrandomskills.sh` | Asset is `jRandomSkills.v<version>.zip`, archive laid out relative to `addons/counterstrikesharp/` (`plugins/` + `gamedata/`). Plugin lives at `plugins/disabled/jRandomSkills` and is replaced whole, which drops the two `.pdb` files that v1.2.4.b3 no longer ships. Its `configs/` are byte-identical to upstream, so they are replaced rather than protected. Release tags carry a `v` prefix, so the README row must hold the bare version. |
 | cs2-quake-sounds | `plugins/cs2-quake-sounds.sh` | Archive root `QuakeSounds/`; replaces `plugins/disabled/QuakeSounds` whole. `configs/plugins/QuakeSounds/` not touched. |
 
 ## Files
@@ -334,3 +385,8 @@ downloadable asset (size `0` if unknown).
   for local copies).
 - Version strings are normalised exactly like `check-updates.sh` (`normalize_version`).
   Metamod:Source `2.0.0-1469` corresponds to asset names `mmsource-2.0.0-git1469-*`.
+
+
+## Larnz integration policy
+
+These upstream KUS scripts target the tracked `game/csgo/` payload in this repository. Deployment is deliberately non-destructive: calls to `empty_dir` and `remove_path` retain installed content, and new release files are overlaid on top. Configurations are never replaced by the updater. If an upstream release removes or renames files, the old files are retained for manual review rather than automatically deleted.
