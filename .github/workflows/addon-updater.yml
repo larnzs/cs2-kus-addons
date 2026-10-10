@@ -150,10 +150,10 @@ jobs:
           if ($templateVbs -notmatch 'run\.bat' -or $templateVbs -notmatch 'instance\.ini') {
             throw "Example run.vbs must launch run.bat and validate its configuration."
           }
-          if ($templateBat -notmatch '(?im)^set "PAUSE_ON_EXIT=1"\r? -or
-              $templateBat -notmatch '(?im)^if /I "%~1"=="--no-pause" set "PAUSE_ON_EXIT=0"\r? -or
-              $templateBat -notmatch '(?im)^\s*pause >nul\s*\r? -or
-              $templateBat -match '(?im)^\s*exit /b 2\s*\r?) {
+          if ($templateBat -notmatch '(?im)^set "PAUSE_ON_EXIT=1"\r?$' -or
+              $templateBat -notmatch '(?im)^if /I "%~1"=="--no-pause" set "PAUSE_ON_EXIT=0"\r?$' -or
+              $templateBat -notmatch '(?im)^\s*pause >nul\s*\r?$' -or
+              $templateBat -match '(?im)^\s*exit /b 2\s*\r?$') {
             throw "Example run.bat must pause for direct-launch preflight errors and support --no-pause for run.vbs."
           }
           foreach ($required in @(
