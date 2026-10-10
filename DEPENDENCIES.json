@@ -22,6 +22,30 @@
   ],
   "addons": [
     {
+      "order": 0,
+      "name": "Metamod:Source",
+      "repository": "https://github.com/alliedmodders/metamod-source",
+      "readme_url": "https://www.metamodsource.net/downloads.php?branch=dev",
+      "type": "github_release",
+      "track": "latest",
+      "version": "2.0.0-1473",
+      "release_tag": "2.0.0.1473",
+      "version_format": "metamod",
+      "assets": [
+        "mmsource-*-windows.zip",
+        "mmsource-*-linux.tar.gz"
+      ],
+      "depends_on": [],
+      "installed": true,
+      "merge": "release_csgo_root",
+      "verify_paths": [
+        "addons/metamod/bin/win64/metamod.2.cs2.dll",
+        "addons/metamod/bin/linuxsteamrt64/metamod.2.cs2.so",
+        "addons/metamod.vdf",
+        "addons/metamod_x64.vdf"
+      ]
+    },
+    {
       "order": 1,
       "name": "CounterStrikeSharp",
       "repository": "https://github.com/roflmuffin/CounterStrikeSharp",
@@ -30,20 +54,22 @@
       "version": "1.0.376",
       "release_tag": "v1.0.376",
       "assets": [
-        "counterstrikesharp-with-runtime-windows-{version}.zip"
+        "counterstrikesharp-with-runtime-windows-{version}.zip",
+        "counterstrikesharp-with-runtime-linux-{version}.zip"
       ],
       "depends_on": [
-        "KUS:Metamod:Source"
+        "Metamod:Source"
       ],
       "installed": true,
       "merge": "release_plugin_directory",
       "verify_paths": [
         "addons/windows/addons/counterstrikesharp/api/CounterStrikeSharp.API.dll",
         "addons/windows/addons/counterstrikesharp/bin/win64/counterstrikesharp.dll",
-        "addons/windows/addons/counterstrikesharp/dotnet/dotnet.exe"
+        "addons/windows/addons/counterstrikesharp/dotnet/dotnet.exe",
+        "addons/counterstrikesharp/bin/linuxsteamrt64/counterstrikesharp.so"
       ],
       "runtime_required": true,
-      "required_asset_name_contains": "with-runtime-windows",
+      "required_asset_name_contains": "with-runtime",
       "verify_globs": [
         "addons/windows/addons/counterstrikesharp/dotnet/shared/Microsoft.NETCore.App/*/System.Private.CoreLib.dll",
         "addons/windows/addons/counterstrikesharp/dotnet/host/fxr/*/hostfxr.dll"
@@ -56,6 +82,14 @@
             "merge": "release_plugin_directory",
             "source_path": "addons/counterstrikesharp",
             "install_path": "addons/windows/addons/counterstrikesharp"
+          },
+          {
+            "merge": "release_csgo_root"
+          }
+        ],
+        "counterstrikesharp-with-runtime-linux-{version}.zip": [
+          {
+            "merge": "release_csgo_root"
           }
         ]
       }
@@ -232,7 +266,7 @@
       ],
       "depends_on": [
         "CounterStrikeSharp",
-        "KUS:Metamod:Source"
+        "Metamod:Source"
       ],
       "installed": true,
       "merge": "release_plugin_directory",
@@ -278,7 +312,7 @@
       ],
       "depends_on": [
         "CounterStrikeSharp",
-        "KUS:Metamod:Source"
+        "Metamod:Source"
       ],
       "installed": true,
       "merge": "release_csgo_root",
@@ -305,7 +339,7 @@
       ],
       "depends_on": [
         "CounterStrikeSharp",
-        "KUS:Metamod:Source"
+        "Metamod:Source"
       ],
       "installed": true,
       "merge": "release_csgo_root",

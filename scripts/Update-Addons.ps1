@@ -28,6 +28,16 @@ function Normalize-Version([string]$Tag) {
     return [regex]::Replace($Tag, "^[^0-9]*", "")
 }
 
+function Get-AddonVersion($Addon, [string]$Tag) {
+    $version = Normalize-Version $Tag
+    if ($Addon.PSObject.Properties.Name -contains "version_format" -and
+        [string]$Addon.version_format -eq "metamod") {
+        # Metamod tags are 2.0.0.1474; KUS tracks/displays them as 2.0.0-1474.
+        $version = $version -replace '^(\d+\.\d+\.\d+)\.(\d+)$', '$1-$2'
+    }
+    return $version
+}
+
 function Get-GitHubHeaders() {
     $headers = @{
         Accept = "application/vnd.github+json"
@@ -426,7 +436,7 @@ function Resolve-ReleaseInstallTargets($Addon, [string]$ExtractRoot, [string]$As
 }
 function Install-ReleaseAddon($Addon, $Release) {
     $assets = @(Get-ReleaseAssets $Release $Addon)
-    $version = Normalize-Version $Release.tag_name
+    $version = Get-AddonVersion -Addon $Addon -Tag $Release.tag_name
     $safeName = $Addon.name -replace '[^A-Za-z0-9._-]', '-'
     $workRoot = Join-Path $CacheRoot ("{0}\{1}" -f $safeName, $version)
 
@@ -444,8 +454,9 @@ function Install-ReleaseAddon($Addon, $Release) {
         $archive = Join-Path $workRoot $asset.name
         Download-Asset $asset $archive
 
-        if (-not $archive.ToLowerInvariant().EndsWith(".zip")) {
-            throw "Unsupported archive type for '$($asset.name)'. Current Windows updater expects ZIP."
+        $archiveLower = $archive.ToLowerInvariant()
+        if (-not ($archiveLower.EndsWith(".zip") -or $archiveLower.EndsWith(".tar.gz"))) {
+            throw "Unsupported archive type for '$($asset.name)'. Expected ZIP or TAR.GZ."
         }
 
         $extractName = [IO.Path]::GetFileNameWithoutExtension($asset.name)
@@ -456,7 +467,27 @@ function Install-ReleaseAddon($Addon, $Release) {
         }
 
         Write-Info "Extracting $($asset.name)"
-        Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
+        if ($archiveLower.EndsWith(".zip")) {
+            Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
+        }
+        else {
+            $tarCommand = Get-Command "tar.exe" -ErrorAction SilentlyContinue
+            if (-not $tarCommand) {
+                throw "tar.exe is required to extract '$($asset.name)' but was not found."
+            }
+
+            New-Item -ItemType Directory -Force -Path $extract | Out-Null
+            $stdoutFile = Join-Path $workRoot ("tar-" + [guid]::NewGuid().ToString("N") + ".stdout.log")
+            $stderrFile = Join-Path $workRoot ("tar-" + [guid]::NewGuid().ToString("N") + ".stderr.log")
+            $tarArguments = @("-xzf", ('"{0}"' -f $archive), "-C", ('"{0}"' -f $extract))
+            $tarProcess = Start-Process -FilePath $tarCommand.Source -ArgumentList $tarArguments -WorkingDirectory $workRoot -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
+            if ($tarProcess.ExitCode -ne 0) {
+                $tarDetails = @()
+                if (Test-Path -LiteralPath $stderrFile) { $tarDetails += Get-Content -LiteralPath $stderrFile -ErrorAction SilentlyContinue }
+                if (Test-Path -LiteralPath $stdoutFile) { $tarDetails += Get-Content -LiteralPath $stdoutFile -ErrorAction SilentlyContinue }
+                throw "tar extraction failed for '$($asset.name)' with exit code $($tarProcess.ExitCode): $($tarDetails -join ' ')"
+            }
+        }
 
         $targets = @(Resolve-ReleaseInstallTargets $Addon $extract $asset.name)
         foreach ($target in $targets) {
@@ -628,8 +659,27 @@ function Update-ReadmeVersion([string]$Name, [string]$Repository, [string]$Displ
     $backtick = [char]96
     $pattern = "(?m)^\|\s*\[$escapedName\]\($escapedUrl\)\s*\|[^|\r\n]*\|"
     $replacement = "| [$Name]($Repository) | $backtick$DisplayVersion$backtick |"
-
     $newText = [regex]::Replace($text, $pattern, $replacement, 1)
+
+    # Larnz-managed rows are plain text labels rather than linked KUS catalog rows.
+    # Keep both README tables updated without changing any of the purpose text.
+    if ($newText -eq $text) {
+        $sectionMarker = "## Larnz-managed add-ons"
+        $sectionStart = $text.IndexOf($sectionMarker, [StringComparison]::Ordinal)
+        if ($sectionStart -ge 0) {
+            $tailStart = $sectionStart + $sectionMarker.Length
+            $tail = $text.Substring($tailStart)
+            $nextHeading = [regex]::Match($tail, "(?m)^##\s")
+            $sectionEnd = if ($nextHeading.Success) { $tailStart + $nextHeading.Index } else { $text.Length }
+            $section = $text.Substring($sectionStart, $sectionEnd - $sectionStart)
+            $plainPattern = "(?m)^\|\s*$escapedName\s*\|[^|\r\n]*\|"
+            $plainReplacement = "| $Name | $backtick$DisplayVersion$backtick |"
+            $updatedSection = [regex]::Replace($section, $plainPattern, $plainReplacement, 1)
+            if ($updatedSection -ne $section) {
+                $newText = $text.Substring(0, $sectionStart) + $updatedSection + $text.Substring($sectionEnd)
+            }
+        }
+    }
 
     if ($newText -eq $text) {
         Write-Warn "README row not updated for $Name"
@@ -682,7 +732,7 @@ foreach ($addon in $addons) {
         $available[$addon.name] = $true
     }
 }
-$available["KUS:Metamod:Source"] = $true
+
 
 if ($Only) {
     $selected = @(
@@ -729,7 +779,7 @@ foreach ($addon in $addons) {
     try {
         if ($addon.type -eq "github_release") {
             $release = Get-ReleaseForAddon $addon
-            $version = Normalize-Version $release.tag_name
+            $version = Get-AddonVersion -Addon $addon -Tag $release.tag_name
 
             $missingFiles = @(Get-AddonMissingFiles $addon)
             $needsRepair = $missingFiles.Count -gt 0
@@ -754,7 +804,8 @@ foreach ($addon in $addons) {
                 $addon.release_tag = $release.tag_name
             }
 
-            Update-ReadmeVersion $addon.name $addon.repository $newVersion
+            $readmeUrl = if ($addon.PSObject.Properties.Name -contains "readme_url" -and -not [string]::IsNullOrWhiteSpace([string]$addon.readme_url)) { [string]$addon.readme_url } else { [string]$addon.repository }
+            Update-ReadmeVersion $addon.name $readmeUrl $newVersion
             Save-Manifest
             Commit-AddonUpdate $addon.name $newVersion
             $available[$addon.name] = $true

@@ -72,24 +72,58 @@ jobs:
           }
 
           $manifest = Get-Content -LiteralPath ".\DEPENDENCIES.json" -Raw | ConvertFrom-Json
+          $metamod = @($manifest.addons | Where-Object name -eq "Metamod:Source") | Select-Object -First 1
+          if (-not $metamod -or [string]$metamod.type -ne "github_release" -or
+              [string]$metamod.version_format -ne "metamod" -or
+              [string]$metamod.readme_url -ne "https://www.metamodsource.net/downloads.php?branch=dev") {
+            throw "Metamod:Source must be managed from its latest upstream GitHub release and update the KUS version row."
+          }
+          foreach ($assetPattern in @("mmsource-*-windows.zip", "mmsource-*-linux.tar.gz")) {
+            if (@($metamod.assets | Where-Object { $_ -eq $assetPattern }).Count -ne 1) {
+              throw "Metamod:Source must select both the latest Windows ZIP and Linux TAR.GZ release assets."
+            }
+          }
+          foreach ($requiredPath in @(
+            "addons/metamod/bin/win64/metamod.2.cs2.dll",
+            "addons/metamod/bin/linuxsteamrt64/metamod.2.cs2.so"
+          )) {
+            if (@($metamod.verify_paths | Where-Object { $_ -eq $requiredPath }).Count -ne 1) {
+              throw "Metamod:Source verification is missing $requiredPath."
+            }
+          }
+
           $css = @($manifest.addons | Where-Object name -eq "CounterStrikeSharp") | Select-Object -First 1
           if (-not $css) { throw "CounterStrikeSharp is missing from DEPENDENCIES.json." }
           if (-not [bool]$css.runtime_required) {
             throw "CounterStrikeSharp must have runtime_required=true."
           }
-          if (@($css.assets | Where-Object { $_ -eq "counterstrikesharp-with-runtime-windows-{version}.zip" }).Count -ne 1) {
-            throw "CounterStrikeSharp must select the Windows with-runtime release asset."
+          foreach ($assetPattern in @(
+            "counterstrikesharp-with-runtime-windows-{version}.zip",
+            "counterstrikesharp-with-runtime-linux-{version}.zip"
+          )) {
+            if (@($css.assets | Where-Object { $_ -eq $assetPattern }).Count -ne 1) {
+              throw "CounterStrikeSharp must select both platform with-runtime release assets."
+            }
           }
-          if ([string]$css.required_asset_name_contains -ne "with-runtime-windows") {
-            throw "CounterStrikeSharp runtime asset marker is missing or incorrect."
+          if ([string]$css.required_asset_name_contains -ne "with-runtime") {
+            throw "CounterStrikeSharp runtime asset marker must cover both platform with-runtime packages."
           }
-          $cssMapping = @($css.asset_mappings.PSObject.Properties | Where-Object Name -eq "counterstrikesharp-with-runtime-windows-{version}.zip") | Select-Object -First 1
-          if (-not $cssMapping) { throw "CounterStrikeSharp Windows with-runtime mapping is missing." }
-          $cssTargets = @($cssMapping.Value)
-          if ($cssTargets.Count -ne 1 -or
-              [string]$cssTargets[0].merge -ne "release_plugin_directory" -or
-              [string]$cssTargets[0].install_path -ne "addons/windows/addons/counterstrikesharp") {
-            throw "CounterStrikeSharp Windows with-runtime must install into the KUS Windows overlay."
+          $cssWindowsMapping = @($css.asset_mappings.PSObject.Properties | Where-Object Name -eq "counterstrikesharp-with-runtime-windows-{version}.zip") | Select-Object -First 1
+          if (-not $cssWindowsMapping) { throw "CounterStrikeSharp Windows with-runtime mapping is missing." }
+          $cssWindowsTargets = @($cssWindowsMapping.Value)
+          if (-not ($cssWindowsTargets | Where-Object {
+                [string]$_.merge -eq "release_plugin_directory" -and
+                [string]$_.install_path -eq "addons/windows/addons/counterstrikesharp"
+              })) {
+            throw "CounterStrikeSharp Windows with-runtime files must populate the KUS Windows overlay."
+          }
+          if (-not ($cssWindowsTargets | Where-Object { [string]$_.merge -eq "release_csgo_root" })) {
+            throw "CounterStrikeSharp Windows archive must also update the shared payload."
+          }
+          $cssLinuxMapping = @($css.asset_mappings.PSObject.Properties | Where-Object Name -eq "counterstrikesharp-with-runtime-linux-{version}.zip") | Select-Object -First 1
+          if (-not $cssLinuxMapping -or
+              -not (@($cssLinuxMapping.Value) | Where-Object { [string]$_.merge -eq "release_csgo_root" })) {
+            throw "CounterStrikeSharp Linux with-runtime archive must update the shared payload."
           }
           if (-not (Test-Path -LiteralPath ".\game\csgo\addons\counterstrikesharp\bin\linuxsteamrt64\counterstrikesharp.so")) {
             throw "Shared Linux CounterStrikeSharp binary is missing from game/csgo."
