@@ -12,9 +12,9 @@ extract_mods() {
         curl -s "$README_URL"
     fi | awk '
         BEGIN { modsStarted = 0 }
-        $0 == "Mod | Version | Why" { modsStarted = 1; next }  # Look for the specific header to start
+        $0 ~ /^[[:space:]]*[|]?[[:space:]]*Mod[[:space:]]*[|][[:space:]]*Version[^|]*[|][[:space:]]*(Why|Purpose)[[:space:]]*[|]?[[:space:]]*$/ { modsStarted = 1; next }  # Look for the specific header to start
         modsStarted == 1 && $0 ~ /^$/ { exit }  # Stop at the first empty line
-        modsStarted == 1 && /^[[:space:]]*\|?[[:space:]]*\[/ {
+        modsStarted == 1 && /^[[:space:]]*[|]?[[:space:]]*\[/ {
             # Extract mod name, URL, and version
             split($0, nameParts, /\[/)
             split(nameParts[2], name, /\]/)

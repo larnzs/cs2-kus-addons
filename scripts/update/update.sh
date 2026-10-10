@@ -141,7 +141,7 @@ sync_with_remote() {
 preflight() {
     require_tools bash git curl jq unzip tar rsync awk sed grep find cut
     [ -f README.md ] || die "README.md not found in $(pwd)"
-    grep -q '^Mod | Version | Why$' README.md || die "README.md: could not find the 'Mod | Version | Why' table header"
+    grep -Eq '^[[:space:]]*[|]?[[:space:]]*Mod[[:space:]]*[|][[:space:]]*Version[^|]*[|][[:space:]]*(Why|Purpose)[[:space:]]*[|]?[[:space:]]*$' README.md || die "README.md: could not find the 'Mod | Version | Why' table header"
     [ -d "$PLUGIN_SCRIPT_DIR" ] || die "missing directory $PLUGIN_SCRIPT_DIR"
     git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "$(pwd) is not a git repository"
     [ "$(git rev-parse --show-toplevel)" = "$(pwd -P)" ] || die "must run from the repo root ($(git rev-parse --show-toplevel))"
@@ -335,7 +335,7 @@ process_manifest_addons() {
             info "skipping $name: unsupported manifest type '$type'"
         fi
         MANIFEST_ADDON_ACTIVE=0
-    done < <(jq -c '.addons[] | select(.installed == true) | select(.name != "Metamod:Source" and .name != "CounterStrikeSharp")' DEPENDENCIES.json)
+    done < <(jq -c '.addons[] | select(.installed == true) | select(.name != "Metamod:Source")' DEPENDENCIES.json)
 }
 
 # ----------------------------------------------------------------------------- main

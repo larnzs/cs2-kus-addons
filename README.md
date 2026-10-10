@@ -14,7 +14,7 @@ This README combines Larnz's manifest-managed add-ons with KUS's base plugins, g
 | `game/csgo/addons/` | Tracked KUS and Larnz payload source, including platform-neutral/Linux files and the Windows overlay. |
 | `game/csgo/cfg/` | Tracked shared configuration source, deployed into the installed runtime. |
 | DEPENDENCIES.json | Larnz add-on updater manifest. |
-| scripts/update/ | Imported upstream KUS helpers; treat as legacy until the Linux updater is migrated. |
+| scripts/update/ | Active KUS-style per-plugin automation; the same Bash updater also runs the Larnz manifest add-on scripts. |
 | examples/run-template/ | Reusable Windows runner and VBS supervisor template. |
 | docs/upstream/ | KUS source snapshot metadata and archived upstream entrypoints/workflows. |
 
@@ -42,14 +42,14 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 | CS2-Kill-Plugin | 0.2.0 | Player self-action command |
 | SimpleResetScore | 1.0.7 | Reset-score command |
 | cs2-showdamage | 1.1.0 | Damage display |
-| cs2-ranks | v2.0.5.5-recompile | Persistent ranks and statistics |
-| VIPCore | v1.3.4-recompile3 | VIP core/module |
+| cs2-ranks | 2.0.5.5-recompile | Persistent ranks and statistics |
+| VIPCore | 1.3.4-recompile3 | VIP core/module |
 | AnyBaseLibCS2 | 0.9.4 | Shared database/API library |
 | PlayerSettingsCS2 | 0.9.4 | Persistent player settings |
 | MenuManagerCS2 | 1.4.1 | Menu/API library |
 | SLAYER_AntiCamp | 1.2.5 | Anti-camp mode |
 | SLAYER_HeadshotOnly | 1.2.1 | Headshot-only mode |
-| CS2-TeamLimiter | — | Team-size limits |
+| CS2-TeamLimiter | b9be93940543bd06b771199301c7c8ee6b162e8f | Team-size limits |
 | CS2-WeaponRestrict | WeaponRestrict1.5 | Configurable weapon restrictions; marked manual in the Larnz manifest |
 
 ## Larnz plugin dependencies
@@ -172,6 +172,7 @@ Mod | Version in the upstream snapshot | Purpose
 [AnnouncementBroadcaster](https://github.com/lengran/CS2AnnouncementBroadcaster) | `0.5` | Conditional messages, OnCommand, OnPlayerConnect, OnRoundStart, and TimerMsgs.
 [CS2-GameModifiers](https://github.com/vinicius-trev/CS2-GameModifiers-Plugin) | `1.0.4` | CS2, but every round is a SURPRISE. Inspiration from [NadeKings video](https://www.youtube.com/watch?v=OQQBUFB56Iw). Fork from [Lewisscrivens](https://github.com/Lewisscrivens/CS2-GameModifiers-Plugin).
 [CS2FunMatchPlugin](https://github.com/TitaniumLithium/CS2FunMatchPlugin) | `1.1.1` | Random fun mode every round
+[jRandomSkills](https://github.com/Juzlus/jRandomSkills) | `1.2.4.b3` | CS2, but every round is a SURPRISE. Inspiration from [NadeKings video](https://www.youtube.com/watch?v=OQQBUFB56Iw).
 [RollTheDice](https://github.com/Kandru/cs2-roll-the-dice) | `26.07.1` | Roll the dice to get either a positive or negative effect for the current round.
 [CS2-FixRandomSpawn](https://github.com/qstage/CS2-FixRandomSpawn) | `1.1.4.1` | Fixes ConVar `mp_randomspawn` for any game mode.
 [CS2-MutualScoringPlayers](https://github.com/qstage/CS2-MutualScoringPlayers) | `1.0.3` | Keeps score of kills between players.
