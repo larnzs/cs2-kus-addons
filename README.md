@@ -191,6 +191,12 @@ Mod | Version in the upstream snapshot | Purpose
 
 The important difference is **how each script updates files**. Some scripts perform a clean replacement of the runtime add-on directory (a soft reset); others only add and overwrite files. An overwrite-only update can leave obsolete or extra files behind, which may matter when troubleshooting a broken plugin.
 
+### Hourly automatic update checks
+
+GitHub Actions checks for new upstream add-on releases every hour at **minute 17 UTC**. It runs KUS's documented per-plugin `.sh` updater scripts first, then checks the enabled add-ons in `DEPENDENCIES.json`, commits successful changes to `integration/kus-monorepo`, and runs the Windows validation workflow. CI checks that every updater listed in `scripts/update/README.md` exists and that every installed, automation-enabled manifest entry has a matching script.
+
+Coverage means the **15 KUS scripts currently provided by KUS** plus the 17 enabled entries in our manifest (MetaMod and CounterStrikeSharp are shared between the two groups). KUS catalog rows that do not have their own upstream updater script are still warning-only/skipped, as documented by KUS; this does not automatically update every optional plugin name in the catalog. `CS2-WeaponRestrict` remains intentionally excluded because it is marked not installed and not automated.
+
 ### Two different update modes
 
 #### A. Soft reset of the installed runtime — `win.bat`

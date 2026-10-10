@@ -281,11 +281,11 @@
       "name": "cs2-showdamage",
       "repository": "https://github.com/abnerfs/cs2-showdamage",
       "type": "github_release",
-      "track": "pinned",
+      "track": "latest",
       "version": "1.1.0",
       "release_tag": "1.1.0",
       "assets": [
-        "ShowDamage_1.1.0.zip"
+        "ShowDamage_*.zip"
       ],
       "depends_on": [
         "CounterStrikeSharp"

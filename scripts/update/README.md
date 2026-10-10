@@ -82,25 +82,22 @@ Checks against extracted archive contents cannot run in dry-run and are printed 
 
 ## Running it automatically (GitHub Actions)
 
-`.github/workflows/auto-update-mods.yml` runs this same script daily at 3pm
-Australia/Sydney, and on demand from the Actions tab. It adds nothing of its own: it
-checks out `stage`, runs `./scripts/update/update.sh`, and if that produced commits it
-pushes them and opens a pull request into `master`. Adding a new plugin script here is
-therefore all that is needed for the automation to pick that plugin up too.
+This private integrated repository runs `.github/workflows/addon-updater.yml` **once every hour at minute 17 UTC** (`17 * * * *`). GitHub can delay scheduled jobs during busy periods, but the configured polling cadence is hourly. The default branch is `integration/kus-monorepo`, so the scheduled workflow is present on the branch GitHub uses for cron.
 
-- **No update, no noise.** If the script commits nothing, the workflow pushes nothing
-  and opens no pull request.
-- **A human merges.** Commits pushed with the Actions token do not trigger other
-  workflows, so if the bot merged into `master` the `build and publish` workflow would
-  silently not run. Merging the pull request yourself does trigger it.
-- **Failures are surfaced.** If the script exits non-zero the pull request is still
-  opened for the mods that succeeded, the summary is attached, and the job then fails
-  so the run shows up as a failure.
-- The schedule is a single cron at 04:00 UTC. GitHub cron has no timezone, so in Sydney
-  that lands at 3pm during daylight saving and 2pm outside it.
-- Scheduled workflows only fire from the copy of the file on the **default branch**, so
-  this workflow has to be on `master` to run on its own.
-- GitHub disables scheduled workflows after 60 days with no repository activity.
+The workflow runs the same KUS updater described in this document, then a second pass for the Larnz-managed add-ons in `DEPENDENCIES.json`, then Windows validation:
+
+1. KUS's `scripts/update/plugins/*.sh` scripts update the matching rows in the KUS catalog in `README.md`.
+2. The manifest pass checks installed add-ons marked for automation and uses their own KUS-style script. MetaMod and CounterStrikeSharp use their dedicated KUS scripts; other enabled manifest entries use the shared manifest adapter and a per-add-on `.sh`.
+3. Successful changes are committed and pushed directly to `integration/kus-monorepo`; the Windows CI job then validates payload layout, release mappings, protected configs and updater policy.
+
+### Coverage and its limits
+
+- All **15 upstream KUS per-plugin scripts** documented in the `Existing plugin scripts` table below are present in this repository.
+- All **17 currently installed and automated entries** in `DEPENDENCIES.json` have matching script files. This includes MetaMod and CounterStrikeSharp, which are handled by the dedicated KUS scripts.
+- `CS2-WeaponRestrict` is deliberately excluded because its manifest entry is `installed: false` and `automation_supported: false`.
+- KUS's own documentation says a catalog row **without** a `scripts/update/plugins/<slug>.sh` is reported as “no update script” and skipped; those optional catalog rows are not automatically installed or updated just because they appear in the version table. The CI coverage check prevents a documented script or an enabled manifest add-on from silently losing its script.
+
+This differs from upstream KUS's original Action: this integration commits successful updates to the private `integration/kus-monorepo` branch, rather than opening a pull request into KUS's `master`.
 
 ## Adding a plugin script
 

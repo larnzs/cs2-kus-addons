@@ -21,7 +21,7 @@ on:
       - "README.md"
       - "examples/**"
   schedule:
-    - cron: "17 3 * * *"
+    - cron: "17 * * * *"
   workflow_dispatch:
     inputs:
       only:
@@ -70,6 +70,32 @@ jobs:
             grep -q 'source scripts/update/manifest-addon.sh' "$special"
             grep -q 'manifest_update_version' "$special"
           done
+          kus_script_count=0
+          while IFS= read -r script; do
+            [[ -n "$script" ]] || continue
+            if [[ ! -f "scripts/update/plugins/$script" ]]; then
+              echo "Missing KUS updater script documented in scripts/update/README.md: $script" >&2
+              exit 1
+            fi
+            kus_script_count=$((kus_script_count + 1))
+          done < <(sed -n '/^## Existing plugin scripts/,/^## Files/p' scripts/update/README.md | sed -nE 's/.*`plugins\/([^ `]+\.sh)`.*/\1/p')
+          if [[ "$kus_script_count" -eq 0 ]]; then
+            echo "No KUS per-plugin scripts were found in scripts/update/README.md." >&2
+            exit 1
+          fi
+
+          manifest_script_count=0
+          while IFS= read -r addon_name; do
+            [[ -n "$addon_name" ]] || continue
+            slug=$(printf '%s' "$addon_name" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g')
+            if [[ ! -f "scripts/update/plugins/$slug.sh" ]]; then
+              echo "Missing updater script for installed automated manifest add-on: $addon_name ($slug.sh)" >&2
+              exit 1
+            fi
+            manifest_script_count=$((manifest_script_count + 1))
+          done < <(jq -r '.addons[] | select(.installed == true) | select(.automation_supported != false) | .name' DEPENDENCIES.json)
+
+          echo "Coverage passed: $kus_script_count KUS scripts documented; $manifest_script_count installed/automated manifest add-ons mapped to scripts."
           echo "All KUS and Larnz add-on shell scripts passed bash -n and special manifest-sync checks."
       - name: Run KUS and manifest-backed per-add-on scripts
         shell: bash
@@ -278,7 +304,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $selected = @("SLAYER_AntiCamp", "SLAYER_HeadshotOnly", "VIPCore", "CS2-TeamLimiter")
+          $selected = @("SLAYER_AntiCamp", "SLAYER_HeadshotOnly", "VIPCore", "CS2-TeamLimiter", "cs2-showdamage")
           $ErrorActionPreference = "Stop"
           & ".\scripts\Inspect-Releases.ps1" -Only $selected
           if (-not $?) {
