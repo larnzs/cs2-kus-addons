@@ -66,7 +66,11 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh scripts/update/manifest-addon.sh scripts/update/plugins/*.sh
-          echo "All KUS and Larnz add-on shell scripts passed bash -n."
+          for special in scripts/update/plugins/metamod-source.sh scripts/update/plugins/counterstrikesharp.sh; do
+            grep -q 'source scripts/update/manifest-addon.sh' "$special"
+            grep -q 'manifest_update_version' "$special"
+          done
+          echo "All KUS and Larnz add-on shell scripts passed bash -n and special manifest-sync checks."
       - name: Run KUS and manifest-backed per-add-on scripts
         shell: bash
         run: |

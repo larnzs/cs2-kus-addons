@@ -3,6 +3,7 @@
 # Update script for: Metamod:Source
 # README row:        [Metamod:Source](https://www.metamodsource.net/downloads.php?branch=dev)
 # Sourced by scripts/update/update.sh - do not run directly.
+source scripts/update/manifest-addon.sh
 #
 # Manual process this automates:
 #   1. Download the pinned (latest) Windows zip and Linux tar.gz from the dev downloads page

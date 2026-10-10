@@ -3,6 +3,7 @@
 # Update script for: CounterStrikeSharp
 # README row:        [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp)
 # Sourced by scripts/update/update.sh - do not run directly.
+source scripts/update/manifest-addon.sh
 #
 # Manual process this automates:
 #   1. Download the latest "with-runtime" Windows and Linux zips from GitHub releases
