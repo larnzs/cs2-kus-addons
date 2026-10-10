@@ -1,29 +1,31 @@
 # CS2 Windows instance runner
 
-This template runs a CS2 instance from the repository's canonical server/ installation.
+This template uses the repository's canonical `server/` installation. Keep `run.bat`, `run-fast.bat`, `run.vbs`, and `instance.ini` together in each external Instance folder.
 
-- run.bat reads instance.ini, launches CS2, and owns restart plus maintenance after the game process exits.
-- run.vbs is only a hidden launcher/supervisor. It does not run SteamCMD, Git, or deployment scripts.
-- instance.example.ini is a safe template. It contains no public IP, Game Server Login Token, API key, or real password.
+- **`run.bat`** performs a shared maintenance pass on launch, then starts CS2 once. It checks the private repository and upstream add-on releases, applies overwrite-only payload files, and starts the game.
+- **`run-fast.bat`** starts the same configured server without Git, upstream release checks, SteamCMD, gameinfo patching, or payload overlays. It delegates shared argument/configuration and launch logic to `run.bat --no-update`.
+- **`run.vbs`** is the hidden supervisor. Its first attempt uses `run.bat`; after the CS2 process exits or crashes, it switches to `run-fast.bat` and relaunches immediately, with no maintenance cooldown or intentional sleep. It stays in fast mode until the VBS supervisor is restarted.
+- `instance.example.ini` is a safe template with no real public IP, Game Server Login Token, API key, or password.
 
 ## Setup
 
-1. Run install.bat from the repository root once.
-2. Copy instance.example.ini to instance.ini in this folder.
-3. Set SERVER_DIR to the repository's server directory, and configure PORT, MAP, MAPGROUP, and the public IP when applicable.
-4. Set STEAM_ACCOUNT for an internet server and use a strong RCON_PASSWORD. Keep instance.ini private; the folder's .gitignore excludes it.
-5. Copy run.bat and run.vbs to the actual Instance directory outside the repository if you want Instance files kept separate from the checkout. Keep instance.ini beside them.
-6. Launch run.vbs for hidden operation or run.bat for a visible console.
+1. Run `install.bat` from the repository root once.
+2. Copy `instance.example.ini` to `instance.ini` in the Instance folder and configure it.
+3. Set `SERVER_DIR` to the repository's shared `server` directory. Set the unique port, map/map group, reachable public IP (optional), Game Server Login Token, and a strong RCON password.
+4. Keep `instance.ini` private. It is excluded from Git in this template.
+5. Copy **all three** runner files (`run.bat`, `run-fast.bat`, and `run.vbs`) plus `instance.ini` into each actual external Instance directory; do not copy only the old `run.bat` and `run.vbs`.
+6. Launch `run.vbs` for hidden operation with anti-crash supervision. Launch `run.bat` directly only when you want a visible console and an update pass. Launch `run-fast.bat` to start a server immediately without update work.
 
-## Maintenance behavior
+## Maintenance and multi-instance safety
 
-- Every maintenance cycle uses a machine-wide lock so multiple Instances cannot update the shared installation at the same time.
-- Before it updates the game or overlays payload files, the runner ensures no cs2.exe process is using the shared installation. On initial startup, if another Instance is already running, it skips shared-file updates and starts without applying this Instance's shared cfg/ and addons/ overrides. After a server exits and an update is due, that Instance waits for the other server processes to stop before touching the shared installation.
-- Game files are checked/updated directly through SteamCMD. The runner does not call game-update.bat, update.bat, win.bat, or the installer.
-- The runner pulls the latest integration/kus-monorepo commit from the private repository. The repository's remote updater workflow checks upstream add-on releases and publishes payload updates; the runner does not run addons-update.bat locally, because that script creates local commits and could make later fast-forward pulls fail.
-- Runtime payload deployment is overwrite-only. It uses direct file-level copies, never mirrors or deletes the runtime addons/ directory, and retains files that are no longer present in the payload. This intentionally means removed or renamed add-on files are not automatically deleted.
-- Existing addons/counterstrikesharp/configs/ and cfg/settings/ files are protected from the shared payload overlay. Per-Instance overrides are copied only while no CS2 server process is active.
-- BIND_IP controls the local listen address and defaults to 0.0.0.0. IP is optional and, when set, is passed as +net_public_adr.
-- API_KEY, STEAM_ACCOUNT, and WORKSHOP_COLLECTION are only passed when non-empty.
+- A machine-wide lock serializes shared maintenance so two maintenance runners do not pull, update and overlay the same repository/runtime at the same time.
+- The former machine-wide `cs2.exe` gate no longer blocks add-on updates or the runtime overlay. The live overlay uses overwrite-only file copies: it never mirrors, purges, moves or deletes installed add-on files, and it protects the full `addons/counterstrikesharp/configs/` and `cfg/settings/` trees.
+- SteamCMD updates CS2 game binaries, not just plugin files. Therefore, the runner skips only the SteamCMD game update while **any** `cs2.exe` process is active; add-on release checks, gameinfo patching and overwrite-only payload copies can continue. A later maintenance launch can update the game when all CS2 processes are stopped.
+- Windows can reject an overwrite if a DLL is currently locked by a running process. If the overlay reports such an error, the VBS supervisor switches to the fast runner so a failed update cannot prevent the server from restarting. Restart VBS or run `run.bat` again later to retry maintenance.
+- Per-Instance `cfg/` and `addons/` overrides are copied only when no CS2 process is active, because all Instances share one runtime tree. When another server is already running, override sync is skipped rather than changing files underneath that server.
+- The updater never calls `win.bat`, `update.bat`, `game-update.bat`, or `install.bat`. Those operations have different responsibilities, and `win.bat` is a clean replacement/reset workflow rather than the routine overwrite-only path.
+- The machine-wide maintenance lock and recent-success marker are stored under `%TEMP%\`, outside the Git working tree. A stale lock can be cleared after the owning runner process has exited.
 
-The maintenance lock and last-success marker are stored under %TEMP%, outside the Git working tree. If a runner is forcibly killed in the middle of maintenance, other runner instances detect and clear a stale lock once its owner process is gone.
+## Common launch arguments
+
+`run.bat` accepts `--no-pause` for use by VBS and `--no-update` for the fast launch path. `run-fast.bat` forwards arguments to this shared runner.
