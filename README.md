@@ -140,7 +140,7 @@ The list below records the KUS catalog when this runtime snapshot was imported. 
 
 Mod | Version in the upstream snapshot | Purpose
 --- | --- | ---
-[Metamod:Source](https://www.metamodsource.net/downloads.php?branch=dev) | `2.0.0-1473` | Sits between the Game and the Engine, and allows plugins to intercept calls that flow between
+| [Metamod:Source](https://www.metamodsource.net/downloads.php?branch=dev) | `2.0.0-1474` | Sits between the Game and the Engine, and allows plugins to intercept calls that flow between
 [MultiAddonManager](https://github.com/Source2ZE/MultiAddonManager) | `1.6.2` | Allows you to use multiple workshop addons at once and have clients download them [How?](#i-want-to-permanently-enable-multi-addon-manager)
 [ServerListPlayersFix](https://github.com/Source2ZE/ServerListPlayersFix) | `2.0` | Fixes players not showing up in the server browser
 [MovementUnlocker](https://github.com/Source2ZE/MovementUnlocker) | `2.0.1` | Removes max speed limitation from players on the ground, feels like CS:S [How?](#i-run-a-surfkzbhop-server-and-want-movementunlocker-and-cs2fixes-rampbugfix-permanently-enabled)
