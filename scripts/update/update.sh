@@ -306,7 +306,7 @@ process_manifest_addons() {
         automation=$(printf '%s' "$entry" | jq -r '.automation_supported // true')
         branch=$(printf '%s' "$entry" | jq -r '.branch // "main"')
         [ "$automation" = "true" ] || { info "skipping $name: automation_supported=false"; continue; }
-        case "$name" in Metamod:Source|CounterStrikeSharp) continue ;; esac
+        case "$name" in Metamod:Source) continue ;; esac
         selected "$name" "$(slugify "$name")" || continue
         if [ "$track" = "pinned" ]; then
             RES_UPTODATE+=("$name $version (pinned)")

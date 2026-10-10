@@ -60,4 +60,7 @@ plugin_apply() {
     # then Linux
     sync_dir "$linux/addons/" "game/csgo/addons/"
     remove_extracted "$linux"
+
+    # Keep the Larnz manifest in sync with the same release applied by the KUS-style updater.
+    manifest_update_version "CounterStrikeSharp" "$NEW_VERSION"
 }

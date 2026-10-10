@@ -137,7 +137,7 @@ manifest_plugin_apply() {
         while IFS= read -r mapping; do
             [ -n "$mapping" ] || continue
             manifest_apply_mapping "$addon" "$extract" "$mapping"
-        done < <(printf '%s\\n' "$mappings" | jq -c '.')
+        done < <(printf '%s\\n' "$mappings" | jq -c '.[]')
         remove_extracted "$extract"
     done
     manifest_verify_addon "$addon"
