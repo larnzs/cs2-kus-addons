@@ -569,7 +569,7 @@ readme_set_version() {   # $1 name, $2 URL, $3 old version, $4 new version
     local n line oldtick newtick oldplain newplain replacement
     n=$(readme_line_number "$1" "$2")
     line=$(sed -n "${n}p" README.md)
-    oldtick="`$3`"; newtick="`$4`"
+    oldtick='`'"$3"'`'; newtick='`'"$4"'`'
     oldplain="| $3 |"; newplain="| $4 |"
     replacement="$line"
     if [[ "$line" == *"$oldtick"* ]]; then
