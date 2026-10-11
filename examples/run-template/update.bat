@@ -26,15 +26,6 @@ for %%I in ("%INSTANCE_DIR%\%SERVER_DIR%") do set "SERVER_DIR=%%~fI"
 if not defined REPO_ROOT for %%I in ("%SERVER_DIR%\..") do set "REPO_ROOT=%%~fI"
 if not exist "%REPO_ROOT%\DEPENDENCIES.json" for %%I in ("%SERVER_DIR%\..") do set "REPO_ROOT=%%~fI"
 
-if not defined CUSTOM_FOLDER set "CUSTOM_FOLDER=aim"
-if "%CUSTOM_FOLDER:~0,2%"=="\\" (
-    for %%I in ("%CUSTOM_FOLDER%") do set "CUSTOM_DIR=%%~fI"
-) else if "%CUSTOM_FOLDER:~1,1%"==":" (
-    for %%I in ("%CUSTOM_FOLDER%") do set "CUSTOM_DIR=%%~fI"
-) else (
-    for %%I in ("%INSTANCE_DIR%\%CUSTOM_FOLDER%") do set "CUSTOM_DIR=%%~fI"
-)
-
 if not defined BIND_IP set "BIND_IP=0.0.0.0"
 if not defined MAXPLAYERS set "MAXPLAYERS=24"
 if not defined PORT set "PORT=27015"
@@ -91,8 +82,7 @@ goto :DoMaintenance
 
 :RecentSuccess
 echo [%date% %time%] A successful shared update is less than five minutes old; skipping duplicate update checks.
-call :SyncOverrides
-if errorlevel 1 goto :MaintenanceFailed
+echo [%date% %time%] Custom-folder files are not copied into the shared runtime.
 call :ReleaseLock
 set "RC=0"
 goto :finish
@@ -162,8 +152,7 @@ if errorlevel 1 goto :MaintenanceFailed
 
 call :AnyCS2Running
 if not errorlevel 1 goto :MaintenanceSkippedBusy
-call :SyncOverrides
-if errorlevel 1 goto :MaintenanceFailed
+echo [%date% %time%] Skipping CUSTOM_FOLDER overlay to keep live game cfg/addons paths untouched.
 
 > "%LAST_SUCCESS%" echo Shared maintenance completed at %date% %time%
 echo [%date% %time%] Maintenance completed successfully. Returning to launch-only runner.
@@ -336,27 +325,6 @@ if not exist "%GAME_DIR%\addons\metamod\bin\win64\metamod.2.cs2.dll" (
 if not exist "%GAME_DIR%\addons\counterstrikesharp\dotnet\dotnet.exe" (
     echo ERROR: CounterStrikeSharp Windows runtime is missing after overlay.
     exit /b 1
-)
-exit /b 0
-
-:SyncOverrides
-call :AnyCS2Running
-if not errorlevel 1 (
-    echo Another CS2 instance is active; skipping this Instance's shared cfg/addons overrides.
-    echo Per-instance override files will not be copied while that process is running.
-    exit /b 0
-)
-
-echo.
-echo [%date% %time%] Syncing optional instance overrides while the shared game is idle...
-if exist "%CUSTOM_DIR%\cfg\" (
-    robocopy "%CUSTOM_DIR%\cfg" "%GAME_DIR%\cfg" /E /COPY:DAT /DCOPY:DAT /R:2 /W:1 /IS /IT >nul
-    if errorlevel 8 exit /b 1
-)
-if exist "%CUSTOM_DIR%\addons\" (
-    rem CSS config files remain server-managed and must not be overwritten by per-instance overrides.
-    robocopy "%CUSTOM_DIR%\addons" "%GAME_DIR%\addons" /E /COPY:DAT /DCOPY:DAT /R:2 /W:1 /IS /IT /XD "%CUSTOM_DIR%\addons\counterstrikesharp\configs" "%CUSTOM_DIR%\addons\windows\addons\counterstrikesharp\configs" >nul
-    if errorlevel 8 exit /b 1
 )
 exit /b 0
 
