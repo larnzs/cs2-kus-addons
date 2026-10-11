@@ -278,14 +278,12 @@ jobs:
           if ($templateUpdate -match '(?i)start "" /wait "%CS2_EXE%"| -dedicated |\+sv_maxplayers|\+exec %EXEC%|/MIR|/PURGE') {
             throw "Instance update.bat must not launch CS2 or use destructive mirroring/purge behavior."
           }
-          if ($templateVbs -notmatch 'update\.bat' -or
-              $templateVbs -notmatch 'run\.bat' -or
-              $templateVbs -notmatch 'shell\.Run' -or
+          if ($templateVbs -notmatch 'batPath = root & "\\run\.bat"' -or
+              $templateVbs -notmatch 'shell\.Run Chr\(34\) & batPath & Chr\(34\), 0, True' -or
               $templateVbs -notmatch 'WScript\.Sleep 100' -or
-              $templateVbs -notmatch '1, True' -or
-              $templateVbs -notmatch '0, True' -or
-              $templateVbs -match '(?i)supervisor\.ps1|run_fast\.bat|Win32_Process|Maintenance-success\.marker') {
-            throw "Example run.vbs must run update.bat once, then use the classic wait-and-retry run.bat loop without PowerShell/WMI supervision."
+              $templateVbs -notmatch '(?s)Do\s+shell\.Run Chr\(34\) & batPath & Chr\(34\), 0, True\s+WScript\.Sleep 100\s+Loop' -or
+              $templateVbs -match '(?i)update\.bat|run_fast\.bat|supervisor\.ps1|Win32_Process|powershell|Maintenance-success\.marker|On Error Resume Next') {
+            throw "Example run.vbs must be the classic run.bat wait/retry loop only."
           }
           if ($templateBat -match '(?i)ForcePostExitMaintenance|WaitForAllCS2|RunMaintenance|UpdateGame') {
             throw "Launch-only run.bat must never enter maintenance or post-exit update loops."
@@ -297,7 +295,7 @@ jobs:
               $templateIgnore -notmatch '(?im)^instance\.ini[ \t\r]*$') {
             throw "Example INI must use a placeholder RCON password and ignore local instance.ini."
           }
-          Write-Host "Validated launch-only runner, one-shot updater, classic 100 ms VBS anti-crash loop, lock coordination, and private INI policy."
+          Write-Host "Validated launch-only runner, separate maintenance, classic VBS loop, and private INI policy."
 
       - name: Smoke-test explicit release archive mappings
         if: github.event_name != 'schedule'
