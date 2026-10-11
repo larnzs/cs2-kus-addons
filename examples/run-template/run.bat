@@ -11,10 +11,6 @@ set "RC=2"
 :parse_args
 if "%~1"=="" goto :args_done
 if /I "%~1"=="--pause" set "PAUSE_ON_EXIT=1"
-if /I "%~1"=="--no-update" (
-    set "MAINTENANCE_ENABLED=0"
-    set "MAINTENANCE_STATUS=skipped; supervisor retry without update checks"
-)
 shift
 goto :parse_args
 
@@ -80,9 +76,6 @@ set "LOCK_HELD=0"
 
 if not exist "%CS2_EXE%" goto :MissingCS2
 if not exist "%GAMEINFO%" goto :MissingGameInfo
-
-rem A supervisor retry passes --no-update, but still launches this Instance normally.
-if "%MAINTENANCE_ENABLED%"=="0" goto :ValidationComplete
 
 rem If another server is already active, skip shared maintenance but continue launching this Instance.
 call :AnyCS2Running
@@ -214,31 +207,36 @@ if not errorlevel 1 (
 )
 
 :DoMaintenance
+rem Re-check between update stages. If another Instance starts, abandon the
+rem remaining maintenance/deployment work instead of touching shared runtime files.
+call :AnyCS2Running
+if not errorlevel 1 goto :MaintenanceSkippedBusy
+
 call :UpdateRepository
 if errorlevel 1 goto :MaintenanceFailed
 
+call :AnyCS2Running
+if not errorlevel 1 goto :MaintenanceSkippedBusy
 call :UpdateUpstreamAddons
 if errorlevel 1 goto :MaintenanceFailed
 
+call :AnyCS2Running
+if not errorlevel 1 goto :MaintenanceSkippedBusy
 call :UpdateRepository
 if errorlevel 1 goto :MaintenanceFailed
 
-rem SteamCMD can replace the game binaries, so only this part waits for all CS2 processes to stop.
-rem Add-on release checks and overwrite-only payload copies continue while other servers are running.
 call :AnyCS2Running
-if not errorlevel 1 goto :SkipGameUpdate
+if not errorlevel 1 goto :MaintenanceSkippedBusy
 call :UpdateGame
 if errorlevel 1 goto :MaintenanceFailed
-goto :GameUpdateDone
 
-:SkipGameUpdate
-echo [%date% %time%] Another cs2.exe is active; skipping only the SteamCMD game update.
-echo Add-on checks, gameinfo patching and overwrite-only payload copies will still run.
-
-:GameUpdateDone
+call :AnyCS2Running
+if not errorlevel 1 goto :MaintenanceSkippedBusy
 call :PatchGameInfo
 if errorlevel 1 goto :MaintenanceFailed
 
+call :AnyCS2Running
+if not errorlevel 1 goto :MaintenanceSkippedBusy
 call :OverlayPayload
 if errorlevel 1 goto :MaintenanceFailed
 
@@ -248,7 +246,7 @@ call :ReleaseLock
 exit /b 0
 
 :MaintenanceSkippedBusy
-echo [%date% %time%] Another cs2.exe became active while waiting for maintenance; skipping updates and continuing to launch this instance.
+echo [%date% %time%] Another cs2.exe is active; cancelling the remaining update/deploy stages and continuing to launch this instance without changing shared runtime files.
 call :ReleaseLock
 exit /b 0
 
