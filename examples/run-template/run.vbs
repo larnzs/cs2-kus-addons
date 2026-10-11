@@ -61,24 +61,20 @@ Do
 
     If launchError = 0 Then
         WriteLog "Runner returned exit code " & CStr(runnerExitCode) & " from " & batPath
-        If CLng(runnerExitCode) = 100 Then
-            If Not fastMode Then
-                WriteLog "CS2 exited; next launch will use run-fast.bat, bypassing maintenance."
-            Else
-                WriteLog "CS2 exited from fast mode; restarting through run-fast.bat again."
-            End If
+        If Not fastMode Then
+            ' Never make anti-crash recovery depend on the exact child exit code.
+            ' Once the first maintenance runner returns, every retry uses the fast runner.
             fastMode = True
-        ElseIf CLng(runnerExitCode) = 101 Then
-            WriteLog "Maintenance failed before launch; switching to run-fast.bat so maintenance cannot block recovery."
-            fastMode = True
-        ElseIf CLng(runnerExitCode) <> 0 Then
-            WriteLog "Runner returned unexpected exit code " & CStr(runnerExitCode) & "; will retry after a short delay."
+            WriteLog "Initial runner returned; all subsequent restarts use run-fast.bat, regardless of the reported exit code."
         Else
-            WriteLog "Runner returned without the CS2 exit signal; keeping current launch mode."
+            WriteLog "Fast runner returned; another fast restart will be attempted."
         End If
+    Else
+        ' If launch itself fails, avoid repeatedly entering the update path.
+        fastMode = True
+        WriteLog "Launch failed; subsequent attempts will use run-fast.bat."
     End If
 
-    ' Short guard against an instant crash loop; no update/check cooldown is added here.
     WScript.Sleep 5000
 Loop
 
