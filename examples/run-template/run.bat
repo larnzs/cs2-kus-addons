@@ -3,6 +3,8 @@ setlocal EnableExtensions DisableDelayedExpansion
 
 title CS2 Instance Runner
 set "PAUSE_ON_EXIT=1"
+rem VBS sets this inherited environment flag; do not rely only on command-line quoting.
+if /I "%CS2_RUNNER_NO_PAUSE%"=="1" set "PAUSE_ON_EXIT=0"
 set "MAINTENANCE_ENABLED=1"
 set "RC=2"
 
