@@ -23,6 +23,7 @@ on:
       - "README.md"
       - "docs/Unified-README-HEADER.md"
       - ".github/workflows/payload-layout-check.yml"
+      - ".github/workflows/addon-updater.yml"
   workflow_dispatch:
 
 permissions:
@@ -181,5 +182,17 @@ jobs:
               assert f'"{protected}"' in integrate, f"KUS import must explicitly preserve {protected}"
           assert "Copy-Tree -Source $KusRuntime -Destination $runtimeRoot -ExcludePaths $ProtectedConfigPaths" in integrate
           assert "foreach ($protectedRelative in $PreservedManualPaths)" in integrate
+          addon_workflow = Path(".github/workflows/addon-updater.yml").read_text(encoding="utf-8")
+          for critical_step in (
+              "Validate example instance template",
+              "Smoke-test explicit release archive mappings",
+              "Validate manifest and automation policy",
+              "Snapshot fixed configuration paths",
+              "Configure Git identity",
+              "Run addon updater",
+              "Verify all installed addon files and protected configs",
+              "Push successful updater commits",
+          ):
+              assert addon_workflow.count(f"      - name: {critical_step}") == 1, f"Addon updater workflow has a duplicate or missing step: {critical_step}"
           print(f"Validated {len(names)} tracked paths and KUS staged layout.")
           PY
