@@ -182,12 +182,15 @@ set "RC=100"
 goto :finish
 
 :maintenance_retry
-echo ERROR: Maintenance failed before launch; the supervisor will retry run.bat without repeating maintenance.
+echo ERROR: Maintenance failed before launch; retrying in 60 seconds to avoid a tight update loop.
+timeout /t 60 /nobreak >nul
 set "RC=101"
 goto :finish
 
 :sync_failed
 echo ERROR: Optional instance override sync failed. Check paths and permissions.
+echo Retrying this Instance in 60 seconds.
+timeout /t 60 /nobreak >nul
 set "RC=3"
 goto :finish
 
