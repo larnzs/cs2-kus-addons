@@ -134,6 +134,8 @@ jobs:
           echo "All KUS and Larnz add-on shell scripts passed bash -n and special manifest-sync checks."
       - name: Run KUS and manifest-backed per-add-on scripts
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
