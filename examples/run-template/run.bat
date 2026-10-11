@@ -78,10 +78,8 @@ set "LOCK_HELD=0"
 if not exist "%CS2_EXE%" goto :MissingCS2
 if not exist "%GAMEINFO%" goto :MissingGameInfo
 
-if not exist "%REPO_ROOT%\DEPENDENCIES.json" goto :MissingRepository
-if not exist "%STEAMCMD%" goto :MissingSteamCmd
-if not exist "%PAYLOAD_DIR%\addons\" goto :MissingPayload
-if not exist "%WINDOWS_OVERLAY%\addons\" goto :MissingWindowsOverlay
+rem Maintenance prerequisites are checked only after active CS2 instances are ruled out.
+rem A busy shared install should not block this Instance's normal server launch.
 goto :ValidationComplete
 
 :MissingCS2
@@ -184,42 +182,77 @@ timeout /t 60 /nobreak >nul
 goto :main
 
 :RunMaintenance
-call :AcquireLock
-
-rem After a CS2 exit, do not update the shared runtime until every CS2 process has stopped.
+rem After a CS2 exit, wait without holding the machine-wide update lock.
 if "%POST_EXIT%"=="1" goto :ForcePostExitMaintenance
 
-rem Suppress duplicate maintenance during the five-minute startup cooldown.
+rem Ordinary startup: if any other server is active, skip updates and launch this Instance.
+call :AnyCS2Running
+if not errorlevel 1 goto :SkipStartupMaintenanceNoLock
+
+call :AcquireLock
+
+rem Recheck after acquiring the lock; a different Instance may have started while we waited.
+call :AnyCS2Running
+if not errorlevel 1 goto :SkipStartupMaintenance
+
+rem Suppress duplicate maintenance during the five-minute successful-maintenance cooldown.
 call :IsRecentSuccess
 if not errorlevel 1 (
     echo [%date% %time%] Shared maintenance ran recently; skipping duplicate startup check.
     call :ReleaseLock
     exit /b 0
 )
-
-rem On ordinary startup, another active Instance owns use of the shared runtime:
-rem skip maintenance for this startup but continue to launch this Instance.
-call :AnyCS2Running
-if not errorlevel 1 goto :SkipStartupMaintenance
 goto :DoMaintenance
 
 :ForcePostExitMaintenance
-echo [%date% %time%] CS2 exited; forcing a fresh update check, but only while all CS2 processes are stopped.
+echo [%date% %time%] CS2 exited; waiting for all CS2 processes before forced maintenance.
 :WaitForAllCS2
 call :AnyCS2Running
-if errorlevel 1 goto :DoMaintenance
-echo [%date% %time%] Another CS2 instance is active; post-exit maintenance is paused.
-echo No shared game, add-on, or runtime files will be changed until all cs2.exe processes exit.
-timeout /t 5 /nobreak >nul
-goto :WaitForAllCS2
+if not errorlevel 1 (
+    echo [%date% %time%] Another CS2 instance is active; post-exit maintenance is paused.
+    echo The update lock is not held while waiting, so existing/new Instances are not blocked by this wait.
+    timeout /t 5 /nobreak >nul
+    goto :WaitForAllCS2
+)
+
+rem All CS2 processes are idle. Acquire the update lock, then recheck to close the race.
+call :AcquireLock
+call :AnyCS2Running
+if not errorlevel 1 (
+    call :ReleaseLock
+    goto :WaitForAllCS2
+)
+goto :DoMaintenance
+
+:SkipStartupMaintenanceNoLock
+echo [%date% %time%] Another CS2 instance is active. Skipping shared-file maintenance on startup.
+echo This Instance will still launch; no shared game, add-on, or override files will be changed.
+exit /b 0
 
 :SkipStartupMaintenance
-echo [%date% %time%] Another CS2 instance is active. Skipping shared-file maintenance on startup.
-echo No game, add-on, or custom override files will be changed while it is running.
+echo [%date% %time%] Another cs2.exe became active while waiting for the maintenance lock; skipping maintenance.
 call :ReleaseLock
 exit /b 0
 
 :DoMaintenance
+rem Do not start maintenance if prerequisites are missing; let the outer loop retry safely.
+if not exist "%REPO_ROOT%\DEPENDENCIES.json" (
+    echo ERROR: Repository manifest is missing: %REPO_ROOT%\DEPENDENCIES.json
+    goto :MaintenanceFailed
+)
+if not exist "%STEAMCMD%" (
+    echo ERROR: SteamCMD is missing: %STEAMCMD%
+    goto :MaintenanceFailed
+)
+if not exist "%PAYLOAD_DIR%\addons\" (
+    echo ERROR: Tracked add-on payload is missing: %PAYLOAD_DIR%\addons
+    goto :MaintenanceFailed
+)
+if not exist "%WINDOWS_OVERLAY%\addons\" (
+    echo ERROR: Windows add-on overlay is missing: %WINDOWS_OVERLAY%\addons
+    goto :MaintenanceFailed
+)
+
 rem Re-check between update stages. If another Instance starts, abandon the
 rem remaining maintenance/deployment work instead of touching shared runtime files.
 call :AnyCS2Running
