@@ -279,7 +279,7 @@ jobs:
           if ($templateUpdate -match '(?i)start "" /wait "%CS2_EXE%"| -dedicated |\+sv_maxplayers|\+exec %EXEC%|/MIR|/PURGE') {
             throw "Instance update.bat must not launch CS2 or use destructive mirroring/purge behavior."
           }
-          foreach ($required in @('ResolveRunnerBatch', 'CS2-KUS-Watchdog.log', 'shell.Run commandLine, 0, True', 'WScript.Sleep 100', 'On Error Resume Next', 'cmd.exe')) {
+          foreach ($required in @('ResolveRunnerBatch', 'CS2-KUS-Watchdog.log', 'shell.Run commandLine, 0, True', 'WScript.Sleep 100', 'On Error Resume Next')) {
             if ($templateVbs -notmatch [regex]::Escape($required)) {
               throw "Hardened run.vbs is missing expected behavior: $required"
             }
@@ -291,7 +291,11 @@ jobs:
           }
           if ($templateGuardian -notmatch '(?i)cscript\.exe' -or
               $templateGuardian -notmatch '%~dp0run\.vbs' -or
-              $templateGuardian -notmatch '(?im)^:watch\s*
+              $templateGuardian -notmatch ':watch' -or
+              $templateGuardian -notmatch 'goto :watch' -or
+              $templateGuardian -match '(?i)update\.bat|app_update 730|Invoke-RuntimeAddonUpdate|robocopy') {
+            throw "watchdog.bat must supervise run.vbs in a restart loop and must never perform maintenance."
+          }
           if ($templateBat -match '(?i)ForcePostExitMaintenance|WaitForAllCS2|RunMaintenance|UpdateGame') {
             throw "Launch-only run.bat must never enter maintenance or post-exit update loops."
           }
