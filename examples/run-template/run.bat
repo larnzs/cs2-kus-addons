@@ -72,7 +72,30 @@ echo Map:     %MAP%
 echo.
 
 rem If update.bat is deploying shared files, wait before opening cs2.exe.
+call :WaitForMaintenance
+
 call :SyncCustomFiles
+if errorlevel 1 (
+    set "RC=2"
+    goto :finish
+)
+
+echo [%date% %time%] Starting CS2 on port %PORT%...
+start "" /wait "%CS2_EXE%" ^
+ -dedicated -console -debug -condebug -conclearlog -usercon -disable_workshop_command_filtering ^
+ +game_type 0 +game_mode 0 +mapgroup %MAPGROUP% +map %MAP% %WORKSHOP_ARGS% ^
+ -port %PORT% -ip %BIND_IP% %PUBLIC_ARGS% ^
+ -tickrate %TICKRATE% +sv_maxplayers %MAXPLAYERS% +sv_visiblemaxplayers %MAXPLAYERS% ^
+ %AUTH_ARGS% %GSLT_ARGS% ^
+ +sv_lan %LAN% +sv_password "%SERVER_PASSWORD%" +rcon_password "%RCON_PASSWORD%" ^
+ +exec %EXEC%
+
+set "SERVER_EXIT=%ERRORLEVEL%"
+echo WARNING: CS2 exited with code %SERVER_EXIT%; returning to the VBS anti-crash loop.
+set "RC=100"
+goto :finish
+
+:SyncCustomFiles
 if not defined CUSTOM_DIR exit /b 0
 if not exist "%CUSTOM_DIR%\" (
     echo WARNING: CUSTOM_FOLDER does not exist: "%CUSTOM_DIR%". Skipping custom files.
@@ -98,28 +121,6 @@ if exist "%CUSTOM_DIR%\addons\" (
 )
 exit /b 0
 
-:WaitForMaintenance
-
-call :SyncCustomFiles
-if errorlevel 1 (
-    set "RC=2"
-    goto :finish
-)
-
-echo [%date% %time%] Starting CS2 on port %PORT%...
-start "" /wait "%CS2_EXE%" ^
- -dedicated -console -debug -condebug -conclearlog -usercon -disable_workshop_command_filtering ^
- +game_type 0 +game_mode 0 +mapgroup %MAPGROUP% +map %MAP% %WORKSHOP_ARGS% ^
- -port %PORT% -ip %BIND_IP% %PUBLIC_ARGS% ^
- -tickrate %TICKRATE% +sv_maxplayers %MAXPLAYERS% +sv_visiblemaxplayers %MAXPLAYERS% ^
- %AUTH_ARGS% %GSLT_ARGS% ^
- +sv_lan %LAN% +sv_password "%SERVER_PASSWORD%" +rcon_password "%RCON_PASSWORD%" ^
- +exec %EXEC%
-
-set "SERVER_EXIT=%ERRORLEVEL%"
-echo WARNING: CS2 exited with code %SERVER_EXIT%; returning to the VBS anti-crash loop.
-set "RC=100"
-goto :finish
 
 :WaitForMaintenance
 if not exist "%LOCK_DIR%\" exit /b 0
