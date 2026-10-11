@@ -15,7 +15,7 @@ The VBS resolves `run.bat` and `instance.ini` relative to its own directory, so 
 3. Set `SERVER_DIR` to the repository's shared `server` directory. Set a unique port, map/map group, reachable public IP if needed, Game Server Login Token, and a strong RCON password.
 4. Keep `instance.ini` private. It is excluded from Git in this template.
 5. Copy only `run.bat`, `run.vbs`, and your private `instance.ini` into each external Instance folder. The old `run-fast.bat` is no longer used.
-6. Start `run.vbs` for hidden operation with anti-crash supervision. Run `run.bat` directly only when you intentionally want a visible maintenance-and-launch pass. Add `--pause` when you want the batch window to wait after exit. The supervisor automatically passes `--no-update` on retries.
+6. Start `run.vbs` for hidden operation with anti-crash supervision. Run `run.bat` directly only when you intentionally want a visible maintenance-and-launch pass. Add `--pause` when you want the batch window to wait after exit. The supervisor passes no arguments and relies on the runner's normal update lock and five-minute successful-maintenance cooldown.
 
 ## Anti-crash and maintenance behavior
 
