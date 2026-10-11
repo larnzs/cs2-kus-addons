@@ -1,6 +1,6 @@
 Option Explicit
 
-Dim shell, fso, root, batPath, iniPath, logPath
+Dim shell, fso, root, batPath, iniPath, logPath, runnerExitCode
 
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
@@ -35,10 +35,12 @@ Do
 
     ' Preserve the user's proven WSH pattern: hide the batch window and wait for it to return.
     On Error Resume Next
-    shell.Run Chr(34) & batPath & Chr(34), 0, True
+    runnerExitCode = shell.Run(Chr(34) & batPath & Chr(34), 0, True)
     If Err.Number <> 0 Then
         WriteLog "ERROR: run.bat launch failed: " & Err.Description
         Err.Clear
+    Else
+        WriteLog "run.bat returned with exit code " & CStr(runnerExitCode)
     End If
     On Error GoTo 0
 
