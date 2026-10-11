@@ -196,8 +196,8 @@ rem Recheck after acquiring the lock; another Instance may have started meanwhil
 call :AnyCS2Running
 if not errorlevel 1 goto :SkipStartupMaintenance
 
-rem Keep the five-minute success cooldown. If previous maintenance was recent,
-rem create the group-wide fast marker as well so other Instances avoid repeat work.
+rem Keep the five-minute success cooldown. The persistent success marker is also
+rem the group-wide switch to fast crash recovery for all Instance supervisors.
 call :IsRecentSuccess
 if not errorlevel 1 (
     echo [%date% %time%] Shared maintenance ran recently; skipping duplicate update work.

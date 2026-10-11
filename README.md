@@ -15,7 +15,7 @@ This README combines Larnz's manifest-managed add-ons with KUS's base plugins, g
 | `game/csgo/cfg/` | Tracked shared configuration source, deployed into the installed runtime. |
 | DEPENDENCIES.json | Larnz add-on updater manifest. |
 | scripts/update/ | Active KUS-style per-plugin automation; the same Bash updater also runs the Larnz manifest add-on scripts. |
-| examples/run-template/ | Reusable Windows runner and VBS supervisor template. |
+| examples/run-template/ | Windows runner with detached PowerShell supervisor and independent VBS watchdog template. |
 | docs/upstream/ | KUS source snapshot metadata and archived upstream entrypoints/workflows. |
 
 The upstream `custom_files/` and `custom_files_example/` trees are intentionally not imported. On Windows, use the external per-instance override directory selected by `CUSTOM_FOLDER` in `examples/run-template/instance.ini`. Never store tokens, passwords or private database credentials in tracked files.
@@ -24,7 +24,7 @@ The upstream `custom_files/` and `custom_files_example/` trees are intentionally
 
 1. Clone this private repository on the Windows server machine.
 2. Run `install.bat`. It downloads SteamCMD if needed, installs/checks CS2 with SteamCMD, then prepares the runtime. It does not start the server.
-3. Prepare `instance.ini` and keep `run.bat`, `run_fast.bat`, `run.vbs`, and `instance.ini` together in the external Instance folder. Launch `run.vbs` for hidden supervision; after a successful full maintenance pass, its shared Temp marker makes all Instances use `run_fast.bat` for crash restarts.
+3. Prepare `instance.ini` and keep `run.bat`, `run_fast.bat`, `run.vbs`, `supervisor.ps1`, and `instance.ini` together in the external Instance folder. Launch `run.vbs`; it stays independent of the CS2 process while monitoring the hidden PowerShell supervisor. The shared Temp marker selects fast crash recovery after the first successful maintenance pass.
 
 For the difference between each maintenance script—and an important warning about manual deployment—see [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons).
 
@@ -260,7 +260,7 @@ Coverage means the **15 KUS scripts currently provided by KUS** plus the 17 enab
 
 ### Two different update modes
 
-`run.vbs` is a minimal marker-aware watchdog: before `%TEMP%\\CS2-KUS-Maintenance-success.marker` exists, it launches the sibling `run.bat`; after full maintenance succeeds, it launches the sibling `run_fast.bat`. Both paths are retried after 100 milliseconds when the chosen batch returns. `run.bat` launches one CS2 process and returns to VBS after it exits, rather than entering a second update loop. If another `cs2.exe` is active at startup or becomes active mid-maintenance, updates/deployment are skipped or cancelled, but the requested Instance can still launch.
+`run.vbs` never waits for a batch or CS2 process. It polls WMI for this Instance's `supervisor.ps1` and starts a detached hidden copy if missing. The PowerShell supervisor selects `run.bat` or `run_fast.bat` from `%TEMP%\\CS2-KUS-Maintenance-success.marker`, waits on a separate `cmd.exe` host, and retries 100 milliseconds after the runner returns. If PowerShell itself exits or crashes, the independent VBS watchdog relaunches it. A named mutex prevents duplicate supervisors. If another `cs2.exe` is active at startup or becomes active mid-maintenance, updates/deployment are skipped or cancelled, but the requested Instance can still launch.
 
 #### A. Soft reset of the installed runtime — `win.bat`
 
@@ -412,7 +412,7 @@ The active Windows runner reads `examples/run-template/instance.ini`, not enviro
 | `MAP` | `de_mirage` | Initial map requested at launch. |
 | `WORKSHOP_COLLECTION` | empty | Optional Workshop collection ID. |
 
-`run.vbs` checks a shared `%TEMP%\\CS2-KUS-Maintenance-success.marker` marker before each launch. It uses `run.bat` when full maintenance is needed and `run_fast.bat` after a successful maintenance pass. Each batch launches one CS2 process and returns when it exits; VBS retries the selected runner after 100 milliseconds. If any `cs2.exe` is active, shared maintenance skips or cancels deployment, but other Instances can still launch in fast mode.
+`run.vbs` acts only as an independent watchdog for `supervisor.ps1`; it does not wait on the batch or game. PowerShell checks the shared `%TEMP%\\CS2-KUS-Maintenance-success.marker`, selects `run.bat` when full maintenance is needed and `run_fast.bat` after successful maintenance, then retries the chosen runner 100 milliseconds after it exits. The VBS watchdog restarts the PowerShell supervisor if that process disappears. If any `cs2.exe` is active, shared maintenance skips or cancels deployment, but other Instances can still launch in fast mode.
 
 ## Playing workshop maps/collections
 
@@ -474,11 +474,11 @@ install.bat
 
 Copy `examples/run-template/instance.example.ini` to `examples/run-template/instance.ini`. Edit the port, map/map group, reachable public IP (optional), Game Server Login Token, and a strong RCON password. Keep `instance.ini` private; it is excluded from Git.
 
-Launch `examples/run-template/run.vbs` for hidden operation. It starts with `run.bat` only while the shared fast-mode marker is absent; after maintenance succeeds, all Instances use `run_fast.bat` for subsequent launches and crash recovery. Both runners return after their CS2 process exits, and VBS retries after 100 milliseconds. To deliberately force a new maintenance cycle, stop the Instances and remove the shared maintenance-success marker from `%TEMP%` before starting one VBS.
+Launch `examples/run-template/run.vbs` for hidden operation. It independently monitors `supervisor.ps1` and re-launches it if missing; PowerShell selects `run.bat` until the shared marker exists and `run_fast.bat` afterward. This separates watchdog lifetime from the CS2/batch process lifetime. To deliberately force a new maintenance cycle, stop the Instances and both supervisor layers, then remove the shared marker from `%TEMP%` before starting one VBS.
 
 ### Maintenance commands
 
-See [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons) for what each maintenance script does and when it is safe to run. For normal operation, copy `run.bat`, `run_fast.bat`, `run.vbs`, and `instance.ini` into each external Instance folder. Shared updates run only when no `cs2.exe` is active; after a successful full update, all VBS supervisors use the fast runner. Stop every CS2 instance before manual install or clean-reset/deployment scripts.
+See [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons) for what each maintenance script does and when it is safe to run. For normal operation, copy `run.bat`, `run_fast.bat`, `run.vbs`, `supervisor.ps1`, and `instance.ini` into each external Instance folder. Shared updates run only when no `cs2.exe` is active; after a successful full update, all PowerShell supervisors use the fast runner. Stop every CS2 instance before manual install or clean-reset/deployment scripts.
 
 Allow the selected game port through Windows Firewall and the router/cloud firewall. Use a valid Game Server Login Token for a public server. Keep API keys, login tokens, RCON passwords, and instance-specific settings out of tracked files.
 
