@@ -15,16 +15,16 @@ This README combines Larnz's manifest-managed add-ons with KUS's base plugins, g
 | `game/csgo/cfg/` | Tracked shared configuration source, deployed into the installed runtime. |
 | DEPENDENCIES.json | Larnz add-on updater manifest. |
 | scripts/update/ | Active KUS-style per-plugin automation; the same Bash updater also runs the Larnz manifest add-on scripts. |
-| examples/run-template/ | Separate maintenance batch, launch-only runner, and VBS/CMD watchdog. `CUSTOM_FOLDER` is currently inactive pending an isolated filesystem overlay. |
+| examples/run-template/ | Separate maintenance batch, launch runner, and VBS/CMD watchdog. `run.bat` copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` into the shared runtime before each launch. |
 | docs/upstream/ | KUS source snapshot metadata and archived upstream entrypoints/workflows. |
 
-The upstream `custom_files/` and `custom_files_example/` trees are intentionally not imported. `CUSTOM_FOLDER` remains in the Windows Instance INI as a reserved override root, but the current runner deliberately does not mount or copy it into the shared runtime. Never store tokens, passwords or private database credentials in tracked files.
+The upstream `custom_files/` and `custom_files_example/` trees are intentionally not imported. On Windows, `CUSTOM_FOLDER` is an active copy source: before each launch, `run.bat` uses `xcopy` to copy its `cfg/` and `addons/` trees into the shared runtime. Matching files are overwritten; nothing is deleted. This is not per-instance isolation, so instances sharing `SERVER_DIR` can overwrite the same destination paths. Never store tokens, passwords or private database credentials in tracked files.
 
 ## Windows installation and operation
 
 1. Clone this private repository on the Windows server machine.
 2. Run `install.bat`. It downloads SteamCMD if needed, installs/checks CS2 with SteamCMD, then prepares the runtime. It does not start the server.
-3. Copy the instance-local `update.bat`, `run.bat`, `run.vbs`, `watchdog.bat`, and your private `instance.ini` into the external Instance folder. Run the instance-local updater separately when needed with all CS2 processes stopped; then start `watchdog.bat`. The guardian keeps a CMD session open and relaunches the VBS host if it exits. The runner does not copy or mount `CUSTOM_FOLDER`; this is intentional until a true per-instance filesystem overlay is available.
+3. Copy the instance-local `update.bat`, `run.bat`, `run.vbs`, `watchdog.bat`, and your private `instance.ini` into the external Instance folder. Run the instance-local updater separately when needed with all CS2 processes stopped; then start `watchdog.bat`. The guardian keeps a CMD session open and relaunches the VBS host if it exits. Before every CS2 launch, `run.bat` copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` into the shared runtime using `xcopy`.
 
 For the difference between each maintenance script—and an important warning about manual deployment—see [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons).
 
@@ -258,9 +258,7 @@ GitHub Actions checks for new upstream add-on releases every hour at **minute 17
 
 Coverage means the **15 KUS scripts currently provided by KUS** plus the 17 enabled entries in our manifest (MetaMod and CounterStrikeSharp are shared between the two groups). KUS catalog rows that do not have their own upstream updater script are still warning-only/skipped, as documented by KUS; this does not automatically update every optional plugin name in the catalog. `CS2-WeaponRestrict` remains intentionally excluded because it is marked not installed and not automated.
 
-### Separate maintenance and crash recovery
-
-The external Instance folder has its own `update.bat` for shared maintenance. Run it manually with all CS2 processes stopped. Start `watchdog.bat` for normal operation: it keeps a visible CMD guardian running `run.vbs` through `cscript.exe`, and relaunches the VBS host if it terminates. Inside that guard, `run.vbs` invokes the runner through `cmd.exe`, waits for it to return, then retries **100 milliseconds** after exit code 100. Neither restart layer applies `CUSTOM_FOLDER` overrides or repeats Git pulls, release checks, SteamCMD, gameinfo patching, or shared payload deployment during crash recovery.
+The external Instance folder has its own `update.bat` for shared maintenance. Run it manually with all CS2 processes stopped. Start `watchdog.bat` for normal operation: it keeps a visible CMD guardian running `run.vbs` through `cscript.exe`, and relaunches the VBS host if it terminates. Inside that guard, `run.vbs` invokes the runner through `cmd.exe`, waits for it to return, then retries **100 milliseconds** after exit code 100. The VBS/watchdog layers do not run maintenance; each new `run.bat` invocation copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` before starting CS2.
 
 The instance updater refuses to modify the shared runtime while any `cs2.exe` is active. A shared lock also prevents a waiting launch-only batch from opening CS2 while maintenance is in progress; stale locks are checked against the owner PID before being removed. The five-minute success marker only suppresses duplicate updater work if you run it repeatedly; it does not select a different runner.
 
@@ -284,7 +282,7 @@ The live CounterStrikeSharp `configs/` tree and the specifically preserved `cfg/
 These two use overlay-style copying, but they operate at different stages:
 
 - **`addons-update.bat` updates the repository payload.** It checks configured upstream add-on releases and copies their files into `game/csgo/`. Existing files at matching paths are overwritten and new files are added, but files that the new release no longer contains are **not** removed from the payload. The updater also protects designated configuration paths. Use `addons-update.bat -Force` to re-download/reapply managed add-ons even when their recorded versions already match; this is still an overlay, not a clean-directory reinstall.
-- **The instance-template `run.bat` is launch-only.** It waits for the shared-maintenance lock and launches CS2; it deliberately does not copy or mount `CUSTOM_FOLDER`. That avoids overwriting shared runtime files but means custom-folder settings are inactive until an isolated per-instance filesystem layer is implemented. `update.bat` still performs normal shared maintenance, but it no longer merges `CUSTOM_FOLDER`.
+- **The instance-template `run.bat` is the launch runner.** It waits for the shared-maintenance lock, copies the configured `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` into the shared runtime using `xcopy`, then launches CS2. The instance-local `update.bat` performs shared maintenance only. Custom-folder copies overwrite matching paths without deleting unrelated files, but they are shared across all instances pointing at the same `SERVER_DIR`.
 
 **Why this distinction matters:** if a plugin's old extra file remains in the repository payload after an overlay update, `win.bat` will deploy that file again. If an old extra file exists only in the live runtime, `win.bat`'s clean replacement removes it, while `run.bat`'s overlay leaves it in place.
 
@@ -299,7 +297,7 @@ These two use overlay-style copying, but they operate at different stages:
 | `addons-update.bat` | Checks upstream releases and updates manifest-managed add-ons in the repository payload. | **Non-destructive overlay** into `game/csgo/`; it does not remove stale files omitted from a release. | No | No |
 | `addons-inspect.bat` | Inspects configured upstream release assets without installing them. | Inspection only; no payload or runtime deployment. | No | No |
 | `examples/run-template/update.bat` | Instance-local one-shot maintenance pipeline, copied beside the launch runner. | **Overwrite-only overlay**; does not delete existing add-on files. | Yes, only when no other `cs2.exe` is active | No |
-| `examples/run-template/run.bat` | Reads `instance.ini`, waits for the maintenance lock, launches one CS2 process, and returns after exit/crash. | No `CUSTOM_FOLDER` copying/mounting; launch-only. | No | Yes |
+| `examples/run-template/run.bat` | Reads `instance.ini`, waits for the maintenance lock, copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` into the runtime, then launches one CS2 process. | Overwrite-only `xcopy`; no deletions. | Yes, when the custom folder has matching files | Yes |
 
 `update.bat` at the repository root is a separate KUS-style Git/payload entrypoint. `examples/run-template/update.bat` is copied into each external Instance folder and is the instance-local maintenance pipeline described above. Do not overwrite the repository-root script with the template copy. `game-update.bat` checks for a running `cs2.exe` before SteamCMD, but the repository-root `win.bat`, `update.bat`, and `install.bat` do not provide that same active-process guard.
 
@@ -349,26 +347,31 @@ Changes made directly to tracked files become local Git changes. Commit them int
 
 ### Per-instance overrides on Windows
 
-`CUSTOM_FOLDER` is reserved for future per-instance overrides. **Current behavior:** neither `run.bat` nor the Instance-local `update.bat` copies or mounts its contents, because ordinary copying would overwrite shared game/plugin files and a Source 2 search path alone does not isolate CounterStrikeSharp's filesystem-based plugin configs. The directory layout below is illustrative only and has no effect on the running server yet. A safe implementation requires a separate per-instance filesystem view (and separate CSS config paths) or a filesystem overlay provider. Keep this folder outside the repository if it contains private values, for example:
+`CUSTOM_FOLDER` is a copy source, not a per-instance filesystem mount. Before every launch, `run.bat` copies any existing `CUSTOM_FOLDER\cfg\` tree into `server\game\csgo\cfg\` and `CUSTOM_FOLDER\addons\` into `server\game\csgo\addons\` using `xcopy`. Existing matching files are overwritten, new files are added, unrelated files remain, and nothing is deleted. Missing `cfg\` or `addons\` subfolders are skipped. Keep this folder outside the repository if it contains private values, for example:
 
 ```text
-D:\CS2-private\aim\
-├── cfg\
-│   └── custom_all.cfg
-└── addons\
-    └── metamod\
-        └── my_custom_plugin.vdf
+<instance-folder>/
+  instance.ini
+  run.bat
+  update.bat
+  run.vbs
+  watchdog.bat
+  aim/
+    cfg/
+      custom_dm.cfg
+    addons/
+      counterstrikesharp/
+        configs/
+          plugins/
+            ...
 ```
 
-The current runner leaves the override folder and the installed runtime's `cfg/` and `addons/` untouched by any custom-folder operation. This means files in the illustrative folder are not consumed by CS2 until the isolated overlay layer is implemented.
+**Important limitation:** these copies write to the shared runtime. If multiple instances point at the same `SERVER_DIR` and contain different files at matching paths, the most recent runner to copy wins for those destinations. This also applies to files below `CUSTOM_FOLDER\addons\counterstrikesharp\configs\`; those files will be copied if present, so only include them when you intend to overwrite the live configuration.
 
-CounterStrikeSharp's normal plugin config loader resolves config files using the server's game-directory path; a generic Source 2 search path cannot, by itself, provide a per-instance CSS config tree. The current runner therefore does not apply any files under `<CUSTOM_FOLDER>/addons/` or `<CUSTOM_FOLDER>/cfg/`.
-
-For a future per-instance config, the intended path is `<CUSTOM_FOLDER>/cfg/` (for example `custom_dm.cfg`), and the mode config must execute that file. The current runner does not load that folder. Root-level files such as `gamemodes_server.txt` are deployed from the tracked `game/csgo/` payload by repository deployment scripts, not by the Instance runner.
-
+CounterStrikeSharp resolves its config files from the server's physical game-directory path. Copying the selected files into that path is why this method works, but it does not create separate config trees for simultaneous instances. Put per-instance `.cfg` files under `CUSTOM_FOLDER\cfg\` and ensure the relevant mode config executes them. Root-level files such as `gamemodes_server.txt` are not copied by this runner; they remain managed by repository deployment scripts.
 ### Plugin-generated configuration files
 
-The Instance-local `update.bat` performs shared runtime maintenance only; it no longer applies `CUSTOM_FOLDER` overrides. Repository-root `win.bat` still replaces the runtime `addons/` directory from the repository payload and may remove runtime-only add-ons, while it preserves the live CounterStrikeSharp `configs/` tree and selected files under `cfg/settings/`. Do not run repository-root deployment while any Instance is using the shared installation.
+The Instance-local `update.bat` performs shared runtime maintenance only; `run.bat` applies `CUSTOM_FOLDER` overrides immediately before each server launch. Repository-root `win.bat` may replace runtime-managed paths and preserves its designated configuration paths during its own deployment; the subsequent `CUSTOM_FOLDER` xcopy can still overwrite matching files supplied by that folder. Do not run repository-root deployment while any Instance is using the shared installation.
 
 **Do not commit real secrets.** Keep `instance.ini`, API keys, Game Server Login Tokens, RCON passwords and database credentials out of tracked files.
 
@@ -395,7 +398,7 @@ The active Windows runner reads `examples/run-template/instance.ini`, not enviro
 | `SERVER_DIR` | `..\..\server` | Path to the SteamCMD game installation, relative to the template folder or absolute. |
 | `IP` | empty | Optional public address passed as `+net_public_adr`. |
 | `BIND_IP` | `0.0.0.0` | Local listen address. |
-| `CUSTOM_FOLDER` | `aim` | Reserved external folder for custom files. Not mounted or copied by the current runner; files there are inactive until a per-instance filesystem overlay is implemented. |
+| `CUSTOM_FOLDER` | `aim` | External folder whose `cfg\` and `addons\` trees are copied into the shared runtime before each launch. Not isolated from other instances sharing `SERVER_DIR`. |
 | `PORT` | `27085` | Player connection port in the current example. |
 | `TICKRATE` | `128` | Requested tickrate in the example; use a value supported by the installed server and plugins. |
 | `MAXPLAYERS` | `64` | Maximum player count in the current example. |
@@ -475,7 +478,7 @@ Run the instance-local `update.bat` manually while every CS2 process is stopped.
 
 ### Maintenance commands
 
-See [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons) for safe deployment details. Copy the instance-local `update.bat`, `run.bat`, `run.vbs`, and `watchdog.bat` into each external Instance folder alongside your private `instance.ini`. Run the updater separately with all CS2 processes stopped; the watchdogs do not run maintenance, and the runner does not apply `CUSTOM_FOLDER`.
+See [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons) for safe deployment details. Copy the instance-local `update.bat`, `run.bat`, `run.vbs`, and `watchdog.bat` into each external Instance folder alongside your private `instance.ini`. Run the updater separately with all CS2 processes stopped; watchdogs do not run maintenance, and `run.bat` applies the custom-file copies before each launch.
 
 Allow the selected game port through Windows Firewall and the router/cloud firewall. Use a valid Game Server Login Token for a public server. Keep API keys, login tokens, RCON passwords, and instance-specific settings out of tracked files.
 
@@ -499,7 +502,7 @@ You can also start a specific game mode vote by typing `!comp`, `!wingman`, `!dm
 
 ### I want MatchZy to record demos automatically
 
-SourceTV is disabled by default for compatibility with a wider range of setups. The intended per-instance file is `<CUSTOM_FOLDER>/cfg/custom_all.cfg`, but the current Windows runner does not mount `CUSTOM_FOLDER`; putting the file there will not currently enable SourceTV without a separate per-instance filesystem overlay. The config command, once that overlay exists, is:
+SourceTV is disabled by default for compatibility with a wider range of setups. The per-instance file can be placed at `<CUSTOM_FOLDER>/cfg/custom_all.cfg`; `run.bat` copies it into the shared runtime before launch. The relevant mode config still needs to execute the file. The config command is:
 
 ```cfg
 tv_enable 1
@@ -645,7 +648,7 @@ Check SourceTV with `tv_status` from the server console. You can also test with 
 
 Admins are managed by CounterStrikeSharp's [Admin Framework](https://docs.cssharp.dev/docs/admin-framework/defining-admins.html). The canonical file is `game/csgo/addons/counterstrikesharp/configs/admins.json`.
 
-The intended per-instance admin path is `<CUSTOM_FOLDER>/addons/counterstrikesharp/configs/admins.json`, but the current runner does not use that file. For now, manage the live CounterStrikeSharp configuration through the existing private/runtime configuration process; do not rely on `CUSTOM_FOLDER` until isolated filesystem overlay support is implemented. The [KUS example admins.json](https://github.com/kus/cs2-modded-server/blob/master/custom_files_example/addons/counterstrikesharp/configs/admins.json) remains a reference example only.
+The per-instance admin path can be `<CUSTOM_FOLDER>/addons/counterstrikesharp/configs/admins.json`; the runner copies that file into the shared runtime before launch. Because this is a shared physical path, do not expect different admin files to remain isolated between simultaneous instances. The [KUS example admins.json](https://github.com/kus/cs2-modded-server/blob/master/custom_files_example/addons/counterstrikesharp/configs/admins.json) remains a reference example only.
 
 Ensure JSON files are valid. On startup, look for the admin-loading message in the server log. If you modify admin settings while the server is running, use `css_admins_reload` and `css_groups_reload`; inspect the result with `css_admins_list` and `css_groups_list`.
 
@@ -737,7 +740,7 @@ Windows:
 
 By default, bots are enabled in deathmatch, gungame, gungame FFA, retakes, scoutsknives and wingman. The default behavior adds one bot when only one human is present and removes the need for bots when two or more humans join.
 
-The intended path for a future per-instance bot override is `<CUSTOM_FOLDER>/cfg/custom_bots.cfg`, but the current runner does not mount or copy it into CS2. The upstream starting point is [custom_bots.cfg](https://github.com/kus/cs2-modded-server/blob/master/game/csgo/cfg/custom_bots.cfg).
+The per-instance bot override can be placed at `<CUSTOM_FOLDER>/cfg/custom_bots.cfg`; the runner copies it into the shared runtime before launch. The upstream starting point is [custom_bots.cfg](https://github.com/kus/cs2-modded-server/blob/master/game/csgo/cfg/custom_bots.cfg).
 
 You can also manage bots through RCON with `bot_add_ct`, `bot_add_t` and `bot_kick`.
 
@@ -762,8 +765,8 @@ Metamod:Source is now managed by `DEPENDENCIES.json` and the same release update
 
 Quake Sounds is disabled by default and can be toggled by players with `!qs` when enabled. To enable it for a Windows instance:
 
-1. The intended future override path is `<CUSTOM_FOLDER>/cfg/multiaddonmanager/multiaddonmanager.cfg`, but the current runner does not load it. A per-instance filesystem overlay is required before this can affect the live server.
-2. Put the intended future override at `<CUSTOM_FOLDER>/cfg/settings/quake_sounds.cfg`; it will remain inactive until per-instance overlay support is implemented. The config line to uncomment after that is `css_plugins load "plugins/disabled/QuakeSounds/QuakeSounds.dll"`.
+1. Put the override at `<CUSTOM_FOLDER>/cfg/multiaddonmanager/multiaddonmanager.cfg`; the runner copies it into the shared runtime before launch.
+2. Put the override at `<CUSTOM_FOLDER>/cfg/settings/quake_sounds.cfg`; the runner also copies this file into the shared runtime. The config line to uncomment is `css_plugins load "plugins/disabled/QuakeSounds/QuakeSounds.dll"`.
 3. Ensure MultiAddonManager is enabled as described below, then restart that instance.
 
 ### Skin changer
@@ -814,7 +817,7 @@ The runner overlays that file at the Metamod configuration path on startup. To c
 
 Custom player models can be enabled in `!settings` under the custom player-model option. You also need a Workshop addon containing the model files; the KUS guide links [one example Workshop addon](https://steamcommunity.com/sharedfiles/filedetails/?id=3163629484).
 
-Add the Workshop ID to the shared `game/csgo/cfg/multiaddonmanager/multiaddonmanager.cfg`. The alternative path under `<CUSTOM_FOLDER>/cfg/` is reserved for future per-instance overlay support and is not currently loaded. Configure model entries in the live CounterStrikeSharp config path; a custom-folder copy of that file is currently inactive.
+Add the Workshop ID to the shared `game/csgo/cfg/multiaddonmanager/multiaddonmanager.cfg`. The alternative path under `<CUSTOM_FOLDER>/cfg/` is copied into the shared runtime before launch. Configure model entries in the live CounterStrikeSharp config path; a custom-folder copy of that file will overwrite the matching runtime file on each runner invocation.
 
 To inspect assets in a Workshop addon, subscribe to it in the CS2 client and use [Source 2 Viewer](https://valveresourceformat.github.io/) to browse the downloaded content.
 
@@ -822,7 +825,7 @@ To inspect assets in a Workshop addon, subscribe to it in the CS2 client and use
 
 The tracked source payload includes Windows/Linux files for [MovementUnlocker](https://github.com/Source2ZE/MovementUnlocker) and [CS2Fixes-RampbugFix](https://github.com/Interesting-exe/CS2Fixes-RampbugFix). Their platform-specific Metamod VDF files are under `game/csgo/addons/surf/`.
 
-For an eventual per-instance Metamod override, the intended destination is `<CUSTOM_FOLDER>/addons/metamod/`. The current runner does not mount this path, so these files will not be loaded from there yet.
+Metamod overrides can be placed under `<CUSTOM_FOLDER>/addons/metamod/`; `run.bat` copies those files into the shared runtime before each launch.
 
 For an ad-hoc mode, the KUS game-mode menu can enable the surf settings using `!settings`; follow with `!maps` to select the desired map.
 
@@ -830,29 +833,29 @@ For an ad-hoc mode, the KUS game-mode menu can enable the surf settings using `!
 
 Database hosting is outside the scope of this repository. Plugin configuration files are generally under `game/csgo/addons/counterstrikesharp/configs/plugins/`.
 
-K4-Arenas configuration is typically at `game/csgo/addons/counterstrikesharp/configs/plugins/K4-Arenas/K4-Arenas.json`. The equivalent path under `<CUSTOM_FOLDER>/addons/` is reserved for future isolated per-instance configuration; the current runner does not read it. If the live config does not exist, check for the plugin's `.example` template before creating one.
+K4-Arenas configuration is typically at `game/csgo/addons/counterstrikesharp/configs/plugins/K4-Arenas/K4-Arenas.json`. The equivalent path under `<CUSTOM_FOLDER>/addons/` is copied into the shared runtime before each launch, overwriting matching files. If the live config does not exist, check for the plugin's `.example` template before creating one.
 
 Never commit database passwords, connection strings or other credentials.
 
 ### Enable advertisements
 
-The Advertisement plugin is disabled by default. To load it, add this command to the relevant shared mode config. A `<CUSTOM_FOLDER>/cfg/custom_all.cfg` override is a future option only; it is not loaded by the current runner:
+The Advertisement plugin is disabled by default. To load it, add this command to the relevant shared mode config. A `<CUSTOM_FOLDER>/cfg/custom_all.cfg` override is copied to the shared runtime before launch; the relevant mode config must execute it:
 
 ```cfg
 css_plugins load "plugins/disabled/Advertisement/Advertisement.dll"
 ```
 
-Its settings file is under `game/csgo/addons/counterstrikesharp/plugins/disabled/Advertisement/advertisement.json`. The matching relative path below `<CUSTOM_FOLDER>/addons/` is reserved for future overlay support; files there are not currently consumed.
+Its settings file is under `game/csgo/addons/counterstrikesharp/plugins/disabled/Advertisement/advertisement.json`. The matching relative path below `<CUSTOM_FOLDER>/addons/` is copied into the shared runtime before launch, overwriting a matching file.
 
 ### Enable Whitelist so only a list of people can play
 
-The Whitelist plugin is disabled by default. To load it, add this command to the relevant shared mode config. A `<CUSTOM_FOLDER>/cfg/custom_all.cfg` override is a future option only; it is not loaded by the current runner:
+The Whitelist plugin is disabled by default. To load it, add this command to the relevant shared mode config. A `<CUSTOM_FOLDER>/cfg/custom_all.cfg` override is copied to the shared runtime before launch; the relevant mode config must execute it:
 
 ```cfg
 css_plugins load "plugins/disabled/WhiteList/WhiteList.dll"
 ```
 
-Its settings file is `game/csgo/addons/counterstrikesharp/plugins/disabled/WhiteList/whitelist.txt`. The matching relative path below `<CUSTOM_FOLDER>/addons/` is reserved for future overlay support; files there are not currently consumed.
+Its settings file is `game/csgo/addons/counterstrikesharp/plugins/disabled/WhiteList/whitelist.txt`. The matching relative path below `<CUSTOM_FOLDER>/addons/` is copied into the shared runtime before launch, overwriting a matching file.
 
 ### Failed to open libtier0.so
 
