@@ -271,11 +271,13 @@ jobs:
               throw "Launch-only run.bat is missing expected behavior: $required"
             }
           }
-          if ($templateBat -match '(?i)robocopy|xcopy|SyncCustomFiles|CustomSyncFailed') {
-            throw "run.bat must not copy CUSTOM_FOLDER files into the shared runtime."
+          foreach ($required in @('set "GAME_DIR=%SERVER_DIR%\game\csgo"', 'call :SyncCustomFiles', ':SyncCustomFiles', 'xcopy "%CUSTOM_DIR%\cfg\*"', 'xcopy "%CUSTOM_DIR%\addons\*"')) {
+            if ($templateBat -notmatch [regex]::Escape($required)) {
+              throw "run.bat is missing the launch-time CUSTOM_FOLDER copy behavior: $required"
+            }
           }
-          if ($templateBat -notmatch 'CUSTOM_FOLDER overrides are not mounted') {
-            throw "run.bat must clearly report that custom-folder overrides are not currently mounted."
+          if ($templateBat -match '(?i)/MIR|/PURGE|robocopy') {
+            throw "run.bat custom-folder copies must remain additive and never mirror/purge the runtime."
           }
           foreach ($required in @('git -C "%REPO_ROOT%" pull --ff-only origin integration/kus-monorepo', 'app_update 730', 'call :UpdateUpstreamAddons', ':OverlayPayload', ':AcquireLock', 'CS2-KUS-Maintenance-success.marker')) {
             if ($templateUpdate -notmatch [regex]::Escape($required)) {
@@ -319,7 +321,7 @@ jobs:
               $templateIgnore -notmatch '(?im)^instance\.ini[ \t\r]*$') {
             throw "Example INI must use a placeholder RCON password and ignore local instance.ini."
           }
-          Write-Host "Validated no-write custom-folder policy, separate maintenance, hardened VBS loop, outer VBS guardian, and private INI policy."
+          Write-Host "Validated launch-time custom-folder copy, separate maintenance, hardened VBS loop, outer VBS guardian, and private INI policy."
 
       - name: Smoke-test explicit release archive mappings
         if: github.event_name != 'schedule'
