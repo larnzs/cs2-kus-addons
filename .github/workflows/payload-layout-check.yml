@@ -180,6 +180,8 @@ jobs:
           assert "CUSTOM_FOLDER overrides are not mounted" not in runner_bat
           assert "/MIR" not in runner_bat.upper()
           assert "/PURGE" not in runner_bat.upper()
+          for required in ('if not defined RCON_PASSWORD goto :MissingRconPassword', 'if /I "%RCON_PASSWORD%"=="CHANGE_ME_TO_A_STRONG_PASSWORD" goto :MissingRconPassword', ':MissingRconPassword'):
+              assert required in runner_bat, f"Windows runner is missing the RCON safety guard: {required}"
           assert 'Copy-TreeContent -Source $WindowsOverlay -Destination $IncomingRoot' in deploy
           assert "Copy-UntrackedRuntimeFiles" in deploy
           assert "$SettingsTrackedRoots" in deploy
@@ -195,6 +197,8 @@ jobs:
           assert "Copy-Tree -Source $KusRuntime -Destination $runtimeRoot -ExcludePaths $ProtectedConfigPaths" in integrate
           assert "foreach ($protectedRelative in $PreservedManualPaths)" in integrate
           addon_workflow = Path(".github/workflows/addon-updater.yml").read_text(encoding="utf-8")
+          assert 'for attempt in 1 2 3; do' in addon_workflow and 'git rebase origin/integration/kus-monorepo' in addon_workflow, "Bash updater must safely retry remote push races"
+          assert '$attempt -le 3' in addon_workflow and '$published = $false' in addon_workflow, "Windows updater must safely retry remote push races"
           for critical_step in (
               "Validate example instance template",
               "Smoke-test explicit release archive mappings",
