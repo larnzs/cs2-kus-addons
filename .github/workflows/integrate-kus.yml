@@ -52,7 +52,7 @@ jobs:
         working-directory: repo
         run: |
           set -euo pipefail
-          chmod +x install.sh start.sh run.sh 2>/dev/null || true
+          chmod +x linux/install.sh linux/start.sh linux/run.sh linux/stop.sh docker/install_docker.sh 2>/dev/null || true
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A

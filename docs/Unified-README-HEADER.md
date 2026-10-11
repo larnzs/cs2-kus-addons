@@ -11,11 +11,15 @@ The full original Larnz guide is preserved at [docs/Larnz-Addons-README.md](docs
 | Path | Purpose |
 | --- | --- |
 | `server/` | Local SteamCMD installation root; downloaded game binaries remain local and are not committed. |
+| `windows/` | Windows BAT entrypoints and the external Instance runner template. |
+| `linux/` | Linux install/start/stop helpers and the Google Cloud VM bootstrap. |
+| `docker/` | Dockerfile, Compose file, Docker installer, and legacy Kubernetes manifest. |
+| `.dockerignore` | Intentionally remains at repo root for the repo-root Docker build context. |
 | `game/csgo/addons/` | Tracked KUS and Larnz plugin payload source. |
 | `game/csgo/cfg/` | Tracked shared configuration source, deployed into the installed runtime. |
 | DEPENDENCIES.json | Larnz add-on updater manifest. |
 | scripts/update/ | Upstream KUS update helpers, retained and path-normalized for the unified layout. |
-| examples/run-template/ | Reusable Windows runner and VBS supervisor template. |
+| windows/instance-template/ | Reusable Windows runner and VBS supervisor template. |
 | docs/upstream/ | KUS source snapshot metadata and archived upstream entrypoints/workflows. |
 
 The KUS root-level custom_files/ and custom_files_example/ trees are not imported or merged. Personal configuration generation and custom files remain under the Larnz-managed configuration workflow. Existing local secret folders and per-instance settings must stay private.
@@ -23,12 +27,12 @@ The KUS root-level custom_files/ and custom_files_example/ trees are not importe
 ## Windows installation and operation
 
 1. Clone this private repository to the server machine.
-2. Run `install.bat`. It downloads SteamCMD if needed and runs KUS-style `app_update 730` against `server/`, then calls `win.bat` to deploy `game/csgo/`, patch installed `gameinfo.gi`, and verify the runtime. It does not start the server.
-3. In examples/run-template/, copy instance.example.ini to instance.ini and edit the instance settings and secrets. Then launch run.vbs.
+2. Run `windows/install.bat`. It downloads SteamCMD if needed and runs KUS-style `app_update 730` against `server/`, then calls `windows/win.bat` to deploy `game/csgo/`, patch installed `gameinfo.gi`, and verify the runtime. It does not start the server.
+3. In windows/instance-template/, copy instance.example.ini to instance.ini and edit the instance settings and secrets. Then launch run.vbs.
 
-`win.bat` deploys tracked `game/csgo/` to `server/game/csgo/` and flattens the Windows overlay; it does not run SteamCMD or start CS2. `update.bat` pulls the private repository and redeploys the payload. Regular server starts do not run an updater.
+`windows/win.bat` deploys tracked `game/csgo/` to `server/game/csgo/` and flattens the Windows overlay; it does not run SteamCMD or start CS2. `windows/update.bat` pulls the private repository and redeploys the payload. Regular server starts do not run an updater.
 
-To refresh Larnz-managed add-ons from the upstream releases, use addons-update.bat -DryRun to inspect the proposed changes, then run addons-update.bat when ready. This is separate from repository pulls and server restarts.
+To refresh Larnz-managed add-ons from the upstream releases, use windows/addons-update.bat -DryRun to inspect the proposed changes, then run windows/addons-update.bat when ready. This is separate from repository pulls and server restarts.
 
 ## Larnz-managed add-ons
 

@@ -4,21 +4,20 @@ title CS2 KUS Addons - Explicit Game Update
 set "PAUSE_ON_EXIT=1"
 if /I "%~1"=="--no-pause" set "PAUSE_ON_EXIT=0"
 set "RC=1"
-cd /d "%~dp0"
-
-set "ROOT_DIR=%~dp0"
-set "SERVER_DIR=%ROOT_DIR%server"
-set "STEAMCMD_DIR=%ROOT_DIR%steamcmd"
+for %%I in ("%~dp0..") do set "ROOT_DIR=%%~fI"
+cd /d "%ROOT_DIR%"
+set "SERVER_DIR=%ROOT_DIR%\server"
+set "STEAMCMD_DIR=%ROOT_DIR%\steamcmd"
 set "STEAMCMD=%STEAMCMD_DIR%\steamcmd.exe"
 set "CS2_EXE=%SERVER_DIR%\game\bin\win64\cs2.exe"
 set "APP_MANIFEST=%SERVER_DIR%\steamapps\appmanifest_730.acf"
 
 if not exist "%CS2_EXE%" (
-    echo ERROR: CS2 is not installed. Run install.bat first.
+    echo ERROR: CS2 is not installed. Run windows\install.bat first.
     goto :finish
 )
 if not exist "%STEAMCMD%" (
-    echo ERROR: SteamCMD was not found. Run install.bat first.
+    echo ERROR: SteamCMD was not found. Run windows\install.bat first.
     goto :finish
 )
 
@@ -39,7 +38,7 @@ if not "%STEAMCMD_RC%"=="0" (
 )
 
 rem Re-deploy runtime and re-apply the KUS-compatible gameinfo.gi patch after SteamCMD updates.
-call "%ROOT_DIR%win.bat" --no-pause
+call "%ROOT_DIR%\windows\win.bat" --no-pause
 set "RC=%ERRORLEVEL%"
 if not "%RC%"=="0" (
     echo ERROR: Post-update runtime validation failed with code %RC%.

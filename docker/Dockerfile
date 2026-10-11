@@ -47,10 +47,10 @@ ENV SRC_DIR="/home/cs2-modded-server"
 
 WORKDIR $SRC_DIR
 
-COPY install_docker.sh \
-    run.sh \
-    start.sh \
-    stop.sh \
+COPY docker/install_docker.sh \
+    linux/run.sh \
+    linux/start.sh \
+    linux/stop.sh \
     $SRC_DIR
 
 COPY game/csgo $SRC_DIR/game/csgo

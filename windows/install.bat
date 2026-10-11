@@ -4,11 +4,10 @@ title CS2 KUS Addons - Initial Install
 set "PAUSE_ON_EXIT=1"
 if /I "%~1"=="--no-pause" set "PAUSE_ON_EXIT=0"
 set "RC=1"
-cd /d "%~dp0"
-
-set "ROOT_DIR=%~dp0"
-set "SERVER_DIR=%ROOT_DIR%server"
-set "STEAMCMD_DIR=%ROOT_DIR%steamcmd"
+for %%I in ("%~dp0..") do set "ROOT_DIR=%%~fI"
+cd /d "%ROOT_DIR%"
+set "SERVER_DIR=%ROOT_DIR%\server"
+set "STEAMCMD_DIR=%ROOT_DIR%\steamcmd"
 set "STEAMCMD=%STEAMCMD_DIR%\steamcmd.exe"
 set "CS2_EXE=%SERVER_DIR%\game\bin\win64\cs2.exe"
 set "APP_MANIFEST=%SERVER_DIR%\steamapps\appmanifest_730.acf"
@@ -26,7 +25,7 @@ if errorlevel 1 (
     echo ERROR: Clone this private Git repository before running install.bat.
     goto :finish
 )
-if not exist "%ROOT_DIR%DEPENDENCIES.json" (
+if not exist "%ROOT_DIR%\DEPENDENCIES.json" (
     echo ERROR: DEPENDENCIES.json is missing; run this from the repository root.
     goto :finish
 )
@@ -89,7 +88,7 @@ if not exist "%APP_MANIFEST%" (
 
 :game_installed
 rem win.bat deploys the runtime and applies KUS-compatible gameinfo.gi patching.
-call "%ROOT_DIR%win.bat" --no-pause
+call "%ROOT_DIR%\windows\win.bat" --no-pause
 set "RC=%ERRORLEVEL%"
 if not "%RC%"=="0" (
     echo ERROR: Server preparation failed with code %RC%.
@@ -97,7 +96,7 @@ if not "%RC%"=="0" (
 )
 echo.
 echo SteamCMD installation check and server preparation completed. The server was NOT started.
-echo Copy examples\run-template\instance.example.ini to instance.ini, configure it, then launch run.vbs.
+echo Copy windows\instance-template\instance.example.ini to instance.ini, configure it, then launch run.vbs.
 set "RC=0"
 
 :finish

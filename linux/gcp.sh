@@ -2,7 +2,7 @@
 
 # Install
 # As root (sudo su)
-# Run this local helper from the cloned private repository: sudo bash ./gcp.sh
+# Run this local helper from the cloned private repository: sudo bash ./linux/gcp.sh
 
 # Check bare minimum dependencies
 # Check if curl is installed
@@ -51,11 +51,11 @@ export DUCK_DOMAIN="${DUCK_DOMAIN:-$(get_metadata DUCK_DOMAIN)}"
 export DUCK_TOKEN="${DUCK_TOKEN:-$(get_metadata DUCK_TOKEN)}"
 export CUSTOM_FOLDER="${CUSTOM_FOLDER:-$(get_metadata CUSTOM_FOLDER)}"
 
-ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-if [[ ! -f "$ROOT_DIR/install.sh" || ! -d "$ROOT_DIR/game/csgo/addons" ]]; then
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ ! -f "$ROOT_DIR/linux/install.sh" || ! -d "$ROOT_DIR/game/csgo/addons" ]]; then
     echo "ERROR: The private repository payload was not found. Run this script from the cloned repository."
     exit 1
 fi
 
 # Run the install script included in this checkout; never overwrite it with the public KUS installer.
-bash "$ROOT_DIR/install.sh" |& tee /install.log
+bash "$ROOT_DIR/linux/install.sh" |& tee /install.log

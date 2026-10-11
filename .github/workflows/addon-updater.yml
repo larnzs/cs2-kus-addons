@@ -13,13 +13,12 @@ on:
       - "scripts/check-updates.sh"
       - "scripts/update/**"
       - ".github/workflows/addon-updater.yml"
-      - "win.bat"
-      - "install.bat"
-      - "update.bat"
-      - "game-update.bat"
+      - "windows/**"
+      - "linux/**"
+      - "docker/**"
+      - ".dockerignore"
       - "game/csgo/**"
       - "README.md"
-      - "examples/**"
   schedule:
     - cron: "17 * * * *"
   workflow_dispatch:
@@ -272,9 +271,9 @@ jobs:
             throw "The updater must enforce the runtime asset and repair missing files even when the version is unchanged."
           }
 
-          $install = Get-Content -LiteralPath ".\install.bat" -Raw
-          $win = Get-Content -LiteralPath ".\win.bat" -Raw
-          $update = Get-Content -LiteralPath ".\update.bat" -Raw
+          $install = Get-Content -LiteralPath ".\windows\install.bat" -Raw
+          $win = Get-Content -LiteralPath ".\windows\win.bat" -Raw
+          $update = Get-Content -LiteralPath ".\windows\update.bat" -Raw
           if ($win -match '(?i)steamcmd\.exe|\+app_update\s+730') {
             throw "win.bat must not perform SteamCMD game updates."
           }
@@ -303,12 +302,12 @@ jobs:
       - name: Validate example instance template
         shell: pwsh
         run: |
-          $templateBat = (Get-Content -LiteralPath ".\examples\run-template\run.bat" -Raw) -replace [string][char]13, ""
-          $templateUpdate = (Get-Content -LiteralPath ".\examples\run-template\update.bat" -Raw) -replace [string][char]13, ""
-          $templateVbs = (Get-Content -LiteralPath ".\examples\run-template\run.vbs" -Raw) -replace [string][char]13, ""
-          $templateGuardian = (Get-Content -LiteralPath ".\examples\run-template\watchdog.bat" -Raw) -replace [string][char]13, ""
-          $templateIni = Get-Content -LiteralPath ".\examples\run-template\instance.example.ini" -Raw
-          $templateIgnore = Get-Content -LiteralPath ".\examples\run-template\.gitignore" -Raw
+          $templateBat = (Get-Content -LiteralPath ".\windows\instance-template\run.bat" -Raw) -replace [string][char]13, ""
+          $templateUpdate = (Get-Content -LiteralPath ".\windows\instance-template\update.bat" -Raw) -replace [string][char]13, ""
+          $templateVbs = (Get-Content -LiteralPath ".\windows\instance-template\run.vbs" -Raw) -replace [string][char]13, ""
+          $templateGuardian = (Get-Content -LiteralPath ".\windows\instance-template\watchdog.bat" -Raw) -replace [string][char]13, ""
+          $templateIni = Get-Content -LiteralPath ".\windows\instance-template\instance.example.ini" -Raw
+          $templateIgnore = Get-Content -LiteralPath ".\windows\instance-template\.gitignore" -Raw
 
           if ($templateBat -notmatch 'instance\.ini' -or $templateBat -notmatch 'WORKSHOP_ARGS' -or $templateBat -notmatch 'start "" /wait "%CS2_EXE%"') {
             throw "Example run.bat must read instance.ini, support optional Workshop collection, and launch one CS2 process."

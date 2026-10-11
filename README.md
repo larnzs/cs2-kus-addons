@@ -2,7 +2,7 @@
 
 A private, single-repository Counter-Strike 2 dedicated-server distribution. It combines the KUS server setup, its bundled plugins and dependency files with the Larnz-managed add-ons and configuration layout.
 
-**The repository follows KUS's staged payload model.** `game/csgo/` is the tracked source payload; `server/` is the local Windows SteamCMD installation and is ignored by Git. `win.bat` deploys the tracked payload into `server/game/csgo/`, flattens `game/csgo/addons/windows/` on Windows, patches the installed `gameinfo.gi`, and verifies the deployed files. Linux and Docker now use the staged source layout but have not been live-tested.
+**The repository follows KUS's staged payload model.** `game/csgo/` is the tracked source payload; `server/` is the local Windows SteamCMD installation and is ignored by Git. `windows/win.bat` deploys the tracked payload into `server/game/csgo/`, flattens `game/csgo/addons/windows/` on Windows, patches the installed `gameinfo.gi`, and verifies the deployed files. Linux and Docker now use the staged source layout but have not been live-tested.
 
 This README combines Larnz's manifest-managed add-ons with KUS's base plugins, game modes, configuration guidance, workshop-map catalog and troubleshooting notes. Historical source documents remain under `docs/upstream/`; where an archived guide differs from this file, the unified instructions here take precedence. The old dual-repository workflow in `docs/Larnz-Addons-README.md` is historical, not an active setup guide.
 
@@ -11,11 +11,15 @@ This README combines Larnz's manifest-managed add-ons with KUS's base plugins, g
 | Path | Purpose |
 | --- | --- |
 | `server/` | Local Windows SteamCMD installation root; ignored by Git. |
+| `windows/` | Windows BAT entrypoints plus the reusable external Instance runner template. |
+| `linux/` | Linux install/start/stop helpers and the Google Cloud Linux VM bootstrap. |
+| `docker/` | Dockerfile, Compose definition, Docker installer, and the legacy Kubernetes manifest. |
+| `.dockerignore` | Kept at the repository root because Docker uses the repository root as its build context. |
 | `game/csgo/addons/` | Tracked KUS and Larnz payload source, including platform-neutral/Linux files and the Windows overlay. |
 | `game/csgo/cfg/` | Tracked shared configuration source, deployed into the installed runtime. |
 | DEPENDENCIES.json | Larnz add-on updater manifest. |
 | scripts/update/ | Active KUS-style per-plugin automation; the same Bash updater also runs the Larnz manifest add-on scripts. |
-| examples/run-template/ | Separate maintenance batch, launch runner, and VBS/CMD watchdog. `run.bat` copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` into the shared runtime before each launch. |
+| windows/instance-template/ | Separate maintenance batch, launch runner, and VBS/CMD watchdog. `run.bat` copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` into the shared runtime before each launch. |
 | docs/upstream/ | KUS source snapshot metadata and archived upstream entrypoints/workflows. |
 
 The upstream `custom_files/` and `custom_files_example/` trees are intentionally not imported. On Windows, `CUSTOM_FOLDER` is an active copy source: before each launch, `run.bat` uses `xcopy` to copy its `cfg/` and `addons/` trees into the shared runtime. Matching files are overwritten; nothing is deleted. This is not per-instance isolation, so instances sharing `SERVER_DIR` can overwrite the same destination paths. Never store tokens, passwords or private database credentials in tracked files.
@@ -23,7 +27,7 @@ The upstream `custom_files/` and `custom_files_example/` trees are intentionally
 ## Windows installation and operation
 
 1. Clone this private repository on the Windows server machine.
-2. Run `install.bat`. It downloads SteamCMD if needed, installs/checks CS2 with SteamCMD, then prepares the runtime. It does not start the server.
+2. Run `windows/install.bat`. It downloads SteamCMD if needed, installs/checks CS2 with SteamCMD, then prepares the runtime. It does not start the server.
 3. Copy the instance-local `update.bat`, `run.bat`, `run.vbs`, `watchdog.bat`, and your private `instance.ini` into the external Instance folder. Run the instance-local updater separately when needed with all CS2 processes stopped; then start `watchdog.bat`. The guardian keeps a CMD session open and relaunches the VBS host if it exits. Before every CS2 launch, `run.bat` copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` into the shared runtime using `xcopy`.
 
 For the difference between each maintenance script—and an important warning about manual deployment—see [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons).
@@ -251,7 +255,7 @@ The first table deliberately retains the updater-compatible three-column structu
 
 ## Updating the integrated repository and add-ons
 
-The important difference is **how each script updates files**. Routine runner maintenance uses overwrite-only file copies and never deletes runtime add-on files. `win.bat` is a separate clean replacement/reset workflow that can remove files absent from the tracked payload; stop every CS2 instance before using it.
+The important difference is **how each script updates files**. Routine runner maintenance uses overwrite-only file copies and never deletes runtime add-on files. `windows/win.bat` is a separate clean replacement/reset workflow that can remove files absent from the tracked payload; stop every CS2 instance before using it.
 
 ### Hourly automatic update checks
 
@@ -263,56 +267,56 @@ The external Instance folder has its own `update.bat` for shared maintenance. Ru
 
 The instance updater refuses to modify the shared runtime while any `cs2.exe` is active. A shared lock also prevents a waiting launch-only batch from opening CS2 while maintenance is in progress; stale locks are checked against the owner PID before being removed. The five-minute success marker only suppresses duplicate updater work if you run it repeatedly; it does not select a different runner.
 
-#### A. Soft reset of the installed runtime — `win.bat`
+#### A. Soft reset of the installed runtime — `windows/win.bat`
 
 **Source:** `game/csgo/` → **Runtime:** `server/game/csgo/`
 
-`win.bat` runs `scripts/Deploy-Runtime.ps1`. That script prepares the current repository payload, backs up the installed `server/game/csgo/addons/` directory, and replaces it with the staged `addons/` tree. After a successful deploy, the temporary backup is removed. This means files that existed only in the installed runtime are removed instead of being left behind.
+`windows/win.bat` runs `scripts/Deploy-Runtime.ps1`. That script prepares the current repository payload, backs up the installed `server/game/csgo/addons/` directory, and replaces it with the staged `addons/` tree. After a successful deploy, the temporary backup is removed. This means files that existed only in the installed runtime are removed instead of being left behind.
 
 This is useful as a **runtime add-on soft reset** when you suspect that the deployed copy of a plugin is damaged or has leftover files. It restores the runtime add-on directory to what is currently present in the repository payload.
 
 There are two important limits:
 
-- `win.bat` deploys the payload already in the local checkout. It does **not** fetch upstream releases, pull Git, or update CS2 through SteamCMD by itself.
+- `windows/win.bat` deploys the payload already in the local checkout. It does **not** fetch upstream releases, pull Git, or update CS2 through SteamCMD by itself.
 - It does not clean the repository payload first. If an obsolete or unwanted file is still under `game/csgo/addons/`, the soft reset can copy that file back into the runtime.
 
 The live CounterStrikeSharp `configs/` tree and the specifically preserved `cfg/settings/` files are handled separately. However, runtime-only add-ons that are absent from the tracked payload can be removed by this replacement.
 
-#### B. Non-destructive overlay — `addons-update.bat` and `run.bat`
+#### B. Non-destructive overlay — `windows/addons-update.bat` and `run.bat`
 
 These two use overlay-style copying, but they operate at different stages:
 
-- **`addons-update.bat` updates the repository payload.** It checks configured upstream add-on releases and copies their files into `game/csgo/`. Existing files at matching paths are overwritten and new files are added, but files that the new release no longer contains are **not** removed from the payload. The updater also protects designated configuration paths. Use `addons-update.bat -Force` to re-download/reapply managed add-ons even when their recorded versions already match; this is still an overlay, not a clean-directory reinstall.
+- **`windows/addons-update.bat` updates the repository payload.** It checks configured upstream add-on releases and copies their files into `game/csgo/`. Existing files at matching paths are overwritten and new files are added, but files that the new release no longer contains are **not** removed from the payload. The updater also protects designated configuration paths. Use `windows/addons-update.bat -Force` to re-download/reapply managed add-ons even when their recorded versions already match; this is still an overlay, not a clean-directory reinstall.
 - **The instance-template `run.bat` is the launch runner.** It waits for the shared-maintenance lock, copies the configured `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` into the shared runtime using `xcopy`, then launches CS2. The instance-local `update.bat` performs shared maintenance only. Custom-folder copies overwrite matching paths without deleting unrelated files, but they are shared across all instances pointing at the same `SERVER_DIR`.
 
-**Why this distinction matters:** if a plugin's old extra file remains in the repository payload after an overlay update, `win.bat` will deploy that file again. If an old extra file exists only in the live runtime, `win.bat`'s clean replacement removes it, while `run.bat`'s overlay leaves it in place.
+**Why this distinction matters:** if a plugin's old extra file remains in the repository payload after an overlay update, `windows/win.bat` will deploy that file again. If an old extra file exists only in the live runtime, `windows/win.bat`'s clean replacement removes it, while `run.bat`'s overlay leaves it in place.
 
 ### What each batch file does
 
 | File | Main job | How it updates add-on files | Updates CS2 through SteamCMD? | Starts the server? |
 | --- | --- | --- | --- | --- |
-| `install.bat` | Initial install/check of SteamCMD and CS2, then calls `win.bat`. | Clean-replaces the runtime `addons/` tree through `win.bat`. | Yes | No |
-| `game-update.bat` | Checks that no `cs2.exe` is running, updates CS2, then calls `win.bat`. | Clean-replaces the runtime `addons/` tree through `win.bat`. | Yes | No |
-| `update.bat` | Requires a clean Git checkout, pulls the configured branch with `git pull --ff-only`, then calls `win.bat`. | Clean-replaces the runtime `addons/` tree through `win.bat`. | No | No |
-| `win.bat` | Deploys the current tracked payload, patches `gameinfo.gi` for MetaMod, and verifies required files. | **Clean replacement / soft reset** of runtime `addons/`. | No | No |
-| `addons-update.bat` | Checks upstream releases and updates manifest-managed add-ons in the repository payload. | **Non-destructive overlay** into `game/csgo/`; it does not remove stale files omitted from a release. | No | No |
-| `addons-inspect.bat` | Inspects configured upstream release assets without installing them. | Inspection only; no payload or runtime deployment. | No | No |
-| `examples/run-template/update.bat` | Instance-local one-shot maintenance pipeline, copied beside the launch runner. | **Overwrite-only overlay**; does not delete existing add-on files. | Yes, only when no other `cs2.exe` is active | No |
-| `examples/run-template/run.bat` | Reads `instance.ini`, waits for the maintenance lock, copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` into the runtime, then launches one CS2 process. | Overwrite-only `xcopy`; no deletions. | Yes, when the custom folder has matching files | Yes |
+| `windows/install.bat` | Initial install/check of SteamCMD and CS2, then calls `windows/win.bat`. | Clean-replaces the runtime `addons/` tree through `windows/win.bat`. | Yes | No |
+| `windows/game-update.bat` | Checks that no `cs2.exe` is running, updates CS2, then calls `windows/win.bat`. | Clean-replaces the runtime `addons/` tree through `windows/win.bat`. | Yes | No |
+| `windows/update.bat` | Requires a clean Git checkout, pulls the configured branch with `git pull --ff-only`, then calls `windows/win.bat`. | Clean-replaces the runtime `addons/` tree through `windows/win.bat`. | No | No |
+| `windows/win.bat` | Deploys the current tracked payload, patches `gameinfo.gi` for MetaMod, and verifies required files. | **Clean replacement / soft reset** of runtime `addons/`. | No | No |
+| `windows/addons-update.bat` | Checks upstream releases and updates manifest-managed add-ons in the repository payload. | **Non-destructive overlay** into `game/csgo/`; it does not remove stale files omitted from a release. | No | No |
+| `windows/addons-inspect.bat` | Inspects configured upstream release assets without installing them. | Inspection only; no payload or runtime deployment. | No | No |
+| `windows/instance-template/update.bat` | Instance-local one-shot maintenance pipeline, copied beside the launch runner. | **Overwrite-only overlay**; does not delete existing add-on files. | Yes, only when no other `cs2.exe` is active | No |
+| `windows/instance-template/run.bat` | Reads `instance.ini`, waits for the maintenance lock, copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` into the runtime, then launches one CS2 process. | Overwrite-only `xcopy`; no deletions. | Yes, when the custom folder has matching files | Yes |
 
-`update.bat` at the repository root is a separate KUS-style Git/payload entrypoint. `examples/run-template/update.bat` is copied into each external Instance folder and is the instance-local maintenance pipeline described above. Do not overwrite the repository-root script with the template copy. `game-update.bat` checks for a running `cs2.exe` before SteamCMD, but the repository-root `win.bat`, `update.bat`, and `install.bat` do not provide that same active-process guard.
+`windows/update.bat` at the repository root is a separate KUS-style Git/payload entrypoint. `windows/instance-template/update.bat` is copied into each external Instance folder and is the instance-local maintenance pipeline described above. Do not overwrite the repository-root script with the template copy. `windows/game-update.bat` checks for a running `cs2.exe` before SteamCMD, but the repository-root `windows/win.bat`, `windows/update.bat`, and `windows/install.bat` do not provide that same active-process guard.
 
 > [!WARNING]
-> Do not run repository-root install/update/deploy paths (`install.bat`, `game-update.bat`, `update.bat`, or `win.bat`) while any Instance uses the shared CS2 installation. Stop all CS2 processes first. Run the instance-local updater when maintenance is needed, then start `examples/run-template/watchdog.bat`; its CMD guardian restarts the VBS host if needed, while VBS only retries the instance runner and never performs shared maintenance.
+> Do not run repository-root install/update/deploy paths (`windows/install.bat`, `windows/game-update.bat`, `windows/update.bat`, or `windows/win.bat`) while any Instance uses the shared CS2 installation. Stop all CS2 processes first. Run the instance-local updater when maintenance is needed, then start `windows/instance-template/watchdog.bat`; its CMD guardian restarts the VBS host if needed, while VBS only retries the instance runner and never performs shared maintenance.
 
 ### Which tool should I use to troubleshoot a broken plugin?
 ### Which tool should I use to troubleshoot a broken plugin?
 
-- **The deployed runtime copy may be damaged, but the repository payload is trusted:** stop every CS2 instance, then run `win.bat`. It recreates the runtime add-on tree from the current payload. It does not fetch newer upstream releases.
-- **The repository payload needs fresh files from the configured upstream release:** run `addons-update.bat -Force` (or `addons-update.bat -Only CounterStrikeSharp -Force` for that managed add-on). This re-applies the release files to the payload, but it does not remove old extra files absent from the release.
+- **The deployed runtime copy may be damaged, but the repository payload is trusted:** stop every CS2 instance, then run `windows/win.bat`. It recreates the runtime add-on tree from the current payload. It does not fetch newer upstream releases.
+- **The repository payload needs fresh files from the configured upstream release:** run `windows/addons-update.bat -Force` (or `windows/addons-update.bat -Only CounterStrikeSharp -Force` for that managed add-on). This re-applies the release files to the payload, but it does not remove old extra files absent from the release.
 - **You suspect obsolete extra files are the cause:** remember that `-Force` does not delete those files from the payload. The affected add-on's stale files must be cleaned from the source payload as a targeted operation before deploying it again. Do not delete the whole shared runtime `addons/` tree manually while any CS2 instance is running.
 
-For CounterStrikeSharp, `addons-inspect.bat -Only CounterStrikeSharp` can inspect an upstream release archive without installing it. The `DEPENDENCIES.json` rule requires the Windows with-runtime archive, and the updater validates the required plugin and .NET runtime files.
+For CounterStrikeSharp, `windows/addons-inspect.bat -Only CounterStrikeSharp` can inspect an upstream release archive without installing it. The `DEPENDENCIES.json` rule requires the Windows with-runtime archive, and the updater validates the required plugin and .NET runtime files.
 
 KUS base plugins that are not listed as automated add-ons remain tracked under `game/csgo/` and are deployed by the runtime. Do not run the old KUS Bash release updater on Windows; its historical notes remain in `docs/upstream/KUS-README.md`.
 
@@ -344,7 +348,7 @@ Tracked shared files live under game/csgo/ and are deployed into the SteamCMD ru
 - `game/csgo/addons/counterstrikesharp/configs/` — CounterStrikeSharp admins, groups and plugin configuration.
 - `game/csgo/gamemodes_server.txt` and `game/csgo/subscribed_file_ids.txt` — shared map-group and Workshop subscription configuration when those files exist in the runtime tree.
 
-Changes made directly to tracked files become local Git changes. Commit them intentionally if they should be part of this private repo. `update.bat` refuses to pull when local or untracked changes exist, rather than silently overwriting your work.
+Changes made directly to tracked files become local Git changes. Commit them intentionally if they should be part of this private repo. `windows/update.bat` refuses to pull when local or untracked changes exist, rather than silently overwriting your work.
 
 ### Per-instance overrides on Windows
 
@@ -372,13 +376,13 @@ Changes made directly to tracked files become local Git changes. Commit them int
 CounterStrikeSharp resolves its config files from the server's physical game-directory path. Copying the selected files into that path is why this method works, but it does not create separate config trees for simultaneous instances. Put per-instance `.cfg` files under `CUSTOM_FOLDER\cfg\` and ensure the relevant mode config executes them. Root-level files such as `gamemodes_server.txt` are not copied by this runner; they remain managed by repository deployment scripts.
 ### Plugin-generated configuration files
 
-The Instance-local `update.bat` performs shared runtime maintenance only; `run.bat` applies `CUSTOM_FOLDER` overrides immediately before each server launch. Repository-root `win.bat` may replace runtime-managed paths and preserves its designated configuration paths during its own deployment; the subsequent `CUSTOM_FOLDER` xcopy can still overwrite matching files supplied by that folder. Do not run repository-root deployment while any Instance is using the shared installation.
+The Instance-local `update.bat` performs shared runtime maintenance only; `run.bat` applies `CUSTOM_FOLDER` overrides immediately before each server launch. Repository-root `windows/win.bat` may replace runtime-managed paths and preserves its designated configuration paths during its own deployment; the subsequent `CUSTOM_FOLDER` xcopy can still overwrite matching files supplied by that folder. Do not run repository-root deployment while any Instance is using the shared installation.
 
 **Do not commit real secrets.** Keep `instance.ini`, API keys, Game Server Login Tokens, RCON passwords and database credentials out of tracked files.
 
 ## Creating an online server
 
-For a public server, create a Steam [Game Server Login Token](https://steamcommunity.com/dev/managegameservers) and store it in the private `STEAM_ACCOUNT` field of `examples/run-template/instance.ini`. The Windows runner passes that value to CS2 only when non-empty.
+For a public server, create a Steam [Game Server Login Token](https://steamcommunity.com/dev/managegameservers) and store it in the private `STEAM_ACCOUNT` field of `windows/instance-template/instance.ini`. The Windows runner passes that value to CS2 only when non-empty.
 
 Create a [Steam Web API key](https://steamcommunity.com/dev/apikey) and set `API_KEY` in the same private INI if the server needs to download Workshop content. Set `IP` to the reachable public address if the server needs an explicit advertised address; `BIND_IP=0.0.0.0` controls the local listen address.
 
@@ -386,13 +390,13 @@ Allow the selected game port (default `27085` in the current example INI) throug
 
 ## Creating a LAN server
 
-For a LAN-only Windows instance, set `LAN=1` in `examples/run-template/instance.ini`. You can leave `STEAM_ACCOUNT` empty for a private LAN server unless your intended server registration setup requires otherwise.
+For a LAN-only Windows instance, set `LAN=1` in `windows/instance-template/instance.ini`. You can leave `STEAM_ACCOUNT` empty for a private LAN server unless your intended server registration setup requires otherwise.
 
 If the LAN server needs Workshop downloads, set `API_KEY` in the private INI. Ensure the host firewall allows the selected port from the local network.
 
 ## Windows runner settings
 
-The active Windows runner reads `examples/run-template/instance.ini`, not environment variables and not `win.ini`. Copy `instance.example.ini` to `instance.ini`; the latter is excluded by Git.
+The active Windows runner reads `windows/instance-template/instance.ini`, not environment variables and not `win.ini`. Copy `instance.example.ini` to `instance.ini`; the latter is excluded by Git.
 
 | Setting | Example default | Purpose |
 | --- | --- | --- |
@@ -417,7 +421,7 @@ The active Windows runner reads `examples/run-template/instance.ini`, not enviro
 
 ## Playing workshop maps/collections
 
-To download maps from the Workshop, the server needs a Steam Web API key. Generate one [here](https://steamcommunity.com/dev/apikey) and put it in the private `API_KEY` field of `examples/run-template/instance.ini`. For a Workshop collection, set its ID in `WORKSHOP_COLLECTION`.
+To download maps from the Workshop, the server needs a Steam Web API key. Generate one [here](https://steamcommunity.com/dev/apikey) and put it in the private `API_KEY` field of `windows/instance-template/instance.ini`. For a Workshop collection, set its ID in `WORKSHOP_COLLECTION`.
 
 The console command for hosting a workshop map is `host_workshop_map fileid` where `fileid` is the number that comes after `?id=` in the workshop URL for example: [https://steamcommunity.com/sharedfiles/filedetails/?id=2433686680](https://steamcommunity.com/sharedfiles/filedetails/?id=2433686680)
 
@@ -425,7 +429,7 @@ The console command for hosting a workshop collection is `host_workshop_collecti
 
 ## Setting maps for different game modes
 
-Add maps by editing the tracked `game/csgo/gamemodes_server.txt` and selecting the relevant mode's map group. `win.bat` deploys this root-level file as part of the source payload; the per-instance runner only overlays `cfg/` and `addons/`.
+Add maps by editing the tracked `game/csgo/gamemodes_server.txt` and selecting the relevant mode's map group. `windows/win.bat` deploys this root-level file as part of the source payload; the per-instance runner only overlays `cfg/` and `addons/`.
 
 For Workshop maps, add their file IDs to the canonical `game/csgo/subscribed_file_ids.txt` when that file is used by your setup. Commit shared changes to this private repo so they can be reproduced on a clean checkout.
 
@@ -437,21 +441,21 @@ The Windows deployment path is CI-checked. The local Linux installer and Docker 
 
 ### Running on Google Cloud
 
-`gcp.sh` now runs the local `install.sh` from this private checkout instead of fetching the public KUS installer. The full VM provisioning, firewall, disk, metadata, and secrets lifecycle still needs an end-to-end test. See [the archived KUS guide](docs/upstream/KUS-README.md#running-on-google-cloud) for historical context.
+`linux/gcp.sh` now runs the local `linux/install.sh` from this private checkout instead of fetching the public KUS installer. The full VM provisioning, firewall, disk, metadata, and secrets lifecycle still needs an end-to-end test. See [the archived KUS guide](docs/upstream/KUS-README.md#running-on-google-cloud) for historical context.
 
 When GCP support is migrated, this section will document the VM image, disk, firewall, metadata/secrets and game update handoff. For historical VM lifecycle commands, see [the archived KUS guide](docs/upstream/KUS-README.md#running-on-google-cloud); treat it as reference only.
 
 ### Running on Linux
 
-The local `install.sh` and `start.sh` now consume the tracked `game/csgo/` payload and use the SteamCMD installation's `<install-root>/game/csgo/` runtime. They are aligned to KUS's layout but have not been tested on a live Linux host. Run only scripts from this private checkout, not archived commands that download public KUS scripts over them.
+The local `linux/install.sh` and `linux/start.sh` now consume the tracked `game/csgo/` payload and use the SteamCMD installation's `<install-root>/game/csgo/` runtime. They are aligned to KUS's layout but have not been tested on a live Linux host. Run only scripts from this private checkout, not archived commands that download public KUS scripts over them.
 
 The tracked source payload is `game/csgo/`; the actual Linux runtime is `<install-root>/game/csgo/`. See [the archived Linux guide](docs/upstream/KUS-README.md#running-on-linux) for historical context.
 
 ### Running in Docker
 
-`Dockerfile`, `install_docker.sh`, and `docker-compose.yml` now use the tracked `game/csgo/` payload and keep the installed CS2 game in the persistent SteamCMD volume. This follows KUS's staged layout, but the container has not been live-tested. See [the archived Docker guide](docs/upstream/KUS-README.md#running-in-docker) for historical context.
+`docker/Dockerfile`, `docker/install_docker.sh`, and `docker/docker-compose.yml` now use the tracked `game/csgo/` payload and keep the installed CS2 game in the persistent SteamCMD volume. This follows KUS's staged layout, but the container has not been live-tested. See [the archived Docker guide](docs/upstream/KUS-README.md#running-in-docker) for historical context.
 
-The historical KUS container notes remain in [the archived Docker guide](docs/upstream/KUS-README.md#running-in-docker). The unified Docker instructions will be added when the image entrypoint consumes this repository's canonical runtime tree directly.
+Build from the repository root with `docker compose -f docker/docker-compose.yml up --build`. This uses the root `.dockerignore`; the Docker image is still not live-tested. The historical KUS container notes remain in [the archived Docker guide](docs/upstream/KUS-README.md#running-in-docker).
 
 ### Running in Kubernetes
 
@@ -466,16 +470,16 @@ Use a Windows x64 server with Git installed and at least 60 GB of free disk spac
 ```bat
 git clone --branch integration/kus-monorepo https://github.com/larnzs/cs2-kus-addons.git
 cd cs2-kus-addons
-install.bat
+windows/install.bat
 ```
 
-`install.bat` downloads SteamCMD if needed and runs KUS-style `app_update 730` in `server/`, then calls `win.bat` to deploy `game/csgo/`, patch the installed `gameinfo.gi`, and verify the runtime. It does not start the server or pass SteamCMD's optional `validate` flag.
+`windows/install.bat` downloads SteamCMD if needed and runs KUS-style `app_update 730` in `server/`, then calls `windows/win.bat` to deploy `game/csgo/`, patch the installed `gameinfo.gi`, and verify the runtime. It does not start the server or pass SteamCMD's optional `validate` flag.
 
 ### 2. Configure and run an instance
 
-Copy `examples/run-template/instance.example.ini` to `examples/run-template/instance.ini`. Edit the port, map/map group, reachable public IP (optional), Game Server Login Token, and a strong RCON password. Keep `instance.ini` private; it is excluded from Git.
+Copy `windows/instance-template/instance.example.ini` to `windows/instance-template/instance.ini`. Edit the port, map/map group, reachable public IP (optional), Game Server Login Token, and a strong RCON password. Keep `instance.ini` private; it is excluded from Git.
 
-Run the instance-local `update.bat` manually while every CS2 process is stopped. Then launch `examples/run-template/watchdog.bat`; it supervises the VBS host, and VBS retries only the runner after a CS2 exit.
+Run the instance-local `update.bat` manually while every CS2 process is stopped. Then launch `windows/instance-template/watchdog.bat`; it supervises the VBS host, and VBS retries only the runner after a CS2 exit.
 
 ### Maintenance commands
 
@@ -751,11 +755,11 @@ Because the way the server is setup with several mods it's not possible. You can
 
 ### Updating Metamod:Source and CounterStrikeSharp
 
-CounterStrikeSharp is managed by `DEPENDENCIES.json` and the Windows `addons-update.bat` workflow. Preview and update it with:
+CounterStrikeSharp is managed by `DEPENDENCIES.json` and the Windows `windows/addons-update.bat` workflow. Preview and update it with:
 
 ```bat
-addons-update.bat -DryRun -Only CounterStrikeSharp
-addons-update.bat -Only CounterStrikeSharp
+windows/addons-update.bat -DryRun -Only CounterStrikeSharp
+windows/addons-update.bat -Only CounterStrikeSharp
 ```
 
 The manifest requires the Windows **with-runtime** archive and CI checks that .NET runtime files are present. Do not manually copy a no-runtime CSS archive over this runtime tree.

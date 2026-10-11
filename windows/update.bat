@@ -4,7 +4,8 @@ title CS2 KUS Addons - Update Repository
 set "PAUSE_ON_EXIT=1"
 if /I "%~1"=="--no-pause" set "PAUSE_ON_EXIT=0"
 set "RC=1"
-cd /d "%~dp0"
+for %%I in ("%~dp0..") do set "ROOT_DIR=%%~fI"
+cd /d "%ROOT_DIR%"
 
 git rev-parse --is-inside-work-tree >nul 2>&1
 if errorlevel 1 (
@@ -26,7 +27,7 @@ if errorlevel 1 (
 )
 
 rem Re-apply runtime and the KUS-compatible gameinfo.gi patch after repository updates.
-call "%~dp0win.bat" --no-pause
+call "%ROOT_DIR%\windows\win.bat" --no-pause
 set "RC=%ERRORLEVEL%"
 if not "%RC%"=="0" echo ERROR: Post-pull server preparation failed with code %RC%.
 goto :finish

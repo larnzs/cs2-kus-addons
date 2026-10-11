@@ -6,7 +6,7 @@
 
 # As root (sudo su)
 # Local KUS-compatible startup helper. It updates the installed game but does not redeploy plugins.
-ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
 
 # Function to safely enable unprivileged user namespaces.
@@ -215,11 +215,11 @@ else
 	exit 1
 fi
 
-if [[ ! -f "$ROOT_DIR/stop.sh" ]]; then
+if [[ ! -f "$ROOT_DIR/linux/stop.sh" ]]; then
     echo "ERROR: stop.sh from this repository is missing: $ROOT_DIR/stop.sh"
     exit 1
 fi
-chmod +x "$ROOT_DIR/stop.sh"
+chmod +x "$ROOT_DIR/linux/stop.sh"
 
 PUBLIC_IP=$(curl -4 ifconfig.me)
 

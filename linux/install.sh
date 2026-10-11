@@ -2,7 +2,7 @@
 
 # As root (sudo su)
 # Run as root from a clone of this private repository.
-ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "ERROR: Run install.sh from a clone of the private cs2-kus-addons repository."
     exit 1

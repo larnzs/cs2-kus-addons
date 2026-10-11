@@ -13,17 +13,10 @@ on:
       - "scripts/Inspect-Releases.ps1"
       - "scripts/Restructure-KUS-Payload.ps1"
       - "scripts/Integrate-KUS.ps1"
-      - "install.bat"
-      - "update.bat"
-      - "win.bat"
-      - "game-update.bat"
-      - "examples/run-template/run.bat"
-      - "install.sh"
-      - "start.sh"
-      - "install_docker.sh"
-      - "gcp.sh"
-      - "Dockerfile"
-      - "docker-compose.yml"
+      - "windows/**"
+      - "linux/**"
+      - "docker/**"
+      - ".dockerignore"
       - ".gitignore"
       - "DEPENDENCIES.json"
       - "README.md"
@@ -49,7 +42,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash -n install.sh start.sh install_docker.sh gcp.sh scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh
+          bash -n linux/install.sh linux/start.sh linux/run.sh linux/stop.sh docker/install_docker.sh linux/gcp.sh scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh
           echo "Shell syntax passed."
 
       - name: Validate PowerShell syntax
@@ -111,9 +104,21 @@ jobs:
           assert "addons/metamod/bin/linuxsteamrt64/metamod.2.cs2.so" in metamod["verify_paths"]
           assert Path("game/csgo/addons/counterstrikesharp/bin/linuxsteamrt64/counterstrikesharp.so").is_file()
           assert Path("game/csgo/addons/windows/addons/counterstrikesharp/dotnet/dotnet.exe").is_file()
-          for script in ("install.sh", "install_docker.sh"):
+          for script in ("linux/install.sh", "docker/install_docker.sh"):
               text = Path(script).read_text(encoding="utf-8")
               assert 'rm -rf "$GAME_ROOT/addons/windows"' in text, f"{script} must not leave the Windows overlay in a Linux runtime"
+
+          expected_entrypoints = (
+              "windows/install.bat", "windows/win.bat", "windows/update.bat",
+              "windows/game-update.bat", "windows/addons-update.bat",
+              "windows/addons-inspect.bat", "windows/instance-template/run.bat",
+              "linux/install.sh", "linux/gcp.sh", "docker/Dockerfile",
+              "docker/docker-compose.yml", "docker/kubernetes/manifest.yaml",
+          )
+          for entrypoint in expected_entrypoints:
+              assert Path(entrypoint).is_file(), f"Missing organized entrypoint: {entrypoint}"
+          for old_root_entrypoint in ("install.bat", "win.bat", "update.bat", "game-update.bat", "install.sh", "run.sh", "start.sh", "stop.sh", "gcp.sh", "install_docker.sh", "Dockerfile", "docker-compose.yml", "manifest.yaml"):
+              assert not Path(old_root_entrypoint).exists(), f"Root entrypoint was not moved: {old_root_entrypoint}"
 
           names = subprocess.run(
               ["git", "ls-tree", "-r", "--name-only", "HEAD"],
@@ -126,8 +131,8 @@ jobs:
           assert not collisions, f"Windows case-insensitive path collisions remain: {collisions}"
           assert not any(name.startswith("server/game/csgo/") for name in names), "Downloaded runtime files must not be tracked under server/."
 
-          install_bat = Path("install.bat").read_text(encoding="utf-8")
-          win_bat = Path("win.bat").read_text(encoding="utf-8")
+          install_bat = Path("windows/install.bat").read_text(encoding="utf-8")
+          win_bat = Path("windows/win.bat").read_text(encoding="utf-8")
           deploy = Path("scripts/Deploy-Runtime.ps1").read_text(encoding="utf-8")
           assert "+app_update 730 +quit" in install_bat
           assert "+app_update 730 validate" not in install_bat
@@ -136,12 +141,12 @@ jobs:
           assert "set \"INSERTAFTER=Game_LowViolence\tcsgo_lv\"" in win_bat
           assert 'findstr /n "^"' in win_bat
           assert "Patch-GameInfo.ps1" not in win_bat
-          assert 'call "%ROOT_DIR%win.bat" --no-pause' in install_bat
-          update_bat = Path("update.bat").read_text(encoding="utf-8")
-          game_update_bat = Path("game-update.bat").read_text(encoding="utf-8")
-          runner_bat = Path("examples/run-template/run.bat").read_text(encoding="utf-8")
-          assert 'call "%~dp0win.bat" --no-pause' in update_bat
-          assert 'call "%ROOT_DIR%win.bat" --no-pause' in game_update_bat
+          assert r'call "%ROOT_DIR%\windows\win.bat" --no-pause' in install_bat
+          update_bat = Path("windows/update.bat").read_text(encoding="utf-8")
+          game_update_bat = Path("windows/game-update.bat").read_text(encoding="utf-8")
+          runner_bat = Path("windows/instance-template/run.bat").read_text(encoding="utf-8")
+          assert r'call "%ROOT_DIR%\windows\win.bat" --no-pause' in update_bat
+          assert r'call "%ROOT_DIR%\windows\win.bat" --no-pause' in game_update_bat
           assert 'set "GAME_DIR=%SERVER_DIR%\\game\\csgo"' in runner_bat
           assert "call :SyncCustomFiles" in runner_bat
           assert 'xcopy "%CUSTOM_DIR%\\cfg\\*"' in runner_bat

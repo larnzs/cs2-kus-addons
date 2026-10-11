@@ -1,12 +1,13 @@
 @echo off
 setlocal EnableExtensions
-cd /d "%~dp0"
+for %%I in ("%~dp0..") do set "ROOT_DIR=%%~fI"
+cd /d "%ROOT_DIR%"
 
-if not exist "%~dp0scripts\Update-Addons.ps1" (
+if not exist "%ROOT_DIR%\scripts\Update-Addons.ps1" (
     echo ERROR: scripts\Update-Addons.ps1 was not found.
     exit /b 1
 )
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\Update-Addons.ps1" %*
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT_DIR%\scripts\Update-Addons.ps1" %*
 set "RC=%ERRORLEVEL%"
 echo.
 if "%RC%"=="0" (

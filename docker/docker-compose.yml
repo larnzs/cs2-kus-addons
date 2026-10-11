@@ -1,10 +1,12 @@
 services:
   cs2_modded_server:
     image: cs2-modded-server:latest
-    build: .
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: cs2-modded-server
     env_file:
-      - .env
+      - ../.env
     volumes:
       - cs2-volume:/home/steam/
     ports:

@@ -89,7 +89,7 @@ if (Test-Path -LiteralPath $tempOverlay -PathType Container) {
 }
 
 # Import support files, dependency scripts and CI helpers, but never the source game/ staging tree or personal cfg layers.
-$skip = @(".git", ".env", ".gitignore", "README.md", "game", "custom_files", "custom_files_example", "win.bat", "update.bat", "win.ini")
+$skip = @(".git", ".env", ".gitignore", "README.md", "game", "custom_files", "custom_files_example", "win.bat", "update.bat", "install.bat", "game-update.bat", "addons-update.bat", "addons-inspect.bat", "install.sh", "run.sh", "start.sh", "stop.sh", "gcp.sh", "install_docker.sh", "Dockerfile", "docker-compose.yml", "manifest.yaml", "windows", "linux", "docker", "win.ini")
 foreach ($item in Get-ChildItem -LiteralPath $KusRootResolved -Force) {
     if ($skip -contains $item.Name) { continue }
     $target = Join-Path $RepoRoot $item.Name
@@ -126,7 +126,7 @@ foreach ($original in $originals) {
 foreach ($path in $script:ImportedText) { Rewrite-Paths -Path $path }
 # Re-apply idempotent path normalization to all KUS-owned support files.
 # This repairs a partial earlier import while leaving cfg/custom file layers out.
-$excludedTop = @(".git", ".env", ".gitignore", "README.md", "game", "custom_files", "custom_files_example", "win.bat", "update.bat", "win.ini")
+$excludedTop = @(".git", ".env", ".gitignore", "README.md", "game", "custom_files", "custom_files_example", "win.bat", "update.bat", "install.bat", "game-update.bat", "addons-update.bat", "addons-inspect.bat", "install.sh", "run.sh", "start.sh", "stop.sh", "gcp.sh", "install_docker.sh", "Dockerfile", "docker-compose.yml", "manifest.yaml", "windows", "linux", "docker", "win.ini")
 $excludedExact = @(".github/workflows/auto-update-mods.yml", ".github/workflows/docker-image.yml")
 foreach ($sourceFile in Get-ChildItem -LiteralPath $KusRootResolved -File -Recurse -Force) {
     $relative = $sourceFile.FullName.Substring($KusRootResolved.Length).TrimStart("\", "/").Replace("\", "/")
@@ -176,7 +176,7 @@ if (Test-Path -LiteralPath $cfgRoot -PathType Container) {
 Write-Utf8 -Path $ignorePath -Text ($ignoreText + [Environment]::NewLine)
 
 # Make the sample runner target the only server directory.
-$exampleIni = Join-Path $RepoRoot "examples/run-template/instance.example.ini"
+$exampleIni = Join-Path $RepoRoot "windows/instance-template/instance.example.ini"
 if (Test-Path -LiteralPath $exampleIni) {
     $text = [IO.File]::ReadAllText($exampleIni) -replace '(?m)^SERVER_DIR=.*$', 'SERVER_DIR=..\..\server'
     Write-Utf8 -Path $exampleIni -Text $text
