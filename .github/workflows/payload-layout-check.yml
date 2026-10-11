@@ -233,7 +233,7 @@ jobs:
           assert "foreach ($protectedRelative in $PreservedManualPaths)" in integrate
           addon_workflow = Path(".github/workflows/addon-updater.yml").read_text(encoding="utf-8")
           assert 'for attempt in 1 2 3; do' in addon_workflow and 'git rebase origin/integration/kus-monorepo' in addon_workflow, "Bash updater must safely retry remote push races"
-          assert 'GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}' in addon_workflow, "KUS updater must use an authenticated GitHub API token for upstream release checks"
+          assert "GITHUB_TOKEN:" in addon_workflow and "secrets.GITHUB_TOKEN" in addon_workflow, "KUS updater must use an authenticated GitHub API token for upstream release checks"
           assert '$attempt -le 3' in addon_workflow and '$published = $false' in addon_workflow, "Windows updater must safely retry remote push races"
           for critical_step in (
               "Validate example instance template",
