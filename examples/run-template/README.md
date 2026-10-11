@@ -21,7 +21,7 @@ Keep these five files together in each external Instance folder:
 The design intentionally has two layers:
 
 - `watchdog.bat` stays in a visible CMD session and supervises the VBS host using `cscript.exe`. If the VBScript host terminates, the batch guardian waits one second and launches it again.
-- `run.vbs` invokes `run.bat` via an explicit `cmd.exe /d /s /c` command, waits for completion, then retries after 100 ms when the batch returns exit code 100 (the launch runner's CS2-exited result). Launch errors and unexpected exit codes are written to `%TEMP%\\CS2-KUS-Watchdog.log`; repeat failures are rate-limited in the log.
+- `run.vbs` invokes `run.bat` via an explicit `cmd.exe /d /s /c` command, waits for completion, then retries after 100 ms when the batch returns exit code 100 (the launch runner's CS2-exited result). Launch errors and unexpected exit codes are written to `%TEMP%\CS2-KUS-Watchdog.log`; repeat failures are rate-limited in the log.
 - The VBS can use either the standard `run.bat` filename or, when there is no `run.bat`, a single unambiguous `*_run.bat` file such as `27085_run.bat`.
 - Neither watchdog invokes `update.bat`, Git, release checks, SteamCMD, gameinfo patching, or payload deployment during crash recovery.
 - `run.bat` waits while the shared maintenance lock exists so a server cannot start midway through runtime deployment. If an updater fails, fix the displayed error and run the instance-local `update.bat` again with all CS2 processes stopped.
@@ -36,4 +36,4 @@ The design intentionally has two layers:
 4. Double-click `watchdog.bat`; confirm the server launches and the guardian CMD remains open.
 5. Use `quit` or terminate only CS2. The VBS should start the runner again after approximately 100 ms. If the VBS host itself exits, the guardian CMD should relaunch it after one second. The loop must never invoke `update.bat`.
 
-Check `%TEMP%\\CS2-KUS-Watchdog.log` if the runner cannot be launched or repeatedly returns an unexpected exit code.
+Check `%TEMP%\CS2-KUS-Watchdog.log` if the runner cannot be launched or repeatedly returns an unexpected exit code.
