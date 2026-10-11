@@ -277,10 +277,24 @@ if [ ! -d "$PAYLOAD_ROOT/addons" ]; then
 fi
 
 # KUS deployment model: clear plugin-owned trees to remove stale files, then copy the source payload.
-rm -rf "$GAME_ROOT/addons" "$GAME_ROOT/cfg/settings"
-cp -R "$PAYLOAD_ROOT/." "$GAME_ROOT/"
-# The windows/ tree is a staging overlay only; Linux runs the shared/base payload.
-rm -rf "$GAME_ROOT/addons/windows"
+# Non-destructive overlay: add/overwrite release files, but never purge runtime-only files.
+# CounterStrikeSharp configs and cfg/settings are manual-only and are not copied by automation.
+# Windows assets are a staging overlay, not part of the Linux runtime copy.
+mkdir -p "$GAME_ROOT"
+if ! (
+    set -o pipefail
+    tar -C "$PAYLOAD_ROOT" \
+        --exclude='./addons/windows' \
+        --exclude='./addons/windows/*' \
+        --exclude='./addons/counterstrikesharp/configs' \
+        --exclude='./addons/counterstrikesharp/configs/*' \
+        --exclude='./cfg/settings' \
+        --exclude='./cfg/settings/*' \
+        -cf - . | tar -C "$GAME_ROOT" -xf -
+); then
+    echo "ERROR: Non-destructive payload overlay failed."
+    exit 1
+fi
 
 chown -R "${user}:${user}" "/home/${user}/cs2"
 cd "/home/${user}/cs2" || exit

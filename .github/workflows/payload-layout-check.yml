@@ -106,7 +106,11 @@ jobs:
           assert Path("game/csgo/addons/windows/addons/counterstrikesharp/dotnet/dotnet.exe").is_file()
           for script in ("linux/install.sh", "docker/install_docker.sh"):
               text = Path(script).read_text(encoding="utf-8")
-              assert 'rm -rf "$GAME_ROOT/addons/windows"' in text, f"{script} must not leave the Windows overlay in a Linux runtime"
+              assert 'tar -C "$PAYLOAD_ROOT"' in text, f"{script} must deploy the tracked payload with a non-destructive overlay"
+              for protected in ("addons/counterstrikesharp/configs", "cfg/settings", "addons/windows"):
+                  assert f"--exclude='./{protected}'" in text, f"{script} must exclude protected path {protected}"
+              for destructive in ('rm -rf "$GAME_ROOT/addons"', 'rm -rf "$GAME_ROOT/cfg/settings"', 'rm -rf "$GAME_ROOT/addons/windows"'):
+                  assert destructive not in text, f"{script} must not delete shared runtime paths: {destructive}"
 
           expected_entrypoints = (
               "windows/install.bat", "windows/win.bat", "windows/update.bat",
