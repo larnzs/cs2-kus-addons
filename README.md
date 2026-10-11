@@ -15,7 +15,7 @@ This README combines Larnz's manifest-managed add-ons with KUS's base plugins, g
 | `game/csgo/cfg/` | Tracked shared configuration source, deployed into the installed runtime. |
 | DEPENDENCIES.json | Larnz add-on updater manifest. |
 | scripts/update/ | Active KUS-style per-plugin automation; the same Bash updater also runs the Larnz manifest add-on scripts. |
-| examples/run-template/ | Windows runner with detached PowerShell supervisor and independent VBS watchdog template. |
+| examples/run-template/ | Separate update batch, launch-only runner, and classic VBS anti-crash loop template. |
 | docs/upstream/ | KUS source snapshot metadata and archived upstream entrypoints/workflows. |
 
 The upstream `custom_files/` and `custom_files_example/` trees are intentionally not imported. On Windows, use the external per-instance override directory selected by `CUSTOM_FOLDER` in `examples/run-template/instance.ini`. Never store tokens, passwords or private database credentials in tracked files.
@@ -24,7 +24,7 @@ The upstream `custom_files/` and `custom_files_example/` trees are intentionally
 
 1. Clone this private repository on the Windows server machine.
 2. Run `install.bat`. It downloads SteamCMD if needed, installs/checks CS2 with SteamCMD, then prepares the runtime. It does not start the server.
-3. Prepare `instance.ini` and keep `run.bat`, `run_fast.bat`, `run.vbs`, `supervisor.ps1`, and `instance.ini` together in the external Instance folder. Launch `run.vbs`; it stays independent of the CS2 process while monitoring the hidden PowerShell supervisor. The shared Temp marker selects fast crash recovery after the first successful maintenance pass.
+3. Copy the instance-local `update.bat`, launch-only `run.bat`, `run.vbs`, and your private `instance.ini` into the external Instance folder. Launch `run.vbs`; it runs maintenance once at startup, then loops only over `run.bat` with a 100 ms retry delay after CS2 exits.
 
 For the difference between each maintenance script—and an important warning about manual deployment—see [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons).
 
@@ -258,9 +258,11 @@ GitHub Actions checks for new upstream add-on releases every hour at **minute 17
 
 Coverage means the **15 KUS scripts currently provided by KUS** plus the 17 enabled entries in our manifest (MetaMod and CounterStrikeSharp are shared between the two groups). KUS catalog rows that do not have their own upstream updater script are still warning-only/skipped, as documented by KUS; this does not automatically update every optional plugin name in the catalog. `CS2-WeaponRestrict` remains intentionally excluded because it is marked not installed and not automated.
 
-### Two different update modes
+### Separate maintenance and crash recovery
 
-`run.vbs` never waits for a batch or CS2 process. It polls WMI for this Instance's `supervisor.ps1` and starts a detached hidden copy if missing. The PowerShell supervisor selects `run.bat` or `run_fast.bat` from `%TEMP%\\CS2-KUS-Maintenance-success.marker`, waits on a separate `cmd.exe` host, and retries 100 milliseconds after the runner returns. If PowerShell itself exits or crashes, the independent VBS watchdog relaunches it. A named mutex prevents duplicate supervisors. If another `cs2.exe` is active at startup or becomes active mid-maintenance, updates/deployment are skipped or cancelled, but the requested Instance can still launch.
+The external Instance folder has its own `update.bat`: `run.vbs` runs it once when the watchdog starts and waits for it to finish. After that, VBS enters the classic loop over launch-only `run.bat`, which reads `instance.ini`, runs the CS2 command, and returns when that process exits. VBS waits **100 milliseconds** and runs `run.bat` again. Routine crashes therefore do not repeat Git pulls, upstream release checks, SteamCMD, gameinfo patching, or payload deployment.
+
+The instance updater refuses to modify the shared runtime while any `cs2.exe` is active. A shared lock also prevents a waiting launch-only batch from opening CS2 while maintenance is in progress; stale locks are checked against the owner PID before being removed. The five-minute success marker only suppresses duplicate startup updates across Instances. It does not select a different runner.
 
 #### A. Soft reset of the installed runtime — `win.bat`
 
@@ -296,13 +298,15 @@ These two use overlay-style copying, but they operate at different stages:
 | `win.bat` | Deploys the current tracked payload, patches `gameinfo.gi` for MetaMod, and verifies required files. | **Clean replacement / soft reset** of runtime `addons/`. | No | No |
 | `addons-update.bat` | Checks upstream releases and updates manifest-managed add-ons in the repository payload. | **Non-destructive overlay** into `game/csgo/`; it does not remove stale files omitted from a release. | No | No |
 | `addons-inspect.bat` | Inspects configured upstream release assets without installing them. | Inspection only; no payload or runtime deployment. | No | No |
-| `examples/run-template/run.bat` | Runs the normal serialized startup maintenance pipeline only when the shared install is idle, writes a fast-mode marker on success, launches CS2 once, and returns after CS2 exits. | **Overwrite-only overlay**; does not delete existing add-on files. | Yes, only when no other `cs2.exe` is active | Yes |
+| `examples/run-template/update.bat` | Instance-local one-shot maintenance pipeline, copied beside the launch runner. | **Overwrite-only overlay**; does not delete existing add-on files. | Yes, only when no other `cs2.exe` is active | No |
+| `examples/run-template/run.bat` | Reads `instance.ini`, waits for the shared maintenance lock, launches one CS2 process, and returns after exit/crash. | None; launch-only. | No | Yes |
 
-`update.bat` only pulls versions already committed to this private repository; it does not check upstream releases directly. `game-update.bat` checks for a running `cs2.exe` before SteamCMD, but `win.bat`, `update.bat`, and `install.bat` do not provide that same active-process guard.
+`update.bat` at the repository root is a separate KUS-style Git/payload entrypoint. `examples/run-template/update.bat` is copied into each external Instance folder and is the instance-local maintenance pipeline described above. Do not overwrite the repository-root script with the template copy. `game-update.bat` checks for a running `cs2.exe` before SteamCMD, but the repository-root `win.bat`, `update.bat`, and `install.bat` do not provide that same active-process guard.
 
 > [!WARNING]
-> Do not run the manual install/update/deploy paths (`install.bat`, `game-update.bat`, `update.bat`, or `win.bat`) while any instance is using the shared CS2 installation. Stop all CS2 instances first. For regular multi-instance operation, use the runner in `examples/run-template/run.bat`, which coordinates maintenance and avoids replacing the live `addons/` tree.
+> Do not run repository-root install/update/deploy paths (`install.bat`, `game-update.bat`, `update.bat`, or `win.bat`) while any Instance uses the shared CS2 installation. Stop all CS2 processes first. For normal operation, start `examples/run-template/run.vbs`: it invokes the instance-local updater once, then restarts only the launch-only `run.bat` after a crash.
 
+### Which tool should I use to troubleshoot a broken plugin?
 ### Which tool should I use to troubleshoot a broken plugin?
 
 - **The deployed runtime copy may be damaged, but the repository payload is trusted:** stop every CS2 instance, then run `win.bat`. It recreates the runtime add-on tree from the current payload. It does not fetch newer upstream releases.
@@ -345,7 +349,7 @@ Changes made directly to tracked files become local Git changes. Commit them int
 
 ### Per-instance overrides on Windows
 
-The Windows runner can apply optional `cfg/` and `addons/` overrides before it launches CS2. Set `CUSTOM_FOLDER` in `examples/run-template/instance.ini` to a directory containing these subfolders. For private settings, prefer an absolute path outside the repository, for example:
+The instance-local `update.bat` can apply optional `cfg/` and `addons/` overrides before `run.bat` starts CS2, but only while no `cs2.exe` is active. Set `CUSTOM_FOLDER` in `instance.ini` to a directory containing these subfolders. Because the installed runtime is shared, simultaneous Instances cannot have isolated copies of different override files. For private settings, prefer an absolute path outside the repository, for example:
 
 ```text
 D:\CS2-private\aim\
@@ -357,7 +361,7 @@ D:\CS2-private\aim\
             └── admins.json
 ```
 
-The runner copies the override folder's `cfg/` and `addons/` into the installed runtime under `server/game/csgo/`; it does not rewrite the tracked payload source.
+The instance-local updater copies the override folder's `cfg/` and `addons/` into the installed runtime under `server/game/csgo/`; it does not rewrite the tracked payload source. The launch-only `run.bat` never copies or modifies runtime files.
 
 For example, to add admins for one instance, copy the deployed file `server/game/csgo/addons/counterstrikesharp/configs/admins.json` to:
 
@@ -371,7 +375,7 @@ To change settings for one game mode, put a relevant override in `<CUSTOM_FOLDER
 
 ### Plugin-generated configuration files
 
-The regular per-instance Windows runner does not rebuild the runtime tree on every start: it uses overwrite-only overlay copying. By contrast, `win.bat` replaces the runtime `addons/` directory from the repository payload; runtime-only add-ons can therefore be removed, while the live CounterStrikeSharp `configs/` tree and selected files under `cfg/settings/` are explicitly preserved. For a persistent per-instance override, put a same-path file under `<CUSTOM_FOLDER>/addons/` or `<CUSTOM_FOLDER>/cfg/`. The add-on updater protects `cfg/` and CounterStrikeSharp's `configs/` from overwrites by incoming release archives.
+The instance-local `update.bat` uses overwrite-only overlay copying; the launch-only `run.bat` does not rebuild or modify the runtime on startup or crash recovery. By contrast, repository-root `win.bat` replaces the runtime `addons/` directory from the repository payload; runtime-only add-ons can therefore be removed, while the live CounterStrikeSharp `configs/` tree and selected files under `cfg/settings/` are explicitly preserved. For a persistent per-instance override, put a same-path file under `<CUSTOM_FOLDER>/addons/` or `<CUSTOM_FOLDER>/cfg/`. The add-on updater protects `cfg/` and CounterStrikeSharp's `configs/` from overwrites by incoming release archives.
 
 **Do not commit real secrets.** Keep `instance.ini`, API keys, Game Server Login Tokens, RCON passwords and database credentials out of tracked files.
 
@@ -412,7 +416,7 @@ The active Windows runner reads `examples/run-template/instance.ini`, not enviro
 | `MAP` | `de_mirage` | Initial map requested at launch. |
 | `WORKSHOP_COLLECTION` | empty | Optional Workshop collection ID. |
 
-`run.vbs` acts only as an independent watchdog for `supervisor.ps1`; it does not wait on the batch or game. PowerShell checks the shared `%TEMP%\\CS2-KUS-Maintenance-success.marker`, selects `run.bat` when full maintenance is needed and `run_fast.bat` after successful maintenance, then retries the chosen runner 100 milliseconds after it exits. The VBS watchdog restarts the PowerShell supervisor if that process disappears. If any `cs2.exe` is active, shared maintenance skips or cancels deployment, but other Instances can still launch in fast mode.
+`run.vbs` runs the instance-local `update.bat` once on startup, then loops only over `run.bat`. The update cooldown prevents duplicate maintenance from simultaneous Instance startup; a shared lock prevents CS2 from launching while runtime deployment is active. After CS2 exits or crashes, VBS retries `run.bat` after 100 ms.
 
 ## Playing workshop maps/collections
 
@@ -474,11 +478,11 @@ install.bat
 
 Copy `examples/run-template/instance.example.ini` to `examples/run-template/instance.ini`. Edit the port, map/map group, reachable public IP (optional), Game Server Login Token, and a strong RCON password. Keep `instance.ini` private; it is excluded from Git.
 
-Launch `examples/run-template/run.vbs` for hidden operation. It independently monitors `supervisor.ps1` and re-launches it if missing; PowerShell selects `run.bat` until the shared marker exists and `run_fast.bat` afterward. This separates watchdog lifetime from the CS2/batch process lifetime. To deliberately force a new maintenance cycle, stop the Instances and both supervisor layers, then remove the shared marker from `%TEMP%` before starting one VBS.
+Launch `examples/run-template/run.vbs`. It runs the instance-local `update.bat` once at startup, then waits for `run.bat` to finish and retries after 100 milliseconds. To force a fresh maintenance cycle, stop all CS2 servers and VBS watchdogs, then remove `%TEMP%\\CS2-KUS-Maintenance-success.marker` before starting one VBS.
 
 ### Maintenance commands
 
-See [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons) for what each maintenance script does and when it is safe to run. For normal operation, copy `run.bat`, `run_fast.bat`, `run.vbs`, `supervisor.ps1`, and `instance.ini` into each external Instance folder. Shared updates run only when no `cs2.exe` is active; after a successful full update, all PowerShell supervisors use the fast runner. Stop every CS2 instance before manual install or clean-reset/deployment scripts.
+See [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons) for safe deployment details. For normal operation, copy the instance-local `update.bat`, launch-only `run.bat`, and `run.vbs` into each external Instance folder alongside your private `instance.ini`. Updates run only while no `cs2.exe` is active; the restart loop itself never performs maintenance. Stop every CS2 process before manual install or clean-reset/deployment scripts.
 
 Allow the selected game port through Windows Firewall and the router/cloud firewall. Use a valid Game Server Login Token for a public server. Keep API keys, login tokens, RCON passwords, and instance-specific settings out of tracked files.
 
