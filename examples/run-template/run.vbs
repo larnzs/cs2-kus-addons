@@ -1,22 +1,24 @@
 Option Explicit
 
-Dim shell, fso, root, batPath, fastBatPath, iniPath
-Dim launchCommand, runnerExitCode, launchError, logPath, fastMode
+Dim shell, fso, root, normalBatPath, fastBatPath, iniPath
+Dim batPath, runnerExitCode, launchError, logPath, fastMode
 
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
+' All Instance runner files live beside this VBS, outside the repository.
+' Resolve paths from this script's own folder, never from the current working directory.
 root = fso.GetParentFolderName(WScript.ScriptFullName)
-batPath = fso.BuildPath(root, "run.bat")
+normalBatPath = fso.BuildPath(root, "run.bat")
 fastBatPath = fso.BuildPath(root, "run-fast.bat")
 iniPath = fso.BuildPath(root, "instance.ini")
-fastMode = False
 logPath = fso.BuildPath(shell.ExpandEnvironmentStrings("%TEMP%"), "CS2-KUS-runner-launcher.log")
-' Tell child cmd.exe/run.bat not to pause; this environment is scoped to this supervisor process.
+
+' Tell child batch files not to wait for keyboard input when launched by this supervisor.
 shell.Environment("Process")("CS2_RUNNER_NO_PAUSE") = "1"
 
-If Not fso.FileExists(batPath) Then
-    MsgBox "The maintenance runner batch file is missing:" & vbCrLf & batPath, vbCritical, "CS2 Instance Runner"
+If Not fso.FileExists(normalBatPath) Then
+    MsgBox "The maintenance runner batch file is missing:" & vbCrLf & normalBatPath, vbCritical, "CS2 Instance Runner"
     WScript.Quit 1
 End If
 
@@ -32,52 +34,52 @@ If Not fso.FileExists(iniPath) Then
     WScript.Quit 2
 End If
 
-WriteLog "Supervisor started. First attempt uses run.bat (maintenance); after a CS2 exit it switches to run-fast.bat."
+fastMode = False
+WriteLog "Supervisor started. First launch uses run.bat; after CS2 exits it uses run-fast.bat."
+
 Do
     If fastMode Then
         batPath = fastBatPath
     Else
-        batPath = fso.BuildPath(root, "run.bat")
+        batPath = normalBatPath
     End If
-    ' Use CALL through cmd.exe: the quoted batch path and trailing arguments stay distinct.
-    ' The inherited environment flag also disables PAUSE if command-line quoting is changed later.
-    launchCommand = Chr(34) & shell.ExpandEnvironmentStrings("%ComSpec%") & Chr(34) & _
-        " /d /c call " & Chr(34) & batPath & Chr(34) & " --no-pause"
 
-    WriteLog "Launching " & batPath & " using: " & launchCommand
-    launchError = 0
+    ' Match the known-working WSH pattern: directly run the sibling .bat,
+    ' hide its window, and wait for it to finish so its exit code is available.
     runnerExitCode = -1
+    launchError = 0
+    WriteLog "Launching: " & batPath
+
     On Error Resume Next
-    runnerExitCode = shell.Run(launchCommand, 0, True)
+    runnerExitCode = shell.Run(Chr(34) & batPath & Chr(34), 0, True)
     launchError = Err.Number
     If launchError <> 0 Then
-        WriteLog "ERROR: Could not start " & batPath & ": " & Err.Description
+        WriteLog "ERROR: Could not launch " & batPath & ": " & Err.Description
         Err.Clear
     End If
     On Error GoTo 0
-    If launchError = 0 Then WriteLog "Runner returned exit code " & CStr(runnerExitCode) & " from " & batPath
 
-    If launchError <> 0 Then
-        WScript.Sleep 10000
-    ElseIf CLng(runnerExitCode) = 100 Then
-        If Not fastMode Then
-            WriteLog "CS2 process exited; switching to run-fast.bat. The next restart bypasses all updates."
+    If launchError = 0 Then
+        WriteLog "Runner returned exit code " & CStr(runnerExitCode) & " from " & batPath
+        If CLng(runnerExitCode) = 100 Then
+            If Not fastMode Then
+                WriteLog "CS2 exited; next launch will use run-fast.bat, bypassing maintenance."
+            Else
+                WriteLog "CS2 exited from fast mode; restarting through run-fast.bat again."
+            End If
+            fastMode = True
+        ElseIf CLng(runnerExitCode) = 101 Then
+            WriteLog "Maintenance failed before launch; switching to run-fast.bat so maintenance cannot block recovery."
+            fastMode = True
+        ElseIf CLng(runnerExitCode) <> 0 Then
+            WriteLog "Runner returned unexpected exit code " & CStr(runnerExitCode) & "; will retry after a short delay."
         Else
-            WriteLog "Fast runner reports CS2 exited; immediately restarting without delay or maintenance."
+            WriteLog "Runner returned without the CS2 exit signal; keeping current launch mode."
         End If
-        fastMode = True
-        'No sleep here: relaunch as soon as the previous CS2 process has ended.
-    ElseIf CLng(runnerExitCode) = 101 Then
-        WriteLog "Maintenance failed before server launch; switching to run-fast.bat immediately so an update problem cannot block recovery."
-        fastMode = True
-    ElseIf CLng(runnerExitCode) <> 0 Then
-        WriteLog "Runner exited with error code " & runnerExitCode & "; retrying in 10 seconds."
-        WScript.Sleep 10000
-    Else
-        WriteLog "Runner returned without the CS2 exit signal; retrying in 1 second."
-        WScript.Sleep 1000
     End If
 
+    ' Short guard against an instant crash loop; no update/check cooldown is added here.
+    WScript.Sleep 5000
 Loop
 
 Sub WriteLog(message)
