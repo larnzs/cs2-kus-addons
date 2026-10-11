@@ -2,8 +2,8 @@
 
 Each external Instance folder contains exactly these three active files:
 
-- `run.bat` — validates the instance, optionally performs shared startup maintenance, then launches CS2 and returns when the CS2 process exits.
-- `run.vbs` runs the same full path of `run.bat` forever with a 100 ms delay after the batch returns. There is no dependency on exit codes or environment-variable mutation.
+- `run.bat` — validates the instance, attempts shared maintenance when safe and not recently completed, launches CS2 once, then returns when that CS2 process exits.
+- `run.vbs` — the anti-crash supervisor. It uses the minimal known-good WSH loop: run the sibling batch hidden, wait for it to return, sleep 100 ms, and repeat. It does not inspect exit codes or change environment variables.
 - `instance.ini` — private settings for this Instance. Create it from `instance.example.ini`; do not commit credentials.
 
 The VBS resolves `run.bat` and `instance.ini` relative to its own directory, so the runner files may live outside `W:\\cs2-kus-addons`. Keep `run.bat`, `run.vbs`, and `instance.ini` side-by-side in the external Instance folder.
@@ -14,12 +14,12 @@ The VBS resolves `run.bat` and `instance.ini` relative to its own directory, so 
 2. Copy `instance.example.ini` to `instance.ini` in the external Instance folder and configure it.
 3. Set `SERVER_DIR` to the repository's shared `server` directory. Set a unique port, map/map group, reachable public IP if needed, Game Server Login Token, and a strong RCON password.
 4. Keep `instance.ini` private. It is excluded from Git in this template.
-5. Copy only `run.bat`, `run.vbs`, and your private `instance.ini` into each external Instance folder. The old `run-fast.bat` is no longer used.
-6. Start `run.vbs` for hidden operation with anti-crash supervision. Run `run.bat` directly only when you intentionally want a visible maintenance-and-launch pass. Add `--pause` when you want the batch window to wait after exit. The supervisor passes no arguments and relies on the runner's normal update lock and five-minute successful-maintenance cooldown.
+5. Copy only `run.bat`, `run.vbs`, and your private `instance.ini` into each external Instance folder. No separate fast-runner batch is needed.
+6. Start `run.vbs` for hidden operation with anti-crash supervision. Run `run.bat` directly only when you intentionally want a visible maintenance-and-launch pass. Add `--pause` when you want the batch window to wait after exit.
 
 ## Anti-crash and maintenance behavior
 
-- `run.vbs` runs the same full path of `run.bat` forever with a 100 ms delay after the batch returns. There is no dependency on exit codes or environment-variable mutation.
+- The VBS itself is deliberately just the simple loop. Maintenance policy, the shared update lock, the five-minute recent-success cooldown, and CS2 process checks remain in `run.bat`.
 - Each `run.bat` launch uses the normal maintenance flow, except when the five-minute successful-maintenance marker suppresses duplicate work. It checks/pulls the private repository, checks configured upstream add-on releases, updates CS2 through SteamCMD only when safe, patches `gameinfo.gi`, and applies an overwrite-only runtime overlay.
 - If **any other `cs2.exe` is already running**, startup maintenance is skipped and the new Instance continues to launch. If another process starts while this runner is waiting for the shared maintenance lock, the runner releases the lock, skips maintenance, and continues to launch. If a CS2 process becomes active between update stages, remaining update/deployment stages are abandoned. A busy shared install must not prevent anti-crash recovery.
 - Shared updates are serialized by a machine-wide lock and are permitted only while no `cs2.exe` is active. If another Instance is already running or becomes active during maintenance, the remaining update/deployment stages are cancelled; this Instance can still launch without updates.
