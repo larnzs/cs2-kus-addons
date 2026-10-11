@@ -455,7 +455,7 @@ The tracked source payload is `game/csgo/`; the actual Linux runtime is `<instal
 
 `docker/Dockerfile`, `docker/install_docker.sh`, and `docker/docker-compose.yml` now use the tracked `game/csgo/` payload and keep the installed CS2 game in the persistent SteamCMD volume. This follows KUS's staged layout, but the container has not been live-tested. See [the archived Docker guide](docs/upstream/KUS-README.md#running-in-docker) for historical context.
 
-Build from the repository root with `docker compose -f docker/docker-compose.yml up --build`. This uses the root `.dockerignore`; the Docker image is still not live-tested. The historical KUS container notes remain in [the archived Docker guide](docs/upstream/KUS-README.md#running-in-docker).
+First run `cp .env.example .env`, then edit `.env`: set a valid `STEAM_ACCOUNT` (GSLT) for public hosting and replace `RCON_PASSWORD` with a strong, unique value. `API_KEY` is optional. `.env` is ignored by Git and must never be committed. Build from the repository root with `docker compose -f docker/docker-compose.yml up --build`. Compose expects that root `.env` to exist because it is declared as an `env_file`. This uses the root `.dockerignore`; the Docker image is still not live-tested. The historical KUS container notes remain in [the archived Docker guide](docs/upstream/KUS-README.md#running-in-docker).
 
 ### Running in Kubernetes
 

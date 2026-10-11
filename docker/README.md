@@ -9,7 +9,15 @@ Docker files live here, while the build context remains the repository root beca
 | `docker-compose.yml` | Compose definition, including the persistent volume and published game ports. |
 | `kubernetes/manifest.yaml` | Legacy upstream Kubernetes manifest kept for reference; it still targets the old KUS image/layout and is **not** the maintained deployment path for this unified repo. |
 
-Run Compose from the repository root:
+Before starting, copy the safe template to the ignored local secrets file and edit it:
+
+```bash
+cp .env.example .env
+```
+
+Set a valid `STEAM_ACCOUNT` (GSLT) for a public server and replace `RCON_PASSWORD` with a strong, unique value. `API_KEY` is optional; keep actual credentials only in `.env`, never commit that file. The Compose definition uses this root `.env` as its required `env_file`, so Compose will fail if the file does not exist.
+
+Build and launch from the repository root:
 
 ```bash
 docker compose -f docker/docker-compose.yml up --build

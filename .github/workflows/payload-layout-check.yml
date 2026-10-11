@@ -17,6 +17,7 @@ on:
       - "linux/**"
       - "docker/**"
       - ".dockerignore"
+      - ".env.example"
       - ".gitignore"
       - "DEPENDENCIES.json"
       - "README.md"
@@ -117,10 +118,17 @@ jobs:
               "windows/game-update.bat", "windows/addons-update.bat",
               "windows/addons-inspect.bat", "windows/instance-template/run.bat",
               "linux/install.sh", "linux/gcp.sh", "docker/Dockerfile",
-              "docker/docker-compose.yml", "docker/kubernetes/manifest.yaml",
+              "docker/docker-compose.yml", "docker/kubernetes/manifest.yaml", ".env.example",
           )
           for entrypoint in expected_entrypoints:
               assert Path(entrypoint).is_file(), f"Missing organized entrypoint: {entrypoint}"
+          env_example = Path(".env.example").read_text(encoding="utf-8")
+          compose = Path("docker/docker-compose.yml").read_text(encoding="utf-8")
+          for key in ("STEAM_ACCOUNT", "RCON_PASSWORD", "API_KEY", "PORT", "TICKRATE", "MAXPLAYERS", "LAN", "EXEC", "MAP", "GAME_TYPE", "GAME_MODE", "MAP_GROUP"):
+              assert any(line.startswith(f"{key}=") for line in env_example.splitlines()), f".env.example is missing {key}"
+          assert "env_file:" in compose and "../.env" in compose, "Docker Compose must consume the root .env file"
+          assert ".env" in Path(".gitignore").read_text(encoding="utf-8").splitlines(), "Real .env credentials must be ignored by Git"
+          assert ".env.example" in Path(".dockerignore").read_text(encoding="utf-8").splitlines(), "The example env file does not need to be copied into the image"
           for old_root_entrypoint in ("install.bat", "win.bat", "update.bat", "game-update.bat", "install.sh", "run.sh", "start.sh", "stop.sh", "gcp.sh", "install_docker.sh", "Dockerfile", "docker-compose.yml", "manifest.yaml"):
               assert not Path(old_root_entrypoint).exists(), f"Root entrypoint was not moved: {old_root_entrypoint}"
 
