@@ -7,6 +7,7 @@ set "PAUSE_ON_EXIT=0"
 set "MAINTENANCE_ENABLED=1"
 set "MAINTENANCE_STATUS=update/check on this launch; overwrite-only runtime overlay"
 set "RC=2"
+set "POST_EXIT=0"
 
 :parse_args
 if "%~1"=="" goto :args_done
@@ -77,13 +78,6 @@ set "LOCK_HELD=0"
 if not exist "%CS2_EXE%" goto :MissingCS2
 if not exist "%GAMEINFO%" goto :MissingGameInfo
 
-rem If another server is already active, skip shared maintenance but continue launching this Instance.
-call :AnyCS2Running
-if not errorlevel 1 (
-    set "MAINTENANCE_ENABLED=0"
-    set "MAINTENANCE_STATUS=skipped; another CS2 instance is active"
-    goto :ValidationComplete
-)
 if not exist "%REPO_ROOT%\DEPENDENCIES.json" goto :MissingRepository
 if not exist "%STEAMCMD%" goto :MissingSteamCmd
 if not exist "%PAYLOAD_DIR%\addons\" goto :MissingPayload
@@ -154,14 +148,9 @@ if "%LAN%"=="0" if not defined STEAM_ACCOUNT echo WARNING: STEAM_ACCOUNT is empt
 if "%LAN%"=="0" if not defined RCON_PASSWORD echo WARNING: RCON_PASSWORD is empty.
 
 :main
-if "%MAINTENANCE_ENABLED%"=="1" goto :StartMaintenance
-goto :LaunchServer
-
-:StartMaintenance
 call :RunMaintenance
 if errorlevel 1 goto :maintenance_retry
 
-:LaunchServer
 call :SyncOverrides
 if errorlevel 1 goto :sync_failed
 
@@ -177,29 +166,25 @@ start "" /wait "%CS2_EXE%" ^
  +exec %EXEC%
 
 set "SERVER_EXIT=%ERRORLEVEL%"
-echo WARNING: CS2 exited with code %SERVER_EXIT%.
-set "RC=100"
-goto :finish
+echo WARNING: CS2 exited with code %SERVER_EXIT%; update/restart handling begins now.
+set "POST_EXIT=1"
+goto :main
 
 :maintenance_retry
-echo ERROR: Maintenance failed before launch; retrying in 60 seconds to avoid a tight update loop.
+echo ERROR: Maintenance failed; keeping this Instance stopped and retrying in 60 seconds.
 timeout /t 60 /nobreak >nul
-set "RC=101"
-goto :finish
+goto :main
 
 :sync_failed
-echo ERROR: Optional instance override sync failed. Check paths and permissions.
-echo Retrying this Instance in 60 seconds.
+echo ERROR: Optional instance override sync failed. Keeping this Instance stopped and retrying in 60 seconds.
 timeout /t 60 /nobreak >nul
-set "RC=3"
-goto :finish
+goto :main
 
 :RunMaintenance
 call :AcquireLock
 
-rem Re-check after waiting for the shared lock. Another instance may have started meanwhile.
-call :AnyCS2Running
-if not errorlevel 1 goto :MaintenanceSkippedBusy
+rem After a CS2 exit, do not update the shared runtime until every CS2 process has stopped.
+if "%POST_EXIT%"=="1" goto :ForcePostExitMaintenance
 
 rem Suppress duplicate maintenance during the five-minute startup cooldown.
 call :IsRecentSuccess
@@ -208,6 +193,28 @@ if not errorlevel 1 (
     call :ReleaseLock
     exit /b 0
 )
+
+rem On ordinary startup, another active Instance owns use of the shared runtime:
+rem skip maintenance for this startup but continue to launch this Instance.
+call :AnyCS2Running
+if not errorlevel 1 goto :SkipStartupMaintenance
+goto :DoMaintenance
+
+:ForcePostExitMaintenance
+echo [%date% %time%] CS2 exited; forcing a fresh update check, but only while all CS2 processes are stopped.
+:WaitForAllCS2
+call :AnyCS2Running
+if errorlevel 1 goto :DoMaintenance
+echo [%date% %time%] Another CS2 instance is active; post-exit maintenance is paused.
+echo No shared game, add-on, or runtime files will be changed until all cs2.exe processes exit.
+timeout /t 5 /nobreak >nul
+goto :WaitForAllCS2
+
+:SkipStartupMaintenance
+echo [%date% %time%] Another CS2 instance is active. Skipping shared-file maintenance on startup.
+echo No game, add-on, or custom override files will be changed while it is running.
+call :ReleaseLock
+exit /b 0
 
 :DoMaintenance
 rem Re-check between update stages. If another Instance starts, abandon the
