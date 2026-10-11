@@ -109,7 +109,7 @@ set "RC=0"
 goto :finish
 
 :DoMaintenance
-rem Do not start maintenance if prerequisites are missing; let the outer loop retry safely.
+rem Do not start maintenance if prerequisites are missing. This updater is one-shot.
 if not exist "%REPO_ROOT%\DEPENDENCIES.json" (
     echo ERROR: Repository manifest is missing: %REPO_ROOT%\DEPENDENCIES.json
     goto :MaintenanceFailed
@@ -171,9 +171,10 @@ call :ReleaseLock
 exit /b 0
 
 :MaintenanceSkippedBusy
-echo [%date% %time%] Another cs2.exe is active; cancelling the remaining update/deploy stages and continuing to launch this instance without changing shared runtime files.
+echo ERROR: Another cs2.exe became active during maintenance. Remaining deployment stages were cancelled; this updater will stop without launching a server against a potentially partial update.
 call :ReleaseLock
-exit /b 0
+set "RC=1"
+goto :finish
 
 :MaintenanceFailed
 echo ERROR: Maintenance failed. The runtime overlay never intentionally deletes files.
