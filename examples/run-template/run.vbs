@@ -37,7 +37,10 @@ Do
     Else
         batPath = fso.BuildPath(root, "run.bat")
     End If
-    launchCommand = Chr(34) & batPath & Chr(34) & " --no-pause"
+    ' Explicitly invoke batch files through cmd.exe so arguments and exit codes are preserved.
+    ' /s /c requires the doubled opening quote around the full command string.
+    launchCommand = Chr(34) & shell.ExpandEnvironmentStrings("%ComSpec%") & Chr(34) & _
+        " /d /s /c " & Chr(34) & Chr(34) & batPath & Chr(34) & " --no-pause" & Chr(34)
 
     On Error Resume Next
     runnerExitCode = shell.Run(launchCommand, 0, True)
