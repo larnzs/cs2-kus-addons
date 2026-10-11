@@ -12,6 +12,8 @@ fastBatPath = fso.BuildPath(root, "run-fast.bat")
 iniPath = fso.BuildPath(root, "instance.ini")
 fastMode = False
 logPath = fso.BuildPath(shell.ExpandEnvironmentStrings("%TEMP%"), "CS2-KUS-runner-launcher.log")
+' Tell child cmd.exe/run.bat not to pause; this environment is scoped to this supervisor process.
+shell.Environment("Process")("CS2_RUNNER_NO_PAUSE") = "1"
 
 If Not fso.FileExists(batPath) Then
     MsgBox "The maintenance runner batch file is missing:" & vbCrLf & batPath, vbCritical, "CS2 Instance Runner"
@@ -37,10 +39,10 @@ Do
     Else
         batPath = fso.BuildPath(root, "run.bat")
     End If
-    ' Explicitly invoke batch files through cmd.exe so arguments and exit codes are preserved.
-    ' /s /c requires the doubled opening quote around the full command string.
+    ' Use CALL through cmd.exe: the quoted batch path and trailing arguments stay distinct.
+    ' The inherited environment flag also disables PAUSE if command-line quoting is changed later.
     launchCommand = Chr(34) & shell.ExpandEnvironmentStrings("%ComSpec%") & Chr(34) & _
-        " /d /s /c " & Chr(34) & Chr(34) & batPath & Chr(34) & " --no-pause" & Chr(34)
+        " /d /c call " & Chr(34) & batPath & Chr(34) & " --no-pause"
 
     launchError = 0
     runnerExitCode = -1
@@ -52,6 +54,7 @@ Do
         Err.Clear
     End If
     On Error GoTo 0
+    If launchError = 0 Then WriteLog "Runner returned exit code " & CStr(runnerExitCode) & " from " & batPath
 
     If launchError <> 0 Then
         WScript.Sleep 10000
