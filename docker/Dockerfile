@@ -20,6 +20,8 @@ RUN apt-get update \
     curl \
     dnsutils \
     lib32z1 \
+    locales \
+    procps \
     sudo \
     wget \
     && sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \
