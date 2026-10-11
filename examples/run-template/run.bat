@@ -24,15 +24,6 @@ if "%SERVER_DIR:~1,1%"==":" goto :resolve_server
 for %%I in ("%INSTANCE_DIR%\%SERVER_DIR%") do set "SERVER_DIR=%%~fI"
 :resolve_server
 
-if not defined CUSTOM_FOLDER set "CUSTOM_FOLDER=aim"
-if "%CUSTOM_FOLDER:~0,2%"=="\\" (
-    for %%I in ("%CUSTOM_FOLDER%") do set "CUSTOM_DIR=%%~fI"
-) else if "%CUSTOM_FOLDER:~1,1%"==":" (
-    for %%I in ("%CUSTOM_FOLDER%") do set "CUSTOM_DIR=%%~fI"
-) else (
-    for %%I in ("%INSTANCE_DIR%\%CUSTOM_FOLDER%") do set "CUSTOM_DIR=%%~fI"
-)
-
 if not defined BIND_IP set "BIND_IP=0.0.0.0"
 if not defined MAXPLAYERS set "MAXPLAYERS=24"
 if not defined PORT set "PORT=27015"
@@ -48,7 +39,6 @@ if not defined API_KEY set "API_KEY="
 if not defined STEAM_ACCOUNT set "STEAM_ACCOUNT="
 if not defined IP set "IP="
 
-set "GAME_DIR=%SERVER_DIR%\game\csgo"
 set "CS2_EXE=%SERVER_DIR%\game\bin\win64\cs2.exe"
 set "GAMEINFO=%GAME_DIR%\gameinfo.gi"
 set "LOCK_DIR=%TEMP%\CS2-KUS-Maintenance.lock"
@@ -78,9 +68,8 @@ echo.
 rem If update.bat is deploying shared files, wait before opening cs2.exe.
 call :WaitForMaintenance
 
-rem Apply this Instance's optional cfg/addons overlay before every server start.
-call :SyncCustomFiles
-if errorlevel 1 goto :CustomSyncFailed
+rem CUSTOM_FOLDER is intentionally not copied into the shared runtime.
+if defined CUSTOM_FOLDER echo WARNING: CUSTOM_FOLDER overrides are not mounted; shared cfg/addons files will not be overwritten by this runner.
 
 echo [%date% %time%] Starting CS2 on port %PORT%...
 start "" /wait "%CS2_EXE%" ^
@@ -119,29 +108,6 @@ goto :WaitForMaintenance
 echo [%date% %time%] Removing a stale maintenance lock before launching CS2.
 rd /s /q "%LOCK_DIR%" >nul 2>&1
 goto :WaitForMaintenance
-
-:SyncCustomFiles
-if not exist "%CUSTOM_DIR%\" (
-    echo [%date% %time%] Custom folder not found; skipping optional overrides: "%CUSTOM_DIR%"
-    exit /b 0
-)
-
-echo [%date% %time%] Syncing custom files from "%CUSTOM_DIR%"
-if exist "%CUSTOM_DIR%\cfg\" (
-    robocopy "%CUSTOM_DIR%\cfg" "%GAME_DIR%\cfg" /E /COPY:DAT /DCOPY:DAT /R:2 /W:1 /IS /IT >nul
-    if errorlevel 8 exit /b 1
-)
-if exist "%CUSTOM_DIR%\addons\" (
-    rem Keep live CounterStrikeSharp configs server-managed. Existing files are never purged.
-    robocopy "%CUSTOM_DIR%\addons" "%GAME_DIR%\addons" /E /COPY:DAT /DCOPY:DAT /R:2 /W:1 /IS /IT /XD "%CUSTOM_DIR%\addons\counterstrikesharp\configs" "%CUSTOM_DIR%\addons\windows\addons\counterstrikesharp\configs" >nul
-    if errorlevel 8 exit /b 1
-)
-exit /b 0
-
-:CustomSyncFailed
-echo ERROR: A custom-folder overlay failed. CS2 will not be launched from a partially applied override.
-set "RC=3"
-goto :finish
 
 :MissingIni
 echo ERROR: Missing instance configuration: %INI_FILE%
