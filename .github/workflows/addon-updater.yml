@@ -261,12 +261,25 @@ jobs:
           if ($templateBat -notmatch 'instance\.ini' -or $templateBat -notmatch 'WORKSHOP_ARGS' -or $templateBat -notmatch 'start "" /wait "%CS2_EXE%"') {
             throw "Example run.bat must read instance.ini, support optional Workshop collection, and launch one CS2 process."
           }
-          foreach ($forbidden in @('git -C', 'app_update 730', 'UpdateUpstreamAddons', 'UpdateRepository', 'OverlayPayload', 'Invoke-RuntimeAddonUpdate', 'robocopy', 'call "%~dp0update.bat"')) {
+          foreach ($forbidden in @('git -C', 'app_update 730', 'UpdateUpstreamAddons', 'UpdateRepository', 'OverlayPayload', 'Invoke-RuntimeAddonUpdate', 'call "%~dp0update.bat"')) {
             if ($templateBat -match [regex]::Escape($forbidden)) {
               throw "Launch-only run.bat must not perform or invoke maintenance; found: $forbidden"
             }
           }
-          foreach ($required in @('CS2-KUS-Maintenance.lock', ':WaitForMaintenance', 'Starting CS2 on port', 'set "RC=100"')) {
+          foreach ($required in @(
+            'CS2-KUS-Maintenance.lock',
+            ':WaitForMaintenance',
+            'Starting CS2 on port',
+            'set "RC=100"',
+            'CUSTOM_FOLDER',
+            'CUSTOM_DIR',
+            ':SyncCustomFiles',
+            'robocopy "%CUSTOM_DIR%\cfg" "%GAME_DIR%\cfg"',
+            'robocopy "%CUSTOM_DIR%\addons" "%GAME_DIR%\addons"',
+            '/XD "%CUSTOM_DIR%\addons\counterstrikesharp\configs"',
+            '%CUSTOM_DIR%\addons\windows\addons\counterstrikesharp\configs',
+            ':CustomSyncFailed'
+          )) {
             if ($templateBat -notmatch [regex]::Escape($required)) {
               throw "Launch-only run.bat is missing expected behavior: $required"
             }
@@ -297,6 +310,9 @@ jobs:
           if ($templateGuardian -match '(?i)update\.bat|app_update 730|Invoke-RuntimeAddonUpdate|robocopy') {
             throw "watchdog.bat must never perform maintenance."
           }
+          if ($templateBat -match '(?i)/MIR|/PURGE') {
+            throw "Custom-folder overrides must never use destructive mirror or purge options."
+          }
           if ($templateBat -match '(?i)ForcePostExitMaintenance|WaitForAllCS2|RunMaintenance|UpdateGame') {
             throw "Launch-only run.bat must never enter maintenance or post-exit update loops."
           }
@@ -307,7 +323,7 @@ jobs:
               $templateIgnore -notmatch '(?im)^instance\.ini[ \t\r]*$') {
             throw "Example INI must use a placeholder RCON password and ignore local instance.ini."
           }
-          Write-Host "Validated launch-only runner, separate maintenance, hardened VBS loop, outer VBS guardian, and private INI policy."
+          Write-Host "Validated custom-folder override overlay, separate maintenance, hardened VBS loop, outer VBS guardian, and private INI policy."
 
       - name: Smoke-test explicit release archive mappings
         if: github.event_name != 'schedule'
