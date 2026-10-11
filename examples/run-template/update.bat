@@ -82,7 +82,7 @@ goto :DoMaintenance
 
 :RecentSuccess
 echo [%date% %time%] A successful shared update is less than five minutes old; skipping duplicate update checks.
-echo [%date% %time%] Custom-folder files are not copied into the shared runtime.
+echo [%date% %time%] CUSTOM_FOLDER files are copied by run.bat immediately before each server launch.
 call :ReleaseLock
 set "RC=0"
 goto :finish
@@ -152,7 +152,7 @@ if errorlevel 1 goto :MaintenanceFailed
 
 call :AnyCS2Running
 if not errorlevel 1 goto :MaintenanceSkippedBusy
-echo [%date% %time%] Skipping CUSTOM_FOLDER overlay to keep live game cfg/addons paths untouched.
+echo [%date% %time%] CUSTOM_FOLDER copying is handled by run.bat immediately before launch, not by this updater.
 
 > "%LAST_SUCCESS%" echo Shared maintenance completed at %date% %time%
 echo [%date% %time%] Maintenance completed successfully. Returning to launch-only runner.
