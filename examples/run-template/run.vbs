@@ -42,6 +42,8 @@ Do
     launchCommand = Chr(34) & shell.ExpandEnvironmentStrings("%ComSpec%") & Chr(34) & _
         " /d /s /c " & Chr(34) & Chr(34) & batPath & Chr(34) & " --no-pause" & Chr(34)
 
+    launchError = 0
+    runnerExitCode = -1
     On Error Resume Next
     runnerExitCode = shell.Run(launchCommand, 0, True)
     launchError = Err.Number
