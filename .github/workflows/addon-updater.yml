@@ -279,7 +279,7 @@ jobs:
           if ($templateUpdate -match '(?i)start "" /wait "%CS2_EXE%"| -dedicated |\+sv_maxplayers|\+exec %EXEC%|/MIR|/PURGE') {
             throw "Instance update.bat must not launch CS2 or use destructive mirroring/purge behavior."
           }
-          foreach ($required in @('ResolveRunnerBatch', 'CS2-KUS-Watchdog.log', 'shell.Run commandLine, 0, True', 'WScript.Sleep 100', 'On Error Resume Next', 'cmd.exe')) {
+          foreach ($required in @('ResolveRunnerBatch', 'CS2-KUS-Watchdog.log', 'shell.Run(commandLine, 0, True)', 'WScript.Sleep 100', 'On Error Resume Next', 'cmd.exe')) {
             if ($templateVbs -notmatch [regex]::Escape($required)) {
               throw "Hardened run.vbs is missing expected behavior: $required"
             }
