@@ -266,31 +266,27 @@ jobs:
               throw "Launch-only run.bat must not perform or invoke maintenance; found: $forbidden"
             }
           }
-          foreach ($required in @(
-            'CS2-KUS-Maintenance.lock',
-            ':WaitForMaintenance',
-            'Starting CS2 on port',
-            'set "RC=100"',
-            'CUSTOM_FOLDER',
-            'CUSTOM_DIR',
-            ':SyncCustomFiles',
-            'robocopy "%CUSTOM_DIR%\cfg" "%GAME_DIR%\cfg"',
-            'robocopy "%CUSTOM_DIR%\addons" "%GAME_DIR%\addons"',
-            '/XD "%CUSTOM_DIR%\addons\counterstrikesharp\configs"',
-            '%CUSTOM_DIR%\addons\windows\addons\counterstrikesharp\configs',
-            ':CustomSyncFailed'
-          )) {
+          foreach ($required in @('CS2-KUS-Maintenance.lock', ':WaitForMaintenance', 'Starting CS2 on port', 'set "RC=100"')) {
             if ($templateBat -notmatch [regex]::Escape($required)) {
               throw "Launch-only run.bat is missing expected behavior: $required"
             }
           }
-          foreach ($required in @('git -C "%REPO_ROOT%" pull --ff-only origin integration/kus-monorepo', 'app_update 730', 'call :UpdateUpstreamAddons', ':OverlayPayload', ':SyncOverrides', ':AcquireLock', 'CS2-KUS-Maintenance-success.marker')) {
+          if ($templateBat -match '(?i)robocopy|xcopy|SyncCustomFiles|CustomSyncFailed') {
+            throw "run.bat must not copy CUSTOM_FOLDER files into the shared runtime."
+          }
+          if ($templateBat -notmatch 'CUSTOM_FOLDER overrides are not mounted') {
+            throw "run.bat must clearly report that custom-folder overrides are not currently mounted."
+          }
+          foreach ($required in @('git -C "%REPO_ROOT%" pull --ff-only origin integration/kus-monorepo', 'app_update 730', 'call :UpdateUpstreamAddons', ':OverlayPayload', ':AcquireLock', 'CS2-KUS-Maintenance-success.marker')) {
             if ($templateUpdate -notmatch [regex]::Escape($required)) {
               throw "Instance update.bat is missing maintenance behavior: $required"
             }
           }
           if ($templateUpdate -match '(?i)start "" /wait "%CS2_EXE%"| -dedicated |\+sv_maxplayers|\+exec %EXEC%|/MIR|/PURGE') {
             throw "Instance update.bat must not launch CS2 or use destructive mirroring/purge behavior."
+          }
+          if ($templateUpdate -match '(?i)CUSTOM_DIR|SyncOverrides|robocopy "%CUSTOM_FOLDER%|robocopy "%CUSTOM_DIR%') {
+            throw "Instance update.bat must never merge CUSTOM_FOLDER files into shared runtime paths."
           }
           foreach ($required in @('ResolveRunnerBatch', 'CS2-KUS-Watchdog.log', 'shell.Run(commandLine, 0, True)', 'WScript.Sleep 100', 'On Error Resume Next', 'cmd.exe')) {
             if ($templateVbs -notmatch [regex]::Escape($required)) {
@@ -323,7 +319,7 @@ jobs:
               $templateIgnore -notmatch '(?im)^instance\.ini[ \t\r]*$') {
             throw "Example INI must use a placeholder RCON password and ignore local instance.ini."
           }
-          Write-Host "Validated custom-folder override overlay, separate maintenance, hardened VBS loop, outer VBS guardian, and private INI policy."
+          Write-Host "Validated no-write custom-folder policy, separate maintenance, hardened VBS loop, outer VBS guardian, and private INI policy."
 
       - name: Smoke-test explicit release archive mappings
         if: github.event_name != 'schedule'
