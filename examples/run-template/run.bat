@@ -73,7 +73,6 @@ set "PAYLOAD_DIR=%REPO_ROOT%\game\csgo"
 set "WINDOWS_OVERLAY=%PAYLOAD_DIR%\addons\windows"
 set "LOCK_DIR=%TEMP%\CS2-KUS-Maintenance.lock"
 set "LAST_SUCCESS=%TEMP%\CS2-KUS-Maintenance-success.marker"
-set "FAST_LAUNCH_MARKER=%TEMP%\CS2-KUS-FastLaunch.enabled"
 set "CS2_LOCK_DIR=%LOCK_DIR%"
 set "CS2_LAST_SUCCESS=%LAST_SUCCESS%"
 set "CS2_GAMEINFO=%GAMEINFO%"
@@ -202,7 +201,6 @@ rem create the group-wide fast marker as well so other Instances avoid repeat wo
 call :IsRecentSuccess
 if not errorlevel 1 (
     echo [%date% %time%] Shared maintenance ran recently; skipping duplicate update work.
-    > "%FAST_LAUNCH_MARKER%" echo Reusing recent successful shared maintenance at %date% %time%
     call :ReleaseLock
     exit /b 0
 )
@@ -270,7 +268,6 @@ call :OverlayPayload
 if errorlevel 1 goto :MaintenanceFailed
 
 > "%LAST_SUCCESS%" echo Shared maintenance completed at %date% %time%
-> "%FAST_LAUNCH_MARKER%" echo Full shared game/add-on maintenance completed at %date% %time%
 echo [%date% %time%] Maintenance completed successfully. Fast launch is now enabled for all Instance supervisors.
 call :ReleaseLock
 exit /b 0

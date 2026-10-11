@@ -21,11 +21,11 @@ The VBS resolves both batch paths beside itself, so these four active files can 
 ## Update and anti-crash behavior
 
 - On a cold start with no fast marker, `run.vbs` launches `run.bat`. If no other CS2 process is using the shared install, the batch runs the normal pipeline: pull the private repository, check upstream add-on releases, pull any newly published updater results, update CS2 with SteamCMD, patch `gameinfo.gi`, and apply the overwrite-only runtime overlay.
-- Only after every maintenance stage succeeds, `run.bat` writes `%TEMP%\\CS2-KUS-FastLaunch.enabled`. This shared marker causes all Instance VBS supervisors to use `run_fast.bat` for future launches and crash recovery.
+- Only after every maintenance stage succeeds, `run.bat` writes `%TEMP%\\CS2-KUS-Maintenance-success.marker`. This shared marker causes all Instance VBS supervisors to use `run_fast.bat` for future launches and crash recovery.
 - If another `cs2.exe` is already active, `run.bat` skips shared maintenance but still launches this Instance. If another process starts between maintenance stages, it cancels the remaining update/deployment stages and releases the maintenance lock; it does not wait indefinitely while holding the lock.
 - After the CS2 process exits or crashes, `run.bat` returns to VBS instead of starting another internal update loop. VBS checks the shared marker again: with the marker it runs `run_fast.bat`; without it, it retries `run.bat`. The delay between attempts is 100 ms.
 - `run_fast.bat` does not update or deploy shared files and does not wait for other CS2 instances. Its per-Instance override sync is skipped if any CS2 process is active, to avoid changing shared files underneath a running server.
-- The marker is intentionally persistent so long-running servers do not repeat the full update pipeline every time they crash. To deliberately perform a new full update cycle, stop the Instance supervisors and CS2 servers, delete `%TEMP%\\CS2-KUS-FastLaunch.enabled` and `%TEMP%\\CS2-KUS-Maintenance-success.marker`, then start one `run.vbs` while the shared install is idle. A successful maintenance pass recreates both markers.
+- The marker is intentionally persistent so long-running servers do not repeat the full update pipeline every time they crash. To deliberately perform a new full update cycle, stop the Instance supervisors and CS2 servers, delete `%TEMP%\\CS2-KUS-Maintenance-success.marker`, then start one `run.vbs` while the shared install is idle. A successful maintenance pass recreates the marker.
 - Runtime payload overlay is overwrite-only. It does not mirror, purge, move, or delete installed add-on files, and the full `addons/counterstrikesharp/configs/` and `cfg/settings/` trees remain protected.
 - The updater does not call `win.bat`, `update.bat`, `game-update.bat`, or `install.bat`. Those have separate responsibilities; `win.bat` is a clean replacement/reset operation.
 
@@ -33,6 +33,6 @@ The VBS resolves both batch paths beside itself, so these four active files can 
 
 1. Ensure no Instance supervisor is already running.
 2. Delete the two marker files from `%TEMP%` to test the full maintenance path.
-3. Start `run.vbs`; verify the full update path completes and writes `CS2-KUS-FastLaunch.enabled`.
+3. Start `run.vbs`; verify the full update path completes and writes `CS2-KUS-Maintenance-success.marker`.
 4. Start another Instance; its VBS should immediately select `run_fast.bat`.
 5. Use `quit` in either server console. The same server should be launched again after about 100 milliseconds without rerunning the full update pipeline.

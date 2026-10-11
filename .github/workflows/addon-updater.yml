@@ -262,7 +262,7 @@ jobs:
           }
           if ($templateVbs -notmatch 'run\.bat' -or
               $templateVbs -notmatch 'run_fast\.bat' -or
-              $templateVbs -notmatch 'CS2-KUS-FastLaunch\.enabled' -or
+              $templateVbs -notmatch 'CS2-KUS-Maintenance-success\.marker' -or
               $templateVbs -notmatch 'WScript\.Sleep 100' -or
               $templateVbs -notmatch 'shell\.Run') {
             throw "Example run.vbs must select run.bat/run_fast.bat from the shared marker and retry after 100 ms."
@@ -285,7 +285,6 @@ jobs:
             ':MaintenanceSkippedBusy',
             ':OverlayPayload',
             'CS2-KUS-Maintenance-success.marker',
-            'CS2-KUS-FastLaunch.enabled',
             'set "RC=100"'
           )) {
             if ($templateBat -notmatch [regex]::Escape($required)) {

@@ -1,16 +1,16 @@
 Option Explicit
 
-Dim shell, fso, root, batPath, fastBatPath, fastMarkerPath, launchPath
+Dim shell, fso, root, batPath, fastBatPath, successMarkerPath, launchPath
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
 root = fso.GetParentFolderName(WScript.ScriptFullName)
 batPath = fso.BuildPath(root, "run.bat")
 fastBatPath = fso.BuildPath(root, "run_fast.bat")
-fastMarkerPath = fso.BuildPath(shell.ExpandEnvironmentStrings("%TEMP%"), "CS2-KUS-FastLaunch.enabled")
+successMarkerPath = fso.BuildPath(shell.ExpandEnvironmentStrings("%TEMP%"), "CS2-KUS-Maintenance-success.marker")
 
 Do
-    If fso.FileExists(fastMarkerPath) And fso.FileExists(fastBatPath) Then
+    If fso.FileExists(successMarkerPath) And fso.FileExists(fastBatPath) Then
         launchPath = fastBatPath
     Else
         launchPath = batPath
