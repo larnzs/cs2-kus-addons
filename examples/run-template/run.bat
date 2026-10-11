@@ -15,31 +15,7 @@ goto :parse_args
 set "INSTANCE_DIR=%~dp0"
 if "%INSTANCE_DIR:~-1%"=="\" set "INSTANCE_DIR=%INSTANCE_DIR:~0,-1%"
 set "INI_FILE=%INSTANCE_DIR%\instance.ini"
-if not exist "%INI_FILE%" goto 
-:SyncCustomFiles
-if not exist "%CUSTOM_DIR%\" (
-    echo [%date% %time%] Custom folder not found; skipping optional overrides: "%CUSTOM_DIR%"
-    exit /b 0
-)
-
-echo [%date% %time%] Syncing custom files from "%CUSTOM_DIR%"
-if exist "%CUSTOM_DIR%\cfg\" (
-    robocopy "%CUSTOM_DIR%\cfg" "%GAME_DIR%\cfg" /E /COPY:DAT /DCOPY:DAT /R:2 /W:1 /IS /IT >nul
-    if errorlevel 8 exit /b 1
-)
-if exist "%CUSTOM_DIR%\addons\" (
-    rem Keep live CounterStrikeSharp configs server-managed. Existing files are never purged.
-    robocopy "%CUSTOM_DIR%\addons" "%GAME_DIR%\addons" /E /COPY:DAT /DCOPY:DAT /R:2 /W:1 /IS /IT /XD "%CUSTOM_DIR%\addons\counterstrikesharp\configs" "%CUSTOM_DIR%\addons\windows\addons\counterstrikesharp\configs" >nul
-    if errorlevel 8 exit /b 1
-)
-exit /b 0
-
-:CustomSyncFailed
-echo ERROR: A custom-folder overlay failed. CS2 will not be launched from a partially applied override.
-set "RC=3"
-goto :finish
-
-:MissingIni
+if not exist "%INI_FILE%" goto :MissingIni
 
 for /f "usebackq eol=; tokens=1,* delims==" %%A in ("%INI_FILE%") do set "%%A=%%B"
 if not defined SERVER_DIR set "SERVER_DIR=..\..\server"
@@ -143,6 +119,29 @@ goto :WaitForMaintenance
 echo [%date% %time%] Removing a stale maintenance lock before launching CS2.
 rd /s /q "%LOCK_DIR%" >nul 2>&1
 goto :WaitForMaintenance
+
+:SyncCustomFiles
+if not exist "%CUSTOM_DIR%\" (
+    echo [%date% %time%] Custom folder not found; skipping optional overrides: "%CUSTOM_DIR%"
+    exit /b 0
+)
+
+echo [%date% %time%] Syncing custom files from "%CUSTOM_DIR%"
+if exist "%CUSTOM_DIR%\cfg\" (
+    robocopy "%CUSTOM_DIR%\cfg" "%GAME_DIR%\cfg" /E /COPY:DAT /DCOPY:DAT /R:2 /W:1 /IS /IT >nul
+    if errorlevel 8 exit /b 1
+)
+if exist "%CUSTOM_DIR%\addons\" (
+    rem Keep live CounterStrikeSharp configs server-managed. Existing files are never purged.
+    robocopy "%CUSTOM_DIR%\addons" "%GAME_DIR%\addons" /E /COPY:DAT /DCOPY:DAT /R:2 /W:1 /IS /IT /XD "%CUSTOM_DIR%\addons\counterstrikesharp\configs" "%CUSTOM_DIR%\addons\windows\addons\counterstrikesharp\configs" >nul
+    if errorlevel 8 exit /b 1
+)
+exit /b 0
+
+:CustomSyncFailed
+echo ERROR: A custom-folder overlay failed. CS2 will not be launched from a partially applied override.
+set "RC=3"
+goto :finish
 
 :MissingIni
 echo ERROR: Missing instance configuration: %INI_FILE%
