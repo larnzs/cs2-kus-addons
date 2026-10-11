@@ -2,6 +2,27 @@
 
 # Variables
 user="steam"
+
+: "${PORT:=27015}"
+: "${TICKRATE:=128}"
+: "${MAXPLAYERS:=32}"
+: "${LAN:=0}"
+: "${EXEC:=on_boot.cfg}"
+: "${API_KEY:=}"
+: "${STEAM_ACCOUNT:=}"
+: "${SERVER_PASSWORD:=}"
+: "${RCON_PASSWORD:=}"
+: "${MAP:=de_dust2}"
+: "${GAME_TYPE:=0}"
+: "${GAME_MODE:=0}"
+: "${MAP_GROUP:=mg_active}"
+
+rcon_lower="${RCON_PASSWORD,,}"
+if [[ -z "$RCON_PASSWORD" || "$rcon_lower" == "changeme" || "$rcon_lower" == "change_me_to_a_strong_password" ]]; then
+    echo "ERROR: Set a strong, unique RCON_PASSWORD in the root .env before starting the Docker container."
+    exit 1
+fi
+
 # 32 or 64 bit Operating System
 # If BITS environment variable is not set, try determine it
 if [ -z "$BITS" ]; then
@@ -75,7 +96,7 @@ if [ ! -z "$DUCK_TOKEN" ]; then
 fi
 
 echo "Checking $user user exists..."
-getent passwd ${user} 2 >/dev/null &>1
+getent passwd "$user" >/dev/null 2>&1
 if [ "$?" -ne "0" ]; then
     echo "Adding $user user..."
     addgroup ${user} &&

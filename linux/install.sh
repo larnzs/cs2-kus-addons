@@ -8,6 +8,25 @@ if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     exit 1
 fi
 
+# Defaults for a manual Linux install; caller/GCP environment values take precedence.
+: "${PORT:=27015}"
+: "${TICKRATE:=128}"
+: "${MAXPLAYERS:=32}"
+: "${LAN:=0}"
+: "${EXEC:=on_boot.cfg}"
+: "${API_KEY:=}"
+: "${STEAM_ACCOUNT:=}"
+: "${SERVER_PASSWORD:=}"
+: "${RCON_PASSWORD:=}"
+: "${IP:=}"
+
+rcon_lower="${RCON_PASSWORD,,}"
+if [[ -z "$RCON_PASSWORD" || "$rcon_lower" == "changeme" || "$rcon_lower" == "change_me_to_a_strong_password" ]]; then
+    echo "ERROR: Set RCON_PASSWORD to a strong, unique value before installing or starting CS2."
+    exit 1
+fi
+
+
 # Function to safely enable unprivileged user namespaces.
 # Steam's runtime sandboxes the game with bwrap (pressure-vessel), which needs
 # unprivileged user namespaces. Different distro/kernel versions gate these behind
@@ -193,7 +212,7 @@ if [ ! -z "$DUCK_TOKEN" ]; then
 fi
 
 echo "Checking $user user exists..."
-getent passwd ${user} >/dev/null 2&>1
+getent passwd "$user" >/dev/null 2>&1
 if [ "$?" -ne "0" ]; then
 	echo "Adding $user user..."
 	addgroup ${user} && \

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -o pipefail
+
 # Install
 # As root (sudo su)
 # Run this local helper from the cloned private repository: sudo bash ./linux/gcp.sh
@@ -37,7 +39,7 @@ META_TICKRATE=$(get_metadata TICKRATE)
 META_MAXPLAYERS=$(get_metadata MAXPLAYERS)
 META_LAN=$(get_metadata LAN)
 META_EXEC=$(get_metadata EXEC)
-export RCON_PASSWORD="${META_RCON_PASSWORD:-changeme}"
+export RCON_PASSWORD="${RCON_PASSWORD:-${META_RCON_PASSWORD:-}}"
 export API_KEY="${META_API_KEY:-changeme}"
 export STEAM_ACCOUNT="${STEAM_ACCOUNT:-$(get_metadata STEAM_ACCOUNT)}"
 export MOD_BRANCH="${META_MOD_BRANCH:-master}"

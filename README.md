@@ -447,7 +447,7 @@ When GCP support is migrated, this section will document the VM image, disk, fir
 
 ### Running on Linux
 
-The local `linux/install.sh` and `linux/start.sh` now consume the tracked `game/csgo/` payload and use the SteamCMD installation's `<install-root>/game/csgo/` runtime. They are aligned to KUS's layout but have not been tested on a live Linux host. Run only scripts from this private checkout, not archived commands that download public KUS scripts over them.
+`linux/install.sh` applies the tracked `game/csgo/` payload as a non-destructive overlay, while `linux/start.sh` updates and starts an already prepared runtime without redeploying add-ons. These Linux entrypoints have not been tested on a live host. Set a strong `RCON_PASSWORD` before running a server-starting script, and provide `STEAM_ACCOUNT` (GSLT) for public hosting. Run only scripts from this private checkout, not archived commands that download public KUS scripts over them.
 
 The tracked source payload is `game/csgo/`; the actual Linux runtime is `<install-root>/game/csgo/`. See [the archived Linux guide](docs/upstream/KUS-README.md#running-on-linux) for historical context.
 

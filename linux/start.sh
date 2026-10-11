@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
-# This is used for Google Cloud
-# It skips downloading the mod and overwriting addons folder
-# Useful for testing and modifying files on the server
+# This KUS-compatible startup path updates the installed game but deliberately does not redeploy add-ons.
+# Use linux/install.sh when you need to provision and overlay the tracked game/csgo payload.
 
 # As root (sudo su)
 # Local KUS-compatible startup helper. It updates the installed game but does not redeploy plugins.
@@ -84,17 +83,23 @@ META_TICKRATE=$(get_metadata TICKRATE)
 META_MAXPLAYERS=$(get_metadata MAXPLAYERS)
 META_LAN=$(get_metadata LAN)
 META_EXEC=$(get_metadata EXEC)
-export RCON_PASSWORD="${META_RCON_PASSWORD:-changeme}"
-export API_KEY="${META_API_KEY:-changeme}"
+export RCON_PASSWORD="${RCON_PASSWORD:-${META_RCON_PASSWORD:-}}"
+export API_KEY="${API_KEY:-${META_API_KEY:-}}"
 export STEAM_ACCOUNT="${STEAM_ACCOUNT:-$(get_metadata STEAM_ACCOUNT)}"
 export SERVER_PASSWORD="${SERVER_PASSWORD:-$(get_metadata SERVER_PASSWORD)}"
-export PORT="${META_PORT:-27015}"
-export TICKRATE="${META_TICKRATE:-128}"
-export MAXPLAYERS="${META_MAXPLAYERS:-32}"
-export LAN="${META_LAN:-0}"
-export EXEC="${META_EXEC:-on_boot.cfg}"
+export PORT="${PORT:-${META_PORT:-27015}}"
+export TICKRATE="${TICKRATE:-${META_TICKRATE:-128}}"
+export MAXPLAYERS="${MAXPLAYERS:-${META_MAXPLAYERS:-32}}"
+export LAN="${LAN:-${META_LAN:-0}}"
+export EXEC="${EXEC:-${META_EXEC:-on_boot.cfg}}"
 export DUCK_DOMAIN="${DUCK_DOMAIN:-$(get_metadata DUCK_DOMAIN)}"
 export DUCK_TOKEN="${DUCK_TOKEN:-$(get_metadata DUCK_TOKEN)}"
+
+rcon_lower="${RCON_PASSWORD,,}"
+if [[ -z "$RCON_PASSWORD" || "$rcon_lower" == "changeme" || "$rcon_lower" == "change_me_to_a_strong_password" ]]; then
+    echo "ERROR: Set RCON_PASSWORD in the environment or Google Cloud metadata to a strong, unique value."
+    exit 1
+fi
 
 cd /
 
@@ -234,7 +239,7 @@ if [ ! -z "$DUCK_TOKEN" ]; then
 fi
 
 echo "Checking $user user exists..."
-getent passwd ${user} >/dev/null 2&>1
+getent passwd "$user" >/dev/null 2>&1
 if [ "$?" -ne "0" ]; then
 	echo "Adding $user user..."
 	addgroup ${user} && \

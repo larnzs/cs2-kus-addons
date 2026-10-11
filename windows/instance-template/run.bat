@@ -32,6 +32,9 @@ if not defined TICKRATE set "TICKRATE=128"
 if not defined LAN set "LAN=0"
 if not defined SERVER_PASSWORD set "SERVER_PASSWORD="
 if not defined RCON_PASSWORD set "RCON_PASSWORD="
+if not defined RCON_PASSWORD goto :MissingRconPassword
+if /I "%RCON_PASSWORD%"=="CHANGE_ME_TO_A_STRONG_PASSWORD" goto :MissingRconPassword
+if /I "%RCON_PASSWORD%"=="changeme" goto :MissingRconPassword
 if not defined EXEC set "EXEC=on_boot.cfg"
 if not defined MAPGROUP set "MAPGROUP=mg_aim"
 if not defined MAP set "MAP=de_mirage"
@@ -155,6 +158,12 @@ goto :finish
 :MissingServerDir
 echo ERROR: SERVER_DIR is not configured.
 echo Edit instance.ini and set SERVER_DIR to the absolute path of this repository's server folder.
+set "RC=2"
+goto :finish
+
+:MissingRconPassword
+echo ERROR: RCON_PASSWORD is missing or still uses a placeholder/default password.
+echo Set a strong, unique RCON_PASSWORD in instance.ini before launching CS2.
 set "RC=2"
 goto :finish
 
