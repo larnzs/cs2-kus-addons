@@ -175,5 +175,10 @@ jobs:
           assert "Copy-TreeContent -Source $BackupSettings -Destination $RuntimeSettings" not in deploy
           assert "Copy-TreeContent -Source $PreserveSettings -Destination $RuntimeSettings" in deploy
           assert "gameinfo.gi" in deploy
+          integrate = Path("scripts/Integrate-KUS.ps1").read_text(encoding="utf-8")
+          for protected in ("addons/counterstrikesharp/configs", "addons/windows/addons/counterstrikesharp/configs"):
+              assert f'"{protected}"' in integrate, f"KUS import must explicitly preserve {protected}"
+          assert "Copy-Tree -Source $KusRuntime -Destination $runtimeRoot -ExcludePaths $ProtectedConfigPaths" in integrate
+          assert "foreach ($protectedRelative in $PreservedManualPaths)" in integrate
           print(f"Validated {len(names)} tracked paths and KUS staged layout.")
           PY
