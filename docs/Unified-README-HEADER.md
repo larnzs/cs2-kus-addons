@@ -20,7 +20,7 @@ The full original Larnz guide is preserved at [docs/Larnz-Addons-README.md](docs
 | DEPENDENCIES.json | Larnz add-on updater manifest. |
 | scripts/update/ | Upstream KUS update helpers, retained and path-normalized for the unified layout. |
 | windows/instance-template/ | Reusable Windows runner and VBS supervisor template. |
-| docs/upstream/ | KUS source snapshot metadata and archived upstream entrypoints/workflows. |
+| docs/upstream/ | Archived KUS source/docs and historical entrypoints. The completed one-time payload-migration workflow is archived here, not registered as an executable GitHub Actions workflow. |
 
 The KUS root-level custom_files/ and custom_files_example/ trees are not imported or merged. Personal configuration generation and custom files remain under the Larnz-managed configuration workflow. Existing local secret folders and per-instance settings must stay private.
 

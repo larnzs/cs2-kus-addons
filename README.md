@@ -20,7 +20,7 @@ This README combines Larnz's manifest-managed add-ons with KUS's base plugins, g
 | DEPENDENCIES.json | Larnz add-on updater manifest. |
 | scripts/update/ | Active KUS-style per-plugin automation; the same Bash updater also runs the Larnz manifest add-on scripts. |
 | windows/instance-template/ | Separate maintenance batch, launch runner, and VBS/CMD watchdog. `run.bat` copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` into the shared runtime before each launch. |
-| docs/upstream/ | KUS source snapshot metadata and archived upstream entrypoints/workflows. |
+| docs/upstream/ | Archived KUS source/docs and historical entrypoints. The completed one-time payload-migration workflow is archived here, not registered as an executable GitHub Actions workflow. |
 
 The upstream `custom_files/` and `custom_files_example/` trees are intentionally not imported. On Windows, `CUSTOM_FOLDER` is an active copy source: before each launch, `run.bat` uses `xcopy` to copy its `cfg/` and `addons/` trees into the shared runtime. Matching files are overwritten; nothing is deleted. This is not per-instance isolation, so instances sharing `SERVER_DIR` can overwrite the same destination paths. Never store tokens, passwords or private database credentials in tracked files.
 
