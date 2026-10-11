@@ -30,8 +30,4 @@ The VBS resolves `run.bat` and `instance.ini` relative to its own directory, so 
 
 ## Diagnostics
 
-The supervisor appends launch and returned exit-code messages to:
-
-`%TEMP%\\CS2-KUS-runner-launcher.log`
-
-After testing a `quit` from the CS2 console, the log should show `Launching: ...\\run.bat`, a `run.bat returned with exit code ...` entry, and another `Launching: ...\\run.bat` approximately 5 seconds later.
+The supervisor intentionally has no per-loop logging or environment-variable mutation: it runs the sibling `run.bat`, waits for it to return, then retries after 5 seconds. To test it, start `run.vbs`, issue `quit` in the CS2 server console, and confirm a new runner launch occurs within roughly 5 seconds. For VBScript runtime diagnostics, run the VBS from a command prompt with `cscript //nologo run.vbs`; the runner is still launched hidden, but host-level script errors can be shown by the console host.
