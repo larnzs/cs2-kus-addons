@@ -260,7 +260,7 @@ Coverage means the **15 KUS scripts currently provided by KUS** plus the 17 enab
 
 ### Separate maintenance and crash recovery
 
-The external Instance folder has its own `update.bat` for shared maintenance. Run it manually with all CS2 processes stopped. Start `watchdog.bat` for normal operation: it keeps a visible CMD guardian running `run.vbs` through `cscript.exe`, and relaunches the VBS host if it terminates. Inside that guard, `run.vbs` invokes only the launch runner through `cmd.exe`, waits for it to return, then retries **100 milliseconds** after exit code 100. Routine crash recovery does not repeat Git pulls, upstream release checks, SteamCMD, gameinfo patching, or payload deployment.
+The external Instance folder has its own `update.bat` for shared maintenance. Run it manually with all CS2 processes stopped. Start `watchdog.bat` for normal operation: it keeps a visible CMD guardian running `run.vbs` through `cscript.exe`, and relaunches the VBS host if it terminates. Inside that guard, `run.vbs` invokes the runner through `cmd.exe`, waits for it to return, then retries **100 milliseconds** after exit code 100. On each launch, `run.bat` re-applies the selected `CUSTOM_FOLDER`'s optional `cfg/` and `addons/` overrides with overwrite-only copying. This is separate from Git pulls, release checks, SteamCMD, gameinfo patching, and shared payload deployment, none of which are repeated after routine crashes.
 
 The instance updater refuses to modify the shared runtime while any `cs2.exe` is active. A shared lock also prevents a waiting launch-only batch from opening CS2 while maintenance is in progress; stale locks are checked against the owner PID before being removed. The five-minute success marker only suppresses duplicate updater work if you run it repeatedly; it does not select a different runner.
 
@@ -284,7 +284,7 @@ The live CounterStrikeSharp `configs/` tree and the specifically preserved `cfg/
 These two use overlay-style copying, but they operate at different stages:
 
 - **`addons-update.bat` updates the repository payload.** It checks configured upstream add-on releases and copies their files into `game/csgo/`. Existing files at matching paths are overwritten and new files are added, but files that the new release no longer contains are **not** removed from the payload. The updater also protects designated configuration paths. Use `addons-update.bat -Force` to re-download/reapply managed add-ons even when their recorded versions already match; this is still an overlay, not a clean-directory reinstall.
-- **`run.bat` deploys the payload to the live runtime with overwrite-only copies.** It adds and overwrites files without deleting existing runtime add-ons or runtime-only files. Maintenance is serialized. If any `cs2.exe` is already active before maintenance starts, or starts while the runner waits for the shared lock, the runner skips maintenance and continues to launch the requested Instance. SteamCMD game updates and per-Instance overrides remain idle-only. This is safer for routine operation, but it is not a clean reset.
+- **The instance-template `run.bat` applies `CUSTOM_FOLDER` overrides before launch.** It overlays files under that folder's `cfg/` and `addons/` onto `server/game/csgo/` with overwrite-only copying; it does not delete files that are absent from the custom folder and does not run Git/SteamCMD/shared payload maintenance. It waits for the shared-maintenance lock before applying overrides. Existing live `addons/counterstrikesharp/configs/` files are excluded from custom-folder copies so that protected tree remains server-managed. If multiple Instances share one runtime, different override files at the same destination path cannot be fully isolated.
 
 **Why this distinction matters:** if a plugin's old extra file remains in the repository payload after an overlay update, `win.bat` will deploy that file again. If an old extra file exists only in the live runtime, `win.bat`'s clean replacement removes it, while `run.bat`'s overlay leaves it in place.
 
@@ -299,7 +299,7 @@ These two use overlay-style copying, but they operate at different stages:
 | `addons-update.bat` | Checks upstream releases and updates manifest-managed add-ons in the repository payload. | **Non-destructive overlay** into `game/csgo/`; it does not remove stale files omitted from a release. | No | No |
 | `addons-inspect.bat` | Inspects configured upstream release assets without installing them. | Inspection only; no payload or runtime deployment. | No | No |
 | `examples/run-template/update.bat` | Instance-local one-shot maintenance pipeline, copied beside the launch runner. | **Overwrite-only overlay**; does not delete existing add-on files. | Yes, only when no other `cs2.exe` is active | No |
-| `examples/run-template/run.bat` | Reads `instance.ini`, waits for the shared maintenance lock, launches one CS2 process, and returns after exit/crash. | None; launch-only. | No | Yes |
+| `examples/run-template/run.bat` | Reads `instance.ini`, waits for the maintenance lock, overlays `CUSTOM_FOLDER/cfg/` and `CUSTOM_FOLDER/addons/`, launches one CS2 process, and returns after exit/crash. | Non-destructive per-instance override overlay only; no shared payload deployment. | No | Yes |
 
 `update.bat` at the repository root is a separate KUS-style Git/payload entrypoint. `examples/run-template/update.bat` is copied into each external Instance folder and is the instance-local maintenance pipeline described above. Do not overwrite the repository-root script with the template copy. `game-update.bat` checks for a running `cs2.exe` before SteamCMD, but the repository-root `win.bat`, `update.bat`, and `install.bat` do not provide that same active-process guard.
 
@@ -349,7 +349,7 @@ Changes made directly to tracked files become local Git changes. Commit them int
 
 ### Per-instance overrides on Windows
 
-The instance-local `update.bat` can apply optional `cfg/` and `addons/` overrides before `run.bat` starts CS2, but only while no `cs2.exe` is active. Set `CUSTOM_FOLDER` in `instance.ini` to a directory containing these subfolders. Because the installed runtime is shared, simultaneous Instances cannot have isolated copies of different override files. For private settings, prefer an absolute path outside the repository, for example:
+`run.bat` applies optional `cfg/` and `addons/` overrides from `CUSTOM_FOLDER` before every launch, including launches after a crash. Set `CUSTOM_FOLDER` in `instance.ini` to a directory containing these subfolders; relative paths resolve from the external Instance folder, while absolute paths are also supported. This overlay overwrites matching files and adds new files without deleting anything. It intentionally excludes `addons/counterstrikesharp/configs/` to protect the live server-managed CounterStrikeSharp configuration tree. Because the installed runtime is shared, simultaneous Instances cannot have isolated copies of different override files. For private settings, prefer an absolute path outside the repository, for example:
 
 ```text
 D:\CS2-private\aim\
@@ -361,9 +361,9 @@ D:\CS2-private\aim\
             └── admins.json
 ```
 
-The instance-local updater copies the override folder's `cfg/` and `addons/` into the installed runtime under `server/game/csgo/`; it does not rewrite the tracked payload source. The launch-only `run.bat` never copies or modifies runtime files.
+`run.bat` copies the override folder's `cfg/` and `addons/` into the installed runtime under `server/game/csgo/` immediately before CS2 starts; the tracked repository payload is not changed. Matching runtime files are overwritten, unrelated files are kept, and missing source folders are skipped.
 
-For example, to add admins for one instance, copy the deployed file `server/game/csgo/addons/counterstrikesharp/configs/admins.json` to:
+For CounterStrikeSharp's protected `configs/` tree, the custom-folder overlay is intentionally skipped. Manage that tree through the server's existing private/runtime configuration process rather than the general `CUSTOM_FOLDER` overlay. For ordinary add-on files or Metamod VDFs, keep the relative path beneath `<CUSTOM_FOLDER>/addons/`.
 
 ```text
 <CUSTOM_FOLDER>\addons\counterstrikesharp\configs\admins.json
@@ -371,11 +371,11 @@ For example, to add admins for one instance, copy the deployed file `server/game
 
 Edit that private copy and restart the instance. For a shared admin list, edit the canonical runtime file and commit the change instead. A KUS example config may be helpful as a reference, but inspect it before using it because this unified branch's installed plugins and versions may differ.
 
-To change settings for one game mode, put a relevant override in `<CUSTOM_FOLDER>/cfg/` (for example `custom_dm.cfg`) and ensure the mode's config executes it. Root-level files such as `gamemodes_server.txt` are deployed from the tracked `game/csgo/` payload by `win.bat`; the per-instance runner does not overlay them.
+To change settings for one game mode, put a relevant override in `<CUSTOM_FOLDER>/cfg/` (for example `custom_dm.cfg`) and ensure the mode's config executes it. The per-instance runner re-applies these files after each server exit/relaunch. Root-level files such as `gamemodes_server.txt` are deployed from the tracked `game/csgo/` payload by `win.bat`; the per-instance runner does not overlay them.
 
 ### Plugin-generated configuration files
 
-The instance-local `update.bat` uses overwrite-only overlay copying; the launch-only `run.bat` does not rebuild or modify the runtime on startup or crash recovery. By contrast, repository-root `win.bat` replaces the runtime `addons/` directory from the repository payload; runtime-only add-ons can therefore be removed, while the live CounterStrikeSharp `configs/` tree and selected files under `cfg/settings/` are explicitly preserved. For a persistent per-instance override, put a same-path file under `<CUSTOM_FOLDER>/addons/` or `<CUSTOM_FOLDER>/cfg/`. The add-on updater protects `cfg/` and CounterStrikeSharp's `configs/` from overwrites by incoming release archives.
+The instance-local `update.bat` overlays the shared runtime only during maintenance; each `run.bat` launch re-applies the selected `CUSTOM_FOLDER` overlay without removing runtime-only files. By contrast, repository-root `win.bat` replaces the runtime `addons/` directory from the repository payload; runtime-only add-ons can therefore be removed, while the live CounterStrikeSharp `configs/` tree and selected files under `cfg/settings/` are explicitly preserved. The general custom-folder copy excludes the CounterStrikeSharp `configs/` tree but may overwrite matching files under `cfg/settings/` if they are present in the selected custom folder.
 
 **Do not commit real secrets.** Keep `instance.ini`, API keys, Game Server Login Tokens, RCON passwords and database credentials out of tracked files.
 
