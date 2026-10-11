@@ -264,7 +264,12 @@ jobs:
               $templateVbs -notmatch 'shell\.Run') {
             throw "Example run.vbs must use the simple hidden loop and retry run.bat after 100 ms."
           }
-          if ($templateBat -notmatch '(?im)^set "PAUSE_ON_EXIT=0"
+          if ($templateBat -notmatch '(?im)^set "PAUSE_ON_EXIT=0"$' -or
+              $templateBat -notmatch '(?im)^if /I "%~1"=="--pause" set "PAUSE_ON_EXIT=1"$' -or
+              $templateBat -notmatch '(?im)^\s*pause >nul\s*$' -or
+              $templateBat -match '(?im)^\s*exit /b 2\s*$') {
+            throw "Example run.bat must not block the supervisor on PAUSE; manual --pause remains optional."
+          }
           foreach ($required in @(
             'git -C "%REPO_ROOT%" pull --ff-only origin integration/kus-monorepo',
             'app_update 730',
