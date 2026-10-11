@@ -2,10 +2,8 @@
 setlocal EnableExtensions DisableDelayedExpansion
 
 title CS2 Instance Runner
-rem Do not block supervised restarts on an interactive PAUSE.
+rem Interactive PAUSE is opt-in only; it must never block the supervisor loop.
 set "PAUSE_ON_EXIT=0"
-rem VBS sets this inherited environment flag; do not rely only on command-line quoting.
-if /I "%CS2_RUNNER_NO_PAUSE%"=="1" set "PAUSE_ON_EXIT=0"
 set "MAINTENANCE_ENABLED=1"
 set "MAINTENANCE_STATUS=update/check on this launch; overwrite-only runtime overlay"
 set "RC=2"
