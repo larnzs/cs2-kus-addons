@@ -365,8 +365,15 @@ jobs:
           if ($templateBat -match '(?i)ForcePostExitMaintenance|WaitForAllCS2|RunMaintenance|UpdateGame') {
             throw "Launch-only run.bat must never enter maintenance or post-exit update loops."
           }
-          if ($templateIni -notmatch '(?im)^SERVER_DIR=C:\\REPLACE_ME\\cs2-kus-addons\\server[ \t]*\r?
-            throw "Example INI must not contain real API or game-server credentials."
+          $serverDirConfigured = @($templateIni -split "`n" | Where-Object { $_.TrimEnd() -eq 'SERVER_DIR=C:\REPLACE_ME\cs2-kus-addons\server' }).Count -eq 1
+          if (-not $serverDirConfigured) {
+            throw "The external Instance template must require an explicit absolute SERVER_DIR path."
+          }
+          foreach ($runnerText in @($templateBat, $templateUpdate)) {
+            if ($runnerText -notmatch '(?im)^if not defined SERVER_DIR goto :MissingServerDir' -or
+                $runnerText -notmatch '(?im)^:MissingServerDir') {
+              throw "Both Instance launch and maintenance must fail clearly when SERVER_DIR is not configured."
+            }
           }
           if ($templateIni -notmatch '(?im)^RCON_PASSWORD=CHANGE_ME_TO_A_STRONG_PASSWORD[ \t\r]*$' -or
               $templateIgnore -notmatch '(?im)^instance\.ini[ \t\r]*$') {
@@ -535,15 +542,6 @@ jobs:
           git push origin HEAD:integration/kus-monorepo
           if ($LASTEXITCODE -ne 0) {
             throw "Push to integration/kus-monorepo failed after fetching and rebasing."
-          }
-) {
-            throw "The external Instance template must require an explicit absolute SERVER_DIR path."
-          }
-          foreach ($runnerText in @($templateBat, $templateUpdate)) {
-            if ($runnerText -notmatch '(?im)^if not defined SERVER_DIR goto :MissingServerDir' -or
-                $runnerText -notmatch '(?im)^:MissingServerDir') {
-              throw "Both Instance launch and maintenance must fail clearly when SERVER_DIR is not configured."
-            }
           }
           if ($templateIni -match '(?im)^(API_KEY|STEAM_ACCOUNT)[ \t]*=[ \t]*\S') {
             throw "Example INI must not contain real API or game-server credentials."
