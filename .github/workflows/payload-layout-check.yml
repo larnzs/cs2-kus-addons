@@ -116,11 +116,19 @@ jobs:
           assert Path("game/csgo/addons/windows/addons/counterstrikesharp/dotnet/dotnet.exe").is_file()
           for script in ("linux/install.sh", "linux/start.sh", "linux/run.sh", "docker/install_docker.sh"):
               text = Path(script).read_text(encoding="utf-8")
+              assert "IP_ARGS=()" in text and '"${IP_ARGS[@]}"' in text, f"{script} must pass optional bind IP as separate arguments"
+              assert '"$IP_ARGS"' not in text, f"{script} must not pass bind IP as one quoted string"
+              assert 'if ! sudo -u "$user" /steamcmd/steamcmd.sh' in text, f"{script} must check SteamCMD exit status"
+              assert "ERROR: SteamCMD failed while updating" in text, f"{script} must fail clearly when SteamCMD fails"
               assert 'rcon_lower="${RCON_PASSWORD,,}"' in text, f"{script} must reject weak or missing RCON passwords"
               assert '"changeme"' in text and '"change_me_to_a_strong_password"' in text, f"{script} must reject common RCON placeholders"
           for script in ("linux/install.sh", "linux/start.sh", "docker/install_docker.sh"):
               text = Path(script).read_text(encoding="utf-8")
+              assert 'if [ ! -x "/steamcmd/steamcmd.sh" ]; then' in text, f"{script} must repair a missing/incomplete SteamCMD install"
               assert 'getent passwd "$user" >/dev/null 2>&1' in text, f"{script} must check existing users with valid shell redirection"
+          for script in ("linux/install.sh", "linux/start.sh", "docker/install_docker.sh"):
+              text = Path(script).read_text(encoding="utf-8")
+              assert 'if ! grep -qE "$REGEX_TO_CHECK" "$FILE"; then' in text, f"{script} must fail if the MetaMod gameinfo patch was not applied"
           gcp = Path("linux/gcp.sh").read_text(encoding="utf-8")
           assert "set -o pipefail" in gcp, "GCP bootstrap must propagate installer failure through tee"
           stop_script = Path("linux/stop.sh").read_text(encoding="utf-8")

@@ -98,10 +98,9 @@ if [ -z "$BITS" ]; then
     fi
 fi
 
-if [[ -z $IP ]]; then
-    IP_ARGS=""
-else
-    IP_ARGS="-ip ${IP}"
+IP_ARGS=()
+if [[ -n "${IP:-}" ]]; then
+    IP_ARGS=(-ip "$IP")
 fi
 
 if [ -f /etc/os-release ]; then
@@ -227,10 +226,21 @@ if [ "$?" -ne "0" ]; then
 fi
 
 echo "Checking steamcmd exists..."
-if [ ! -d "/steamcmd" ]; then
-	mkdir /steamcmd && cd /steamcmd
-	wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz
-	tar -xvzf steamcmd_linux.tar.gz
+if [ ! -x "/steamcmd/steamcmd.sh" ]; then
+    mkdir -p /steamcmd || { echo "ERROR: Could not create /steamcmd."; exit 1; }
+    cd /steamcmd || { echo "ERROR: Could not enter /steamcmd."; exit 1; }
+    wget -O steamcmd_linux.tar.gz https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz || {
+        echo "ERROR: Could not download SteamCMD."
+        exit 1
+    }
+    tar -xzf steamcmd_linux.tar.gz || {
+        echo "ERROR: Could not extract SteamCMD."
+        exit 1
+    }
+fi
+if [ ! -x "/steamcmd/steamcmd.sh" ]; then
+    echo "ERROR: /steamcmd/steamcmd.sh is missing after the SteamCMD setup step."
+    exit 1
 fi
 
 chown -R ${user}:${user} /steamcmd
@@ -238,7 +248,7 @@ chown -R ${user}:${user} /steamcmd
 echo "Downloading any updates for Steam Linux Runtime 3.0 (sniper)..."
 # https://discord.com/channels/1160907911501991946/1160907912445710479/1411330429679829013
 # https://steamdb.info/app/1628350/depots/
-sudo -u $user /steamcmd/steamcmd.sh \
+if ! sudo -u "$user" /steamcmd/steamcmd.sh \
   +api_logging 1 1 \
   +@sSteamCmdForcePlatformType linux \
   +@sSteamCmdForcePlatformBitness $BITS \
@@ -246,19 +256,33 @@ sudo -u $user /steamcmd/steamcmd.sh \
   +login anonymous \
   +app_update 1628350 \
   +validate \
-  +quit
+  +quit; then
+    echo "ERROR: SteamCMD failed while updating Steam Linux Runtime 3.0."
+    exit 1
+fi
+if [ ! -x "/home/${user}/steamrt/run" ]; then
+    echo "ERROR: Steam Linux Runtime did not install correctly: /home/${user}/steamrt/run is missing."
+    exit 1
+fi
 chown -R ${user}:${user} /home/${user}/steamrt
 
 echo "Downloading any updates for CS2..."
 # https://developer.valvesoftware.com/wiki/Command_line_options
-sudo -u $user /steamcmd/steamcmd.sh \
+if ! sudo -u "$user" /steamcmd/steamcmd.sh \
   +api_logging 1 1 \
   +@sSteamCmdForcePlatformType linux \
   +@sSteamCmdForcePlatformBitness $BITS \
   +force_install_dir /home/${user}/cs2 \
   +login anonymous \
   +app_update 730 \
-  +quit
+  +quit; then
+    echo "ERROR: SteamCMD failed while updating CS2 game files."
+    exit 1
+fi
+if [ ! -x "/home/${user}/cs2/game/bin/linuxsteamrt64/cs2" ]; then
+    echo "ERROR: SteamCMD completed but the CS2 Linux executable is missing."
+    exit 1
+fi
 
 cd /home/${user}
 
@@ -341,6 +365,11 @@ else
     echo "$FILE successfully patched for Metamod."
 fi
 
+if ! grep -qE "$REGEX_TO_CHECK" "$FILE"; then
+    echo "ERROR: MetaMod entry is still missing from $FILE; the insertion marker may have changed."
+    exit 1
+fi
+
 
 # Try to enable unprivileged namespaces
 enable_unprivileged_namespaces
@@ -354,7 +383,7 @@ echo /home/${user}/steamrt/run ./game/bin/linuxsteamrt64/cs2 --graphics-provider
     -disable_workshop_command_filtering \
     -autoupdate \
     -tickrate $TICKRATE \
-	$IP_ARGS \
+	"${IP_ARGS[@]}" \
     -port $PORT \
     +map de_dust2 \
     +sv_visiblemaxplayers $MAXPLAYERS \
@@ -374,7 +403,7 @@ sudo -u $user /home/${user}/steamrt/run ./game/bin/linuxsteamrt64/cs2 --graphics
     -disable_workshop_command_filtering \
     -autoupdate \
     -tickrate $TICKRATE \
-	$IP_ARGS \
+	"${IP_ARGS[@]}" \
     -port $PORT \
     +map de_dust2 \
     +sv_visiblemaxplayers $MAXPLAYERS \

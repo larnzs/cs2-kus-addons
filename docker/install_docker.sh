@@ -40,10 +40,9 @@ if [ -z "$BITS" ]; then
     fi
 fi
 
-if [[ -z $IP ]]; then
-    IP_ARGS=""
-else
-    IP_ARGS="-ip ${IP}"
+IP_ARGS=()
+if [[ -n "${IP:-}" ]]; then
+    IP_ARGS=(-ip "$IP")
 fi
 
 if [ -f /etc/os-release ]; then
@@ -114,24 +113,42 @@ chmod 777 /home/${user}/cs2
 chown -R ${user}:${user} /home/${user}
 
 echo "Checking steamcmd exists..."
-if [ ! -d "/steamcmd" ]; then
-    mkdir /steamcmd && cd /steamcmd || exit
-    wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz
-    tar -xvzf steamcmd_linux.tar.gz
+if [ ! -x "/steamcmd/steamcmd.sh" ]; then
+    mkdir -p /steamcmd || { echo "ERROR: Could not create /steamcmd."; exit 1; }
+    cd /steamcmd || { echo "ERROR: Could not enter /steamcmd."; exit 1; }
+    wget -O steamcmd_linux.tar.gz https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz || {
+        echo "ERROR: Could not download SteamCMD."
+        exit 1
+    }
+    tar -xzf steamcmd_linux.tar.gz || {
+        echo "ERROR: Could not extract SteamCMD."
+        exit 1
+    }
+fi
+if [ ! -x "/steamcmd/steamcmd.sh" ]; then
+    echo "ERROR: /steamcmd/steamcmd.sh is missing after the SteamCMD setup step."
+    exit 1
 fi
 
 chown -R ${user}:${user} /steamcmd
 chown -R ${user}:${user} /home/${user}
 
 # https://developer.valvesoftware.com/wiki/Command_line_options
-sudo -u $user /steamcmd/steamcmd.sh \
+if ! sudo -u "$user" /steamcmd/steamcmd.sh \
     +api_logging 1 1 \
     +@sSteamCmdForcePlatformType linux \
     +@sSteamCmdForcePlatformBitness "$BITS" \
     +force_install_dir /home/${user}/cs2 \
     +login anonymous \
     +app_update 730 \
-    +quit
+  +quit; then
+    echo "ERROR: SteamCMD failed while updating CS2 game files."
+    exit 1
+fi
+if [ ! -x "/home/${user}/cs2/game/bin/linuxsteamrt64/cs2" ]; then
+    echo "ERROR: SteamCMD completed but the CS2 Linux executable is missing."
+    exit 1
+fi
 
 cd /home/${user} || exit
 
@@ -210,6 +227,11 @@ else
     echo "$FILE successfully patched for Metamod."
 fi
 
+if ! grep -qE "$REGEX_TO_CHECK" "$FILE"; then
+    echo "ERROR: MetaMod entry is still missing from $FILE; the insertion marker may have changed."
+    exit 1
+fi
+
 echo "Starting server on $PUBLIC_IP:$PORT"
 # https://developer.valvesoftware.com/wiki/Counter-Strike_2/Dedicated_Servers#Command-Line_Parameters
 echo ./game/bin/linuxsteamrt64/cs2 \
@@ -219,7 +241,7 @@ echo ./game/bin/linuxsteamrt64/cs2 \
     -disable_workshop_command_filtering \
     -autoupdate \
     -tickrate $TICKRATE \
-	$IP_ARGS \
+	"${IP_ARGS[@]}" \
     -port $PORT \
     +map de_dust2 \
     +sv_visiblemaxplayers $MAXPLAYERS \
@@ -239,7 +261,7 @@ sudo -u $user ./game/bin/linuxsteamrt64/cs2 \
     -disable_workshop_command_filtering \
     -autoupdate \
     -tickrate "$TICKRATE" \
-    "$IP_ARGS" \
+    "${IP_ARGS[@]}" \
     -port "$PORT" \
     +map "${MAP-de_dust2}" \
     +sv_visiblemaxplayers "$MAXPLAYERS" \

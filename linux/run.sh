@@ -90,16 +90,19 @@ if [ -z "$BITS" ]; then
     fi
 fi
 
-if [[ -z $IP ]]; then
-    IP_ARGS=""
-else
-    IP_ARGS="-ip ${IP}"
+IP_ARGS=()
+if [[ -n "${IP:-}" ]]; then
+    IP_ARGS=(-ip "$IP")
 fi
 
 echo "Downloading any updates for Steam Linux Runtime 3.0 (sniper)..."
+if [ ! -x "/steamcmd/steamcmd.sh" ]; then
+    echo "ERROR: SteamCMD is missing. Run linux/install.sh first."
+    exit 1
+fi
 # https://discord.com/channels/1160907911501991946/1160907912445710479/1411330429679829013
 # https://steamdb.info/app/1628350/depots/
-sudo -u $user /steamcmd/steamcmd.sh \
+if ! sudo -u "$user" /steamcmd/steamcmd.sh \
   +api_logging 1 1 \
   +@sSteamCmdForcePlatformType linux \
   +@sSteamCmdForcePlatformBitness $BITS \
@@ -107,19 +110,33 @@ sudo -u $user /steamcmd/steamcmd.sh \
   +login anonymous \
   +app_update 1628350 \
   +validate \
-  +quit
+  +quit; then
+    echo "ERROR: SteamCMD failed while updating Steam Linux Runtime 3.0."
+    exit 1
+fi
+if [ ! -x "/home/${user}/steamrt/run" ]; then
+    echo "ERROR: Steam Linux Runtime did not install correctly: /home/${user}/steamrt/run is missing."
+    exit 1
+fi
 chown -R ${user}:${user} /home/${user}/steamrt
 
 echo "Downloading any updates for CS2..."
 # https://developer.valvesoftware.com/wiki/Command_line_options
-sudo -u $user /steamcmd/steamcmd.sh \
+if ! sudo -u "$user" /steamcmd/steamcmd.sh \
   +api_logging 1 1 \
   +@sSteamCmdForcePlatformType linux \
   +@sSteamCmdForcePlatformBitness $BITS \
   +force_install_dir /home/${user}/cs2 \
   +login anonymous \
   +app_update 730 \
-  +quit
+  +quit; then
+    echo "ERROR: SteamCMD failed while updating CS2 game files."
+    exit 1
+fi
+if [ ! -x "/home/${user}/cs2/game/bin/linuxsteamrt64/cs2" ]; then
+    echo "ERROR: SteamCMD completed but the CS2 Linux executable is missing."
+    exit 1
+fi
 
 cd /home/${user}/cs2
 
@@ -134,7 +151,7 @@ echo /home/${user}/steamrt/run ./game/bin/linuxsteamrt64/cs2 --graphics-provider
     -disable_workshop_command_filtering \
     -autoupdate \
     -tickrate $TICKRATE \
-	$IP_ARGS \
+	"${IP_ARGS[@]}" \
     -port $PORT \
     +map de_dust2 \
     +sv_visiblemaxplayers $MAXPLAYERS \
@@ -154,7 +171,7 @@ sudo -u $user /home/${user}/steamrt/run ./game/bin/linuxsteamrt64/cs2 --graphics
     -disable_workshop_command_filtering \
     -autoupdate \
     -tickrate $TICKRATE \
-	$IP_ARGS \
+	"${IP_ARGS[@]}" \
     -port $PORT \
     +map de_dust2 \
     +sv_visiblemaxplayers $MAXPLAYERS \
