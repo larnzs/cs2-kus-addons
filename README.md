@@ -24,7 +24,7 @@ The upstream `custom_files/` and `custom_files_example/` trees are intentionally
 
 1. Clone this private repository on the Windows server machine.
 2. Run `install.bat`. It downloads SteamCMD if needed, installs/checks CS2 with SteamCMD, then prepares the runtime. It does not start the server.
-3. Prepare `instance.ini` and keep only `run.bat`, `run.vbs`, and `instance.ini` together in the external Instance folder. Launch `run.vbs` for hidden anti-crash supervision; it runs the same `run.bat` on every attempt and retries 100 ms after the batch returns. Maintenance is attempted only on the first attempt and is skipped if another `cs2.exe` is already active.
+3. Prepare `instance.ini` and keep only `run.bat`, `run.vbs`, and `instance.ini` together in the external Instance folder. Launch `run.vbs` for hidden anti-crash supervision; it runs the same `run.bat` on every attempt and retries 5 seconds after the batch returns. Maintenance is attempted only on the first attempt and is skipped if another `cs2.exe` is already active.
 
 For the difference between each maintenance script—and an important warning about manual deployment—see [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons).
 
@@ -260,7 +260,7 @@ Coverage means the **15 KUS scripts currently provided by KUS** plus the 17 enab
 
 ### Two different update modes
 
-The per-instance `run.vbs` supervisor repeatedly starts the same `run.bat`, waiting for it to return and then retrying after 100 ms. Startup maintenance is attempted once per VBS session; all later retries skip Git, release checks, SteamCMD, gameinfo patching, and payload overlays. If another `cs2.exe` is already active at startup—or becomes active while the runner waits for the maintenance lock—maintenance is skipped without blocking this Instance from launching. SteamCMD game updates and per-Instance overrides are skipped while any CS2 process is active.
+The per-instance `run.vbs` supervisor repeatedly starts the same `run.bat`, waiting for it to return and then retrying after 5 seconds. Startup maintenance is attempted once per VBS session; all later retries skip Git, release checks, SteamCMD, gameinfo patching, and payload overlays. If another `cs2.exe` is already active at startup—or becomes active while the runner waits for the maintenance lock—maintenance is skipped without blocking this Instance from launching. SteamCMD game updates and per-Instance overrides are skipped while any CS2 process is active.
 
 #### A. Soft reset of the installed runtime — `win.bat`
 
@@ -412,7 +412,7 @@ The active Windows runner reads `examples/run-template/instance.ini`, not enviro
 | `MAP` | `de_mirage` | Initial map requested at launch. |
 | `WORKSHOP_COLLECTION` | empty | Optional Workshop collection ID. |
 
-`run.vbs` launches `run.bat` and repeats that same launch 100 ms after each return. Shared maintenance is attempted only on the first attempt in that VBS session and is skipped when another `cs2.exe` is active; retries prioritize getting the configured server back online without repeating Git, release checks, SteamCMD, or payload overlays. A maintenance attempt checks/pulls the private repository, checks configured upstream add-on releases, updates CS2 through SteamCMD when safe, and applies the non-destructive payload overlay. Per-instance `cfg/` and `addons/` overrides are skipped while any CS2 process is active. Linux and Google Cloud environment-variable settings have not yet been migrated to the unified layout; the old KUS `gcp.sh` and `install.sh` examples are not active instructions for this branch.
+`run.vbs` launches `run.bat` and repeats that same launch 5 seconds after each return. Shared maintenance is attempted only on the first attempt in that VBS session and is skipped when another `cs2.exe` is active; retries prioritize getting the configured server back online without repeating Git, release checks, SteamCMD, or payload overlays. A maintenance attempt checks/pulls the private repository, checks configured upstream add-on releases, updates CS2 through SteamCMD when safe, and applies the non-destructive payload overlay. Per-instance `cfg/` and `addons/` overrides are skipped while any CS2 process is active. Linux and Google Cloud environment-variable settings have not yet been migrated to the unified layout; the old KUS `gcp.sh` and `install.sh` examples are not active instructions for this branch.
 
 ## Playing workshop maps/collections
 
@@ -474,7 +474,7 @@ install.bat
 
 Copy `examples/run-template/instance.example.ini` to `examples/run-template/instance.ini`. Edit the port, map/map group, reachable public IP (optional), Game Server Login Token, and a strong RCON password. Keep `instance.ini` private; it is excluded from Git.
 
-Launch `examples/run-template/run.vbs` for hidden anti-crash supervision. It repeatedly runs `run.bat` and retries 100 ms after it returns. The first attempt performs maintenance only when no other `cs2.exe` is active; the supervisor marks that attempt complete and later retries skip maintenance. Running `run.bat` directly performs a visible maintenance-and-launch pass.
+Launch `examples/run-template/run.vbs` for hidden anti-crash supervision. It repeatedly runs `run.bat` and retries 5 seconds after it returns. The first attempt performs maintenance only when no other `cs2.exe` is active; the supervisor marks that attempt complete and later retries skip maintenance. Running `run.bat` directly performs a visible maintenance-and-launch pass.
 
 ### Maintenance commands
 
