@@ -10,8 +10,8 @@ services:
     volumes:
       - cs2-volume:/home/steam/
     ports:
-      - "27015:27015/tcp"
-      - "27015:27015/udp"
+      - "${PORT:-27015}:${PORT:-27015}/tcp"
+      - "${PORT:-27015}:${PORT:-27015}/udp"
       - "27020:27020/tcp"
       - "27020:27020/udp"
     cpu_count: 2
