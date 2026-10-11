@@ -74,7 +74,7 @@ jobs:
           }
           Write-Host "PowerShell syntax passed."
 
-      - name: Validate KUS payload roots, no-write Instance runner, and Windows-safe tracked paths
+      - name: Validate KUS payload roots, launch-time custom-folder copy, and Windows-safe tracked paths
         shell: bash
         run: |
           set -euo pipefail
@@ -142,9 +142,13 @@ jobs:
           runner_bat = Path("examples/run-template/run.bat").read_text(encoding="utf-8")
           assert 'call "%~dp0win.bat" --no-pause' in update_bat
           assert 'call "%ROOT_DIR%win.bat" --no-pause' in game_update_bat
-          assert "CUSTOM_FOLDER overrides are not mounted" in runner_bat
-          assert "robocopy" not in runner_bat.lower()
-          assert "xcopy" not in runner_bat.lower()
+          assert 'set "GAME_DIR=%SERVER_DIR%\\game\\csgo"' in runner_bat
+          assert "call :SyncCustomFiles" in runner_bat
+          assert 'xcopy "%CUSTOM_DIR%\\cfg\\*"' in runner_bat
+          assert 'xcopy "%CUSTOM_DIR%\\addons\\*"' in runner_bat
+          assert "CUSTOM_FOLDER overrides are not mounted" not in runner_bat
+          assert "/MIR" not in runner_bat.upper()
+          assert "/PURGE" not in runner_bat.upper()
           assert 'Copy-TreeContent -Source $WindowsOverlay -Destination $IncomingRoot' in deploy
           assert "Copy-UntrackedRuntimeFiles" in deploy
           assert "$SettingsTrackedRoots" in deploy
