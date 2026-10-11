@@ -32,7 +32,7 @@ The VBS resolves both batch paths beside itself, so these four active files can 
 ## Test
 
 1. Ensure no Instance supervisor is already running.
-2. Delete the two marker files from `%TEMP%` to test the full maintenance path.
+2. Delete `%TEMP%\\CS2-KUS-Maintenance-success.marker` to force the next launch through full maintenance.
 3. Start `run.vbs`; verify the full update path completes and writes `CS2-KUS-Maintenance-success.marker`.
 4. Start another Instance; its VBS should immediately select `run_fast.bat`.
 5. Use `quit` in either server console. The same server should be launched again after about 100 milliseconds without rerunning the full update pipeline.
