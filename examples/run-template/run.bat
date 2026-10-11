@@ -6,12 +6,12 @@ set "PAUSE_ON_EXIT=1"
 rem VBS sets this inherited environment flag; do not rely only on command-line quoting.
 if /I "%CS2_RUNNER_NO_PAUSE%"=="1" set "PAUSE_ON_EXIT=0"
 set "MAINTENANCE_ENABLED=1"
+set "MAINTENANCE_STATUS=update/check on this launch; overwrite-only runtime overlay"
 set "RC=2"
 
 :parse_args
 if "%~1"=="" goto :args_done
 if /I "%~1"=="--no-pause" set "PAUSE_ON_EXIT=0"
-if /I "%~1"=="--no-update" set "MAINTENANCE_ENABLED=0"
 shift
 goto :parse_args
 
@@ -77,7 +77,20 @@ set "LOCK_HELD=0"
 
 if not exist "%CS2_EXE%" goto :MissingCS2
 if not exist "%GAMEINFO%" goto :MissingGameInfo
-if "%MAINTENANCE_ENABLED%"=="0" goto :ValidationComplete
+
+rem Under VBS, perform shared maintenance only on the first runner invocation.
+rem If another server is already active, skip maintenance but continue launching this instance.
+if /I "%CS2_RUNNER_MAINTENANCE_DONE%"=="1" (
+    set "MAINTENANCE_ENABLED=0"
+    set "MAINTENANCE_STATUS=skipped; this supervisor already attempted startup maintenance"
+    goto :ValidationComplete
+)
+call :AnyCS2Running
+if not errorlevel 1 (
+    set "MAINTENANCE_ENABLED=0"
+    set "MAINTENANCE_STATUS=skipped; another CS2 instance is active"
+    goto :ValidationComplete
+)
 if not exist "%REPO_ROOT%\DEPENDENCIES.json" goto :MissingRepository
 if not exist "%STEAMCMD%" goto :MissingSteamCmd
 if not exist "%PAYLOAD_DIR%\addons\" goto :MissingPayload
@@ -137,8 +150,7 @@ echo Server:     %SERVER_DIR%
 echo Custom:     %CUSTOM_DIR%
 echo Address:    %IP%  Port: %PORT%
 echo Map:        %MAP%
-if "%MAINTENANCE_ENABLED%"=="1" echo Maintenance: update/check on this launch; overwrite-only runtime overlay
-if "%MAINTENANCE_ENABLED%"=="0" echo Maintenance: skipped; fast launch mode (no Git, SteamCMD, or release checks)
+echo Maintenance: %MAINTENANCE_STATUS%
 echo.
 
 if not exist "%CUSTOM_DIR%\" (
@@ -177,7 +189,7 @@ set "RC=100"
 goto :finish
 
 :maintenance_retry
-echo ERROR: Maintenance failed. The supervisor should fall back to the fast runner.
+echo ERROR: Maintenance failed before launch; the supervisor will retry run.bat without repeating maintenance.
 set "RC=101"
 goto :finish
 
@@ -417,15 +429,26 @@ exit /b 0
 
 :finish
 echo.
-if "%RC%"=="0" (
-    echo Result: SUCCESS
-) else if "%RC%"=="100" (
-    echo Result: CS2_EXITED (supervisor should restart with run-fast.bat)
-) else if "%RC%"=="101" (
-    echo Result: MAINTENANCE_FAILED (supervisor should fall back to run-fast.bat)
-) else (
-    echo Result: FAILED (exit code %RC%)
-)
+:ResultDispatch
+if "%RC%"=="0" goto :ResultSuccess
+if "%RC%"=="100" goto :ResultCS2Exit
+if "%RC%"=="101" goto :ResultMaintenanceFailed
+echo Result: FAILED (exit code %RC%)
+goto :ResultDone
+
+:ResultSuccess
+echo Result: SUCCESS
+goto :ResultDone
+
+:ResultCS2Exit
+echo Result: CS2_EXITED (supervisor will restart this same run.bat)
+goto :ResultDone
+
+:ResultMaintenanceFailed
+echo Result: MAINTENANCE_FAILED (supervisor will retry run.bat without another update pass)
+goto :ResultDone
+
+:ResultDone
 if "%PAUSE_ON_EXIT%"=="1" (
     echo.
     echo Press any key to close this window . . .
