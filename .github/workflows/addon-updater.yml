@@ -266,7 +266,7 @@ jobs:
               throw "Launch-only run.bat must not perform or invoke maintenance; found: $forbidden"
             }
           }
-          foreach ($required in @('CS2-KUS-Maintenance.lock', ':WaitForMaintenance', 'Start CS2 on port', 'set "RC=100"')) {
+          foreach ($required in @('CS2-KUS-Maintenance.lock', ':WaitForMaintenance', 'Starting CS2 on port', 'set "RC=100"')) {
             if ($templateBat -notmatch [regex]::Escape($required)) {
               throw "Launch-only run.bat is missing expected behavior: $required"
             }
