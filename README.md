@@ -15,7 +15,7 @@ This README combines Larnz's manifest-managed add-ons with KUS's base plugins, g
 | `game/csgo/cfg/` | Tracked shared configuration source, deployed into the installed runtime. |
 | DEPENDENCIES.json | Larnz add-on updater manifest. |
 | scripts/update/ | Active KUS-style per-plugin automation; the same Bash updater also runs the Larnz manifest add-on scripts. |
-| examples/run-template/ | Separate update batch, launch-only runner, and classic VBS anti-crash loop template. |
+| examples/run-template/ | Separate maintenance batch, custom-folder-aware server runner, and VBS/CMD anti-crash watchdog template. |
 | docs/upstream/ | KUS source snapshot metadata and archived upstream entrypoints/workflows. |
 
 The upstream `custom_files/` and `custom_files_example/` trees are intentionally not imported. On Windows, use the external per-instance override directory selected by `CUSTOM_FOLDER` in `examples/run-template/instance.ini`. Never store tokens, passwords or private database credentials in tracked files.
@@ -24,7 +24,7 @@ The upstream `custom_files/` and `custom_files_example/` trees are intentionally
 
 1. Clone this private repository on the Windows server machine.
 2. Run `install.bat`. It downloads SteamCMD if needed, installs/checks CS2 with SteamCMD, then prepares the runtime. It does not start the server.
-3. Copy the instance-local `update.bat`, launch-only `run.bat`, `run.vbs`, `watchdog.bat`, and your private `instance.ini` into the external Instance folder. Run the instance-local updater separately when needed with all CS2 processes stopped; then start `watchdog.bat`. The guardian keeps a CMD session open and relaunches the VBS host if it exits; the VBS only launches the runner.
+3. Copy the instance-local `update.bat`, `run.bat`, `run.vbs`, `watchdog.bat`, and your private `instance.ini` into the external Instance folder. Run the instance-local updater separately when needed with all CS2 processes stopped; then start `watchdog.bat`. The guardian keeps a CMD session open and relaunches the VBS host if it exits; each `run.bat` launch reapplies the selected `CUSTOM_FOLDER` overrides before starting CS2.
 
 For the difference between each maintenance script—and an important warning about manual deployment—see [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons).
 
@@ -304,7 +304,7 @@ These two use overlay-style copying, but they operate at different stages:
 `update.bat` at the repository root is a separate KUS-style Git/payload entrypoint. `examples/run-template/update.bat` is copied into each external Instance folder and is the instance-local maintenance pipeline described above. Do not overwrite the repository-root script with the template copy. `game-update.bat` checks for a running `cs2.exe` before SteamCMD, but the repository-root `win.bat`, `update.bat`, and `install.bat` do not provide that same active-process guard.
 
 > [!WARNING]
-> Do not run repository-root install/update/deploy paths (`install.bat`, `game-update.bat`, `update.bat`, or `win.bat`) while any Instance uses the shared CS2 installation. Stop all CS2 processes first. Run the instance-local updater when maintenance is needed, then start `examples/run-template/watchdog.bat`; its CMD guardian restarts the VBS host if needed, while VBS only retries the launch-only runner.
+> Do not run repository-root install/update/deploy paths (`install.bat`, `game-update.bat`, `update.bat`, or `win.bat`) while any Instance uses the shared CS2 installation. Stop all CS2 processes first. Run the instance-local updater when maintenance is needed, then start `examples/run-template/watchdog.bat`; its CMD guardian restarts the VBS host if needed, while VBS only retries the instance runner and never performs shared maintenance.
 
 ### Which tool should I use to troubleshoot a broken plugin?
 ### Which tool should I use to troubleshoot a broken plugin?
@@ -475,7 +475,7 @@ Run the instance-local `update.bat` manually while every CS2 process is stopped.
 
 ### Maintenance commands
 
-See [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons) for safe deployment details. Copy the instance-local `update.bat`, launch-only `run.bat`, `run.vbs`, and `watchdog.bat` into each external Instance folder alongside your private `instance.ini`. Run the updater separately with all CS2 processes stopped; neither restart loop performs maintenance.
+See [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons) for safe deployment details. Copy the instance-local `update.bat`, `run.bat`, `run.vbs`, and `watchdog.bat` into each external Instance folder alongside your private `instance.ini`. Run the updater separately with all CS2 processes stopped; neither watchdog loop performs shared maintenance, but each runner invocation reapplies its `CUSTOM_FOLDER` overrides.
 
 Allow the selected game port through Windows Firewall and the router/cloud firewall. Use a valid Game Server Login Token for a public server. Keep API keys, login tokens, RCON passwords, and instance-specific settings out of tracked files.
 
