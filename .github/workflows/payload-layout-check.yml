@@ -47,6 +47,14 @@ jobs:
           bash -n linux/install.sh linux/start.sh linux/run.sh linux/stop.sh docker/install_docker.sh linux/gcp.sh scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh
           echo "Shell syntax passed."
 
+      - name: Validate Docker Compose configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .env.example .env
+          docker compose -f docker/docker-compose.yml config --quiet
+          echo "Docker Compose config and repository-root build context passed."
+
       - name: Validate PowerShell syntax
         shell: pwsh
         run: |
