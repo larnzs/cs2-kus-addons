@@ -4,7 +4,7 @@ This template uses the repository's canonical `server/` installation. Keep `run.
 
 - **`run.bat`** performs a shared maintenance pass on launch, then starts CS2 once. It checks the private repository and upstream add-on releases, applies overwrite-only payload files, and starts the game.
 - **`run-fast.bat`** starts the same configured server without Git, upstream release checks, SteamCMD, gameinfo patching, or payload overlays. It delegates shared argument/configuration and launch logic to `run.bat --no-update`.
-- **`run.vbs`** is the hidden supervisor. Its first attempt uses `run.bat`; after the CS2 process exits or crashes, it switches to `run-fast.bat` and relaunches immediately, with no maintenance cooldown or intentional sleep. It stays in fast mode until the VBS supervisor is restarted.
+- **`run.vbs`** is the hidden supervisor. It invokes batch files explicitly through `%ComSpec%`/`cmd.exe` so `--no-pause` is passed reliably and the batch exit code reaches the supervisor. Its first attempt uses `run.bat`; after the CS2 process exits or crashes (exit code `100`), it switches to `run-fast.bat` and relaunches immediately, with no maintenance cooldown or intentional sleep. It stays in fast mode until the VBS supervisor is restarted.
 - `instance.example.ini` is a safe template with no real public IP, Game Server Login Token, API key, or password.
 
 ## Setup
