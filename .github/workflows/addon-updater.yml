@@ -93,7 +93,7 @@ jobs:
               exit 1
             fi
           done
-          if ! printf '%s\\n' "${RSYNC_FLAGS[@]}" | grep -Fqx -- '**/counterstrikesharp/configs/***'; then
+          if ! printf '%s\n' "${RSYNC_FLAGS[@]}" | grep -Fqx -- '**/counterstrikesharp/configs/***'; then
             echo "Rsync safety excludes for manual CounterStrikeSharp configs are missing." >&2
             exit 1
           fi
