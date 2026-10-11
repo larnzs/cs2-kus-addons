@@ -150,37 +150,37 @@ echo /home/${user}/steamrt/run ./game/bin/linuxsteamrt64/cs2 --graphics-provider
     -usercon \
     -disable_workshop_command_filtering \
     -autoupdate \
-    -tickrate $TICKRATE \
+    -tickrate "$TICKRATE" \
 	"${IP_ARGS[@]}" \
-    -port $PORT \
+    -port "$PORT" \
     +map de_dust2 \
-    +sv_visiblemaxplayers $MAXPLAYERS \
-    -authkey $API_KEY \
-    +sv_setsteamaccount $STEAM_ACCOUNT \
+    +sv_visiblemaxplayers "$MAXPLAYERS" \
+    -authkey "$API_KEY" \
+    +sv_setsteamaccount "$STEAM_ACCOUNT" \
     +game_type 0 \
     +game_mode 0 \
     +mapgroup mg_active \
-    +sv_lan $LAN \
-	+sv_password $SERVER_PASSWORD \
-	+rcon_password $RCON_PASSWORD \
-	+exec $EXEC
+    +sv_lan "$LAN" \
+	+sv_password "$SERVER_PASSWORD" \
+	+rcon_password "$RCON_PASSWORD" \
+	+exec "$EXEC"
 sudo -u $user /home/${user}/steamrt/run ./game/bin/linuxsteamrt64/cs2 --graphics-provider "" -- \
     -dedicated \
     -console \
     -usercon \
     -disable_workshop_command_filtering \
     -autoupdate \
-    -tickrate $TICKRATE \
+    -tickrate "$TICKRATE" \
 	"${IP_ARGS[@]}" \
-    -port $PORT \
+    -port "$PORT" \
     +map de_dust2 \
-    +sv_visiblemaxplayers $MAXPLAYERS \
-    -authkey $API_KEY \
-    +sv_setsteamaccount $STEAM_ACCOUNT \
+    +sv_visiblemaxplayers "$MAXPLAYERS" \
+    -authkey "$API_KEY" \
+    +sv_setsteamaccount "$STEAM_ACCOUNT" \
     +game_type 0 \
     +game_mode 0 \
     +mapgroup mg_active \
-    +sv_lan $LAN \
-	+sv_password $SERVER_PASSWORD \
-	+rcon_password $RCON_PASSWORD \
-	+exec $EXEC
+    +sv_lan "$LAN" \
+	+sv_password "$SERVER_PASSWORD" \
+	+rcon_password "$RCON_PASSWORD" \
+	+exec "$EXEC"
