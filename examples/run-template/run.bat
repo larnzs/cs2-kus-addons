@@ -119,6 +119,7 @@ set "RC=2"
 goto :finish
 
 :ValidationComplete
+set "RC=0"
 set "AUTH_ARGS="
 if defined API_KEY set "AUTH_ARGS=-authkey %API_KEY%"
 set "GSLT_ARGS="
@@ -151,6 +152,8 @@ if "%LAN%"=="0" if not defined RCON_PASSWORD echo WARNING: RCON_PASSWORD is empt
 call :RunMaintenance
 if errorlevel 1 goto :maintenance_retry
 
+rem Maintenance completed or was safely skipped; prepare for the next CS2 run.
+set "POST_EXIT=0"
 call :SyncOverrides
 if errorlevel 1 goto :sync_failed
 
@@ -446,26 +449,11 @@ exit /b 0
 
 :finish
 echo.
-:ResultDispatch
-if "%RC%"=="0" goto :ResultSuccess
-if "%RC%"=="100" goto :ResultCS2Exit
-if "%RC%"=="101" goto :ResultMaintenanceFailed
-echo Result: FAILED (exit code %RC%)
-goto :ResultDone
-
-:ResultSuccess
-echo Result: SUCCESS
-goto :ResultDone
-
-:ResultCS2Exit
-echo Result: CS2_EXITED (supervisor will restart this same run.bat)
-goto :ResultDone
-
-:ResultMaintenanceFailed
-echo Result: MAINTENANCE_FAILED (supervisor will retry run.bat without another update pass)
-goto :ResultDone
-
-:ResultDone
+if "%RC%"=="0" (
+    echo Result: SUCCESS
+) else (
+    echo Result: FAILED (exit code %RC%)
+)
 if "%PAUSE_ON_EXIT%"=="1" (
     echo.
     echo Press any key to close this window . . .
