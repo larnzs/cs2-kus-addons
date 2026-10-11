@@ -24,7 +24,7 @@ The upstream `custom_files/` and `custom_files_example/` trees are intentionally
 
 1. Clone this private repository on the Windows server machine.
 2. Run `install.bat`. It downloads SteamCMD if needed, installs/checks CS2 with SteamCMD, then prepares the runtime. It does not start the server.
-3. Copy the instance-local `update.bat`, launch-only `run.bat`, `run.vbs`, and your private `instance.ini` into the external Instance folder. Run the instance-local updater separately when needed with all CS2 processes stopped; then start `run.vbs`, which loops only over `run.bat` every 100 ms after exit/crash.
+3. Copy the instance-local `update.bat`, launch-only `run.bat`, `run.vbs`, `watchdog.bat`, and your private `instance.ini` into the external Instance folder. Run the instance-local updater separately when needed with all CS2 processes stopped; then start `watchdog.bat`. The guardian keeps a CMD session open and relaunches the VBS host if it exits; the VBS only launches the runner.
 
 For the difference between each maintenance script—and an important warning about manual deployment—see [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons).
 
@@ -260,7 +260,7 @@ Coverage means the **15 KUS scripts currently provided by KUS** plus the 17 enab
 
 ### Separate maintenance and crash recovery
 
-The external Instance folder has its own `update.bat` for shared maintenance. Run it manually with all CS2 processes stopped. `run.vbs` is intentionally the classic loop only: it runs launch-only `run.bat`, waits for it to return, sleeps **100 milliseconds**, then runs it again. Routine crashes therefore do not repeat Git pulls, upstream release checks, SteamCMD, gameinfo patching, or payload deployment.
+The external Instance folder has its own `update.bat` for shared maintenance. Run it manually with all CS2 processes stopped. Start `watchdog.bat` for normal operation: it keeps a visible CMD guardian running `run.vbs` through `cscript.exe`, and relaunches the VBS host if it terminates. Inside that guard, `run.vbs` invokes only the launch runner through `cmd.exe`, waits for it to return, then retries **100 milliseconds** after exit code 100. Routine crash recovery does not repeat Git pulls, upstream release checks, SteamCMD, gameinfo patching, or payload deployment.
 
 The instance updater refuses to modify the shared runtime while any `cs2.exe` is active. A shared lock also prevents a waiting launch-only batch from opening CS2 while maintenance is in progress; stale locks are checked against the owner PID before being removed. The five-minute success marker only suppresses duplicate updater work if you run it repeatedly; it does not select a different runner.
 
@@ -304,7 +304,7 @@ These two use overlay-style copying, but they operate at different stages:
 `update.bat` at the repository root is a separate KUS-style Git/payload entrypoint. `examples/run-template/update.bat` is copied into each external Instance folder and is the instance-local maintenance pipeline described above. Do not overwrite the repository-root script with the template copy. `game-update.bat` checks for a running `cs2.exe` before SteamCMD, but the repository-root `win.bat`, `update.bat`, and `install.bat` do not provide that same active-process guard.
 
 > [!WARNING]
-> Do not run repository-root install/update/deploy paths (`install.bat`, `game-update.bat`, `update.bat`, or `win.bat`) while any Instance uses the shared CS2 installation. Stop all CS2 processes first. Run the instance-local updater when maintenance is needed, then start `examples/run-template/run.vbs`; VBS only restarts launch-only `run.bat` after a crash.
+> Do not run repository-root install/update/deploy paths (`install.bat`, `game-update.bat`, `update.bat`, or `win.bat`) while any Instance uses the shared CS2 installation. Stop all CS2 processes first. Run the instance-local updater when maintenance is needed, then start `examples/run-template/watchdog.bat`; its CMD guardian restarts the VBS host if needed, while VBS only retries the launch-only runner.
 
 ### Which tool should I use to troubleshoot a broken plugin?
 ### Which tool should I use to troubleshoot a broken plugin?
@@ -416,7 +416,7 @@ The active Windows runner reads `examples/run-template/instance.ini`, not enviro
 | `MAP` | `de_mirage` | Initial map requested at launch. |
 | `WORKSHOP_COLLECTION` | empty | Optional Workshop collection ID. |
 
-`run.vbs` contains only the classic `run.bat` loop: `shell.Run` with `wait=True`, followed by `WScript.Sleep 100`. It does not invoke `update.bat`; run the instance-local updater separately when all shared CS2 processes are stopped. `run.bat` waits on the maintenance lock before starting CS2.
+`run.vbs` invokes the runner through `cmd.exe /d /s /c`, waits for its exit code, and retries after 100 ms on exit code 100. `watchdog.bat` runs VBS under `cscript.exe` and relaunches the host if it exits; run the instance-local updater separately when all shared CS2 processes are stopped. Neither watchdog calls `update.bat`. `run.bat` waits on the maintenance lock before starting CS2.
 
 ## Playing workshop maps/collections
 
@@ -478,11 +478,11 @@ install.bat
 
 Copy `examples/run-template/instance.example.ini` to `examples/run-template/instance.ini`. Edit the port, map/map group, reachable public IP (optional), Game Server Login Token, and a strong RCON password. Keep `instance.ini` private; it is excluded from Git.
 
-Run the instance-local `update.bat` manually while every CS2 process is stopped. Then launch `examples/run-template/run.vbs`; it runs only `run.bat` and retries after 100 milliseconds after an exit/crash.
+Run the instance-local `update.bat` manually while every CS2 process is stopped. Then launch `examples/run-template/watchdog.bat`; it supervises the VBS host, and VBS retries only the runner after a CS2 exit.
 
 ### Maintenance commands
 
-See [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons) for safe deployment details. Copy the instance-local `update.bat`, launch-only `run.bat`, and classic `run.vbs` into each external Instance folder alongside your private `instance.ini`. Run the updater separately with all CS2 processes stopped; the restart loop itself never performs maintenance.
+See [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons) for safe deployment details. Copy the instance-local `update.bat`, launch-only `run.bat`, `run.vbs`, and `watchdog.bat` into each external Instance folder alongside your private `instance.ini`. Run the updater separately with all CS2 processes stopped; neither restart loop performs maintenance.
 
 Allow the selected game port through Windows Firewall and the router/cloud firewall. Use a valid Game Server Login Token for a public server. Keep API keys, login tokens, RCON passwords, and instance-specific settings out of tracked files.
 
