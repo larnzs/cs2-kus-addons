@@ -72,8 +72,14 @@ foreach ($trackedPath in Get-Content -LiteralPath $overlayManifest) {
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destinationPath) | Out-Null
     Copy-Item -LiteralPath $sourcePath -Destination $destinationPath -Force
 }
+$ProtectedConfigPaths = @(
+    "addons/counterstrikesharp/configs",
+    "addons/windows/addons/counterstrikesharp/configs"
+)
+$PreservedManualPaths = @("cfg") + $ProtectedConfigPaths
+
 # Personal/user-managed configuration remains protected even if added after the initial manifest.
-foreach ($protectedRelative in @("cfg", "addons/counterstrikesharp/configs")) {
+foreach ($protectedRelative in $PreservedManualPaths) {
     $protectedSource = Join-Path $runtimeRoot $protectedRelative
     if (Test-Path -LiteralPath $protectedSource -PathType Container) {
         Copy-Tree -Source $protectedSource -Destination (Join-Path $tempOverlay $protectedRelative)
@@ -81,7 +87,7 @@ foreach ($protectedRelative in @("cfg", "addons/counterstrikesharp/configs")) {
 }
 
 Write-Host "Importing KUS payloads into $runtimeRoot"
-Copy-Tree -Source $KusRuntime -Destination $runtimeRoot
+Copy-Tree -Source $KusRuntime -Destination $runtimeRoot -ExcludePaths $ProtectedConfigPaths
 
 if (Test-Path -LiteralPath $tempOverlay -PathType Container) {
     Copy-Tree -Source $tempOverlay -Destination $runtimeRoot
