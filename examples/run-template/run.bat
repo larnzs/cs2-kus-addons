@@ -2,7 +2,8 @@
 setlocal EnableExtensions DisableDelayedExpansion
 
 title CS2 Instance Runner
-set "PAUSE_ON_EXIT=1"
+rem Do not block supervised restarts on an interactive PAUSE.
+set "PAUSE_ON_EXIT=0"
 rem VBS sets this inherited environment flag; do not rely only on command-line quoting.
 if /I "%CS2_RUNNER_NO_PAUSE%"=="1" set "PAUSE_ON_EXIT=0"
 set "MAINTENANCE_ENABLED=1"
@@ -11,7 +12,7 @@ set "RC=2"
 
 :parse_args
 if "%~1"=="" goto :args_done
-if /I "%~1"=="--no-pause" set "PAUSE_ON_EXIT=0"
+if /I "%~1"=="--pause" set "PAUSE_ON_EXIT=1"
 shift
 goto :parse_args
 
