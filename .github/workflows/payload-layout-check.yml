@@ -122,6 +122,7 @@ jobs:
               assert "ERROR: SteamCMD failed while updating" in text, f"{script} must fail clearly when SteamCMD fails"
               assert 'rcon_lower="${RCON_PASSWORD,,}"' in text, f"{script} must reject weak or missing RCON passwords"
               assert '"changeme"' in text and '"change_me_to_a_strong_password"' in text, f"{script} must reject common RCON placeholders"
+              assert "mkdir -m 777 /home/${user}/cs2" not in text and "chmod 777 /home/${user}/cs2" not in text, f"{script} must not make the game directory world-writable"
           for script in ("linux/install.sh", "linux/start.sh", "docker/install_docker.sh"):
               text = Path(script).read_text(encoding="utf-8")
               assert 'if [ ! -x "/steamcmd/steamcmd.sh" ]; then' in text, f"{script} must repair a missing/incomplete SteamCMD install"
@@ -183,7 +184,7 @@ jobs:
           assert 'Get-Process -Name "cs2"' in deploy, "Direct PowerShell deployment must refuse to replace active runtime add-ons"
           assert 'Get-Process -Name "cs2"' not in source_updater, "Source-only add-on updates must be allowed while CS2 is active"
           gcp = Path("linux/gcp.sh").read_text(encoding="utf-8")
-          assert 'export API_KEY="${META_API_KEY:-}"' in gcp, "GCP must leave the optional API key empty when it is not configured"
+          assert 'export API_KEY="${API_KEY:-${META_API_KEY:-}}"' in gcp, "GCP should preserve an environment API key, otherwise use optional metadata without a fake default"
           assert "+app_update 730 +quit" in install_bat
           assert "+app_update 730 validate" not in install_bat
           assert "Deploy-Runtime.ps1" in win_bat

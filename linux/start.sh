@@ -244,7 +244,7 @@ if [ "$?" -ne "0" ]; then
 	addgroup ${user} && \
 	adduser --system --home /home/${user} --shell /bin/false --ingroup ${user} ${user} && \
 	usermod -a -G tty ${user} && \
-	mkdir -m 777 /home/${user}/cs2 && \
+	mkdir -m 755 /home/${user}/cs2 && \
 	chown -R ${user}:${user} /home/${user}/cs2
 	if [ "$?" -ne "0" ]; then
 		echo "ERROR: Cannot add user $user..."
