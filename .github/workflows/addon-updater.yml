@@ -253,6 +253,7 @@ jobs:
         run: |
           $templateBat = Get-Content -LiteralPath ".\examples\run-template\run.bat" -Raw
           $templateBat = $templateBat -replace [string][char]13, ""
+          $templateFastBat = Get-Content -LiteralPath ".\examples\run-template\run_fast.bat" -Raw
           $templateVbs = Get-Content -LiteralPath ".\examples\run-template\run.vbs" -Raw
           $templateIni = Get-Content -LiteralPath ".\examples\run-template\instance.example.ini" -Raw
           $templateIgnore = Get-Content -LiteralPath ".\examples\run-template\.gitignore" -Raw
@@ -260,9 +261,14 @@ jobs:
             throw "Example run.bat must load instance.ini and support optional Workshop collection."
           }
           if ($templateVbs -notmatch 'run\.bat' -or
+              $templateVbs -notmatch 'run_fast\.bat' -or
+              $templateVbs -notmatch 'CS2-KUS-FastLaunch\.enabled' -or
               $templateVbs -notmatch 'WScript\.Sleep 100' -or
               $templateVbs -notmatch 'shell\.Run') {
-            throw "Example run.vbs must use the simple hidden loop and retry run.bat after 100 ms."
+            throw "Example run.vbs must select run.bat/run_fast.bat from the shared marker and retry after 100 ms."
+          }
+          if ($templateFastBat -notmatch '(?i)call "%~dp0run\.bat" --fast') {
+            throw "run_fast.bat must delegate to the shared runner with --fast."
           }
           if ($templateBat -notmatch '(?im)^set "PAUSE_ON_EXIT=0"$' -or
               $templateBat -notmatch '(?im)^if /I "%~1"=="--pause" set "PAUSE_ON_EXIT=1"$' -or
@@ -274,16 +280,20 @@ jobs:
             'git -C "%REPO_ROOT%" pull --ff-only origin integration/kus-monorepo',
             'app_update 730',
             'call :UpdateUpstreamAddons',
-            'ForcePostExitMaintenance',
+            ':RunMaintenance',
             ':AcquireLock',
-            ':WaitForAllCS2',
+            ':MaintenanceSkippedBusy',
             ':OverlayPayload',
-            '/IS /IT',
-            'CS2-KUS-Maintenance-success.marker'
+            'CS2-KUS-Maintenance-success.marker',
+            'CS2-KUS-FastLaunch.enabled',
+            'set "RC=100"'
           )) {
             if ($templateBat -notmatch [regex]::Escape($required)) {
-              throw "Example run.bat is missing required maintenance behavior: $required"
+              throw "Example run.bat is missing required maintenance/runner behavior: $required"
             }
+          }
+          if ($templateBat -match '(?i)ForcePostExitMaintenance|WaitForAllCS2') {
+            throw "run.bat must return control to VBS after CS2 exits instead of waiting in an internal post-exit loop."
           }
           if ($templateBat -match '(?i)game-update\.bat|update\.bat|win\.bat|addons-update\.bat|/MIR|/PURGE|Move-Item|Remove-Item') {
             throw "Example run.bat must not call install/deploy updaters or use destructive staging/mirroring."

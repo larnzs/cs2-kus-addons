@@ -7,11 +7,14 @@ set "PAUSE_ON_EXIT=0"
 set "MAINTENANCE_ENABLED=1"
 set "MAINTENANCE_STATUS=update/check on this launch; overwrite-only runtime overlay"
 set "RC=2"
-set "POST_EXIT=0"
 
 :parse_args
 if "%~1"=="" goto :args_done
 if /I "%~1"=="--pause" set "PAUSE_ON_EXIT=1"
+if /I "%~1"=="--fast" (
+    set "MAINTENANCE_ENABLED=0"
+    set "MAINTENANCE_STATUS=skipped; shared maintenance-success marker is present"
+)
 shift
 goto :parse_args
 
@@ -70,6 +73,7 @@ set "PAYLOAD_DIR=%REPO_ROOT%\game\csgo"
 set "WINDOWS_OVERLAY=%PAYLOAD_DIR%\addons\windows"
 set "LOCK_DIR=%TEMP%\CS2-KUS-Maintenance.lock"
 set "LAST_SUCCESS=%TEMP%\CS2-KUS-Maintenance-success.marker"
+set "FAST_LAUNCH_MARKER=%TEMP%\CS2-KUS-FastLaunch.enabled"
 set "CS2_LOCK_DIR=%LOCK_DIR%"
 set "CS2_LAST_SUCCESS=%LAST_SUCCESS%"
 set "CS2_GAMEINFO=%GAMEINFO%"
@@ -147,11 +151,11 @@ if "%LAN%"=="0" if not defined STEAM_ACCOUNT echo WARNING: STEAM_ACCOUNT is empt
 if "%LAN%"=="0" if not defined RCON_PASSWORD echo WARNING: RCON_PASSWORD is empty.
 
 :main
+if "%MAINTENANCE_ENABLED%"=="0" goto :launch_server
 call :RunMaintenance
 if errorlevel 1 goto :maintenance_retry
 
-rem Maintenance completed or was safely skipped; prepare for the next CS2 run.
-set "POST_EXIT=0"
+:launch_server
 call :SyncOverrides
 if errorlevel 1 goto :sync_failed
 
@@ -167,9 +171,9 @@ start "" /wait "%CS2_EXE%" ^
  +exec %EXEC%
 
 set "SERVER_EXIT=%ERRORLEVEL%"
-echo WARNING: CS2 exited with code %SERVER_EXIT%; update/restart handling begins now.
-set "POST_EXIT=1"
-goto :main
+echo WARNING: CS2 exited with code %SERVER_EXIT%; returning to the VBS supervisor.
+set "RC=100"
+goto :finish
 
 :maintenance_retry
 echo ERROR: Maintenance failed; keeping this Instance stopped and retrying in 60 seconds.
@@ -177,60 +181,39 @@ timeout /t 60 /nobreak >nul
 goto :main
 
 :sync_failed
-echo ERROR: Optional instance override sync failed. Keeping this Instance stopped and retrying in 60 seconds.
+echo ERROR: Optional instance override sync failed. Check paths and permissions.
+echo Retrying this Instance in 60 seconds.
 timeout /t 60 /nobreak >nul
 goto :main
 
 :RunMaintenance
-rem After a CS2 exit, wait without holding the machine-wide update lock.
-if "%POST_EXIT%"=="1" goto :ForcePostExitMaintenance
-
-rem Ordinary startup: if any other server is active, skip updates and launch this Instance.
+rem One-shot launch: the VBS selects fast mode after a successful shared update.
 call :AnyCS2Running
 if not errorlevel 1 goto :SkipStartupMaintenanceNoLock
 
 call :AcquireLock
 
-rem Recheck after acquiring the lock; a different Instance may have started while we waited.
+rem Recheck after acquiring the lock; another Instance may have started meanwhile.
 call :AnyCS2Running
 if not errorlevel 1 goto :SkipStartupMaintenance
 
-rem Suppress duplicate maintenance during the five-minute successful-maintenance cooldown.
+rem Keep the five-minute success cooldown. If previous maintenance was recent,
+rem create the group-wide fast marker as well so other Instances avoid repeat work.
 call :IsRecentSuccess
 if not errorlevel 1 (
-    echo [%date% %time%] Shared maintenance ran recently; skipping duplicate startup check.
+    echo [%date% %time%] Shared maintenance ran recently; skipping duplicate update work.
+    > "%FAST_LAUNCH_MARKER%" echo Reusing recent successful shared maintenance at %date% %time%
     call :ReleaseLock
     exit /b 0
 )
 goto :DoMaintenance
 
-:ForcePostExitMaintenance
-echo [%date% %time%] CS2 exited; waiting for all CS2 processes before forced maintenance.
-:WaitForAllCS2
-call :AnyCS2Running
-if not errorlevel 1 (
-    echo [%date% %time%] Another CS2 instance is active; post-exit maintenance is paused.
-    echo The update lock is not held while waiting, so existing/new Instances are not blocked by this wait.
-    timeout /t 5 /nobreak >nul
-    goto :WaitForAllCS2
-)
-
-rem All CS2 processes are idle. Acquire the update lock, then recheck to close the race.
-call :AcquireLock
-call :AnyCS2Running
-if not errorlevel 1 (
-    call :ReleaseLock
-    goto :WaitForAllCS2
-)
-goto :DoMaintenance
-
 :SkipStartupMaintenanceNoLock
-echo [%date% %time%] Another CS2 instance is active. Skipping shared-file maintenance on startup.
-echo This Instance will still launch; no shared game, add-on, or override files will be changed.
+echo [%date% %time%] Another CS2 instance is active. Skipping shared updates and launching this Instance without changing shared runtime files.
 exit /b 0
 
 :SkipStartupMaintenance
-echo [%date% %time%] Another cs2.exe became active while waiting for the maintenance lock; skipping maintenance.
+echo [%date% %time%] Another cs2.exe became active while waiting for the maintenance lock; skipping shared updates.
 call :ReleaseLock
 exit /b 0
 
@@ -287,7 +270,8 @@ call :OverlayPayload
 if errorlevel 1 goto :MaintenanceFailed
 
 > "%LAST_SUCCESS%" echo Shared maintenance completed at %date% %time%
-echo [%date% %time%] Maintenance completed successfully.
+> "%FAST_LAUNCH_MARKER%" echo Full shared game/add-on maintenance completed at %date% %time%
+echo [%date% %time%] Maintenance completed successfully. Fast launch is now enabled for all Instance supervisors.
 call :ReleaseLock
 exit /b 0
 
@@ -482,11 +466,9 @@ exit /b 0
 
 :finish
 echo.
-if "%RC%"=="0" (
-    echo Result: SUCCESS
-) else (
-    echo Result: FAILED (exit code %RC%)
-)
+if "%RC%"=="0" echo Result: SUCCESS
+if "%RC%"=="100" echo Result: CS2_EXITED (VBS will select run_fast.bat when the shared marker exists)
+if not "%RC%"=="0" if not "%RC%"=="100" echo Result: FAILED (exit code %RC%)
 if "%PAUSE_ON_EXIT%"=="1" (
     echo.
     echo Press any key to close this window . . .

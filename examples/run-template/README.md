@@ -1,33 +1,38 @@
 # CS2 Windows instance runner
 
-Keep these three files together in each external Instance folder:
+Keep these four files together in each external Instance folder:
 
-- `run.bat` — owns the normal maintenance and CS2 lifecycle loop.
-- `run.vbs` — the minimal outer watchdog, matching the known-good WSH pattern: run the sibling `run.bat` hidden, wait for it to return, then try again after 100 ms.
+- `run.bat` — the normal runner. It validates `instance.ini`, performs shared maintenance only when no other `cs2.exe` is active, launches CS2 once, and returns to the supervisor when that process exits.
+- `run_fast.bat` — a small wrapper around `run.bat --fast`. It uses the same per-instance settings and CS2 launch arguments but skips Git, upstream release checks, SteamCMD, gameinfo patching, and payload overlays.
+- `run.vbs` — the simple WSH supervisor. It launches `run.bat` until the shared success marker exists; afterwards it launches `run_fast.bat`. It waits for each batch to return and then repeats after **100 milliseconds**.
 - `instance.ini` — private per-instance settings. Create it from `instance.example.ini`; do not commit credentials.
 
-The VBS resolves `run.bat` beside itself, so the active runner can live outside `W:\\cs2-kus-addons`. There is no `run-fast.bat`.
+The VBS resolves both batch paths beside itself, so these four active files can live outside `W:\\cs2-kus-addons`. All Instance supervisors must run under the same Windows account so they share the same `%TEMP%` marker.
 
 ## Setup
 
 1. Run `install.bat` from the repository root once.
-2. Copy `instance.example.ini` to `instance.ini` in the external Instance folder and configure it.
-3. Set `SERVER_DIR` to the repository's shared `server` directory. Choose a unique port, map/map group, and valid credentials.
+2. Copy `instance.example.ini` to `instance.ini` in each external Instance folder and configure it.
+3. Set `SERVER_DIR` to the repository's shared `server` directory. Give each Instance a unique port, map/map group and its intended credentials.
 4. Keep `instance.ini` private. It is excluded from Git.
-5. Copy `run.bat`, `run.vbs`, and `instance.ini` side-by-side into each external Instance folder.
-6. Start `run.vbs` for hidden supervision. You can also run `run.bat` directly to see its console, but the batch owns the loop and will restart CS2 after an exit.
+5. Copy `run.bat`, `run_fast.bat`, `run.vbs`, and the private `instance.ini` side-by-side into each external Instance folder.
+6. Launch `run.vbs` for hidden anti-crash supervision. Running `run.bat` directly opens the normal maintenance-and-launch path visibly.
 
 ## Update and anti-crash behavior
 
-- On ordinary startup, `run.bat` uses the shared maintenance lock and five-minute successful-maintenance cooldown. If another `cs2.exe` is already running, it skips maintenance and attempts to launch this Instance without changing shared runtime files.
-- After this Instance's CS2 process exits or crashes, `run.bat` enters post-exit maintenance mode. It waits until **all** `cs2.exe` processes have exited, then checks/pulls the private repository, checks upstream add-on releases, pulls newly published changes, updates CS2 through SteamCMD, patches `gameinfo.gi`, and applies the overwrite-only payload overlay before restarting.
-- A machine-wide lock serializes update attempts. If another `cs2.exe` becomes active between update stages, the remaining update/deployment stages are cancelled; the runner does not patch or overlay the live runtime under that process.
-- If a maintenance step fails, `run.bat` waits 60 seconds and retries the maintenance loop. A normal CS2 crash does not end the batch process: it is handled internally by the maintenance/restart loop.
-- `run.vbs` is deliberately only the small outer watchdog. Normally it remains waiting inside `shell.Run(..., 0, True)` while `run.bat` handles CS2 exits. It retries the batch after 100 ms only if the batch process itself returns or terminates.
-- The runtime overlay overwrites matching paths only. It does not mirror, purge, move, or delete installed add-on files. The full `addons/counterstrikesharp/configs/` and `cfg/settings/` trees are protected.
-- Per-instance `cfg/` and `addons/` overrides are synced only when no CS2 process is active, because every Instance shares one runtime tree.
+- On a cold start with no fast marker, `run.vbs` launches `run.bat`. If no other CS2 process is using the shared install, the batch runs the normal pipeline: pull the private repository, check upstream add-on releases, pull any newly published updater results, update CS2 with SteamCMD, patch `gameinfo.gi`, and apply the overwrite-only runtime overlay.
+- Only after every maintenance stage succeeds, `run.bat` writes `%TEMP%\\CS2-KUS-FastLaunch.enabled`. This shared marker causes all Instance VBS supervisors to use `run_fast.bat` for future launches and crash recovery.
+- If another `cs2.exe` is already active, `run.bat` skips shared maintenance but still launches this Instance. If another process starts between maintenance stages, it cancels the remaining update/deployment stages and releases the maintenance lock; it does not wait indefinitely while holding the lock.
+- After the CS2 process exits or crashes, `run.bat` returns to VBS instead of starting another internal update loop. VBS checks the shared marker again: with the marker it runs `run_fast.bat`; without it, it retries `run.bat`. The delay between attempts is 100 ms.
+- `run_fast.bat` does not update or deploy shared files and does not wait for other CS2 instances. Its per-Instance override sync is skipped if any CS2 process is active, to avoid changing shared files underneath a running server.
+- The marker is intentionally persistent so long-running servers do not repeat the full update pipeline every time they crash. To deliberately perform a new full update cycle, stop the Instance supervisors and CS2 servers, delete `%TEMP%\\CS2-KUS-FastLaunch.enabled` and `%TEMP%\\CS2-KUS-Maintenance-success.marker`, then start one `run.vbs` while the shared install is idle. A successful maintenance pass recreates both markers.
+- Runtime payload overlay is overwrite-only. It does not mirror, purge, move, or delete installed add-on files, and the full `addons/counterstrikesharp/configs/` and `cfg/settings/` trees remain protected.
 - The updater does not call `win.bat`, `update.bat`, `game-update.bat`, or `install.bat`. Those have separate responsibilities; `win.bat` is a clean replacement/reset operation.
 
 ## Test
 
-Start `run.vbs`, then use `quit` in the CS2 server console. The expected path is: the batch sees CS2 exit, waits for every other CS2 process to stop, runs the guarded maintenance cycle, and starts CS2 again. If the batch process itself exits unexpectedly, the VBS relaunches the sibling `run.bat` after 100 ms.
+1. Ensure no Instance supervisor is already running.
+2. Delete the two marker files from `%TEMP%` to test the full maintenance path.
+3. Start `run.vbs`; verify the full update path completes and writes `CS2-KUS-FastLaunch.enabled`.
+4. Start another Instance; its VBS should immediately select `run_fast.bat`.
+5. Use `quit` in either server console. The same server should be launched again after about 100 milliseconds without rerunning the full update pipeline.
