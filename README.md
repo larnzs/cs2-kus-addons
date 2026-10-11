@@ -24,7 +24,7 @@ The upstream `custom_files/` and `custom_files_example/` trees are intentionally
 
 1. Clone this private repository on the Windows server machine.
 2. Run `install.bat`. It downloads SteamCMD if needed, installs/checks CS2 with SteamCMD, then prepares the runtime. It does not start the server.
-3. Prepare `instance.ini` and keep only `run.bat`, `run.vbs`, and `instance.ini` together in the external Instance folder. Keep `run.bat`, `run.vbs`, and `instance.ini` together in the external Instance folder. Launch `run.vbs` for hidden supervision; its simple WSH loop relaunches `run.bat` after 100 milliseconds only if the batch process itself exits. Normally `run.bat` handles CS2 exits and maintenance inside its own loop.
+3. Prepare `instance.ini` and keep `run.bat`, `run.vbs`, and `instance.ini` together in the external Instance folder. Launch `run.vbs` for hidden supervision; its simple WSH loop relaunches `run.bat` after 100 milliseconds only if the batch process itself exits. Normally `run.bat` handles CS2 exits and maintenance inside its own loop.
 
 For the difference between each maintenance script—and an important warning about manual deployment—see [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons).
 
