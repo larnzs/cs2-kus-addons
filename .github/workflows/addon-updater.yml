@@ -132,8 +132,7 @@ jobs:
             ".\scripts\Test-AddonOverlay.ps1",
             ".\scripts\Inspect-Releases.ps1",
             ".\scripts\Deploy-Runtime.ps1",
-            ".\scripts\Invoke-RuntimeAddonUpdate.ps1",
-            ".\examples\run-template\supervisor.ps1"
+            ".\scripts\Invoke-RuntimeAddonUpdate.ps1"
           )
           foreach ($path in $paths) {
             $tokens = $null
@@ -252,60 +251,44 @@ jobs:
       - name: Validate example instance template
         shell: pwsh
         run: |
-          $templateBat = Get-Content -LiteralPath ".\examples\run-template\run.bat" -Raw
-          $templateBat = $templateBat -replace [string][char]13, ""
-          $templateFastBat = Get-Content -LiteralPath ".\examples\run-template\run_fast.bat" -Raw
-          $templateVbs = Get-Content -LiteralPath ".\examples\run-template\run.vbs" -Raw
-          $templateSupervisor = Get-Content -LiteralPath ".\examples\run-template\supervisor.ps1" -Raw
+          $templateBat = (Get-Content -LiteralPath ".\examples\run-template\run.bat" -Raw) -replace [string][char]13, ""
+          $templateUpdate = (Get-Content -LiteralPath ".\examples\run-template\update.bat" -Raw) -replace [string][char]13, ""
+          $templateVbs = (Get-Content -LiteralPath ".\examples\run-template\run.vbs" -Raw) -replace [string][char]13, ""
           $templateIni = Get-Content -LiteralPath ".\examples\run-template\instance.example.ini" -Raw
           $templateIgnore = Get-Content -LiteralPath ".\examples\run-template\.gitignore" -Raw
-          if ($templateBat -notmatch 'instance\.ini' -or $templateBat -notmatch 'WORKSHOP_ARGS') {
-            throw "Example run.bat must load instance.ini and support optional Workshop collection."
+
+          if ($templateBat -notmatch 'instance\.ini' -or $templateBat -notmatch 'WORKSHOP_ARGS' -or $templateBat -notmatch 'start "" /wait "%CS2_EXE%"') {
+            throw "Example run.bat must read instance.ini, support optional Workshop collection, and launch one CS2 process."
           }
-          if ($templateVbs -notmatch 'supervisor\.ps1' -or
-              $templateVbs -notmatch 'WScript\.Sleep 1000' -or
-              $templateVbs -notmatch 'shell\.Run' -or
-              $templateVbs -notmatch 'Win32_Process' -or
-              $templateVbs -match '(?i)run_fast\.bat|CS2-KUS-Maintenance-success\.marker|, 0, True') {
-            throw "Example run.vbs must watch the detached PowerShell supervisor and must never wait for the batch/game process."
-          }
-          foreach ($requiredSupervisor in @('run.bat', 'run_fast.bat', 'CS2-KUS-Maintenance-success.marker', 'Start-Process', 'WaitForExit()', 'Start-Sleep -Milliseconds 100', 'WaitOne(0)', 'Global\CS2KUS_Supervisor_')) {
-            if ($templateSupervisor -notmatch [regex]::Escape($requiredSupervisor)) {
-              throw "PowerShell supervisor is missing required recovery behavior: $requiredSupervisor"
+          foreach ($forbidden in @('git -C', 'app_update 730', 'UpdateUpstreamAddons', 'UpdateRepository', 'OverlayPayload', 'Invoke-RuntimeAddonUpdate', 'robocopy', 'call "%~dp0update.bat"')) {
+            if ($templateBat -match [regex]::Escape($forbidden)) {
+              throw "Launch-only run.bat must not perform or invoke maintenance; found: $forbidden"
             }
           }
-          if ($templateFastBat -notmatch '(?i)call "%~dp0run\.bat" --fast') {
-            throw "run_fast.bat must delegate to the shared runner with --fast."
-          }
-          if ($templateBat -notmatch '(?im)^set "PAUSE_ON_EXIT=0"$' -or
-              $templateBat -notmatch '(?im)^if /I "%~1"=="--pause" set "PAUSE_ON_EXIT=1"$' -or
-              $templateBat -notmatch '(?im)^\s*pause >nul\s*$' -or
-              $templateBat -match '(?im)^\s*exit /b 2\s*$') {
-            throw "Example run.bat must not block the supervisor on PAUSE; manual --pause remains optional."
-          }
-          foreach ($required in @(
-            'git -C "%REPO_ROOT%" pull --ff-only origin integration/kus-monorepo',
-            'app_update 730',
-            'call :UpdateUpstreamAddons',
-            ':RunMaintenance',
-            ':AcquireLock',
-            ':MaintenanceSkippedBusy',
-            ':OverlayPayload',
-            'CS2-KUS-Maintenance-success.marker',
-            'set "RC=100"'
-          )) {
+          foreach ($required in @('CS2-KUS-Maintenance.lock', ':WaitForMaintenance', 'Start CS2 on port', 'set "RC=100"')) {
             if ($templateBat -notmatch [regex]::Escape($required)) {
-              throw "Example run.bat is missing required maintenance/runner behavior: $required"
+              throw "Launch-only run.bat is missing expected behavior: $required"
             }
           }
-          if ($templateBat -match '(?i)ForcePostExitMaintenance|WaitForAllCS2') {
-            throw "run.bat must return control to VBS after CS2 exits instead of waiting in an internal post-exit loop."
+          foreach ($required in @('git -C "%REPO_ROOT%" pull --ff-only origin integration/kus-monorepo', 'app_update 730', 'call :UpdateUpstreamAddons', ':OverlayPayload', ':SyncOverrides', ':AcquireLock', 'CS2-KUS-Maintenance-success.marker')) {
+            if ($templateUpdate -notmatch [regex]::Escape($required)) {
+              throw "Instance update.bat is missing maintenance behavior: $required"
+            }
           }
-          if ($templateBat -match '(?i)game-update\.bat|update\.bat|win\.bat|addons-update\.bat|/MIR|/PURGE|Move-Item|Remove-Item') {
-            throw "Example run.bat must not call install/deploy updaters or use destructive staging/mirroring."
+          if ($templateUpdate -match '(?i)start "" /wait "%CS2_EXE%"| -dedicated |\+sv_maxplayers|\+exec %EXEC%|/MIR|/PURGE') {
+            throw "Instance update.bat must not launch CS2 or use destructive mirroring/purge behavior."
           }
-          if ($templateVbs -match '(?i)game-update\.bat|update\.bat|addons-update\.bat|RunMaintenanceCycle|RunBatch\(') {
-            throw "run.vbs must remain a simple launcher and must not perform maintenance."
+          if ($templateVbs -notmatch 'update\.bat' -or
+              $templateVbs -notmatch 'run\.bat' -or
+              $templateVbs -notmatch 'shell\.Run' -or
+              $templateVbs -notmatch 'WScript\.Sleep 100' -or
+              $templateVbs -notmatch '1, True' -or
+              $templateVbs -notmatch '0, True' -or
+              $templateVbs -match '(?i)supervisor\.ps1|run_fast\.bat|Win32_Process|Maintenance-success\.marker') {
+            throw "Example run.vbs must run update.bat once, then use the classic wait-and-retry run.bat loop without PowerShell/WMI supervision."
+          }
+          if ($templateBat -match '(?i)ForcePostExitMaintenance|WaitForAllCS2|RunMaintenance|UpdateGame') {
+            throw "Launch-only run.bat must never enter maintenance or post-exit update loops."
           }
           if ($templateIni -match '(?im)^(API_KEY|STEAM_ACCOUNT)[ \t]*=[ \t]*\S') {
             throw "Example INI must not contain real API or game-server credentials."
@@ -314,7 +297,7 @@ jobs:
               $templateIgnore -notmatch '(?im)^instance\.ini[ \t\r]*$') {
             throw "Example INI must use a placeholder RCON password and ignore local instance.ini."
           }
-          Write-Host "Example runner template safety checks passed."
+          Write-Host "Validated launch-only runner, one-shot updater, classic 100 ms VBS anti-crash loop, lock coordination, and private INI policy."
 
       - name: Smoke-test explicit release archive mappings
         if: github.event_name != 'schedule'
