@@ -723,11 +723,10 @@ if (-not (Test-Path (Join-Path $RepoRoot ".git"))) {
 }
 
 if (-not $DryRun) {
-    $runningCs2 = @(Get-Process -Name "cs2" -ErrorAction SilentlyContinue)
-    if ($runningCs2.Count -gt 0) {
-        throw "A cs2.exe process is running. Stop the server and its supervisor before updating add-ons."
-    }
-
+    # This updater changes only the tracked source payload under game/csgo/ and
+    # README/manifest metadata. The live runtime is separate under server/game/csgo/,
+    # so fetching/committing release files is safe while CS2 instances are running.
+    # Runtime deployment and SteamCMD updates have their own active-process guards.
     $status = @(& git -C $RepoRoot status --porcelain)
     if ($LASTEXITCODE -ne 0) {
         throw "Could not read Git working tree status."

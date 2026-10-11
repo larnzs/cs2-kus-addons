@@ -159,7 +159,15 @@ jobs:
 
           install_bat = Path("windows/install.bat").read_text(encoding="utf-8")
           win_bat = Path("windows/win.bat").read_text(encoding="utf-8")
+          update_bat = Path("windows/update.bat").read_text(encoding="utf-8")
           deploy = Path("scripts/Deploy-Runtime.ps1").read_text(encoding="utf-8")
+          source_updater = Path("scripts/Update-Addons.ps1").read_text(encoding="utf-8")
+          for script_name, script_text in (("install.bat", install_bat), ("update.bat", update_bat), ("win.bat", win_bat)):
+              assert 'tasklist /FI "IMAGENAME eq cs2.exe"' in script_text, f"{script_name} must block destructive work while CS2 is active"
+          assert 'Get-Process -Name "cs2"' in deploy, "Direct PowerShell deployment must refuse to replace active runtime add-ons"
+          assert 'Get-Process -Name "cs2"' not in source_updater, "Source-only add-on updates must be allowed while CS2 is active"
+          gcp = Path("linux/gcp.sh").read_text(encoding="utf-8")
+          assert 'export API_KEY="${META_API_KEY:-}"' in gcp, "GCP must leave the optional API key empty when it is not configured"
           assert "+app_update 730 +quit" in install_bat
           assert "+app_update 730 validate" not in install_bat
           assert "Deploy-Runtime.ps1" in win_bat

@@ -7,6 +7,13 @@ set "RC=1"
 for %%I in ("%~dp0..") do set "ROOT_DIR=%%~fI"
 cd /d "%ROOT_DIR%"
 
+tasklist /FI "IMAGENAME eq cs2.exe" /FO LIST 2>nul | findstr /I /C:"cs2.exe" >nul
+if not errorlevel 1 (
+    echo ERROR: A cs2.exe process is running. Stop all CS2 instances before pulling and deploying.
+    set "RC=1"
+    goto :finish
+)
+
 git rev-parse --is-inside-work-tree >nul 2>&1
 if errorlevel 1 (
     echo ERROR: This directory is not a Git checkout. Clone the private repository first.

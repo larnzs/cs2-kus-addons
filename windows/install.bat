@@ -20,6 +20,12 @@ echo Repository: %ROOT_DIR%
 echo Server:     %SERVER_DIR%
 echo.
 
+tasklist /FI "IMAGENAME eq cs2.exe" /FO LIST 2>nul | findstr /I /C:"cs2.exe" >nul
+if not errorlevel 1 (
+    echo ERROR: A cs2.exe process is running. Stop all CS2 instances before using install.bat.
+    goto :finish
+)
+
 git rev-parse --is-inside-work-tree >nul 2>&1
 if errorlevel 1 (
     echo ERROR: Clone this private Git repository before running install.bat.

@@ -291,10 +291,22 @@ jobs:
               $updater -notmatch '\$needsRepair') {
             throw "The updater must enforce the runtime asset and repair missing files even when the version is unchanged."
           }
+          if ($updater -match 'Get-Process\s+-Name\s+"cs2"') {
+            throw "The add-on source-payload updater must not block on active CS2 processes; it does not deploy to the live runtime."
+          }
 
           $install = Get-Content -LiteralPath ".\windows\install.bat" -Raw
           $win = Get-Content -LiteralPath ".\windows\win.bat" -Raw
           $update = Get-Content -LiteralPath ".\windows\update.bat" -Raw
+          foreach ($entrypoint in @(
+            @{ Name = "install.bat"; Content = $install },
+            @{ Name = "update.bat"; Content = $update },
+            @{ Name = "win.bat"; Content = $win }
+          )) {
+            if ($entrypoint.Content -notmatch 'tasklist /FI "IMAGENAME eq cs2\.exe"') {
+              throw "$($entrypoint.Name) must guard SteamCMD or clean runtime deployment while CS2 is active."
+            }
+          }
           if ($win -match '(?i)steamcmd\.exe|\+app_update\s+730') {
             throw "win.bat must not perform SteamCMD game updates."
           }

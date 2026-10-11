@@ -2,6 +2,12 @@
 param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+$runningCs2 = @(Get-Process -Name "cs2" -ErrorAction SilentlyContinue)
+if ($runningCs2.Count -gt 0) {
+    throw "A cs2.exe process is running. Deploy-Runtime.ps1 clean-replaces runtime add-ons; stop all CS2 instances first."
+}
+
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $PayloadRoot = Join-Path $RepoRoot "game\csgo"
 $RuntimeRoot = Join-Path $RepoRoot "server\game\csgo"

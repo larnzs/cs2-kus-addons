@@ -18,6 +18,14 @@ echo Tracked payload: %PAYLOAD_DIR%
 echo Installed game:  %SERVER_DIR%
 echo Runtime target:  %SERVER_DIR%\game\csgo
 echo.
+
+tasklist /FI "IMAGENAME eq cs2.exe" /FO LIST 2>nul | findstr /I /C:"cs2.exe" >nul
+if not errorlevel 1 (
+    echo ERROR: A cs2.exe process is running.
+    echo win.bat clean-replaces runtime add-ons; stop all CS2 instances before deploying.
+    goto :finish
+)
+
 if not exist "%ROOT_DIR%\DEPENDENCIES.json" (echo ERROR: DEPENDENCIES.json is missing.& goto :finish)
 if not exist "%PAYLOAD_DIR%\addons\" (echo ERROR: Tracked payload is missing from game\csgo.& goto :finish)
 if not exist "%CS2_EXE%" (echo ERROR: CS2 is not installed. Run windows\install.bat first.& goto :finish)
