@@ -16,8 +16,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 # subversion and cvs through its metapackage dependencies.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
     dnsutils \
     lib32z1 \
+    sudo \
     wget \
     && sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \
     && dpkg-reconfigure --frontend=noninteractive locales \

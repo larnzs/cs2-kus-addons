@@ -131,6 +131,8 @@ jobs:
               text = Path(script).read_text(encoding="utf-8")
               assert 'if [ ! -x "/steamcmd/steamcmd.sh" ]; then' in text, f"{script} must repair a missing/incomplete SteamCMD install"
               assert 'getent passwd "$user" >/dev/null 2>&1' in text, f"{script} must check existing users with valid shell redirection"
+              for package_line in (line for line in text.splitlines() if "apt-get install" in line):
+                  assert "sudo" in package_line, f"{script} must install sudo because it calls sudo -u to run SteamCMD/server"
           for script in ("linux/install.sh", "linux/start.sh", "docker/install_docker.sh"):
               text = Path(script).read_text(encoding="utf-8")
               assert 'if ! grep -qE "$REGEX_TO_CHECK" "$FILE"; then' in text, f"{script} must fail if the MetaMod gameinfo patch was not applied"
@@ -156,6 +158,9 @@ jobs:
           )
           for entrypoint in expected_entrypoints:
               assert Path(entrypoint).is_file(), f"Missing organized entrypoint: {entrypoint}"
+          dockerfile = Path("docker/Dockerfile").read_text(encoding="utf-8")
+          for package in ("ca-certificates", "curl", "sudo"):
+              assert any(line.strip() == package + " \\" for line in dockerfile.splitlines()), f"Docker image must explicitly install {package}"
           env_example = Path(".env.example").read_text(encoding="utf-8")
           compose = Path("docker/docker-compose.yml").read_text(encoding="utf-8")
           for key in ("STEAM_ACCOUNT", "RCON_PASSWORD", "API_KEY", "PORT", "TICKRATE", "MAXPLAYERS", "LAN", "EXEC", "MAP", "GAME_TYPE", "GAME_MODE", "MAP_GROUP"):
