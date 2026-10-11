@@ -1,29 +1,20 @@
 Option Explicit
 
-Dim shell, fso, root, normalBatPath, fastBatPath, iniPath
-Dim batPath, runnerExitCode, launchError, logPath, fastMode
+Dim shell, fso, root, batPath, iniPath, logPath
+Dim runnerExitCode, launchError
 
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
-' All Instance runner files live beside this VBS, outside the repository.
-' Resolve paths from this script's own folder, never from the current working directory.
+' The VBS, run.bat and instance.ini are siblings in the external Instance directory.
+' Always resolve run.bat relative to this script, not the current working directory.
 root = fso.GetParentFolderName(WScript.ScriptFullName)
-normalBatPath = fso.BuildPath(root, "run.bat")
-fastBatPath = fso.BuildPath(root, "run-fast.bat")
+batPath = fso.BuildPath(root, "run.bat")
 iniPath = fso.BuildPath(root, "instance.ini")
 logPath = fso.BuildPath(shell.ExpandEnvironmentStrings("%TEMP%"), "CS2-KUS-runner-launcher.log")
 
-' Tell child batch files not to wait for keyboard input when launched by this supervisor.
-shell.Environment("Process")("CS2_RUNNER_NO_PAUSE") = "1"
-
-If Not fso.FileExists(normalBatPath) Then
-    MsgBox "The maintenance runner batch file is missing:" & vbCrLf & normalBatPath, vbCritical, "CS2 Instance Runner"
-    WScript.Quit 1
-End If
-
-If Not fso.FileExists(fastBatPath) Then
-    MsgBox "The fast runner batch file is missing:" & vbCrLf & fastBatPath, vbCritical, "CS2 Instance Runner"
+If Not fso.FileExists(batPath) Then
+    MsgBox "The runner batch file is missing:" & vbCrLf & batPath, vbCritical, "CS2 Instance Runner"
     WScript.Quit 1
 End If
 
@@ -34,48 +25,38 @@ If Not fso.FileExists(iniPath) Then
     WScript.Quit 2
 End If
 
-fastMode = False
-WriteLog "Supervisor started. First launch uses run.bat; after CS2 exits it uses run-fast.bat."
+' These are inherited by run.bat. Maintenance is allowed on the first attempt only;
+' the batch runner itself skips maintenance if another CS2 instance is already active.
+shell.Environment("Process")("CS2_RUNNER_NO_PAUSE") = "1"
+shell.Environment("Process")("CS2_RUNNER_MAINTENANCE_DONE") = ""
+
+WriteLog "Anti-crash supervisor started. Repeatedly launching the same run.bat; maintenance is attempted only on the first launch."
 
 Do
-    If fastMode Then
-        batPath = fastBatPath
-    Else
-        batPath = normalBatPath
-    End If
-
-    ' Match the known-working WSH pattern: directly run the sibling .bat,
-    ' hide its window, and wait for it to finish so its exit code is available.
     runnerExitCode = -1
     launchError = 0
     WriteLog "Launching: " & batPath
 
+    ' Same simple, known-working pattern: hide the batch window and wait for it to return.
     On Error Resume Next
     runnerExitCode = shell.Run(Chr(34) & batPath & Chr(34), 0, True)
     launchError = Err.Number
     If launchError <> 0 Then
-        WriteLog "ERROR: Could not launch " & batPath & ": " & Err.Description
+        WriteLog "ERROR: Could not launch run.bat: " & Err.Description
         Err.Clear
     End If
     On Error GoTo 0
 
     If launchError = 0 Then
-        WriteLog "Runner returned exit code " & CStr(runnerExitCode) & " from " & batPath
-        If Not fastMode Then
-            ' Never make anti-crash recovery depend on the exact child exit code.
-            ' Once the first maintenance runner returns, every retry uses the fast runner.
-            fastMode = True
-            WriteLog "Initial runner returned; all subsequent restarts use run-fast.bat, regardless of the reported exit code."
-        Else
-            WriteLog "Fast runner returned; another fast restart will be attempted."
-        End If
-    Else
-        ' If launch itself fails, avoid repeatedly entering the update path.
-        fastMode = True
-        WriteLog "Launch failed; subsequent attempts will use run-fast.bat."
+        WriteLog "run.bat returned with exit code " & CStr(runnerExitCode)
     End If
 
-    WScript.Sleep 5000
+    ' Mark maintenance complete regardless of the child's exit code. All subsequent
+    ' loops execute the same run.bat, but it immediately skips Git/release/game updates.
+    shell.Environment("Process")("CS2_RUNNER_MAINTENANCE_DONE") = "1"
+
+    ' Poll/restart 100 ms after run.bat returns; do not depend on a specific exit code.
+    WScript.Sleep 100
 Loop
 
 Sub WriteLog(message)
