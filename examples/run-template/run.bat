@@ -39,6 +39,12 @@ if not defined API_KEY set "API_KEY="
 if not defined STEAM_ACCOUNT set "STEAM_ACCOUNT="
 if not defined IP set "IP="
 
+set "GAME_DIR=%SERVER_DIR%\game\csgo"
+set "CUSTOM_DIR="
+if defined CUSTOM_FOLDER set "CUSTOM_DIR=%CUSTOM_FOLDER%"
+if defined CUSTOM_DIR if not "%CUSTOM_DIR:~1,1%"==":" if not "%CUSTOM_DIR:~0,2%"=="\\" (
+    for %%I in ("%INSTANCE_DIR%\%CUSTOM_DIR%") do set "CUSTOM_DIR=%%~fI"
+)
 set "CS2_EXE=%SERVER_DIR%\game\bin\win64\cs2.exe"
 set "GAMEINFO=%GAME_DIR%\gameinfo.gi"
 set "LOCK_DIR=%TEMP%\CS2-KUS-Maintenance.lock"
@@ -66,10 +72,39 @@ echo Map:     %MAP%
 echo.
 
 rem If update.bat is deploying shared files, wait before opening cs2.exe.
-call :WaitForMaintenance
+call :SyncCustomFiles
+if not defined CUSTOM_DIR exit /b 0
+if not exist "%CUSTOM_DIR%\" (
+    echo WARNING: CUSTOM_FOLDER does not exist: "%CUSTOM_DIR%". Skipping custom files.
+    exit /b 0
+)
 
-rem CUSTOM_FOLDER is intentionally not copied into the shared runtime.
-if defined CUSTOM_FOLDER echo WARNING: CUSTOM_FOLDER overrides are not mounted; shared cfg/addons files will not be overwritten by this runner.
+echo [%date% %time%] Copying custom files from "%CUSTOM_DIR%" into "%GAME_DIR%"...
+if exist "%CUSTOM_DIR%\cfg\" (
+    if not exist "%GAME_DIR%\cfg\" md "%GAME_DIR%\cfg" >nul 2>&1
+    xcopy "%CUSTOM_DIR%\cfg\*" "%GAME_DIR%\cfg\" /K /S /E /I /H /Y >nul
+    if errorlevel 2 (
+        echo ERROR: Could not copy custom cfg files from "%CUSTOM_DIR%\cfg".
+        exit /b 1
+    )
+)
+if exist "%CUSTOM_DIR%\addons\" (
+    if not exist "%GAME_DIR%\addons\" md "%GAME_DIR%\addons" >nul 2>&1
+    xcopy "%CUSTOM_DIR%\addons\*" "%GAME_DIR%\addons\" /K /S /E /I /H /Y >nul
+    if errorlevel 2 (
+        echo ERROR: Could not copy custom add-on files from "%CUSTOM_DIR%\addons".
+        exit /b 1
+    )
+)
+exit /b 0
+
+:WaitForMaintenance
+
+call :SyncCustomFiles
+if errorlevel 1 (
+    set "RC=2"
+    goto :finish
+)
 
 echo [%date% %time%] Starting CS2 on port %PORT%...
 start "" /wait "%CS2_EXE%" ^
