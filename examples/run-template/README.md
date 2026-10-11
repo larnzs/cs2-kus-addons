@@ -3,7 +3,7 @@
 Keep these five files together in each external Instance folder:
 
 - `update.bat` — performs shared maintenance: checks/pulls the private repository, updates upstream add-ons, updates CS2 with SteamCMD, patches `gameinfo.gi`, applies the overwrite-only runtime overlay, and syncs optional overrides. It does not launch the server.
-- `run.bat` — reads the private `instance.ini` and contains the CS2 launch arguments/command only. It waits for an active shared-maintenance lock, starts CS2, and returns when the process exits.
+- `run.bat` — reads the private `instance.ini`, waits for the shared-maintenance lock, overlays the selected `CUSTOM_FOLDER`'s optional `cfg/` and `addons/` files into the live runtime with overwrite-only copying, then starts CS2. It returns when the process exits.
 - `run.vbs` — the inner restart loop. It starts the runner batch through `cmd.exe`, waits for it to return, and retries after 100 ms when the runner reports a CS2 exit.
 - `watchdog.bat` — the outer guardian. Launch this file instead of double-clicking `run.vbs`; it runs the VBS through `cscript.exe` and automatically relaunches the VBS host if that process exits or encounters an unhandled error.
 - `instance.ini` — private per-instance settings. Create it from `instance.example.ini`; never commit credentials.
@@ -23,10 +23,10 @@ The design intentionally has two layers:
 - `watchdog.bat` stays in a visible CMD session and supervises the VBS host using `cscript.exe`. If the VBScript host terminates, the batch guardian waits one second and launches it again.
 - `run.vbs` invokes `run.bat` via an explicit `cmd.exe /d /s /c` command, waits for completion, then retries after 100 ms when the batch returns exit code 100 (the launch runner's CS2-exited result). Launch errors and unexpected exit codes are written to `%TEMP%\CS2-KUS-Watchdog.log`; repeat failures are rate-limited in the log.
 - The VBS can use either the standard `run.bat` filename or, when there is no `run.bat`, a single unambiguous `*_run.bat` file such as `27085_run.bat`.
-- Neither watchdog invokes `update.bat`, Git, release checks, SteamCMD, gameinfo patching, or payload deployment during crash recovery.
+- Neither watchdog invokes `update.bat`, Git, release checks, SteamCMD, gameinfo patching, or shared payload deployment during crash recovery. Each `run.bat` launch does re-apply that Instance's `CUSTOM_FOLDER` overrides before starting CS2.
 - `run.bat` waits while the shared maintenance lock exists so a server cannot start midway through runtime deployment. If an updater fails, fix the displayed error and run the instance-local `update.bat` again with all CS2 processes stopped.
-- The updater is still overwrite-only; it does not delete runtime-only add-ons. The `addons/counterstrikesharp/configs/` and `cfg/settings/` trees remain protected from the runtime payload overlay.
-- Since all Instances share one runtime, optional `CUSTOM_FOLDER` overrides are applied only while the shared runtime is idle. Different override files cannot be isolated across simultaneously running servers.
+- Both the shared runtime updater and custom-folder overlay are non-destructive: matching files are overwritten and unrelated files are kept. The custom-folder overlay excludes `addons/counterstrikesharp/configs/` so this server-managed configuration tree remains protected; matching `cfg/settings/` files may be overlaid from the selected custom folder.
+- Since all Instances share one runtime, `CUSTOM_FOLDER` is re-applied before each launch, but runtime files are not physically isolated. Starting another Instance with different overrides can replace matching shared files used by the other Instance; avoid different same-path overrides on simultaneously running servers.
 
 ## Test
 
