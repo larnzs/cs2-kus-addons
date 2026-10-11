@@ -201,6 +201,10 @@ goto :finish
 :RunMaintenance
 call :AcquireLock
 
+rem Re-check after waiting for the shared lock. Another instance may have started meanwhile.
+call :AnyCS2Running
+if not errorlevel 1 goto :MaintenanceSkippedBusy
+
 rem Suppress duplicate maintenance during the five-minute startup cooldown.
 call :IsRecentSuccess
 if not errorlevel 1 (
@@ -240,6 +244,11 @@ if errorlevel 1 goto :MaintenanceFailed
 
 > "%LAST_SUCCESS%" echo Shared maintenance completed at %date% %time%
 echo [%date% %time%] Maintenance completed successfully.
+call :ReleaseLock
+exit /b 0
+
+:MaintenanceSkippedBusy
+echo [%date% %time%] Another cs2.exe became active while waiting for maintenance; skipping updates and continuing to launch this instance.
 call :ReleaseLock
 exit /b 0
 
