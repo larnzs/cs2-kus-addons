@@ -11,6 +11,10 @@ set "RC=2"
 :parse_args
 if "%~1"=="" goto :args_done
 if /I "%~1"=="--pause" set "PAUSE_ON_EXIT=1"
+if /I "%~1"=="--no-update" (
+    set "MAINTENANCE_ENABLED=0"
+    set "MAINTENANCE_STATUS=skipped; supervisor retry without update checks"
+)
 shift
 goto :parse_args
 
@@ -77,13 +81,10 @@ set "LOCK_HELD=0"
 if not exist "%CS2_EXE%" goto :MissingCS2
 if not exist "%GAMEINFO%" goto :MissingGameInfo
 
-rem Under VBS, perform shared maintenance only on the first runner invocation.
-rem If another server is already active, skip maintenance but continue launching this instance.
-if /I "%CS2_RUNNER_MAINTENANCE_DONE%"=="1" (
-    set "MAINTENANCE_ENABLED=0"
-    set "MAINTENANCE_STATUS=skipped; this supervisor already attempted startup maintenance"
-    goto :ValidationComplete
-)
+rem A supervisor retry passes --no-update, but still launches this Instance normally.
+if "%MAINTENANCE_ENABLED%"=="0" goto :ValidationComplete
+
+rem If another server is already active, skip shared maintenance but continue launching this Instance.
 call :AnyCS2Running
 if not errorlevel 1 (
     set "MAINTENANCE_ENABLED=0"
