@@ -1,13 +1,12 @@
 Option Explicit
 
 Dim shell, fso, root, batPath, iniPath, logPath
-Dim runnerExitCode, launchError
 
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
-' The VBS, run.bat and instance.ini are siblings in the external Instance directory.
-' Always resolve run.bat relative to this script, not the current working directory.
+' Each Instance keeps run.vbs, run.bat and instance.ini together outside the repository.
+' Resolve the sibling batch path from this script's folder, not the current working directory.
 root = fso.GetParentFolderName(WScript.ScriptFullName)
 batPath = fso.BuildPath(root, "run.bat")
 iniPath = fso.BuildPath(root, "instance.ini")
@@ -25,38 +24,29 @@ If Not fso.FileExists(iniPath) Then
     WScript.Quit 2
 End If
 
-' These are inherited by run.bat. Maintenance is allowed on the first attempt only;
-' the batch runner itself skips maintenance if another CS2 instance is already active.
-shell.Environment("Process")("CS2_RUNNER_NO_PAUSE") = "1"
+' The first run may perform maintenance. If another cs2.exe is active,
+' run.bat skips maintenance and still attempts to launch this Instance.
 shell.Environment("Process")("CS2_RUNNER_MAINTENANCE_DONE") = ""
 
-WriteLog "Anti-crash supervisor started. Repeatedly launching the same run.bat; maintenance is attempted only on the first launch."
+WriteLog "Supervisor started. Repeating the same run.bat every time it returns."
 
 Do
-    runnerExitCode = -1
-    launchError = 0
     WriteLog "Launching: " & batPath
 
-    ' Same simple, known-working pattern: hide the batch window and wait for it to return.
+    ' Preserve the user's proven WSH pattern: hide the batch window and wait for it to return.
     On Error Resume Next
-    runnerExitCode = shell.Run(Chr(34) & batPath & Chr(34), 0, True)
-    launchError = Err.Number
-    If launchError <> 0 Then
-        WriteLog "ERROR: Could not launch run.bat: " & Err.Description
+    shell.Run Chr(34) & batPath & Chr(34), 0, True
+    If Err.Number <> 0 Then
+        WriteLog "ERROR: run.bat launch failed: " & Err.Description
         Err.Clear
     End If
     On Error GoTo 0
 
-    If launchError = 0 Then
-        WriteLog "run.bat returned with exit code " & CStr(runnerExitCode)
-    End If
-
-    ' Mark maintenance complete regardless of the child's exit code. All subsequent
-    ' loops execute the same run.bat, but it immediately skips Git/release/game updates.
+    ' Mark maintenance complete after the first attempt, regardless of CS2's exit code.
+    ' The next invocation uses the same run.bat but skips Git/release/game-update maintenance.
     shell.Environment("Process")("CS2_RUNNER_MAINTENANCE_DONE") = "1"
 
-    ' Poll/restart 100 ms after run.bat returns; do not depend on a specific exit code.
-    WScript.Sleep 100
+    WScript.Sleep 5000
 Loop
 
 Sub WriteLog(message)
