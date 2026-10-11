@@ -24,7 +24,7 @@ The upstream `custom_files/` and `custom_files_example/` trees are intentionally
 
 1. Clone this private repository on the Windows server machine.
 2. Run `install.bat`. It downloads SteamCMD if needed, installs/checks CS2 with SteamCMD, then prepares the runtime. It does not start the server.
-3. Prepare `instance.ini` and keep only `run.bat`, `run.vbs`, and `instance.ini` together in the external Instance folder. Launch `run.vbs` for hidden anti-crash supervision; it uses the simple WSH loop to run the same `run.bat` and retry 100 milliseconds after the batch returns. Each run uses the normal maintenance path, protected by the recent-success cooldown and shared-instance activity checks.
+3. Prepare `instance.ini` and keep only `run.bat`, `run.vbs`, and `instance.ini` together in the external Instance folder. Keep `run.bat`, `run.vbs`, and `instance.ini` together in the external Instance folder. Launch `run.vbs` for hidden supervision; its simple WSH loop relaunches `run.bat` after 100 milliseconds only if the batch process itself exits. Normally `run.bat` handles CS2 exits and maintenance inside its own loop.
 
 For the difference between each maintenance script—and an important warning about manual deployment—see [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons).
 
@@ -260,7 +260,7 @@ Coverage means the **15 KUS scripts currently provided by KUS** plus the 17 enab
 
 ### Two different update modes
 
-The per-instance `run.vbs` supervisor uses a minimal loop: it runs the sibling `run.bat`, waits for it to return, then retries after 100 milliseconds. Every launch uses the normal batch update flow; a recent-success marker suppresses duplicate maintenance for five minutes. Maintenance is skipped whenever any `cs2.exe` is active, and if another process starts between stages the remaining update/deployment stages are abandoned. If another `cs2.exe` is already active at startup—or becomes active while the runner waits for the maintenance lock—maintenance is skipped without blocking this Instance from launching. SteamCMD game updates and per-Instance overrides are skipped while any CS2 process is active.
+`run.vbs` is the minimal outer watchdog: it runs the sibling `run.bat` hidden and retries the batch after 100 milliseconds if the batch process returns. Normally `run.bat` owns the CS2 lifecycle loop. At ordinary startup it skips maintenance if another `cs2.exe` is active and launches without touching shared files; after this Instance's CS2 exits, it waits until all `cs2.exe` processes stop before forcing a fresh maintenance cycle. The machine-wide lock serializes update attempts. If another process becomes active between stages, remaining update/deployment steps are cancelled; per-Instance overrides are also skipped while any CS2 process is active.
 
 #### A. Soft reset of the installed runtime — `win.bat`
 
@@ -296,7 +296,7 @@ These two use overlay-style copying, but they operate at different stages:
 | `win.bat` | Deploys the current tracked payload, patches `gameinfo.gi` for MetaMod, and verifies required files. | **Clean replacement / soft reset** of runtime `addons/`. | No | No |
 | `addons-update.bat` | Checks upstream releases and updates manifest-managed add-ons in the repository payload. | **Non-destructive overlay** into `game/csgo/`; it does not remove stale files omitted from a release. | No | No |
 | `addons-inspect.bat` | Inspects configured upstream release assets without installing them. | Inspection only; no payload or runtime deployment. | No | No |
-| `examples/run-template/run.bat` | Attempts the normal serialized startup maintenance flow, then launches the configured Instance once. The VBS retries this same batch after CS2 exits; the recent-success marker prevents duplicate updates. | **Overwrite-only overlay** into the runtime; does not delete existing add-on files. | Yes, only when no other `cs2.exe` is active | Yes |
+| `examples/run-template/run.bat` | Owns the serialized maintenance and CS2 lifecycle loop. After CS2 exits it waits for all CS2 processes to stop, performs a fresh update/deploy cycle, and restarts the configured Instance. | **Overwrite-only overlay** into the runtime; does not delete existing add-on files. | Yes, only when the shared install is idle | Yes |
 
 `update.bat` only pulls versions already committed to this private repository; it does not check upstream releases directly. `game-update.bat` checks for a running `cs2.exe` before SteamCMD, but `win.bat`, `update.bat`, and `install.bat` do not provide that same active-process guard.
 
@@ -412,7 +412,7 @@ The active Windows runner reads `examples/run-template/instance.ini`, not enviro
 | `MAP` | `de_mirage` | Initial map requested at launch. |
 | `WORKSHOP_COLLECTION` | empty | Optional Workshop collection ID. |
 
-`run.vbs` launches the sibling `run.bat` using a minimal WSH loop and retries 100 milliseconds after each return. Every run uses the batch's original maintenance flow, with a five-minute successful-maintenance cooldown. If another `cs2.exe` is active, updates are skipped and the requested Instance can launch; if one becomes active mid-maintenance, the remaining update/deployment stages are cancelled. A maintenance attempt checks/pulls the private repository, checks configured upstream add-on releases, updates CS2 through SteamCMD when safe, and applies the non-destructive payload overlay. Per-instance `cfg/` and `addons/` overrides are skipped while any CS2 process is active. Linux and Google Cloud environment-variable settings have not yet been migrated to the unified layout; the old KUS `gcp.sh` and `install.sh` examples are not active instructions for this branch.
+`run.vbs` is the minimal outer watchdog around `run.bat`. The batch itself handles normal CS2 exits: after an exit it waits until every `cs2.exe` process is stopped, runs the guarded update cycle, and restarts. At startup, an already-active Instance blocks shared maintenance; if a process appears between update stages, the remaining deployment stages are cancelled. A maintenance attempt checks/pulls the private repository, checks configured upstream add-on releases, updates CS2 through SteamCMD when safe, and applies the non-destructive payload overlay. Per-instance `cfg/` and `addons/` overrides are skipped while any CS2 process is active. Linux and Google Cloud environment-variable settings have not yet been migrated to the unified layout; the old KUS `gcp.sh` and `install.sh` examples are not active instructions for this branch.
 
 ## Playing workshop maps/collections
 
@@ -474,11 +474,11 @@ install.bat
 
 Copy `examples/run-template/instance.example.ini` to `examples/run-template/instance.ini`. Edit the port, map/map group, reachable public IP (optional), Game Server Login Token, and a strong RCON password. Keep `instance.ini` private; it is excluded from Git.
 
-Launch `examples/run-template/run.vbs` for hidden anti-crash supervision. It always runs the same `run.bat` and retries 100 milliseconds after the batch returns. The batch uses its original update path and cooldown; any active `cs2.exe` blocks shared maintenance, but not the attempt to launch the configured Instance. Running `run.bat` directly performs one visible maintenance-and-launch pass.
+Launch `examples/run-template/run.vbs` for hidden operation. The VBS stays waiting while `run.bat` manages the ordinary CS2 exit/update/restart loop, and relaunches the batch after 100 milliseconds only if the batch itself exits unexpectedly. If another `cs2.exe` is active at startup, shared maintenance is skipped; after a CS2 exit, maintenance waits until all CS2 processes have stopped. Running `run.bat` directly shows the same lifecycle and maintenance messages in a visible console.
 
 ### Maintenance commands
 
-See [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons) for what each batch file does and when it is safe to run. For normal operation, use the per-instance `run.vbs` supervisor and copy `run.bat`, `run.vbs`, and `instance.ini` into each external Instance directory. If any `cs2.exe` is active when a launch begins, startup maintenance is skipped but the requested Instance is still launched. SteamCMD game updates and per-Instance overrides are skipped while any `cs2.exe` is active. Stop every CS2 instance before manual install or clean-reset/deployment scripts.
+See [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons) for what each batch file does and when it is safe to run. For normal operation, use the per-instance `run.vbs` supervisor and copy `run.bat`, `run.vbs`, and `instance.ini` into each external Instance directory. If any `cs2.exe` is active when a launch begins, startup maintenance is skipped but the requested Instance is still launched. After a CS2 exit, `run.bat` waits for all CS2 processes to stop before game/add-on updates; per-Instance overrides are also skipped while any CS2 process is active. Stop every CS2 instance before manual install or clean-reset/deployment scripts.
 
 Allow the selected game port through Windows Firewall and the router/cloud firewall. Use a valid Game Server Login Token for a public server. Keep API keys, login tokens, RCON passwords, and instance-specific settings out of tracked files.
 
