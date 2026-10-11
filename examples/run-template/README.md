@@ -1,41 +1,37 @@
 # CS2 Windows instance runner
 
-Keep these five files together in each external Instance folder:
+Keep these four files together in each external Instance folder:
 
-- `run.bat` — normal runner. It validates `instance.ini`, performs shared maintenance only when no other `cs2.exe` is active, launches CS2 once, and returns when that process exits.
-- `run_fast.bat` — wrapper around `run.bat --fast`; it reuses the same private settings and launch arguments but skips Git, release checks, SteamCMD, patching, and payload overlays.
-- `run.vbs` — a lightweight watchdog. It **never waits for a batch or for CS2**; it polls WMI once per second and launches the PowerShell supervisor in a detached hidden process if that supervisor is missing.
-- `supervisor.ps1` — the actual restart loop. It picks `run.bat` or `run_fast.bat` from the shared success marker, waits on a separate `cmd.exe` host, and retries after 100 ms. A named mutex prevents duplicate supervisors for the same Instance.
+- `update.bat` — runs the one-shot shared maintenance pipeline: repository pull, upstream add-on update, SteamCMD, gameinfo patch, overwrite-only runtime overlay, and optional override sync. It never launches CS2 and contains no server launch command.
+- `run.bat` — reads private `instance.ini` and contains the CS2 launch configuration/command only. It waits while shared maintenance is running, then starts one CS2 process and returns when it exits.
+- `run.vbs` — invokes `update.bat` once when the watchdog starts, then runs the classic anti-crash loop over `run.bat`: wait for the batch/server to exit, sleep 100 ms, repeat. The loop never calls the updater.
 - `instance.ini` — private per-instance settings. Create it from `instance.example.ini`; never commit credentials.
 
-The VBS watchdog is no longer connected to the lifetime of a batch or game process. If the PowerShell supervisor disappears when CS2 exits/crashes, VBS notices and starts it again. The supervisor writes a per-Instance diagnostic log named `CS2-KUS-Supervisor-<id>.log` in `%TEMP%`; the previous log is retained as `.previous` after rotation.
-
-Both scripts resolve their paths beside themselves, so the Instance folder can stay outside `W:\\cs2-kus-addons`. Run all Instances under the same Windows account so they share `%TEMP%` and the maintenance marker.
+Copy `run.bat`, `run.vbs`, `update.bat`, and your private `instance.ini` into each external Instance folder. Keep all Instances under the same Windows account so they share `%TEMP%\CS2-KUS-Maintenance.lock` and the five-minute success marker.
 
 ## Setup
 
 1. Run `install.bat` from the repository root once.
-2. Copy `instance.example.ini` to `instance.ini` in each external Instance folder and configure it.
-3. Set `SERVER_DIR` to the repository's shared `server` directory. Give each Instance a unique port, map/map group, and intended credentials.
-4. Keep `instance.ini` private. It is excluded from Git.
-5. Copy `run.bat`, `run_fast.bat`, `run.vbs`, `supervisor.ps1`, and your private `instance.ini` into each external Instance folder.
-6. Launch `run.vbs`. The VBS process is only the watchdog; `supervisor.ps1` owns the restart loop.
+2. Copy `instance.example.ini` to `instance.ini` in the external Instance folder and configure it.
+3. Set `SERVER_DIR` to the shared `server` directory in the private repository. Give each Instance a unique port.
+4. Copy the four files listed above into the Instance folder. Keep the real `instance.ini` private.
+5. Start `run.vbs`. It runs maintenance once, then restarts only `run.bat`.
 
 ## Update and anti-crash behavior
 
-- When `%TEMP%\\CS2-KUS-Maintenance-success.marker` is absent, the supervisor starts `run.bat`. If no other CS2 process is using the shared install, the batch runs the full pipeline: pull the private repository, check upstream releases, update CS2 with SteamCMD, patch `gameinfo.gi`, and apply the overwrite-only runtime overlay.
-- Only after all maintenance stages succeed does `run.bat` write the shared success marker. From then on, all Instance supervisors select `run_fast.bat` on every restart.
-- If another `cs2.exe` is already active, `run.bat` skips shared maintenance but still launches this Instance. If another process starts mid-maintenance, remaining update/deployment stages are cancelled instead of touching shared runtime files.
-- When CS2 or the runner exits/crashes, PowerShell starts the selected runner again after 100 ms. If PowerShell itself exits or crashes, the separate VBS watchdog notices the missing supervisor and relaunches it (typically within one second).
-- `run_fast.bat` does not update or deploy shared files. Per-instance override sync is skipped if any CS2 process is active, so it does not change shared files underneath a running server.
-- The success marker is intentionally persistent to prevent full update checks after routine crashes. To force one new full update cycle, stop all CS2 servers and both layers of supervisors, delete `%TEMP%\\CS2-KUS-Maintenance-success.marker`, then start one `run.vbs` while the shared install is idle.
-- Runtime payload overlay is overwrite-only. It does not mirror, purge, move, or delete installed add-on files, and the full `addons/counterstrikesharp/configs/` and `cfg/settings/` trees remain protected.
-- The runner does not call `win.bat`, `update.bat`, `game-update.bat`, or `install.bat`. Those have separate responsibilities; `win.bat` is a clean replacement/reset operation.
+- At watchdog startup, `run.vbs` runs `update.bat` once and waits for it to finish. The updater does not modify shared files if any `cs2.exe` is active; it exits successfully so another Instance can start.
+- Successful full maintenance writes `%TEMP%\CS2-KUS-Maintenance-success.marker`. Other Instances started within five minutes skip duplicate Git/release/SteamCMD/deploy work. This marker is only a cooldown; it does not select a different runner.
+- After maintenance returns, VBS loops only over `run.bat`. When CS2 exits or crashes, the batch returns and VBS retries it after **100 milliseconds**. This loop does not check Git, query releases, run SteamCMD, patch `gameinfo.gi`, or overlay add-ons.
+- If an updater is deploying the shared runtime, `run.bat` waits for the lock to clear. If an updater crashed and left a stale lock, the runner checks the owner PID and removes the lock only when its owner is gone or the lock has been incomplete for over 30 seconds.
+- If a real maintenance error occurs, `update.bat` returns a nonzero code and VBS stops rather than launching against a potentially partial deployment. Fix the error, then restart `run.vbs`.
+- Runtime overlay is overwrite-only. It does not delete installed add-ons/runtime-only files; `addons/counterstrikesharp/configs/` and `cfg/settings/` remain protected.
+- Optional `CUSTOM_FOLDER` overrides are copied by `update.bat` only while no CS2 process is active, because all Instances share one runtime. Different overrides cannot be isolated between simultaneous servers using that same shared runtime.
+- For an intentional manual update, stop every CS2 process and all Instance watchdogs first, then run the Instance-local `update.bat`. This copied file is distinct from the repository-root `update.bat`.
 
 ## Test
 
-1. Ensure no old `run.vbs` / `supervisor.ps1` loops are still active.
-2. To force a full update, delete `%TEMP%\\CS2-KUS-Maintenance-success.marker` before starting the watchdog.
-3. Start `run.vbs`; confirm the hidden PowerShell process appears and the normal maintenance path completes.
-4. Start another Instance. It should share the success marker and select `run_fast.bat`.
-5. Use `quit` or terminate one CS2 process. The same Instance should return without repeating full update maintenance. If the PowerShell process is deliberately terminated, its VBS watchdog should relaunch it.
+1. Stop all CS2 servers and old VBS/PowerShell supervisors.
+2. Copy the new `run.bat`, `run.vbs`, and instance-local `update.bat` beside your existing private `instance.ini`. Do not overwrite `instance.ini` or plugin configuration files.
+3. Start one `run.vbs`. Its visible first window should run one-shot maintenance; then the server runner begins.
+4. With CS2 running, confirm VBS stays alive. Use `quit` or terminate only the CS2 process; VBS should restart `run.bat` after about 100 ms without running `update.bat` again.
+5. Start another Instance while the first CS2 is running. Its updater should skip shared maintenance, then its `run.bat` should start without waiting for the other server to stop.
