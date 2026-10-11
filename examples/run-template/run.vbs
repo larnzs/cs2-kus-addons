@@ -26,6 +26,7 @@ Do
         WScript.Sleep 5000
         batPath = ResolveRunnerBatch(root)
     Else
+        ' Execute the batch through cmd.exe so quoting and its exit code are explicit.
         commandLine = Chr(34) & cmdExe & Chr(34) & " /d /s /c " & Chr(34) & Chr(34) & batPath & Chr(34) & Chr(34)
 
         On Error Resume Next
