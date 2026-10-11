@@ -18,11 +18,12 @@ set "INI_FILE=%INSTANCE_DIR%\instance.ini"
 if not exist "%INI_FILE%" goto :MissingIni
 
 for /f "usebackq eol=; tokens=1,* delims==" %%A in ("%INI_FILE%") do set "%%A=%%B"
-if not defined SERVER_DIR set "SERVER_DIR=..\..\server"
+if not defined SERVER_DIR goto :MissingServerDir
 if "%SERVER_DIR:~0,2%"=="\\" goto :resolve_server
 if "%SERVER_DIR:~1,1%"==":" goto :resolve_server
 for %%I in ("%INSTANCE_DIR%\%SERVER_DIR%") do set "SERVER_DIR=%%~fI"
 :resolve_server
+if /I "%SERVER_DIR%"=="C:\REPLACE_ME\cs2-kus-addons\server" goto :MissingServerDir
 
 if not defined BIND_IP set "BIND_IP=0.0.0.0"
 if not defined MAXPLAYERS set "MAXPLAYERS=24"
@@ -148,6 +149,12 @@ goto :WaitForMaintenance
 :MissingIni
 echo ERROR: Missing instance configuration: %INI_FILE%
 echo Copy instance.example.ini to instance.ini and edit it first.
+set "RC=2"
+goto :finish
+
+:MissingServerDir
+echo ERROR: SERVER_DIR is not configured.
+echo Edit instance.ini and set SERVER_DIR to the absolute path of this repository's server folder.
 set "RC=2"
 goto :finish
 

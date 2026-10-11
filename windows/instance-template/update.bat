@@ -17,11 +17,12 @@ if not exist "%INI_FILE%" (
 )
 
 for /f "usebackq eol=; tokens=1,* delims==" %%A in ("%INI_FILE%") do set "%%A=%%B"
-if not defined SERVER_DIR set "SERVER_DIR=..\..\server"
+if not defined SERVER_DIR goto :MissingServerDir
 if "%SERVER_DIR:~0,2%"=="\\" goto :resolve_server
 if "%SERVER_DIR:~1,1%"==":" goto :resolve_server
 for %%I in ("%INSTANCE_DIR%\%SERVER_DIR%") do set "SERVER_DIR=%%~fI"
 :resolve_server
+if /I "%SERVER_DIR%"=="C:\REPLACE_ME\cs2-kus-addons\server" goto :MissingServerDir
 
 if not defined REPO_ROOT for %%I in ("%SERVER_DIR%\..") do set "REPO_ROOT=%%~fI"
 if not exist "%REPO_ROOT%\DEPENDENCIES.json" for %%I in ("%SERVER_DIR%\..") do set "REPO_ROOT=%%~fI"
@@ -327,6 +328,12 @@ if not exist "%GAME_DIR%\addons\counterstrikesharp\dotnet\dotnet.exe" (
     exit /b 1
 )
 exit /b 0
+
+:MissingServerDir
+echo ERROR: SERVER_DIR is not configured.
+echo Edit instance.ini and set SERVER_DIR to the absolute path of this repository's server folder.
+set "RC=2"
+goto :finish
 
 :MissingCS2
 echo ERROR: CS2 was not found: %CS2_EXE%

@@ -178,7 +178,26 @@ Write-Utf8 -Path $ignorePath -Text ($ignoreText + [Environment]::NewLine)
 # Make the sample runner target the only server directory.
 $exampleIni = Join-Path $RepoRoot "windows/instance-template/instance.example.ini"
 if (Test-Path -LiteralPath $exampleIni) {
-    $text = [IO.File]::ReadAllText($exampleIni) -replace '(?m)^SERVER_DIR=.*$', 'SERVER_DIR=..\..\server'
+    $text = [IO.File]::ReadAllText($exampleIni) -replace '(?m)^SERVER_DIR=.*
+    Write-Utf8 -Path $exampleIni -Text $text
+}
+
+$runtimeFiles = @(Get-ChildItem -LiteralPath $runtimeRoot -File -Recurse)
+$runtimeBytes = [long](($runtimeFiles | Measure-Object -Property Length -Sum).Sum)
+$metadata = [ordered]@{
+    upstream_repository = "https://github.com/kus/cs2-modded-server"
+    upstream_branch = "master"
+    upstream_commit = $kusCommit
+    imported_at_utc = [DateTime]::UtcNow.ToString("o")
+    runtime_root = "game/csgo"
+    runtime_file_count = $runtimeFiles.Count
+    runtime_bytes = $runtimeBytes
+    windows_overlay_policy = "Keep Windows-specific payloads under game/csgo/addons/windows; flatten only during Windows deployment."
+    excluded = @(".env", "custom_files", "custom_files_example", "the old merged server/game/csgo runtime root")
+}
+Write-Utf8 -Path $marker -Text ($metadata | ConvertTo-Json -Depth 5)
+Write-Host "KUS integration completed. Runtime files: $($runtimeFiles.Count); bytes: $runtimeBytes; source commit: $kusCommit"
+, 'SERVER_DIR=C:\REPLACE_ME\cs2-kus-addons\server'
     Write-Utf8 -Path $exampleIni -Text $text
 }
 

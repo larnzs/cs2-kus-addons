@@ -96,7 +96,7 @@ if not "%RC%"=="0" (
 )
 echo.
 echo SteamCMD installation check and server preparation completed. The server was NOT started.
-echo Copy windows\instance-template\instance.example.ini to instance.ini, configure it, then launch run.vbs.
+echo Copy windows\instance-template\ files to your external Instance folder, rename instance.example.ini to instance.ini, set SERVER_DIR to the absolute server path, then launch watchdog.bat.
 set "RC=0"
 
 :finish

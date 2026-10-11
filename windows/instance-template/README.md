@@ -6,7 +6,7 @@ Keep these five files together in each external Instance folder:
 - `run.bat` — reads the private `instance.ini`, waits for the shared-maintenance lock, copies the selected `CUSTOM_FOLDER\cfg\` and `CUSTOM_FOLDER\addons\` trees into the shared runtime using `xcopy`, and then starts CS2. The copy runs every time the runner is invoked, including after a crash/restart.
 - `run.vbs` — the inner restart loop. It starts the runner batch through `cmd.exe`, waits for it to return, and retries after 100 ms when the runner reports a CS2 exit.
 - `watchdog.bat` — the outer guardian. Launch this file instead of double-clicking `run.vbs`; it runs the VBS through `cscript.exe` and automatically relaunches the VBS host if that process exits or encounters an unhandled error.
-- `instance.ini` — private per-instance settings. Create it from `instance.example.ini`; never commit credentials.
+- `instance.ini` — private per-instance settings. Create it from `instance.example.ini`, then set `SERVER_DIR` to the **absolute path** of this repository's `server` folder (for example `W:\cs2-kus-addons\server` on this Windows machine). The template deliberately contains a placeholder and will refuse to launch until you replace it. Never commit credentials.
 
 ## Startup and update procedure
 
@@ -14,7 +14,7 @@ Keep these five files together in each external Instance folder:
 2. Run the Instance-local `update.bat` once and make sure it ends successfully. It skips shared maintenance if a CS2 process is already active. This template copy is distinct from the repository-root `update.bat`.
 3. Start `watchdog.bat`. Keep its CMD window open; it is the independent guardian for the VBS host.
 4. Do not start `run.vbs` directly for normal operation. The VBS loop never executes `update.bat`; it only invokes the launch batch and handles retries.
-5. Keep the runner files and private `instance.ini` together. Give each Instance a unique port and point `SERVER_DIR` to the shared server runtime.
+5. Keep the runner files and private `instance.ini` together. Give each Instance a unique port and point `SERVER_DIR` to the absolute shared server runtime path; do not rely on `..\..\server` when the Instance folder is outside the repository.
 
 ## Custom-folder behavior
 

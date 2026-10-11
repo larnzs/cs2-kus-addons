@@ -28,7 +28,7 @@ The upstream `custom_files/` and `custom_files_example/` trees are intentionally
 
 1. Clone this private repository on the Windows server machine.
 2. Run `windows/install.bat`. It downloads SteamCMD if needed, installs/checks CS2 with SteamCMD, then prepares the runtime. It does not start the server.
-3. Copy the instance-local `update.bat`, `run.bat`, `run.vbs`, `watchdog.bat`, and your private `instance.ini` into the external Instance folder. Run the instance-local updater separately when needed with all CS2 processes stopped; then start `watchdog.bat`. The guardian keeps a CMD session open and relaunches the VBS host if it exits. Before every CS2 launch, `run.bat` copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` into the shared runtime using `xcopy`.
+3. Copy the files in `windows/instance-template/` into an external Instance folder. Create `instance.ini` from `instance.example.ini` and set `SERVER_DIR` to the absolute path of this checkout's `server` folder (for example `W:\cs2-kus-addons\server` for the current machine). Also set the port/map/IP, GSLT, and strong RCON password. The example deliberately has a path placeholder and will not launch until you replace it. Run the instance-local updater separately with all CS2 processes stopped, then start `watchdog.bat`.
 
 For the difference between each maintenance script—and an important warning about manual deployment—see [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons).
 
@@ -400,7 +400,7 @@ The active Windows runner reads `windows/instance-template/instance.ini`, not en
 
 | Setting | Example default | Purpose |
 | --- | --- | --- |
-| `SERVER_DIR` | `..\..\server` | Path to the SteamCMD game installation, relative to the template folder or absolute. |
+| `SERVER_DIR` | `C:\REPLACE_ME\cs2-kus-addons\server` | **Required:** replace with the absolute path to the SteamCMD game installation used by this external Instance. |
 | `IP` | empty | Optional public address passed as `+net_public_adr`. |
 | `BIND_IP` | `0.0.0.0` | Local listen address. |
 | `CUSTOM_FOLDER` | `aim` | External folder whose `cfg\` and `addons\` trees are copied into the shared runtime before each launch. Not isolated from other instances sharing `SERVER_DIR`. |
@@ -477,13 +477,13 @@ windows/install.bat
 
 ### 2. Configure and run an instance
 
-Copy `windows/instance-template/instance.example.ini` to `windows/instance-template/instance.ini`. Edit the port, map/map group, reachable public IP (optional), Game Server Login Token, and a strong RCON password. Keep `instance.ini` private; it is excluded from Git.
+Copy the contents of `windows/instance-template/` into your external Instance folder, then copy `instance.example.ini` to `instance.ini` there. Set `SERVER_DIR` to the absolute path of this checkout's `server` folder (for example `W:\cs2-kus-addons\server` on this machine), then edit the port, map/map group, reachable public IP (optional), Game Server Login Token, and a strong RCON password. Keep `instance.ini` private; it is excluded from Git.
 
 Run the instance-local `update.bat` manually while every CS2 process is stopped. Then launch `windows/instance-template/watchdog.bat`; it supervises the VBS host, and VBS retries only the runner after a CS2 exit.
 
 ### Maintenance commands
 
-See [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons) for safe deployment details. Copy the instance-local `update.bat`, `run.bat`, `run.vbs`, and `watchdog.bat` into each external Instance folder alongside your private `instance.ini`. Run the updater separately with all CS2 processes stopped; watchdogs do not run maintenance, and `run.bat` applies the custom-file copies before each launch.
+See [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons) for safe deployment details. The files in `windows/instance-template/` belong together in each external Instance folder, beside its private `instance.ini`. Run the instance-local updater separately with all CS2 processes stopped; watchdogs do not run maintenance, and `run.bat` applies the custom-file copies before each launch.
 
 Allow the selected game port through Windows Firewall and the router/cloud firewall. Use a valid Game Server Login Token for a public server. Keep API keys, login tokens, RCON passwords, and instance-specific settings out of tracked files.
 
