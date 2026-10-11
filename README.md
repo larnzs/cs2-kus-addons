@@ -57,6 +57,7 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 - CounterStrikeSharp provides the runtime required by the managed CounterStrikeSharp plugins.
 - AnyBaseLibCS2, PlayerSettingsCS2 and MenuManagerCS2 provide shared APIs used by dependent plugins.
 - The release updater keeps the manifest, versions and runtime file layout synchronized. Fixed configuration paths are deliberately protected from incoming add-on release archives.
+- `game/csgo/addons/counterstrikesharp/configs/` (and the matching Windows-overlay path) is manually managed. Neither release updater may write/delete these trees; CI snapshots their tracked contents around the KUS updater. Customize them locally and commit/push your intentional changes.
 
 ## Project provenance
 

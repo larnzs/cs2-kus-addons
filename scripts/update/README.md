@@ -299,7 +299,7 @@ downloadable asset (size `0` if unknown).
 | Mod | Script | Notes |
 | --- | --- | --- |
 | Metamod:Source | `plugins/metamod-source.sh` | Assets come from the dev downloads page quick-download links. Windows zip is applied before the Linux tar.gz on purpose: both ship `metamod.vdf`, `metamod_x64.vdf`, `metaplugins.ini`, `README.txt`; the Linux copies (LF endings, `linux64` server path) are what the repo keeps. |
-| CounterStrikeSharp | `plugins/counterstrikesharp.sh` | Uses the `with-runtime` Windows and Linux zips. Windows first (rsync into `game/csgo/addons/`, then the special `game/csgo/addons/windows/addons/counterstrikesharp/` refresh of `api/ bin/ dotnet/`), then Linux rsync on top. |
+| CounterStrikeSharp | `plugins/counterstrikesharp.sh` | Uses the `with-runtime` Windows and Linux zips. Windows first, then Linux rsync; the Windows overlay only merges `api/ bin/ dotnet/`. The shared and Windows `counterstrikesharp/configs/` paths are manual-only and excluded from release syncs. |
 | Inventory Simulator | `plugins/inventory-simulator.sh` | Replaces the plugin directory and the `inventory-simulator.json` gamedata file. |
 | MultiAddonManager | `plugins/multiaddonmanager.sh` | Windows zip + Linux `steamrt3` tar.gz (the `steamrt4` build is ignored). Replaces only the two binaries in `game/csgo/addons/multiaddonmanager/bin/`; the `.vdf` is left alone and the customised `game/csgo/cfg/multiaddonmanager/multiaddonmanager.cfg` is never written, only compared (new settings reported). |
 | ServerListPlayersFix | `plugins/serverlistplayersfix.sh` | Windows zip + Linux `steamrt3` tar.gz. Replaces only `bin/win64/*.dll` and `bin/linuxsteamrt64/*.so`; the repo's per-platform `.vdf` copies are left alone. |
@@ -351,7 +351,15 @@ downloadable asset (size `0` if unknown).
 - Two copy styles are in use on purpose: "replace whole" (`remove_path` + `copy_dir`) where the
   repo folder is byte-identical to the release, and "merge" (`copy_dir` only) where the manual
   history shows leftovers were never removed (MatchZy, GG2).
-- **Config policy: plugin scripts never write config files that can be customised.** Anything a
+- **CounterStrikeSharp configs are manual-only.** The exact trees
+  `game/csgo/addons/counterstrikesharp/configs/` and
+  `game/csgo/addons/windows/addons/counterstrikesharp/configs/` are blocked by a path guard,
+  excluded from rsync overlays, and checked after every KUS updater run. A direct write or a
+  delete of a parent directory intersecting either tree is rejected. The Windows PowerShell
+  updater also treats these destinations as protected. To change these settings, edit/upload
+  them intentionally from the local computer and commit/push them; release automation must
+  never merge upstream defaults into these folders.
+- **Config policy for other add-ons:** plugin scripts never write config files that can be customised. Anything a
   release ships under `cfg/` or `configs/` (MatchZy, GunGame, MultiAddonManager, deathrun-manager)
   is only compared with `warn_cfg_dir_changes` / `warn_new_settings`, and new files, removed
   files and new settings are printed for a manual port. The files that ARE overwritten are

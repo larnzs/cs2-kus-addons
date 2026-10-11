@@ -9,8 +9,8 @@ source scripts/update/manifest-addon.sh
 #   1. Download the latest "with-runtime" Windows and Linux zips from GitHub releases
 #      e.g. counterstrikesharp-with-runtime-windows-1.0.374.zip / ...-linux-1.0.374.zip
 #   2. Extract Windows, rsync <extracted>/addons/ -> game/csgo/addons/
-#   3. (Windows special treatment) empty game/csgo/addons/windows/addons/counterstrikesharp/
-#      then copy <extracted>/addons/counterstrikesharp/{api,bin,dotnet} into it
+#   3. (Windows special treatment) overlay <extracted>/addons/counterstrikesharp/{api,bin,dotnet}
+#      into the Windows runtime tree. The configs/ directory remains manual-only.
 #   4. Delete the extracted Windows folder
 #   5. Extract Linux, rsync <extracted>/addons/ -> game/csgo/addons/, delete the extracted folder
 #
@@ -52,7 +52,8 @@ plugin_apply() {
 
     # Windows first
     sync_dir "$win/addons/" "game/csgo/addons/"
-    empty_dir "game/csgo/addons/windows/addons/counterstrikesharp"
+    # Do not empty/replace the Windows CounterStrikeSharp tree. Overlay only runtime files;
+    # configs/ and any other local-only content must stay outside release-update ownership.
     copy_dir "$win/addons/counterstrikesharp/api"    "game/csgo/addons/windows/addons/counterstrikesharp/api"
     copy_dir "$win/addons/counterstrikesharp/bin"    "game/csgo/addons/windows/addons/counterstrikesharp/bin"
     copy_dir "$win/addons/counterstrikesharp/dotnet" "game/csgo/addons/windows/addons/counterstrikesharp/dotnet"

@@ -80,6 +80,32 @@ path_within() {
     [ "$p" = "$b" ] || [[ "$p" == "$b"/* ]]
 }
 
+# These CounterStrikeSharp configs are manually managed and must never be changed by
+# release automation. Keep both the shared payload and its Windows overlay protected.
+PROTECTED_CONFIG_PATHS=(
+    "game/csgo/addons/counterstrikesharp/configs"
+    "game/csgo/addons/windows/addons/counterstrikesharp/configs"
+)
+
+is_protected_config_path() {
+    local p protected
+    p=$(printf '%s' "$(_norm_path "$1")" | tr '[:upper:]' '[:lower:]')
+    for protected in "${PROTECTED_CONFIG_PATHS[@]}"; do
+        if [ "$p" = "$protected" ] || [[ "$p" == "$protected"/* ]]; then return 0; fi
+    done
+    return 1
+}
+
+# True when a target is a protected config path OR an ancestor that would contain it.
+_path_intersects_protected_config_tree() {
+    local p protected
+    p=$(printf '%s' "$(_norm_path "$1")" | tr '[:upper:]' '[:lower:]')
+    for protected in "${PROTECTED_CONFIG_PATHS[@]}"; do
+        if path_within "$p" "$protected" || path_within "$protected" "$p"; then return 0; fi
+    done
+    return 1
+}
+
 check_repo_relative() {
     local p="$1"
     [[ "$p" != /* ]]      || { err "path must be relative to the repo root: $p"; return 1; }
@@ -92,6 +118,9 @@ _owned_paths_str() { printf '%s' "${PLUGIN_PATHS[*]}"; }
 # Deletes are only allowed strictly inside a PLUGIN_PATHS entry.
 assert_delete_target() {
     check_repo_relative "$1" || exit 1
+    if _path_intersects_protected_config_tree "$1"; then
+        die "refusing to delete '$1': it intersects the manually managed CounterStrikeSharp configs tree"
+    fi
     local o
     for o in "${PLUGIN_PATHS[@]}"; do
         path_within "$1" "$o" && return 0
@@ -104,6 +133,9 @@ assert_delete_target() {
 # outside PLUGIN_PATHS is still caught afterwards by verify_containment.
 assert_write_target() {
     check_repo_relative "$1" || exit 1
+    if is_protected_config_path "$1"; then
+        die "refusing to write to '$1': CounterStrikeSharp configs are manually managed and excluded from automation"
+    fi
     local o
     for o in "${PLUGIN_PATHS[@]}"; do
         if path_within "$1" "$o" || path_within "$o" "$1"; then return 0; fi
@@ -350,7 +382,7 @@ remove_extracted() {
     rm -rf "$d"
 }
 
-RSYNC_FLAGS=(-rhavz --exclude "._*" --exclude ".DS_Store" --exclude "/counterstrikesharp/configs/***" --exclude "/windows/addons/counterstrikesharp/configs/***" --partial --stats)
+RSYNC_FLAGS=(-rhavz --exclude "._*" --exclude ".DS_Store" --exclude "**/counterstrikesharp/configs/***" --exclude "/counterstrikesharp/configs/***" --exclude "/windows/addons/counterstrikesharp/configs/***" --partial --stats)
 
 # rsync <src>/ -> <dest>/ (merge; never deletes files at the destination).
 sync_dir() {
@@ -488,6 +520,11 @@ verify_containment() {
     while IFS= read -r p; do
         [ -n "$p" ] || continue
         [ "$p" = "README.md" ] && continue
+        if is_protected_config_path "$p"; then
+            err "protected manual CounterStrikeSharp configs changed during updater run: $p"
+            bad=1
+            continue
+        fi
         if [ "$p" = "DEPENDENCIES.json" ] && {
             [ "${MANIFEST_ADDON_ACTIVE:-0}" = "1" ] || [ "${PLUGIN_NAME:-}" = "Metamod:Source" ];
         }; then

@@ -66,6 +66,42 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh scripts/update/manifest-addon.sh scripts/update/plugins/*.sh
+
+          bash -euo pipefail <<'CONFIG_GUARD_TEST'
+          exec 3>&1
+          source scripts/update/lib.sh
+          PLUGIN_PATHS=("game/csgo/addons/counterstrikesharp")
+          protected_paths=(
+            "game/csgo/addons/counterstrikesharp/configs"
+            "game/csgo/addons/counterstrikesharp/configs/custom.json"
+            "game/csgo/addons/windows/addons/counterstrikesharp/configs"
+            "game/csgo/addons/windows/addons/counterstrikesharp/configs/custom.json"
+          )
+          for protected in "${protected_paths[@]}"; do
+            if ! is_protected_config_path "$protected"; then
+              echo "Protected config path was not recognized: $protected" >&2
+              exit 1
+            fi
+            if ( assert_write_target "$protected" >/dev/null 2>&1 ); then
+              echo "Updater unexpectedly permits writes to protected config path: $protected" >&2
+              exit 1
+            fi
+          done
+          for safe in "game/csgo/addons/counterstrikesharp/plugins/Example/configs.json" "game/csgo/addons/counterstrikesharp/bin/win64/counterstrikesharp.dll"; do
+            if is_protected_config_path "$safe"; then
+              echo "A non-protected path was incorrectly blocked: $safe" >&2
+              exit 1
+            fi
+          done
+          if ! printf '%s\\n' "${RSYNC_FLAGS[@]}" | grep -Fqx -- '**/counterstrikesharp/configs/***'; then
+            echo "Rsync safety excludes for manual CounterStrikeSharp configs are missing." >&2
+            exit 1
+          fi
+          if ( assert_delete_target "game/csgo/addons/counterstrikesharp" >/dev/null 2>&1 ); then
+            echo "Updater unexpectedly permits deleting the parent of the protected configs tree." >&2
+            exit 1
+          fi
+          CONFIG_GUARD_TEST
           for special in scripts/update/plugins/metamod-source.sh scripts/update/plugins/counterstrikesharp.sh; do
             grep -q 'source scripts/update/manifest-addon.sh' "$special"
             grep -q 'manifest_update_version' "$special"
@@ -103,7 +139,23 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          protected_paths=(
+            "game/csgo/addons/counterstrikesharp/configs"
+            "game/csgo/addons/windows/addons/counterstrikesharp/configs"
+          )
+          protected_before="$RUNNER_TEMP/css-configs-before.txt"
+          protected_after="$RUNNER_TEMP/css-configs-after.txt"
+          git ls-tree -r HEAD -- "${protected_paths[@]}" | sort > "$protected_before"
+
           bash scripts/update/update.sh
+
+          # The shell updater creates local commits before publishing. Compare the
+          # protected path's tree entries at HEAD, not just the working-tree diff.
+          git ls-tree -r HEAD -- "${protected_paths[@]}" | sort > "$protected_after"
+          if ! diff -u "$protected_before" "$protected_after"; then
+            echo "ERROR: automated KUS/Larnz updater changed manually managed CounterStrikeSharp configs." >&2
+            exit 1
+          fi
           if [[ -n "$(git status --porcelain)" ]]; then
             echo "Updater left uncommitted changes:" >&2
             git status --short >&2
