@@ -356,20 +356,13 @@ D:\CS2-private\aim\
 ├── cfg\
 │   └── custom_all.cfg
 └── addons\
-    └── counterstrikesharp\
-        └── configs\
-            └── admins.json
+    └── metamod\
+        └── my_custom_plugin.vdf
 ```
 
 `run.bat` copies the override folder's `cfg/` and `addons/` into the installed runtime under `server/game/csgo/` immediately before CS2 starts; the tracked repository payload is not changed. Matching runtime files are overwritten, unrelated files are kept, and missing source folders are skipped.
 
 For CounterStrikeSharp's protected `configs/` tree, the custom-folder overlay is intentionally skipped. Manage that tree through the server's existing private/runtime configuration process rather than the general `CUSTOM_FOLDER` overlay. For ordinary add-on files or Metamod VDFs, keep the relative path beneath `<CUSTOM_FOLDER>/addons/`.
-
-```text
-<CUSTOM_FOLDER>\addons\counterstrikesharp\configs\admins.json
-```
-
-Edit that private copy and restart the instance. For a shared admin list, edit the canonical runtime file and commit the change instead. A KUS example config may be helpful as a reference, but inspect it before using it because this unified branch's installed plugins and versions may differ.
 
 To change settings for one game mode, put a relevant override in `<CUSTOM_FOLDER>/cfg/` (for example `custom_dm.cfg`) and ensure the mode's config executes it. The per-instance runner re-applies these files after each server exit/relaunch. Root-level files such as `gamemodes_server.txt` are deployed from the tracked `game/csgo/` payload by `win.bat`; the per-instance runner does not overlay them.
 
