@@ -4,7 +4,7 @@ This template uses the repository's canonical `server/` installation. Keep `run.
 
 - **`run.bat`** performs a shared maintenance pass on launch, then starts CS2 once. It checks the private repository and upstream add-on releases, applies overwrite-only payload files, and starts the game.
 - **`run-fast.bat`** starts the same configured server without Git, upstream release checks, SteamCMD, gameinfo patching, or payload overlays. It delegates shared argument/configuration and launch logic to `run.bat --no-update`.
-- **`run.vbs`** is the hidden supervisor. It invokes batch files explicitly through `%ComSpec%`/`cmd.exe` so `--no-pause` is passed reliably and the batch exit code reaches the supervisor. Its first attempt uses `run.bat`; after the CS2 process exits or crashes (exit code `100`), it switches to `run-fast.bat` and relaunches immediately, with no maintenance cooldown or intentional sleep. It stays in fast mode until the VBS supervisor is restarted.
+- **`run.vbs`** is the hidden supervisor. It launches each batch file using `%ComSpec% /d /c call` and sets the inherited `CS2_RUNNER_NO_PAUSE=1` environment flag, so a child runner does not wait for keyboard input even if argument quoting changes. It logs each returned exit code to `%TEMP%\CS2-KUS-runner-launcher.log`. Its first attempt uses `run.bat`; after the runner returns `100` (CS2 exited), it switches to `run-fast.bat` and relaunches immediately, with no maintenance cooldown or intentional sleep. It stays in fast mode until the VBS supervisor is restarted.
 - `instance.example.ini` is a safe template with no real public IP, Game Server Login Token, API key, or password.
 
 ## Setup
@@ -14,7 +14,7 @@ This template uses the repository's canonical `server/` installation. Keep `run.
 3. Set `SERVER_DIR` to the repository's shared `server` directory. Set the unique port, map/map group, reachable public IP (optional), Game Server Login Token, and a strong RCON password.
 4. Keep `instance.ini` private. It is excluded from Git in this template.
 5. Copy **all three** runner files (`run.bat`, `run-fast.bat`, and `run.vbs`) plus `instance.ini` into each actual external Instance directory; do not copy only the old `run.bat` and `run.vbs`.
-6. Launch `run.vbs` for hidden operation with anti-crash supervision. Launch `run.bat` directly only when you want a visible console and an update pass. Launch `run-fast.bat` to start a server immediately without update work.
+6. Launch `run.vbs` for hidden operation with anti-crash supervision. Launch `run.bat` directly only when you want a visible console and an update pass. Launch `run-fast.bat` to start a server immediately without update work. To test anti-crash, start **`run.vbs` itself** (not `run.bat`), then use `quit` in the CS2 server console. The runner banner and `Press any key to close this window` should not appear in a visible launcher window; if they do, you are likely running a batch file directly or using stale Instance copies. Check `%TEMP%\CS2-KUS-runner-launcher.log` for a `Runner returned exit code 100` entry followed by a `switching to run-fast.bat` entry.
 
 ## Maintenance and multi-instance safety
 
