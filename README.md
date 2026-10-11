@@ -15,7 +15,7 @@ This README combines Larnz's manifest-managed add-ons with KUS's base plugins, g
 | `game/csgo/cfg/` | Tracked shared configuration source, deployed into the installed runtime. |
 | DEPENDENCIES.json | Larnz add-on updater manifest. |
 | scripts/update/ | Active KUS-style per-plugin automation; the same Bash updater also runs the Larnz manifest add-on scripts. |
-| examples/run-template/ | Separate maintenance batch, custom-folder-aware server runner, and VBS/CMD anti-crash watchdog template. |
+| examples/run-template/ | Separate maintenance batch, launch-only runner, and VBS/CMD watchdog. `CUSTOM_FOLDER` is currently inactive pending an isolated filesystem overlay. |
 | docs/upstream/ | KUS source snapshot metadata and archived upstream entrypoints/workflows. |
 
 The upstream `custom_files/` and `custom_files_example/` trees are intentionally not imported. `CUSTOM_FOLDER` remains in the Windows Instance INI as a reserved override root, but the current runner deliberately does not mount or copy it into the shared runtime. Never store tokens, passwords or private database credentials in tracked files.
@@ -499,7 +499,7 @@ You can also start a specific game mode vote by typing `!comp`, `!wingman`, `!dm
 
 ### I want MatchZy to record demos automatically
 
-SourceTV is disabled by default for compatibility with a wider range of setups. To enable it on the current Windows runner, create `custom_all.cfg` under `<CUSTOM_FOLDER>/cfg/` in your external per-instance override directory and add:
+SourceTV is disabled by default for compatibility with a wider range of setups. The intended per-instance file is `<CUSTOM_FOLDER>/cfg/custom_all.cfg`, but the current Windows runner does not mount `CUSTOM_FOLDER`; putting the file there will not currently enable SourceTV without a separate per-instance filesystem overlay. The config command, once that overlay exists, is:
 
 ```cfg
 tv_enable 1
@@ -645,7 +645,7 @@ Check SourceTV with `tv_status` from the server console. You can also test with 
 
 Admins are managed by CounterStrikeSharp's [Admin Framework](https://docs.cssharp.dev/docs/admin-framework/defining-admins.html). The canonical file is `game/csgo/addons/counterstrikesharp/configs/admins.json`.
 
-For a per-instance admin list, copy the current file to `<CUSTOM_FOLDER>/addons/counterstrikesharp/configs/admins.json` in the external override folder and edit the private copy. For a shared admin list, edit the canonical tracked file and commit the change. The [KUS example admins.json](https://github.com/kus/cs2-modded-server/blob/master/custom_files_example/addons/counterstrikesharp/configs/admins.json) is a reference example only; review it before applying because the unified branch's plugin versions can differ.
+The intended per-instance admin path is `<CUSTOM_FOLDER>/addons/counterstrikesharp/configs/admins.json`, but the current runner does not use that file. For now, manage the live CounterStrikeSharp configuration through the existing private/runtime configuration process; do not rely on `CUSTOM_FOLDER` until isolated filesystem overlay support is implemented. The [KUS example admins.json](https://github.com/kus/cs2-modded-server/blob/master/custom_files_example/addons/counterstrikesharp/configs/admins.json) remains a reference example only.
 
 Ensure JSON files are valid. On startup, look for the admin-loading message in the server log. If you modify admin settings while the server is running, use `css_admins_reload` and `css_groups_reload`; inspect the result with `css_admins_list` and `css_groups_list`.
 
@@ -737,7 +737,7 @@ Windows:
 
 By default, bots are enabled in deathmatch, gungame, gungame FFA, retakes, scoutsknives and wingman. The default behavior adds one bot when only one human is present and removes the need for bots when two or more humans join.
 
-To override bot settings for one Windows instance, put a customized `custom_bots.cfg` in `<CUSTOM_FOLDER>/cfg/`; the runner overlays it into the runtime config tree before launch. The upstream starting point is [custom_bots.cfg](https://github.com/kus/cs2-modded-server/blob/master/game/csgo/cfg/custom_bots.cfg).
+The intended path for a future per-instance bot override is `<CUSTOM_FOLDER>/cfg/custom_bots.cfg`, but the current runner does not mount or copy it into CS2. The upstream starting point is [custom_bots.cfg](https://github.com/kus/cs2-modded-server/blob/master/game/csgo/cfg/custom_bots.cfg).
 
 You can also manage bots through RCON with `bot_add_ct`, `bot_add_t` and `bot_kick`.
 
@@ -762,8 +762,8 @@ Metamod:Source is now managed by `DEPENDENCIES.json` and the same release update
 
 Quake Sounds is disabled by default and can be toggled by players with `!qs` when enabled. To enable it for a Windows instance:
 
-1. In the external override folder, create or copy `<CUSTOM_FOLDER>/cfg/multiaddonmanager/multiaddonmanager.cfg` and add Workshop ID `3461824328` to `mm_extra_addons`.
-2. Put `<CUSTOM_FOLDER>/cfg/settings/quake_sounds.cfg` in place and uncomment the `css_plugins load "plugins/disabled/QuakeSounds/QuakeSounds.dll"` line.
+1. The intended future override path is `<CUSTOM_FOLDER>/cfg/multiaddonmanager/multiaddonmanager.cfg`, but the current runner does not load it. A per-instance filesystem overlay is required before this can affect the live server.
+2. Put the intended future override at `<CUSTOM_FOLDER>/cfg/settings/quake_sounds.cfg`; it will remain inactive until per-instance overlay support is implemented. The config line to uncomment after that is `css_plugins load "plugins/disabled/QuakeSounds/QuakeSounds.dll"`.
 3. Ensure MultiAddonManager is enabled as described below, then restart that instance.
 
 ### Skin changer
@@ -814,7 +814,7 @@ The runner overlays that file at the Metamod configuration path on startup. To c
 
 Custom player models can be enabled in `!settings` under the custom player-model option. You also need a Workshop addon containing the model files; the KUS guide links [one example Workshop addon](https://steamcommunity.com/sharedfiles/filedetails/?id=3163629484).
 
-Add the Workshop ID to the shared `game/csgo/cfg/multiaddonmanager/multiaddonmanager.cfg` or a per-instance override at `<CUSTOM_FOLDER>/cfg/multiaddonmanager/multiaddonmanager.cfg`. Configure model entries in `game/csgo/addons/counterstrikesharp/configs/plugins/PlayerModelChanger/PlayerModelChanger.json`, or create the same relative path below `<CUSTOM_FOLDER>/addons/` for a per-instance override.
+Add the Workshop ID to the shared `game/csgo/cfg/multiaddonmanager/multiaddonmanager.cfg`. The alternative path under `<CUSTOM_FOLDER>/cfg/` is reserved for future per-instance overlay support and is not currently loaded. Configure model entries in the live CounterStrikeSharp config path; a custom-folder copy of that file is currently inactive.
 
 To inspect assets in a Workshop addon, subscribe to it in the CS2 client and use [Source 2 Viewer](https://valveresourceformat.github.io/) to browse the downloaded content.
 
@@ -822,7 +822,7 @@ To inspect assets in a Workshop addon, subscribe to it in the CS2 client and use
 
 The tracked source payload includes Windows/Linux files for [MovementUnlocker](https://github.com/Source2ZE/MovementUnlocker) and [CS2Fixes-RampbugFix](https://github.com/Interesting-exe/CS2Fixes-RampbugFix). Their platform-specific Metamod VDF files are under `game/csgo/addons/surf/`.
 
-For one Windows instance, copy the files from `game/csgo/addons/surf/windows/addons/metamod/` to `<CUSTOM_FOLDER>/addons/metamod/`.
+For an eventual per-instance Metamod override, the intended destination is `<CUSTOM_FOLDER>/addons/metamod/`. The current runner does not mount this path, so these files will not be loaded from there yet.
 
 For an ad-hoc mode, the KUS game-mode menu can enable the surf settings using `!settings`; follow with `!maps` to select the desired map.
 
@@ -830,29 +830,29 @@ For an ad-hoc mode, the KUS game-mode menu can enable the surf settings using `!
 
 Database hosting is outside the scope of this repository. Plugin configuration files are generally under `game/csgo/addons/counterstrikesharp/configs/plugins/`.
 
-For example, K4-Arenas configuration is typically at `game/csgo/addons/counterstrikesharp/configs/plugins/K4-Arenas/K4-Arenas.json`. For a per-instance database connection, place your private version at `<CUSTOM_FOLDER>/addons/counterstrikesharp/configs/plugins/K4-Arenas/K4-Arenas.json`; for a shared setting, edit the canonical file. If the real config does not exist, check for the plugin's `.example` template before creating one.
+K4-Arenas configuration is typically at `game/csgo/addons/counterstrikesharp/configs/plugins/K4-Arenas/K4-Arenas.json`. The equivalent path under `<CUSTOM_FOLDER>/addons/` is reserved for future isolated per-instance configuration; the current runner does not read it. If the live config does not exist, check for the plugin's `.example` template before creating one.
 
 Never commit database passwords, connection strings or other credentials.
 
 ### Enable advertisements
 
-The Advertisement plugin is disabled by default. To load it, add this command to the relevant mode config or to a per-instance `<CUSTOM_FOLDER>/cfg/custom_all.cfg`:
+The Advertisement plugin is disabled by default. To load it, add this command to the relevant shared mode config. A `<CUSTOM_FOLDER>/cfg/custom_all.cfg` override is a future option only; it is not loaded by the current runner:
 
 ```cfg
 css_plugins load "plugins/disabled/Advertisement/Advertisement.dll"
 ```
 
-Its settings file is under `game/csgo/addons/counterstrikesharp/plugins/disabled/Advertisement/advertisement.json`. For a per-instance override, place your file at the same relative path below `<CUSTOM_FOLDER>/addons/`.
+Its settings file is under `game/csgo/addons/counterstrikesharp/plugins/disabled/Advertisement/advertisement.json`. The matching relative path below `<CUSTOM_FOLDER>/addons/` is reserved for future overlay support; files there are not currently consumed.
 
 ### Enable Whitelist so only a list of people can play
 
-The Whitelist plugin is disabled by default. To load it, add this command to the relevant mode config or a per-instance `<CUSTOM_FOLDER>/cfg/custom_all.cfg`:
+The Whitelist plugin is disabled by default. To load it, add this command to the relevant shared mode config. A `<CUSTOM_FOLDER>/cfg/custom_all.cfg` override is a future option only; it is not loaded by the current runner:
 
 ```cfg
 css_plugins load "plugins/disabled/WhiteList/WhiteList.dll"
 ```
 
-Its settings file is `game/csgo/addons/counterstrikesharp/plugins/disabled/WhiteList/whitelist.txt`. For a per-instance override, place your private file at the same relative path below `<CUSTOM_FOLDER>/addons/`.
+Its settings file is `game/csgo/addons/counterstrikesharp/plugins/disabled/WhiteList/whitelist.txt`. The matching relative path below `<CUSTOM_FOLDER>/addons/` is reserved for future overlay support; files there are not currently consumed.
 
 ### Failed to open libtier0.so
 
