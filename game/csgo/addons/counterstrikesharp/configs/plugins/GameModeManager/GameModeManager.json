@@ -320,7 +320,7 @@
       },
       {
         "Name": "Casual (1.6)",
-        "Config": "casual-1.6.cfg",
+        "Config": "Casual-1.6.cfg",
         "DefaultMap": "3201205818",
         "MapGroups": [
           "mg_casual-1.6"
@@ -368,7 +368,7 @@
       },
       {
         "Name": "Casual Active",
-        "Config": "casuala.cfg",
+        "Config": "casual.cfg",
         "DefaultMap": "de_mirage",
         "MapGroups": [
           "mg_casuala"
@@ -388,6 +388,30 @@
         "DefaultMap": "3276886893",
         "MapGroups": [
           "mg_45"
+        ]
+      },
+      {
+        "Name": "Casual (Valve)",
+        "Config": "casual.cfg",
+        "DefaultMap": "de_dust2",
+        "MapGroups": [
+          "mg_valve_casual"
+        ]
+      },
+      {
+        "Name": "AWP Aim",
+        "Config": "awp.cfg",
+        "DefaultMap": "3075511506",
+        "MapGroups": [
+          "mg_aimawp"
+        ]
+      },
+      {
+        "Name": "VIP",
+        "Config": "casual.cfg",
+        "DefaultMap": "3711701554",
+        "MapGroups": [
+          "mg_vip"
         ]
       }
     ]
