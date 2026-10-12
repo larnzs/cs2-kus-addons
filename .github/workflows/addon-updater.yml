@@ -334,8 +334,8 @@ jobs:
               $update -notmatch 'git pull --ff-only origin integration/kus-monorepo') {
             throw "update.bat must switch to integration/kus-monorepo and perform only a fast-forward pull."
           }
-          if (Test-Path -LiteralPath ".\windows\win.bat" -PathType Leaf -or
-              Test-Path -LiteralPath ".\windows\game-update.bat" -PathType Leaf) {
+          if ((Test-Path -LiteralPath ".\windows\win.bat" -PathType Leaf) -or
+              (Test-Path -LiteralPath ".\windows\game-update.bat" -PathType Leaf)) {
             throw "The old overlapping win/game-update scripts should be replaced by install.bat."
           }
           $runtimeAddonUpdater = Get-Content -LiteralPath ".\scripts\Invoke-RuntimeAddonUpdate.ps1" -Raw
