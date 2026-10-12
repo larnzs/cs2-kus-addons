@@ -71,6 +71,7 @@ jobs:
           source scripts/update/lib.sh
           PLUGIN_PATHS=("game/csgo/addons/counterstrikesharp")
           protected_paths=(
+            "game/csgo/cfg"
             "game/csgo/addons/counterstrikesharp/configs"
             "game/csgo/addons/counterstrikesharp/configs/custom.json"
             "game/csgo/addons/windows/addons/counterstrikesharp/configs"
@@ -92,6 +93,10 @@ jobs:
               exit 1
             fi
           done
+          if ! printf '%s\n' "${RSYNC_FLAGS[@]}" | grep -Fqx -- '/cfg/***'; then
+            echo "Rsync safety exclude for manually managed game/csgo/cfg is missing." >&2
+            exit 1
+          fi
           if ! printf '%s\n' "${RSYNC_FLAGS[@]}" | grep -Fqx -- '**/counterstrikesharp/configs/***'; then
             echo "Rsync safety excludes for manual CounterStrikeSharp configs are missing." >&2
             exit 1
@@ -141,11 +146,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           protected_paths=(
+            "game/csgo/cfg"
             "game/csgo/addons/counterstrikesharp/configs"
             "game/csgo/addons/windows/addons/counterstrikesharp/configs"
           )
-          protected_before="$RUNNER_TEMP/css-configs-before.txt"
-          protected_after="$RUNNER_TEMP/css-configs-after.txt"
+          protected_before="$RUNNER_TEMP/protected-configs-before.txt"
+          protected_after="$RUNNER_TEMP/protected-configs-after.txt"
           git ls-tree -r HEAD -- "${protected_paths[@]}" | sort > "$protected_before"
 
           bash scripts/update/update.sh
@@ -154,7 +160,7 @@ jobs:
           # protected path's tree entries at HEAD, not just the working-tree diff.
           git ls-tree -r HEAD -- "${protected_paths[@]}" | sort > "$protected_after"
           if ! diff -u "$protected_before" "$protected_after"; then
-            echo "ERROR: automated KUS/Larnz updater changed manually managed CounterStrikeSharp configs." >&2
+            echo "ERROR: automated KUS/Larnz updater changed manually managed game/csgo/cfg or CounterStrikeSharp configs." >&2
             exit 1
           fi
           if [[ -n "$(git status --porcelain)" ]]; then
