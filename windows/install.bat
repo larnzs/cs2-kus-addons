@@ -52,7 +52,7 @@ if errorlevel 1 goto :dirty
 for /f "delims=" %%S in ('git status --porcelain --untracked-files=all') do goto :dirty
 
 echo [1/5] Updating repository branch...
-call "%ROOT_DIR%\windows\update.bat"
+call "%ROOT_DIR%\windows\update.bat" --no-pause
 if errorlevel 1 (
     echo ERROR: Repository update failed.
     goto :finish
@@ -167,7 +167,7 @@ echo.
 if "%RC%"=="0" (echo Result: SUCCESS) else (echo Result: FAILED ^(exit code %RC%^))
 if "%PAUSE_ON_EXIT%"=="1" (
     echo.
-    echo Press any key to close this window . . .
+    echo Please press any key to exit . . .
     pause >nul
 )
 endlocal & exit /b %RC%
