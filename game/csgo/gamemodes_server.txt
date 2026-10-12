@@ -270,6 +270,10 @@
 				"workshop/3687298714/de_nuke_ultimate"		""
 				"workshop/3127729110/de_dust"		""
 				"workshop/3311527054/de_dust2_unlimited"		""
+				"workshop/3477187482/Bikinibottom"		""
+				"workshop/3073150255/de_dust2_night"	""
+				"workshop/3467065969/Contact"		""
+				"workshop/3152330869/de_dust2_csgo2017"		""
 			}
 		}
 		"mg_retake"
@@ -619,6 +623,10 @@
 				"workshop/3199551320/aim_redline"			""
 				"workshop/3084291314/aim_map"			""
 				"workshop/3085962528/aim_usp"		""
+				"workshop/3405432219/aim_map_desert"	""
+				"workshop/3447374933/aim_deagle7k"		""
+				"workshop/3645850208/aim_usp_s"			""
+				"workshop/3663035864/aim_ak47"		""
 			}
 		}
 		"mg_casual-1.6"
@@ -689,6 +697,18 @@
 			"displayname"			"Casual Workshop"
 			"maps"
 			{
+				"workshop/3477187482/Bikinibottom"		""
+				"workshop/3073150255/de_dust2_night"	""
+				"workshop/3467065969/Contact"	""
+				"workshop/3152330869/de_dust2_csgo2017"		""
+				"workshop/3345551391/twofort_cs2"		""
+				"workshop/3072959547/de_rats_1337"		""
+				"workshop/3464733042/de_mirage_bricks"		""
+				"workshop/3108198185/de_westwood"		""
+				"workshop/3071100532/de_alexandra"		""
+				"workshop/3687298714/de_nuke_ultimate"		""
+				"workshop/3127729110/de_dust"		""
+				"workshop/3311527054/de_dust2_unlimited"		""
 				"workshop/3286163323/de_golden"			""
 				"workshop/3249860053/de_palacio"		""
 				"workshop/3339983232/cs_agency"			""
@@ -711,14 +731,6 @@
 				"workshop/3121217565/de_thera"		""
 				"workshop/3073892687/de_season"		""
 				"workshop/3386116667/de_ema"		""
-				"workshop/3345551391/twofort_cs2"		""
-				"workshop/3072959547/de_rats_1337"		""
-				"workshop/3464733042/de_mirage_bricks"		""
-				"workshop/3108198185/de_westwood"		""
-				"workshop/3071100532/de_alexandra"		""
-				"workshop/3687298714/de_nuke_ultimate"		""
-				"workshop/3127729110/de_dust"		""
-				"workshop/3311527054/de_dust2_unlimited"		""
 			}
 		}
 				"mg_casuala"
