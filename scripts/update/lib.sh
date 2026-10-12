@@ -80,9 +80,10 @@ path_within() {
     [ "$p" = "$b" ] || [[ "$p" == "$b"/* ]]
 }
 
-# These CounterStrikeSharp configs are manually managed and must never be changed by
-# release automation. Keep both the shared payload and its Windows overlay protected.
+# Shared cfg files and CounterStrikeSharp configs are manually managed. Release
+# automation must not modify either the root cfg tree or either CSS config tree.
 PROTECTED_CONFIG_PATHS=(
+    "game/csgo/cfg"
     "game/csgo/addons/counterstrikesharp/configs"
     "game/csgo/addons/windows/addons/counterstrikesharp/configs"
 )
@@ -119,7 +120,7 @@ _owned_paths_str() { printf '%s' "${PLUGIN_PATHS[*]}"; }
 assert_delete_target() {
     check_repo_relative "$1" || exit 1
     if _path_intersects_protected_config_tree "$1"; then
-        die "refusing to delete '$1': it intersects the manually managed CounterStrikeSharp configs tree"
+        die "refusing to delete '$1': it intersects a manually managed config tree"
     fi
     local o
     for o in "${PLUGIN_PATHS[@]}"; do
@@ -134,7 +135,7 @@ assert_delete_target() {
 assert_write_target() {
     check_repo_relative "$1" || exit 1
     if is_protected_config_path "$1"; then
-        die "refusing to write to '$1': CounterStrikeSharp configs are manually managed and excluded from automation"
+        die "refusing to write to '$1': manually managed configs are excluded from automation"
     fi
     local o
     for o in "${PLUGIN_PATHS[@]}"; do
@@ -382,7 +383,7 @@ remove_extracted() {
     rm -rf "$d"
 }
 
-RSYNC_FLAGS=(-rhavz --exclude "._*" --exclude ".DS_Store" --exclude "**/counterstrikesharp/configs/***" --exclude "/counterstrikesharp/configs/***" --exclude "/windows/addons/counterstrikesharp/configs/***" --partial --stats)
+RSYNC_FLAGS=(-rhavz --exclude "._*" --exclude ".DS_Store" --exclude "/cfg/***" --exclude "**/counterstrikesharp/configs/***" --exclude "/counterstrikesharp/configs/***" --exclude "/windows/addons/counterstrikesharp/configs/***" --partial --stats)
 
 # rsync <src>/ -> <dest>/ (merge; never deletes files at the destination).
 sync_dir() {
@@ -521,7 +522,7 @@ verify_containment() {
         [ -n "$p" ] || continue
         [ "$p" = "README.md" ] && continue
         if is_protected_config_path "$p"; then
-            err "protected manual CounterStrikeSharp configs changed during updater run: $p"
+            err "protected manually managed config path changed during updater run: $p"
             bad=1
             continue
         fi
