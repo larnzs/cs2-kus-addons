@@ -203,7 +203,7 @@ fi
 # overwrite-only overlays; this script never purges add-on directories.
 if [[ "${RUN_PLUGIN_UPDATER:-0}" == "1" ]]; then
     echo "Updating managed plugin payloads..."
-    apt-get install -y -q git curl jq unzip tar rsync || {
+    apt-get install -y -q git curl jq unzip tar rsync sudo procps || {
         echo "ERROR: Could not install plugin-updater dependencies."
         exit 1
     }
@@ -339,8 +339,8 @@ if [ ! -d "$PAYLOAD_ROOT/addons" ]; then
     exit 1
 fi
 
-# KUS deployment model: clear plugin-owned trees to remove stale files, then copy the source payload.
-# Non-destructive overlay: add/overwrite release files, but never purge runtime-only files.
+# Non-destructive overlay: add or overwrite tracked payload files only.
+# Runtime files that are not present in the payload are never purged.
 # CounterStrikeSharp configs and cfg/settings are manual-only and are not copied by automation.
 # Windows assets are a staging overlay, not part of the Linux runtime copy.
 mkdir -p "$GAME_ROOT"

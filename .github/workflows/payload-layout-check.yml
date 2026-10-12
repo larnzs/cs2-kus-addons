@@ -15,6 +15,7 @@ on:
       - "scripts/Integrate-KUS.ps1"
       - "windows/**"
       - "linux/**"
+      - "google/**"
       - "docker/**"
       - ".dockerignore"
       - ".env.example"
@@ -44,7 +45,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash -n linux/install.sh linux/start.sh linux/run.sh linux/stop.sh docker/install_docker.sh linux/gcp.sh scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh
+          bash -n linux/install.sh linux/update.sh linux/start.sh linux/run.sh linux/stop.sh google/update.sh docker/update.sh docker/install_docker.sh linux/gcp.sh scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh
           echo "Shell syntax passed."
 
       - name: Validate Docker Compose configuration
@@ -151,14 +152,16 @@ jobs:
                   assert destructive not in text, f"{script} must not delete shared runtime paths: {destructive}"
 
           expected_entrypoints = (
-              "windows/install.bat", "windows/win.bat", "windows/update.bat",
-              "windows/game-update.bat", "windows/addons-update.bat",
+              "windows/install.bat", "windows/update.bat", "windows/addons-update.bat",
               "windows/addons-inspect.bat", "windows/instance-template/run.bat",
-              "linux/install.sh", "linux/gcp.sh", "docker/Dockerfile",
+              "linux/install.sh", "linux/update.sh", "linux/gcp.sh",
+              "google/update.sh", "google/README.md", "docker/update.sh", "docker/Dockerfile",
               "docker/docker-compose.yml", "docker/kubernetes/manifest.yaml", ".env.example",
           )
           for entrypoint in expected_entrypoints:
               assert Path(entrypoint).is_file(), f"Missing organized entrypoint: {entrypoint}"
+          assert not Path("windows/win.bat").exists(), "The old overlapping win.bat should be removed."
+          assert not Path("windows/game-update.bat").exists(), "The old separate game updater should be removed."
           dockerfile = Path("docker/Dockerfile").read_text(encoding="utf-8")
           for package in ("ca-certificates", "curl", "locales", "procps", "sudo"):
               assert any(line.strip() == package + " \\" for line in dockerfile.splitlines()), f"Docker image must explicitly install {package}"
@@ -185,29 +188,33 @@ jobs:
           assert not any(name.startswith("server/game/csgo/") for name in names), "Downloaded runtime files must not be tracked under server/."
 
           install_bat = Path("windows/install.bat").read_text(encoding="utf-8")
-          win_bat = Path("windows/win.bat").read_text(encoding="utf-8")
           update_bat = Path("windows/update.bat").read_text(encoding="utf-8")
           deploy = Path("scripts/Deploy-Runtime.ps1").read_text(encoding="utf-8")
           source_updater = Path("scripts/Update-Addons.ps1").read_text(encoding="utf-8")
-          for script_name, script_text in (("install.bat", install_bat), ("update.bat", update_bat), ("win.bat", win_bat)):
-              assert 'tasklist /FI "IMAGENAME eq cs2.exe"' in script_text, f"{script_name} must block destructive work while CS2 is active"
-          assert 'Get-Process -Name "cs2"' in deploy, "Direct PowerShell deployment must refuse to replace active runtime add-ons"
+          assert 'tasklist /FI "IMAGENAME eq cs2.exe"' in install_bat, "install.bat must refuse SteamCMD/deployment while CS2 is active"
+          assert 'Get-Process -Name "cs2"' in deploy, "Direct PowerShell deployment must refuse to overlay an active runtime"
           assert 'Get-Process -Name "cs2"' not in source_updater, "Source-only add-on updates must be allowed while CS2 is active"
           gcp = Path("linux/gcp.sh").read_text(encoding="utf-8")
           assert 'export API_KEY="${API_KEY:-${META_API_KEY:-}}"' in gcp, "GCP should preserve an environment API key, otherwise use optional metadata without a fake default"
           assert "+app_update 730 +quit" in install_bat
           assert "+app_update 730 validate" not in install_bat
-          assert "Deploy-Runtime.ps1" in win_bat
-          assert "set \"SEARCHSTRING=Game\tcsgo/addons/metamod\"" in win_bat
-          assert "set \"INSERTAFTER=Game_LowViolence\tcsgo_lv\"" in win_bat
-          assert 'findstr /n "^"' in win_bat
-          assert "Patch-GameInfo.ps1" not in win_bat
-          assert r'call "%ROOT_DIR%\windows\win.bat" --no-pause' in install_bat
-          update_bat = Path("windows/update.bat").read_text(encoding="utf-8")
-          game_update_bat = Path("windows/game-update.bat").read_text(encoding="utf-8")
+          assert "Invoke-RuntimeAddonUpdate.ps1" in install_bat
+          assert "Deploy-Runtime.ps1" in install_bat
+          assert "Patch-GameInfo.ps1" in install_bat
+          assert "Test-AddonOverlay.ps1" in install_bat
+          assert r'call "%ROOT_DIR%\windows\update.bat"' in install_bat
+          assert "git switch integration/kus-monorepo" in update_bat
+          assert "git pull --ff-only origin integration/kus-monorepo" in update_bat
+          assert "steamcmd.exe" not in update_bat.lower() and "+app_update 730" not in update_bat
+          assert "Deploy-Runtime.ps1" not in update_bat and "Invoke-RuntimeAddonUpdate" not in update_bat
+          assert "Copy-SafeOverlayTree -Source $WindowsOverlay -Destination $RuntimeRoot" in deploy
+          assert "$PreserveCssConfigs" in deploy
+          assert "if ($PreserveCssConfigs -and $isCssConfig) { continue }" in deploy
+          assert "Remove-Item" not in deploy and "Move-Item" not in deploy, "Runtime deployment must never delete or move away existing files"
+          assert "Copy-TreeContent" not in deploy and "Copy-UntrackedRuntimeFiles" not in deploy
+          assert "gameinfo.gi" in deploy
+
           runner_bat = Path("windows/instance-template/run.bat").read_text(encoding="utf-8")
-          assert r'call "%ROOT_DIR%\windows\win.bat" --no-pause' in update_bat
-          assert r'call "%ROOT_DIR%\windows\win.bat" --no-pause' in game_update_bat
           assert 'set "GAME_DIR=%SERVER_DIR%\\game\\csgo"' in runner_bat
           assert "call :SyncCustomFiles" in runner_bat
           assert 'xcopy "%CUSTOM_DIR%\\cfg\\*"' in runner_bat
@@ -217,15 +224,6 @@ jobs:
           assert "/PURGE" not in runner_bat.upper()
           for required in ('if not defined RCON_PASSWORD goto :MissingRconPassword', 'if /I "%RCON_PASSWORD%"=="CHANGE_ME_TO_A_STRONG_PASSWORD" goto :MissingRconPassword', ':MissingRconPassword'):
               assert required in runner_bat, f"Windows runner is missing the RCON safety guard: {required}"
-          assert 'Copy-TreeContent -Source $WindowsOverlay -Destination $IncomingRoot' in deploy
-          assert "Copy-UntrackedRuntimeFiles" in deploy
-          assert "$SettingsTrackedRoots" in deploy
-          assert "Copy-TreeContent -Source $ConfigDestination -Destination $BackupConfig" in deploy
-          assert "Remove-Item -LiteralPath $ConfigDestination -Recurse -Force" in deploy
-          assert "Existing CounterStrikeSharp configs preserved unchanged." in deploy
-          assert "Copy-TreeContent -Source $BackupSettings -Destination $RuntimeSettings" not in deploy
-          assert "Copy-TreeContent -Source $PreserveSettings -Destination $RuntimeSettings" in deploy
-          assert "gameinfo.gi" in deploy
           integrate = Path("scripts/Integrate-KUS.ps1").read_text(encoding="utf-8")
           for protected in ("addons/counterstrikesharp/configs", "addons/windows/addons/counterstrikesharp/configs"):
               assert f'"{protected}"' in integrate, f"KUS import must explicitly preserve {protected}"

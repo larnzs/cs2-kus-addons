@@ -15,6 +15,7 @@ on:
       - ".github/workflows/addon-updater.yml"
       - "windows/**"
       - "linux/**"
+      - "google/**"
       - "docker/**"
       - ".dockerignore"
       - "game/csgo/**"
@@ -304,31 +305,38 @@ jobs:
           }
 
           $install = Get-Content -LiteralPath ".\windows\install.bat" -Raw
-          $win = Get-Content -LiteralPath ".\windows\win.bat" -Raw
           $update = Get-Content -LiteralPath ".\windows\update.bat" -Raw
-          foreach ($entrypoint in @(
-            @{ Name = "install.bat"; Content = $install },
-            @{ Name = "update.bat"; Content = $update },
-            @{ Name = "win.bat"; Content = $win }
-          )) {
-            if ($entrypoint.Content -notmatch 'tasklist /FI "IMAGENAME eq cs2\.exe"') {
-              throw "$($entrypoint.Name) must guard SteamCMD or clean runtime deployment while CS2 is active."
-            }
-          }
-          if ($win -match '(?i)steamcmd\.exe|\+app_update\s+730') {
-            throw "win.bat must not perform SteamCMD game updates."
-          }
-          if ($win -match '(?im)^\s*start\s+.*cs2\.exe') {
-            throw "win.bat must not launch cs2.exe."
-          }
-          if ($update -match '(?i)steamcmd\.exe|\+app_update\s+730') {
-            throw "update.bat must not perform game updates."
-          }
-          if ($update -notmatch 'git pull --ff-only') {
-            throw "update.bat must use a fast-forward-only Git pull."
+
+          if ($install -notmatch 'tasklist /FI "IMAGENAME eq cs2\.exe"') {
+            throw "install.bat must refuse SteamCMD/deployment work while CS2 is active."
           }
           if ($install -notmatch '(?i)\+app_update\s+730') {
-            throw "install.bat must install CS2 during initial setup if it is missing."
+            throw "install.bat must install/update CS2 through SteamCMD."
+          }
+          foreach ($required in @(
+            "Invoke-RuntimeAddonUpdate.ps1",
+            "Deploy-Runtime.ps1",
+            "Patch-GameInfo.ps1",
+            "Test-AddonOverlay.ps1",
+            'call "%ROOT_DIR%\windows\update.bat"'
+          )) {
+            if ($install -notmatch [regex]::Escape($required)) {
+              throw "The unified install/update entrypoint is missing: $required"
+            }
+          }
+          if ($install -match '(?im)^\s*start\s+.*cs2\.exe') {
+            throw "install.bat must never launch cs2.exe."
+          }
+          if ($update -match '(?i)steamcmd\.exe|\+app_update\s+730|Invoke-RuntimeAddonUpdate|Deploy-Runtime|Patch-GameInfo') {
+            throw "update.bat must be repository-only and must not touch SteamCMD, plugins, or runtime files."
+          }
+          if ($update -notmatch 'git switch integration/kus-monorepo' -or
+              $update -notmatch 'git pull --ff-only origin integration/kus-monorepo') {
+            throw "update.bat must switch to integration/kus-monorepo and perform only a fast-forward pull."
+          }
+          if (Test-Path -LiteralPath ".\windows\win.bat" -PathType Leaf -or
+              Test-Path -LiteralPath ".\windows\game-update.bat" -PathType Leaf) {
+            throw "The old overlapping win/game-update scripts should be replaced by install.bat."
           }
           $runtimeAddonUpdater = Get-Content -LiteralPath ".\scripts\Invoke-RuntimeAddonUpdate.ps1" -Raw
           if ($runtimeAddonUpdater -notmatch 'scripts\\Update-Addons\.ps1' -or
