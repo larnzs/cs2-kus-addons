@@ -802,8 +802,6 @@ function Sync-ReadmeAddonTable() {
 
         if ($purposes.ContainsKey($name)) {
             $purpose = [string]$purposes[$name]
-        } elseif ([bool]$addon.installed -eq $false) {
-            $purpose = "Not installed; tracked as a manual manifest entry."
         } else {
             $purpose = "Manifest-managed add-on."
         }
@@ -811,8 +809,10 @@ function Sync-ReadmeAddonTable() {
         # Derive install status from the manifest rather than freezing it into prose.
         $purpose = $purpose -replace "(?i);\s*not installed and marked manual in the Larnz manifest$", ""
         $purpose = $purpose -replace "(?i);\s*not installed$", ""
+        $manualEntry = $addon.PSObject.Properties.Name -contains "automation_supported" -and
+            -not [bool]$addon.automation_supported
         if ([bool]$addon.installed -eq $false) {
-            if ([string]$addon.automation_supported -eq "False") {
+            if ($manualEntry) {
                 $purpose += "; not installed and marked manual in the Larnz manifest"
             } elseif ($purpose -notmatch "(?i)\bnot installed\b") {
                 $purpose += "; not installed"
