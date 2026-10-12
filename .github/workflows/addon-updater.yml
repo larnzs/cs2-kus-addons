@@ -530,6 +530,46 @@ jobs:
             throw "The addon updater failed with exit code $LASTEXITCODE."
           }
 
+      - name: Validate README add-on links and versions against manifest
+        shell: pwsh
+        run: |
+          $manifest = Get-Content -LiteralPath ".\DEPENDENCIES.json" -Raw | ConvertFrom-Json
+          $readme = Get-Content -LiteralPath ".\README.md" -Raw
+          $sectionMarker = "## Larnz-managed add-ons"
+          $sectionStart = $readme.IndexOf($sectionMarker, [StringComparison]::Ordinal)
+          if ($sectionStart -lt 0) {
+            throw "README is missing the Larnz-managed add-ons section."
+          }
+          $tailStart = $sectionStart + $sectionMarker.Length
+          $tail = $readme.Substring($tailStart)
+          $nextHeading = [regex]::Match($tail, "(?m)^##\s")
+          $sectionEnd = if ($nextHeading.Success) { $tailStart + $nextHeading.Index } else { $readme.Length }
+          $section = $readme.Substring($sectionStart, $sectionEnd - $sectionStart)
+
+          $addons = @($manifest.addons | Where-Object { [string]$_.name -ne "Metamod:Source" })
+          $linkedRows = [regex]::Matches($section, '(?m)^\|\s*\[[^\]]+\]\(https?://[^)]+\)\s*\|')
+          if ($linkedRows.Count -ne $addons.Count) {
+            throw "README Larnz add-on row count ($($linkedRows.Count)) does not match manifest count ($($addons.Count))."
+          }
+
+          foreach ($addon in $addons) {
+            $expectedVersion = [string]$addon.version
+            if ([string]$addon.type -eq "github_source_build" -and
+                -not [string]::IsNullOrWhiteSpace([string]$addon.branch)) {
+              $shortCommit = $expectedVersion.Substring(0, [Math]::Min(12, $expectedVersion.Length))
+              $expectedVersion = "$([string]$addon.branch)@$shortCommit"
+            }
+            $versionCell = [string][char]96 + $expectedVersion + [string][char]96
+            $rowPattern = '^\|\s*\[' + [regex]::Escape([string]$addon.name) + '\]\(' +
+              [regex]::Escape([string]$addon.repository) + '\)\s*\|\s*' +
+              [regex]::Escape($versionCell) + '\s*\|'
+            $matches = [regex]::Matches($section, $rowPattern, [System.Text.RegularExpressions.RegexOptions]::Multiline)
+            if ($matches.Count -ne 1) {
+              throw "README row must link $($addon.name) to its manifest repository and show version '$expectedVersion'."
+            }
+          }
+          Write-Host "Validated $($addons.Count) linked Larnz add-on rows against DEPENDENCIES.json."
+
       - name: Verify all installed addon files and protected configs
         shell: pwsh
         run: |
