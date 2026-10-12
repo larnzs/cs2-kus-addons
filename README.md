@@ -34,27 +34,27 @@ For the difference between each maintenance script—and an important warning ab
 
 ## Larnz-managed add-ons
 
-These add-ons are maintained by the Larnz manifest/updater in addition to the KUS payloads. Some libraries are shared dependencies and remain separate from the KUS documentation's own plugin table.
+These add-ons are maintained by the Larnz manifest/updater in addition to the KUS payloads. Names link to their source repositories, and the updater synchronizes the versions below from `DEPENDENCIES.json` (source-built entries show `branch@short-commit`). Some libraries are shared dependencies and remain separate from the KUS documentation's own plugin table.
 
 | Add-on | Version | Purpose |
 | --- | --- | --- |
-| CounterStrikeSharp | 1.0.376 | Windows with-runtime files (including bundled .NET) are staged under `game/csgo/addons/windows/addons/counterstrikesharp/`; the shared/Linux payload remains under `game/csgo/addons/counterstrikesharp/`. |
-| CS2UpdateMonitor | 1.1.0 | Detects a new game build and signals the external supervisor |
-| WeaponPaints | 466 | Player-side weapon customization |
-| CS2-SimpleAdmin | 1.9.0 | Additional administration features |
-| AFKManager | 0.2.8 | AFK handling |
-| CS2-Kill-Plugin | 0.2.0 | Player self-action command |
-| SimpleResetScore | 1.0.7 | Reset-score command |
-| cs2-showdamage | 1.1.0 | Damage display |
-| cs2-ranks | 2.0.5.5-recompile | Persistent ranks and statistics |
-| VIPCore | 1.3.4-recompile3 | VIP core/module |
-| AnyBaseLibCS2 | 0.9.4 | Shared database/API library |
-| PlayerSettingsCS2 | 0.9.4 | Persistent player settings |
-| MenuManagerCS2 | 1.4.1 | Menu/API library |
-| SLAYER_AntiCamp | 1.2.5 | Anti-camp mode |
-| SLAYER_HeadshotOnly | 1.2.1 | Headshot-only mode |
-| CS2-TeamLimiter | b9be93940543bd06b771199301c7c8ee6b162e8f | Team-size limits |
-| CS2-WeaponRestrict | WeaponRestrict1.5 | Configurable weapon restrictions; marked manual in the Larnz manifest |
+| [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) | `1.0.376` | Windows with-runtime files (including bundled .NET) are staged under `game/csgo/addons/windows/addons/counterstrikesharp/`; the shared/Linux payload remains under `game/csgo/addons/counterstrikesharp/`. |
+| [AnyBaseLibCS2](https://github.com/NickFox007/AnyBaseLibCS2) | `0.9.4` | Shared database/API library |
+| [PlayerSettingsCS2](https://github.com/NickFox007/PlayerSettingsCS2) | `0.9.4` | Persistent player settings |
+| [MenuManagerCS2](https://github.com/NickFox007/MenuManagerCS2) | `1.4.1` | Menu/API library |
+| [CS2-SimpleAdmin](https://github.com/daffyyyy/CS2-SimpleAdmin) | `1.9.0` | Additional administration features |
+| [WeaponPaints](https://github.com/Nereziel/cs2-WeaponPaints) | `466` | Player-side weapon customization |
+| [AFKManager](https://github.com/NiGHT757/AFKManager) | `0.2.8` | AFK handling |
+| [CS2-Kill-Plugin](https://github.com/Quantor97/CS2-Kill-Plugin) | `0.2.0` | Player self-action command |
+| [SimpleResetScore](https://github.com/stefanx111/cs2-SimpleResetScore) | `1.0.7` | Reset-score command |
+| [cs2-showdamage](https://github.com/abnerfs/cs2-showdamage) | `1.1.0` | Damage display |
+| [cs2-ranks](https://github.com/partiusfabaa/cs2-ranks) | `2.0.5.5-recompile` | Persistent ranks and statistics |
+| [VIPCore](https://github.com/partiusfabaa/cs2-VIPCore) | `1.3.4-recompile3` | VIP core/module |
+| [SLAYER_AntiCamp](https://github.com/zakriamansoor47/SLAYER_AntiCamp) | `1.2.5` | Anti-camp mode |
+| [SLAYER_HeadshotOnly](https://github.com/zakriamansoor47/SLAYER_HeadshotOnly) | `1.2.1` | Headshot-only mode |
+| [CS2-TeamLimiter](https://github.com/Ferks-FK/CS2-TeamLimiter) | `development@b9be93940543` | Team-size limits |
+| [CS2-WeaponRestrict](https://github.com/TICHOJEBEC-SK/cs2-WeaponRestrict) | `WeaponRestrict1.5` | Configurable weapon restrictions; not installed and marked manual in the Larnz manifest |
+| [CS2UpdateMonitor](https://github.com/beanman109/cs2-updatemonitor) | `1.1.0` | Detects a new game build and signals the external supervisor |
 
 ## Larnz plugin dependencies
 
