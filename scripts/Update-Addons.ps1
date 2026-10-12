@@ -761,14 +761,17 @@ function Sync-ReadmeAddonTable() {
     }
 
     $purposes = @{}
+    $rowPattern = "^\|\s*(?<label>.*?)\s*\|\s*(?<version>.*?)\s*\|\s*(?<purpose>.*?)\s*\|\s*$"
     for ($i = $dataStart; $i -lt $dataEnd; $i++) {
-        if ($lines[$i] -match "^\|\s*(?<label>.*?)\s*\|\s*(?<version>.*?)\s*\|\s*(?<purpose>.*?)\s*\|\s*$") {
-            $label = $Matches["label"].Trim()
+        $rowMatch = [regex]::Match($lines[$i], $rowPattern)
+        if ($rowMatch.Success) {
+            $label = $rowMatch.Groups["label"].Value.Trim()
+            $purpose = $rowMatch.Groups["purpose"].Value.Trim()
             if ($label -match "^\[(?<linkedName>[^\]]+)\]\([^)]+\)$") {
                 $label = $Matches["linkedName"]
             }
             if (-not [string]::IsNullOrWhiteSpace($label)) {
-                $purposes[$label] = $Matches["purpose"].Trim()
+                $purposes[$label] = $purpose
             }
         }
     }
