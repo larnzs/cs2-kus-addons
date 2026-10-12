@@ -48,7 +48,7 @@ docker compose -f "$COMPOSE_FILE" build cs2_modded_server
 echo
 echo "[4/4] Updating the persistent CS2 game volume in a one-shot container..."
 echo "UPDATE_ONLY=1 prevents the image entrypoint from launching the game server."
-UPDATE_ONLY=1 docker compose -f "$COMPOSE_FILE" run --rm --no-deps -e UPDATE_ONLY=1 cs2_modded_server
+UPDATE_ONLY=1 docker compose -f "$COMPOSE_FILE" run --rm --name cs2-modded-server-update --no-deps -e UPDATE_ONLY=1 cs2_modded_server
 
 echo
 echo "SUCCESS: repository, plugin payload, image and persistent game volume were updated."
