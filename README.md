@@ -16,13 +16,15 @@ This README combines Larnz's manifest-managed add-ons with KUS's base plugins, g
 | `docker/` | Dockerfile, Compose definition, Docker installer, and the legacy Kubernetes manifest. |
 | `.dockerignore` | Kept at the repository root because Docker uses the repository root as its build context. |
 | `game/csgo/addons/` | Tracked KUS and Larnz payload source, including platform-neutral/Linux files and the Windows overlay. |
-| `game/csgo/cfg/` | Tracked shared configuration source, deployed into the installed runtime. |
+| `game/csgo/cfg/` | Manually managed shared configuration source. Add-on automation is blocked from changing this tree and CI verifies that protection. |
 | DEPENDENCIES.json | Larnz add-on updater manifest. |
 | scripts/update/ | Active KUS-style per-plugin automation; the same Bash updater also runs the Larnz manifest add-on scripts. |
 | windows/instance-template/ | Separate maintenance batch, launch runner, and VBS/CMD watchdog. `run.bat` copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` into the shared runtime before each launch. |
 | docs/upstream/ | Archived KUS source/docs and historical entrypoints. The completed one-time payload-migration workflow is archived here, not registered as an executable GitHub Actions workflow. |
 
 The upstream `custom_files/` and `custom_files_example/` trees are intentionally not imported. On Windows, `CUSTOM_FOLDER` is an active copy source: before each launch, `run.bat` uses `xcopy` to copy its `cfg/` and `addons/` trees into the shared runtime. Matching files are overwritten; nothing is deleted. This is not per-instance isolation, so instances sharing `SERVER_DIR` can overwrite the same destination paths. Never store tokens, passwords or private database credentials in tracked files.
+
+The tracked `game/csgo/cfg/` tree is operator-managed: both the manifest release updater and KUS shell updater explicitly protect it, and CI snapshots the complete tree before updater runs and fails if any file changes. Runtime deployment may copy tracked configs into `server/game/csgo/cfg/`; each Windows `run.bat` then overlays `CUSTOM_FOLDER/cfg/` into that runtime immediately before launch. These are one-way copies: neither updater copies runtime changes back into `game/csgo/cfg/` or into the source `CUSTOM_FOLDER/`.
 
 ## Windows installation and operation
 
