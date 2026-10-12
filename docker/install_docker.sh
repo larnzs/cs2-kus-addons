@@ -17,10 +17,12 @@ user="steam"
 : "${GAME_MODE:=0}"
 : "${MAP_GROUP:=mg_active}"
 
-rcon_lower="${RCON_PASSWORD,,}"
-if [[ -z "$RCON_PASSWORD" || "$rcon_lower" == "changeme" || "$rcon_lower" == "change_me_to_a_strong_password" ]]; then
-    echo "ERROR: Set a strong, unique RCON_PASSWORD in the root .env before starting the Docker container."
-    exit 1
+if [[ "${UPDATE_ONLY:-0}" != "1" ]]; then
+    rcon_lower="${RCON_PASSWORD,,}"
+    if [[ -z "$RCON_PASSWORD" || "$rcon_lower" == "changeme" || "$rcon_lower" == "change_me_to_a_strong_password" ]]; then
+        echo "ERROR: Set a strong, unique RCON_PASSWORD in the root .env before starting the Docker container."
+        exit 1
+    fi
 fi
 
 # 32 or 64 bit Operating System
@@ -82,16 +84,16 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-PUBLIC_IP=$(dig +short myip.opendns.com @resolver1.opendns.com)
-
-if [ -z "$PUBLIC_IP" ]; then
-    echo "ERROR: Cannot retrieve your public IP address..."
-    exit 1
-fi
-
-# Update DuckDNS with our current IP
-if [ ! -z "$DUCK_TOKEN" ]; then
-    echo url="http://www.duckdns.org/update?domains=$DUCK_DOMAIN&token=$DUCK_TOKEN&ip=$PUBLIC_IP" | curl -k -o /duck.log -K -
+PUBLIC_IP=""
+if [[ "${UPDATE_ONLY:-0}" != "1" ]]; then
+    PUBLIC_IP=$(dig +short myip.opendns.com @resolver1.opendns.com)
+    if [ -z "$PUBLIC_IP" ]; then
+        echo "ERROR: Cannot retrieve your public IP address..."
+        exit 1
+    fi
+    if [ -n "${DUCK_TOKEN:-}" ]; then
+        echo url="http://www.duckdns.org/update?domains=$DUCK_DOMAIN&token=$DUCK_TOKEN&ip=$PUBLIC_IP" | curl -k -o /duck.log -K -
+    fi
 fi
 
 echo "Checking $user user exists..."
@@ -187,6 +189,7 @@ mkdir -p "$GAME_ROOT"
 if ! (
     set -o pipefail
     tar -C "$PAYLOAD_ROOT" \
+        --exclude='./gameinfo.gi' \
         --exclude='./addons/windows' \
         --exclude='./addons/windows/*' \
         --exclude='./addons/counterstrikesharp/configs' \
@@ -230,6 +233,11 @@ fi
 if ! grep -qE "$REGEX_TO_CHECK" "$FILE"; then
     echo "ERROR: MetaMod entry is still missing from $FILE; the insertion marker may have changed."
     exit 1
+fi
+
+if [[ "${UPDATE_ONLY:-0}" == "1" ]]; then
+    echo "Update-only mode: payload deployment and gameinfo.gi patch completed. The CS2 server was NOT launched."
+    exit 0
 fi
 
 echo "Starting server on $PUBLIC_IP:$PORT"

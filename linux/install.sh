@@ -20,10 +20,12 @@ fi
 : "${RCON_PASSWORD:=}"
 : "${IP:=}"
 
-rcon_lower="${RCON_PASSWORD,,}"
-if [[ -z "$RCON_PASSWORD" || "$rcon_lower" == "changeme" || "$rcon_lower" == "change_me_to_a_strong_password" ]]; then
-    echo "ERROR: Set RCON_PASSWORD to a strong, unique value before installing or starting CS2."
-    exit 1
+if [[ "${UPDATE_ONLY:-0}" != "1" ]]; then
+    rcon_lower="${RCON_PASSWORD,,}"
+    if [[ -z "$RCON_PASSWORD" || "$rcon_lower" == "changeme" || "$rcon_lower" == "change_me_to_a_strong_password" ]]; then
+        echo "ERROR: Set RCON_PASSWORD to a strong, unique value before installing or starting CS2."
+        exit 1
+    fi
 fi
 
 
@@ -197,17 +199,35 @@ else
 	exit 1
 fi
 
-# Download latest stop script
-PUBLIC_IP=$(dig -4 +short myip.opendns.com @resolver1.opendns.com)
-
-if [ -z "$PUBLIC_IP" ]; then
-	echo "ERROR: Cannot retrieve your public IP address..."
-	exit 1
+# Run the plugin updater only from the unified updater. All runtime file changes remain
+# overwrite-only overlays; this script never purges add-on directories.
+if [[ "${RUN_PLUGIN_UPDATER:-0}" == "1" ]]; then
+    echo "Updating managed plugin payloads..."
+    apt-get install -y -q git curl jq unzip tar rsync || {
+        echo "ERROR: Could not install plugin-updater dependencies."
+        exit 1
+    }
+    if ! bash "$ROOT_DIR/scripts/update/update.sh" --no-pull; then
+        echo "ERROR: Managed plugin update failed."
+        exit 1
+    fi
+    if ! git -C "$ROOT_DIR" push origin HEAD:refs/heads/integration/kus-monorepo; then
+        echo "ERROR: Plugin updates were committed locally but could not be pushed to origin/integration/kus-monorepo."
+        exit 1
+    fi
 fi
 
-# Update DuckDNS with our current IP
-if [ ! -z "$DUCK_TOKEN" ]; then
-    echo url="http://www.duckdns.org/update?domains=$DUCK_DOMAIN&token=$DUCK_TOKEN&ip=$PUBLIC_IP" | curl -k -o /duck.log -K -
+# Public-IP discovery and DuckDNS are only needed when starting the server.
+PUBLIC_IP=""
+if [[ "${UPDATE_ONLY:-0}" != "1" ]]; then
+    PUBLIC_IP=$(dig -4 +short myip.opendns.com @resolver1.opendns.com)
+    if [ -z "$PUBLIC_IP" ]; then
+        echo "ERROR: Cannot retrieve your public IP address..."
+        exit 1
+    fi
+    if [ -n "${DUCK_TOKEN:-}" ]; then
+        echo url="http://www.duckdns.org/update?domains=$DUCK_DOMAIN&token=$DUCK_TOKEN&ip=$PUBLIC_IP" | curl -k -o /duck.log -K -
+    fi
 fi
 
 echo "Checking $user user exists..."
@@ -327,6 +347,7 @@ mkdir -p "$GAME_ROOT"
 if ! (
     set -o pipefail
     tar -C "$PAYLOAD_ROOT" \
+        --exclude='./gameinfo.gi' \
         --exclude='./addons/windows' \
         --exclude='./addons/windows/*' \
         --exclude='./addons/counterstrikesharp/configs' \
@@ -370,6 +391,11 @@ if ! grep -qE "$REGEX_TO_CHECK" "$FILE"; then
     exit 1
 fi
 
+
+if [[ "${UPDATE_ONLY:-0}" == "1" ]]; then
+    echo "Update-only mode: deployment and gameinfo.gi patch completed. The CS2 server was NOT launched."
+    exit 0
+fi
 
 # Try to enable unprivileged namespaces
 enable_unprivileged_namespaces

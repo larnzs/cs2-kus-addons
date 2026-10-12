@@ -1,21 +1,26 @@
 # Linux entrypoints
 
-These scripts target a Linux VM/server. Google Cloud Compute Engine is a cloud hosting platform, not a separate operating system; `gcp.sh` belongs here because it bootstraps the repository on a Linux VM using the Google metadata service.
+These scripts target a Linux VM/server. Google Cloud Compute Engine is a hosting platform, so its no-launch maintenance entrypoint is `google/update.sh`.
 
 | File | Purpose |
 | --- | --- |
-| `install.sh` | Install/provision the Linux CS2 runtime, apply a non-destructive overlay of the tracked `game/csgo/` payload, then start CS2. Requires a strong `RCON_PASSWORD`; public hosting also needs a valid GSLT in `STEAM_ACCOUNT`. |
-| `start.sh` | KUS-compatible existing-runtime startup path; updates the game and starts it **without redeploying add-ons**. Requires `RCON_PASSWORD` from environment or Google Cloud metadata. |
-| `run.sh` | Update/start helper for an existing Linux runtime; does not deploy the tracked add-on payload. Set `RCON_PASSWORD` before use. |
-| `stop.sh` | Gracefully stops CS2 processes only, then force-stops them if needed; it no longer kills unrelated installer, HTTP, or SCREEN processes. |
-| `gcp.sh` | Read Google Cloud instance metadata and invoke this checkout's `linux/install.sh`. |
+| `update.sh` | Unified maintenance entrypoint: fast-forward the repository, update managed plugins, update Steam Linux Runtime and CS2 through SteamCMD, safely overlay the tracked payload, and patch `gameinfo.gi`. Requires root and a stopped CS2 server; does not launch the server. |
+| `install.sh` | Provisioning worker used by `update.sh`; it can also be run directly for initial setup. Set `UPDATE_ONLY=1` to stop after installation/update and payload verification. |
+| `start.sh` | Existing-runtime startup path; updates the game and launches it without redeploying add-ons. |
+| `run.sh` | Update/start helper for an existing Linux runtime; does not deploy the tracked add-on payload. |
+| `stop.sh` | Gracefully stops CS2 processes only. |
+| `gcp.sh` | Reads Google Cloud instance metadata and invokes this checkout's Linux installer. |
 
-Run from a clone of this repository. For a direct install, configure a strong `RCON_PASSWORD` in the environment first; use `sudo -E` so it is preserved. Set `STEAM_ACCOUNT` (GSLT) for public hosting. On Google Cloud, put the RCON password in instance metadata and use `gcp.sh`.
+Run the unified maintenance script from a clone of this repository:
 
 ```bash
-sudo -E bash ./linux/install.sh
-# Or on a Google Cloud VM:
-sudo bash ./linux/gcp.sh
+sudo -E bash ./linux/update.sh
 ```
 
-The Linux/GCP path is organized, but remains unvalidated on a live VM. Do not treat the folder move as evidence of a successful production deployment.
+On Google Cloud Compute Engine, run:
+
+```bash
+sudo -E bash ./google/update.sh
+```
+
+The update entrypoints refuse to run while CS2 is active. They overlay updated paths only: files not present in the repository payload are left in place, and existing CounterStrikeSharp configs are preserved. No update entrypoint launches CS2. Runtime start scripts remain separate.

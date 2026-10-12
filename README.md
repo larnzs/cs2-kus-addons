@@ -443,19 +443,19 @@ The Windows deployment path is CI-checked. The local Linux installer and Docker 
 
 ### Running on Google Cloud
 
-`linux/gcp.sh` now runs the local `linux/install.sh` from this private checkout instead of fetching the public KUS installer. The full VM provisioning, firewall, disk, metadata, and secrets lifecycle still needs an end-to-end test. See [the archived KUS guide](docs/upstream/KUS-README.md#running-on-google-cloud) for historical context.
+`linux/gcp.sh` remains the metadata-backed server bootstrap helper. For maintenance without launching CS2, use `linux/update.sh` on Linux or `google/update.sh` on Google Cloud. These paths update the repository/plugin payload, update CS2 via SteamCMD, then deploy using overwrite-only overlays. The full VM provisioning, firewall, disk, metadata, and secrets lifecycle still needs an end-to-end test. See [the archived KUS guide](docs/upstream/KUS-README.md#running-on-google-cloud) for historical context.
 
 When GCP support is migrated, this section will document the VM image, disk, firewall, metadata/secrets and game update handoff. For historical VM lifecycle commands, see [the archived KUS guide](docs/upstream/KUS-README.md#running-on-google-cloud); treat it as reference only.
 
 ### Running on Linux
 
-`linux/install.sh` applies the tracked `game/csgo/` payload as a non-destructive overlay, while `linux/start.sh` updates and starts an already prepared runtime without redeploying add-ons. These Linux entrypoints have not been tested on a live host. Set a strong `RCON_PASSWORD` before running a server-starting script, and provide `STEAM_ACCOUNT` (GSLT) for public hosting. Run only scripts from this private checkout, not archived commands that download public KUS scripts over them.
+`linux/update.sh` is the unified Linux maintenance entrypoint. It updates the repository and managed plugin payloads, updates Steam Linux Runtime and CS2 through SteamCMD, overlays tracked files without deleting runtime-only files, patches `gameinfo.gi`, and exits without launching the server. `google/update.sh` delegates to the same flow for Google Cloud. `linux/start.sh` remains a separate launch path for an already prepared runtime. These Linux entrypoints have not been tested on a live host. Set a strong `RCON_PASSWORD` before running a server-starting script, and provide `STEAM_ACCOUNT` (GSLT) for public hosting. Run only scripts from this private checkout, not archived commands that download public KUS scripts over them.
 
 The tracked source payload is `game/csgo/`; the actual Linux runtime is `<install-root>/game/csgo/`. See [the archived Linux guide](docs/upstream/KUS-README.md#running-on-linux) for historical context.
 
 ### Running in Docker
 
-`docker/Dockerfile`, `docker/install_docker.sh`, and `docker/docker-compose.yml` now use the tracked `game/csgo/` payload and keep the installed CS2 game in the persistent SteamCMD volume. This follows KUS's staged layout, but the container has not been live-tested. See [the archived Docker guide](docs/upstream/KUS-README.md#running-in-docker) for historical context.
+`docker/Dockerfile`, `docker/install_docker.sh`, `docker/update.sh`, and `docker/docker-compose.yml` use the tracked `game/csgo/` payload and keep the installed CS2 game in the persistent volume. Run `bash docker/update.sh` from the repository root to update plugins and the game without launching CS2; the maintenance container refuses to run while the service container is active. The Docker path has not been live-tested. See [the archived Docker guide](docs/upstream/KUS-README.md#running-in-docker) for historical context.
 
 First run `cp .env.example .env`, then edit `.env`: set a valid `STEAM_ACCOUNT` (GSLT) for public hosting and replace `RCON_PASSWORD` with a strong, unique value. `API_KEY` is optional. `.env` is ignored by Git and must never be committed. Build from the repository root with `docker compose -f docker/docker-compose.yml up --build`. Compose expects that root `.env` to exist because it is declared as an `env_file`. This uses the root `.dockerignore`; the Docker image is still not live-tested. The historical KUS container notes remain in [the archived Docker guide](docs/upstream/KUS-README.md#running-in-docker).
 
