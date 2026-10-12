@@ -678,8 +678,8 @@ function Update-ReadmeVersion([string]$Name, [string]$Repository, [string]$Displ
     $replacement = "| [$Name]($Repository) | $backtick$DisplayVersion$backtick |"
     $newText = [regex]::Replace($text, $pattern, $replacement, 1)
 
-    # Larnz-managed rows are plain text labels rather than linked KUS catalog rows.
-    # Keep both README tables updated without changing any of the purpose text.
+    # Support legacy plain-text rows while migrating them to repository links.
+    # The full table is also reconciled against DEPENDENCIES.json after the update pass.
     if ($newText -eq $text) {
         $sectionMarker = "## Larnz-managed add-ons"
         $sectionStart = $text.IndexOf($sectionMarker, [StringComparison]::Ordinal)
@@ -690,7 +690,7 @@ function Update-ReadmeVersion([string]$Name, [string]$Repository, [string]$Displ
             $sectionEnd = if ($nextHeading.Success) { $tailStart + $nextHeading.Index } else { $text.Length }
             $section = $text.Substring($sectionStart, $sectionEnd - $sectionStart)
             $plainPattern = "(?m)^\|\s*$escapedName\s*\|[^|\r\n]*\|"
-            $plainReplacement = "| $Name | $backtick$DisplayVersion$backtick |"
+            $plainReplacement = "| [$Name]($Repository) | $backtick$DisplayVersion$backtick |"
             $updatedSection = [regex]::Replace($section, $plainPattern, $plainReplacement, 1)
             if ($updatedSection -ne $section) {
                 $newText = $text.Substring(0, $sectionStart) + $updatedSection + $text.Substring($sectionEnd)
@@ -708,6 +708,141 @@ function Update-ReadmeVersion([string]$Name, [string]$Repository, [string]$Displ
         $newText,
         (New-Object System.Text.UTF8Encoding($false))
     )
+}
+
+
+function Sync-ReadmeAddonTable() {
+    if (-not (Test-Path -LiteralPath $ReadmePath) -or $DryRun) {
+        return
+    }
+
+    $text = Get-Content -LiteralPath $ReadmePath -Raw
+    $newline = if ($text.Contains(([string][char]13) + ([string][char]10))) {
+        ([string][char]13) + ([string][char]10)
+    } else {
+        [string][char]10
+    }
+    $lines = [regex]::Split($text, "\r\n|\n")
+    $sectionStart = -1
+    for ($i = 0; $i -lt $lines.Length; $i++) {
+        if ($lines[$i].Trim() -eq "## Larnz-managed add-ons") {
+            $sectionStart = $i
+            break
+        }
+    }
+    if ($sectionStart -lt 0) {
+        throw "README is missing the Larnz-managed add-ons section."
+    }
+
+    $sectionEnd = $lines.Length
+    for ($i = $sectionStart + 1; $i -lt $lines.Length; $i++) {
+        if ($lines[$i] -match "^##\s") {
+            $sectionEnd = $i
+            break
+        }
+    }
+
+    $headerIndex = -1
+    for ($i = $sectionStart + 1; $i -lt $sectionEnd; $i++) {
+        if ($lines[$i].Trim() -eq "| Add-on | Version | Purpose |") {
+            $headerIndex = $i
+            break
+        }
+    }
+    if ($headerIndex -lt 0 -or $headerIndex + 1 -ge $sectionEnd -or
+        $lines[$headerIndex + 1].Trim() -ne "| --- | --- | --- |") {
+        throw "README Larnz add-on table header is missing or malformed."
+    }
+
+    $dataStart = $headerIndex + 2
+    $dataEnd = $dataStart
+    while ($dataEnd -lt $sectionEnd -and $lines[$dataEnd] -match "^\s*\|.*\|\s*$") {
+        $dataEnd++
+    }
+
+    $purposes = @{}
+    for ($i = $dataStart; $i -lt $dataEnd; $i++) {
+        if ($lines[$i] -match "^\|\s*(?<label>.*?)\s*\|\s*(?<version>.*?)\s*\|\s*(?<purpose>.*?)\s*\|\s*$") {
+            $label = $Matches["label"].Trim()
+            if ($label -match "^\[(?<linkedName>[^\]]+)\]\([^)]+\)$") {
+                $label = $Matches["linkedName"]
+            }
+            if (-not [string]::IsNullOrWhiteSpace($label)) {
+                $purposes[$label] = $Matches["purpose"].Trim()
+            }
+        }
+    }
+
+    # Metamod is already documented in the KUS catalog table, so avoid duplicating it.
+    $tableAddons = @(
+        $manifest.addons |
+            Where-Object { [string]$_.name -ne "Metamod:Source" } |
+            Sort-Object { [int]$_.order }
+    )
+    if ($tableAddons.Count -eq 0) {
+        throw "DEPENDENCIES.json contains no Larnz-managed add-ons to document."
+    }
+
+    $backtick = [string][char]96
+    $newRows = [System.Collections.Generic.List[string]]::new()
+    foreach ($addon in $tableAddons) {
+        $name = [string]$addon.name
+        $repository = [string]$addon.repository
+        $displayVersion = [string]$addon.version
+        if ([string]::IsNullOrWhiteSpace($name) -or [string]::IsNullOrWhiteSpace($repository) -or
+            [string]::IsNullOrWhiteSpace($displayVersion)) {
+            throw "A Larnz-managed manifest entry is missing name, repository, or version."
+        }
+
+        if ([string]$addon.type -eq "github_source_build" -and
+            -not [string]::IsNullOrWhiteSpace([string]$addon.branch)) {
+            $shortCommit = $displayVersion.Substring(0, [Math]::Min(12, $displayVersion.Length))
+            $displayVersion = "$([string]$addon.branch)@$shortCommit"
+        }
+
+        if ($purposes.ContainsKey($name)) {
+            $purpose = [string]$purposes[$name]
+        } elseif ([bool]$addon.installed -eq $false) {
+            $purpose = "Not installed; tracked as a manual manifest entry."
+        } else {
+            $purpose = "Manifest-managed add-on."
+        }
+
+        # Derive install status from the manifest rather than freezing it into prose.
+        $purpose = $purpose -replace "(?i);\s*not installed and marked manual in the Larnz manifest$", ""
+        $purpose = $purpose -replace "(?i);\s*not installed$", ""
+        if ([bool]$addon.installed -eq $false) {
+            if ([string]$addon.automation_supported -eq "False") {
+                $purpose += "; not installed and marked manual in the Larnz manifest"
+            } elseif ($purpose -notmatch "(?i)\bnot installed\b") {
+                $purpose += "; not installed"
+            }
+        }
+
+        $versionCell = $backtick + $displayVersion + $backtick
+        $newRows.Add("| [$name]($repository) | $versionCell | $purpose |")
+    }
+
+    $updatedLines = [System.Collections.Generic.List[string]]::new()
+    for ($i = 0; $i -lt $dataStart; $i++) {
+        $updatedLines.Add($lines[$i])
+    }
+    foreach ($row in $newRows) {
+        $updatedLines.Add($row)
+    }
+    for ($i = $dataEnd; $i -lt $lines.Length; $i++) {
+        $updatedLines.Add($lines[$i])
+    }
+
+    $newText = [string]::Join($newline, $updatedLines.ToArray())
+    if ($newText -ne $text) {
+        [IO.File]::WriteAllText(
+            $ReadmePath,
+            $newText,
+            (New-Object System.Text.UTF8Encoding($false))
+        )
+        Write-Info "Synchronized the Larnz add-on links and versions from DEPENDENCIES.json."
+    }
 }
 
 if (-not (Test-Path $ManifestPath)) {
@@ -867,6 +1002,40 @@ foreach ($addon in $addons) {
     catch {
         Write-Host "  ERROR $($_.Exception.Message)" -ForegroundColor Red
         exit 1
+    }
+}
+
+
+Sync-ReadmeAddonTable
+if (-not $DryRun) {
+    # If no release needed an update, the README may still need reconciliation.
+    # Commit only this expected documentation path, never unrelated working-tree files.
+    & git -C $RepoRoot diff --quiet -- README.md
+    $readmeDiffExit = $LASTEXITCODE
+    if ($readmeDiffExit -eq 1) {
+        & git -C $RepoRoot add -- README.md
+        if ($LASTEXITCODE -ne 0) {
+            throw "git add failed while staging README synchronization."
+        }
+
+        $stagedFiles = @(& git -C $RepoRoot diff --cached --name-only)
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not inspect staged README synchronization."
+        }
+        $unexpectedStaged = @($stagedFiles | Where-Object { $_ -ne "README.md" })
+        if ($unexpectedStaged.Count -gt 0) {
+            throw ("README synchronization found unexpected staged changes: " + ($unexpectedStaged -join ", "))
+        }
+        if ($stagedFiles -contains "README.md") {
+            & git -C $RepoRoot commit -m "Sync README add-on table from manifest"
+            if ($LASTEXITCODE -ne 0) {
+                throw "Could not commit README synchronization."
+            }
+            $short = (& git -C $RepoRoot rev-parse --short HEAD).Trim()
+            Write-Info "Committed README synchronization $short"
+        }
+    } elseif ($readmeDiffExit -ne 0) {
+        throw "Could not check README synchronization diff."
     }
 }
 
