@@ -582,32 +582,43 @@ function Install-SourceBuildAddon($Addon, $Commit) {
     New-Item -ItemType Directory -Force -Path $workRoot | Out-Null
 
     $zip = Join-Path $workRoot "source.zip"
+    $sourceExtractRoot = Join-Path $workRoot "source"
+    $output = Join-Path $workRoot "publish"
+
+    New-Item -ItemType Directory -Force -Path $sourceExtractRoot | Out-Null
+
     $repo = Get-RepoSlug $Addon.repository
     $url = "https://github.com/$repo/archive/$($Commit.sha).zip"
 
     Write-Info "Downloading $($Addon.name) source"
     Invoke-WebRequest -Uri $url -Headers (Get-GitHubHeaders) -OutFile $zip -UseBasicParsing
-    Expand-Archive -LiteralPath $zip -DestinationPath $workRoot -Force
+    Expand-Archive -LiteralPath $zip -DestinationPath $sourceExtractRoot -Force
 
     $project = @(
-        Get-ChildItem -LiteralPath $workRoot -Recurse -File -Filter ([string]$Addon.project)
+        Get-ChildItem -LiteralPath $sourceExtractRoot -Recurse -File -Filter ([string]$Addon.project)
     ) | Select-Object -First 1
 
     if (-not $project) {
-        throw "Could not find build project '$($Addon.project)'."
+        throw "Could not find build project '$($Addon.project)' in the downloaded source archive."
     }
 
-    $sourceRootCandidates = @(
-        Get-ChildItem -LiteralPath $workRoot -Directory -ErrorAction SilentlyContinue |
-            Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "README.md") -PathType Leaf }
-    )
-    $sourceRoot = if ($sourceRootCandidates.Count -gt 0) {
-        $sourceRootCandidates[0].FullName
+    # GitHub source archives usually contain one wrapper directory, but some may
+    # extract directly into sourceExtractRoot. Pick the real repository root so
+    # source_mappings such as lang/ or src/lang/ resolve consistently.
+    if (Test-Path -LiteralPath (Join-Path $sourceExtractRoot "README.md") -PathType Leaf) {
+        $sourceRoot = $sourceExtractRoot
     } else {
-        $project.Directory.FullName
+        $sourceRootCandidates = @(
+            Get-ChildItem -LiteralPath $sourceExtractRoot -Directory -ErrorAction SilentlyContinue |
+                Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "README.md") -PathType Leaf }
+        )
+        if ($sourceRootCandidates.Count -gt 0) {
+            $sourceRoot = $sourceRootCandidates[0].FullName
+        } else {
+            $sourceRoot = $sourceExtractRoot
+        }
     }
 
-    $output = Join-Path $workRoot "publish"
     New-Item -ItemType Directory -Force -Path $output | Out-Null
 
     Write-Info "Building $($Addon.name)"
@@ -639,8 +650,8 @@ function Install-SourceBuildAddon($Addon, $Commit) {
             throw "Source-build install_directory escapes game/csgo for $($Addon.name): $installRelative"
         }
 
-        # The CounterStrikeSharp API is supplied by the active CSS runtime, not copied
-        # into every plugin directory. Keep private NuGet dependencies (e.g. menu APIs).
+        # CounterStrikeSharp.API is supplied by the active CSS runtime, not copied
+        # into every plugin directory. Keep private NuGet dependencies such as menu APIs.
         foreach ($apiFile in @("CounterStrikeSharp.API.dll", "CounterStrikeSharp.API.xml")) {
             $privateApi = Join-Path $output $apiFile
             if (Test-Path -LiteralPath $privateApi -PathType Leaf) {
