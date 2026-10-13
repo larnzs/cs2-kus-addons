@@ -40,6 +40,47 @@ jobs:
             bash -n "$file"
           done < <(find scripts/update/plugins -type f -name '*.sh' -print0)
 
+      - name: Test manifest updater helper behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -euo pipefail <<'MANIFEST_HELPER_TEST'
+          exec 3>&1
+          source scripts/update/lib.sh
+          source scripts/update/manifest-addon.sh
+
+          # The generic helper must allow automated plugins but refuse manual-only ones.
+          manifest_assert_automation_supported "CS2-Playervotes"
+          if (manifest_assert_automation_supported "SLAYER_Noscope" >/dev/null 2>&1); then
+            echo "ERROR: manual-only SLAYER_Noscope was allowed through the updater guard." >&2
+            exit 1
+          fi
+          if (manifest_assert_automation_supported "CS2-Gunsmenu" >/dev/null 2>&1); then
+            echo "ERROR: manual-only CS2-Gunsmenu was allowed through the updater guard." >&2
+            exit 1
+          fi
+
+          # Exercise the real manifest source-patch loop without touching the payload.
+          patch_root="$(mktemp -d)"
+          trap 'rm -rf "$patch_root"' EXIT
+          mkdir -p "$patch_root/src"
+          find_text="$(jq -er '.addons[] | select(.name == "CS2-Playervotes") | .source_patches[0].find' DEPENDENCIES.json)"
+          replace_text="$(jq -er '.addons[] | select(.name == "CS2-Playervotes") | .source_patches[0].replace' DEPENDENCIES.json)"
+          printf '%s' "$find_text" > "$patch_root/src/Main.cs"
+          manifest_apply_source_patches "CS2-Playervotes" "$patch_root"
+          grep -Fq "$replace_text" "$patch_root/src/Main.cs"
+          if grep -Fq "$find_text" "$patch_root/src/Main.cs"; then
+            echo "ERROR: source compatibility text remained after patching." >&2
+            exit 1
+          fi
+          before="$(cat "$patch_root/src/Main.cs")"
+          manifest_apply_source_patches "CS2-Playervotes" "$patch_root"
+          after="$(cat "$patch_root/src/Main.cs")"
+          [[ "$before" == "$after" ]] || { echo "ERROR: repeated source patch changed an already-patched file." >&2; exit 1; }
+
+          echo "PASS: Bash manifest guard and source-patch helper behavior."
+          MANIFEST_HELPER_TEST
+
       - name: Test gameinfo patch and manifest integrity
         shell: pwsh
         run: ./scripts/Test-UpdaterIntegrity.ps1
