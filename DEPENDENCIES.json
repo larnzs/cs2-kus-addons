@@ -778,7 +778,7 @@
       "project": "advanced_friendlyfire.csproj",
       "output_file": "advanced_friendlyfire.dll",
       "install_directory": "addons/counterstrikesharp/plugins/disabled/advanced_friendlyfire",
-      "installed": false,
+      "installed": true,
       "source_commit": "ab332f0b59235339041f680fdf0574223af9b9df",
       "verify_paths": [
         "addons/counterstrikesharp/plugins/disabled/advanced_friendlyfire/advanced_friendlyfire.dll",
