@@ -722,7 +722,7 @@
       "project": "Antibait.csproj",
       "output_file": "Antibait.dll",
       "install_directory": "addons/counterstrikesharp/plugins/disabled/Antibait",
-      "installed": false,
+      "installed": true,
       "source_commit": "825f83202bdb6adb3e982572126c256dce02db05",
       "source_mappings": [
         {
