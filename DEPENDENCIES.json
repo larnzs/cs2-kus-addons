@@ -733,6 +733,13 @@
       "verify_paths": [
         "addons/counterstrikesharp/plugins/disabled/Antibait/Antibait.dll",
         "addons/counterstrikesharp/plugins/disabled/Antibait/lang/en.json"
+      ],
+      "source_patches": [
+        {
+          "path": "src/Util.cs",
+          "find": "PlayerConnectedState.PlayerConnected",
+          "replace": "PlayerConnectedState.Connected"
+        }
       ]
     },
     {
