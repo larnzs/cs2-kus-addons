@@ -576,7 +576,7 @@
       "project": "RockTheVote.csproj",
       "output_file": "RockTheVote.dll",
       "install_directory": "addons/counterstrikesharp/plugins/RockTheVote",
-      "installed": false,
+      "installed": true,
       "source_commit": "bba6dba74836751e25ab4c80270f6b90fe7f255f",
       "source_mappings": [
         {
