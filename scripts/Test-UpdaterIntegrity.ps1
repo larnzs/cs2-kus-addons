@@ -38,7 +38,15 @@ try {
         } elseif ($addon.type -eq "github_source_build") {
             Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$addon.project)) "Source-built add-on '$($addon.name)' has no project."
             Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$addon.output_file)) "Source-built add-on '$($addon.name)' has no output_file."
-            Assert-Condition ((-not [string]::IsNullOrWhiteSpace([string]$addon.install_directory)) -or (-not [string]::IsNullOrWhiteSpace([string]$addon.install_path))) "Source-built add-on '$($addon.name)' has no destination."
+            $hasInstallDirectory = $false
+            $hasInstallPath = $false
+            if ($addon.PSObject.Properties.Name -contains "install_directory") {
+                $hasInstallDirectory = -not [string]::IsNullOrWhiteSpace([string]$addon.install_directory)
+            }
+            if ($addon.PSObject.Properties.Name -contains "install_path") {
+                $hasInstallPath = -not [string]::IsNullOrWhiteSpace([string]$addon.install_path)
+            }
+            Assert-Condition ($hasInstallDirectory -or $hasInstallPath) "Source-built add-on '$($addon.name)' has no destination."
         } else {
             throw "TEST FAILED: unsupported add-on type '$($addon.type)'."
         }
