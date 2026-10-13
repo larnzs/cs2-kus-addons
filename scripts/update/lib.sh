@@ -606,22 +606,39 @@ readme_line_number() {   # $1 name, $2 url -> one row in KUS or Larnz table
 }
 
 readme_set_version() {   # $1 name, $2 URL, $3 old version, $4 new version
-    local n line oldtick newtick oldplain newplain replacement
+    local n line old_version new_version oldtick newtick oldplain newplain replacement addon_type branch
+    old_version="$3"
+    new_version="$4"
+
+    # Manifest source-build entries store full branch commit SHAs, while README.md
+    # intentionally displays <branch>@<12-char-SHA>. Translate both values before
+    # replacing the row; without this, source-build updates would install successfully
+    # and then fail the one-line README validation (also affecting TeamLimiter).
+    if [ "${MANIFEST_ADDON_ACTIVE:-0}" = "1" ]; then
+        addon_type=$(jq -r --arg name "$1" '.addons[] | select(.name == $name) | .type // empty' DEPENDENCIES.json)
+        if [ "$addon_type" = "github_source_build" ]; then
+            branch=$(jq -r --arg name "$1" '.addons[] | select(.name == $name) | .branch // empty' DEPENDENCIES.json)
+            [ -n "$branch" ] || die "manifest branch is missing for source-built addon $1"
+            old_version="${branch}@$(printf '%s' "$3" | cut -c1-12)"
+            new_version="${branch}@$(printf '%s' "$4" | cut -c1-12)"
+        fi
+    fi
+
     n=$(readme_line_number "$1" "$2")
     line=$(sed -n "${n}p" README.md)
-    oldtick='`'"$3"'`'; newtick='`'"$4"'`'
-    oldplain="| $3 |"; newplain="| $4 |"
+    oldtick='`'"$old_version"'`'; newtick='`'"$new_version"'`'
+    oldplain="| $old_version |"; newplain="| $new_version |"
     replacement="$line"
     if [[ "$line" == *"$oldtick"* ]]; then
         replacement="${line/"$oldtick"/"$newtick"}"
     elif [[ "$line" == *"$oldplain"* ]]; then
         replacement="${line/"$oldplain"/"$newplain"}"
     else
-        replacement="${line/"$3"/"$4"}"
+        replacement="${line/"$old_version"/"$new_version"}"
     fi
-    [ "$replacement" != "$line" ] || die "README.md line $n does not contain version '$3': $line"
-    if is_dry; then dry "update README.md line $n: '$3' -> '$4'"; return 0; fi
-    step "updating README.md line $n: '$3' -> '$4'"
+    [ "$replacement" != "$line" ] || die "README.md line $n does not contain version '$old_version': $line"
+    if is_dry; then dry "update README.md line $n: '$old_version' -> '$new_version'"; return 0; fi
+    step "updating README.md line $n: '$old_version' -> '$new_version'"
     awk -v n="$n" -v replacement="$replacement" 'NR == n { $0 = replacement } { print }' README.md > README.md.update-tmp || die "failed to rewrite README.md"
     mv README.md.update-tmp README.md
 }

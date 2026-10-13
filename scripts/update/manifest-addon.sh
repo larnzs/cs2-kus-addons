@@ -161,3 +161,113 @@ manifest_plugin_apply() {
     manifest_verify_addon "$addon"
     manifest_update_version "$addon" "$NEW_VERSION"
 }
+
+# ----------------------------------------------------------------------------- source-built manifest add-ons
+# Source-built plugins are tracked by their branch commit SHA in DEPENDENCIES.json.
+# The per-plugin wrapper declares PLUGIN_PATHS; these shared functions only fetch,
+# build and overlay files inside those declared targets. No existing files are deleted.
+
+manifest_source_build_assets() {
+    local repo
+    repo=$(github_repo_from_url "$PLUGIN_URL")
+    [ -n "$repo" ] || die "could not resolve GitHub repository for $PLUGIN_NAME"
+    [ -n "$NEW_VERSION" ] || die "no source commit SHA available for $PLUGIN_NAME"
+    printf 'source.zip\t%s\t0\n' "https://github.com/$repo/archive/$NEW_VERSION.zip"
+}
+
+manifest_source_build_apply() {
+    local addon="$1"
+    local project_relative output_file install_directory extract project source_root current
+    local publish built relative destination source_relative install_relative source target
+
+    project_relative=$(jq -er --arg name "$addon" '.addons[] | select(.name == $name) | .project // empty' DEPENDENCIES.json) \
+        || die "manifest project is missing for source-built addon $addon"
+    output_file=$(jq -er --arg name "$addon" '.addons[] | select(.name == $name) | .output_file // empty' DEPENDENCIES.json) \
+        || die "manifest output_file is missing for source-built addon $addon"
+    install_directory=$(jq -er --arg name "$addon" '.addons[] | select(.name == $name) | .install_directory // empty' DEPENDENCIES.json) \
+        || die "manifest install_directory is missing for source-built addon $addon"
+
+    check_repo_relative "$project_relative" || die "unsafe project path for $addon: $project_relative"
+    check_repo_relative "game/csgo/$install_directory" || die "unsafe install directory for $addon: $install_directory"
+    case "$output_file" in
+        ""|*/*|*\\*|*..*) die "unsafe output_file for $addon: $output_file" ;;
+    esac
+
+    if is_dry; then
+        dry "download source commit $NEW_VERSION and build $addon using $project_relative"
+        dry "overlay build output into game/csgo/$install_directory (excluding CounterStrikeSharp.API.dll/xml)"
+        while IFS=$'\t' read -r source_relative install_relative; do
+            [ -n "$source_relative" ] || continue
+            dry "overlay source mapping $source_relative -> game/csgo/$install_relative"
+        done < <(jq -r --arg name "$addon" '.addons[] | select(.name == $name) | .source_mappings[]? | [.source_path, .install_path] | @tsv' DEPENDENCIES.json)
+        dry "verify declared runtime paths for $addon"
+        manifest_update_version "$addon" "$NEW_VERSION"
+        return 0
+    fi
+
+    extract=$(extract_asset "source.zip")
+    project=$(find "$extract" -type f -path "*/$project_relative" -print -quit)
+    [ -n "$project" ] && [ -f "$project" ] || die "could not find source project for $addon: $project_relative"
+
+    # GitHub source ZIPs contain one wrapper folder. Walk upward from the project
+    # to the repository root (identified by README.md), so source_mappings remain
+    # relative to the upstream repository even when the csproj lives in src/.
+    source_root=$(dirname "$project")
+    while [ "$source_root" != "$extract" ]; do
+        [ ! -f "$source_root/README.md" ] || break
+        current=$(dirname "$source_root")
+        [ "$current" != "$source_root" ] || break
+        source_root="$current"
+    done
+    [ -f "$source_root/README.md" ] || die "could not identify upstream source root for $addon (expected README.md above the project)"
+    [ -d "$source_root" ] || die "upstream source root is not a directory for $addon: $source_root"
+
+    publish="$DOWNLOAD_DIR/publish"
+    case "$publish" in
+        tmp/update/*/publish) ;;
+        *) die "refusing to use unexpected build output path: $publish" ;;
+    esac
+    rm -rf "$publish"
+    mkdir -p "$publish"
+
+    step "building $addon from commit $NEW_VERSION"
+    dotnet build "$project" -c Release -o "$publish" --nologo -p:CopyLocalLockFileAssemblies=true >&3 2>&3 \
+        || die "dotnet build failed for $addon"
+    [ -f "$publish/$output_file" ] || die "expected build output missing for $addon: $publish/$output_file"
+
+    # Keep the plugin's full build output (including .deps.json and private
+    # NuGet dependencies), but use the live CounterStrikeSharp API supplied by
+    # the server instead of shipping a private copy in every plugin directory.
+    while IFS= read -r -d '' built; do
+        relative="${built#"$publish"/}"
+        case "$relative" in
+            CounterStrikeSharp.API.dll|CounterStrikeSharp.API.xml) continue ;;
+        esac
+        destination="game/csgo/$install_directory/$relative"
+        copy_file "$built" "$destination"
+    done < <(find "$publish" -type f -print0)
+
+    # Some projects keep language files or sample data beside the csproj rather
+    # than copying them to dotnet's output. Apply the explicit manifest mappings
+    # for those files without touching manually managed CounterStrikeSharp configs.
+    while IFS=$'\t' read -r source_relative install_relative; do
+        [ -n "$source_relative" ] || continue
+        case "$source_relative" in
+            ""|/*|..|../*|*/..|*/../*) die "unsafe source mapping path for $addon: $source_relative" ;;
+        esac
+        check_repo_relative "game/csgo/$install_relative" || die "unsafe source mapping destination for $addon: $install_relative"
+        source="$source_root/$source_relative"
+        destination="game/csgo/$install_relative"
+        if [ -d "$source" ]; then
+            copy_dir "$source" "$destination"
+        elif [ -f "$source" ]; then
+            copy_file "$source" "$destination"
+        else
+            die "manifest source mapping does not exist for $addon: $source_relative"
+        fi
+    done < <(jq -r --arg name "$addon" '.addons[] | select(.name == $name) | .source_mappings[]? | [.source_path, .install_path] | @tsv' DEPENDENCIES.json)
+
+    manifest_verify_addon "$addon"
+    manifest_update_version "$addon" "$NEW_VERSION"
+    remove_extracted "$extract"
+}

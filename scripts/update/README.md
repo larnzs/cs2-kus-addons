@@ -93,9 +93,18 @@ The workflow runs the same KUS updater described in this document, then a second
 ### Coverage and its limits
 
 - All **15 upstream KUS per-plugin scripts** documented in the `Existing plugin scripts` table below are present in this repository.
-- All **17 currently installed and automated entries** in `DEPENDENCIES.json` have matching script files. This includes MetaMod and CounterStrikeSharp, which are handled by the dedicated KUS scripts.
+- Every manifest entry marked `installed: true` with automation enabled has a matching `scripts/update/plugins/<slug>.sh` adapter; CI checks this coverage dynamically. MetaMod and CounterStrikeSharp use their dedicated KUS-style scripts.
+- Entries initially marked `installed: false` are bootstrap-installed by the PowerShell source/release updater. Once their files verify successfully, the manifest flips them to `installed: true`; the Bash adapters then track upstream release tags or branch commits on subsequent hourly runs.
 - `CS2-WeaponRestrict` is deliberately excluded because its manifest entry is `installed: false` and `automation_supported: false`.
 - KUS's own documentation says a catalog row **without** a `scripts/update/plugins/<slug>.sh` is reported as “no update script” and skipped; those optional catalog rows are not automatically installed or updated just because they appear in the version table. The CI coverage check prevents a documented script or an enabled manifest add-on from silently losing its script.
+
+### Source-built manifest adapters
+
+Manifest entries with `type: github_source_build` are versioned by the full SHA of their configured upstream branch. Their per-add-on Bash wrapper uses the shared `manifest_source_build_apply()` helper in `manifest-addon.sh`, which downloads that exact source snapshot, builds its declared project with the .NET SDK, overlays the complete build output (including required `.deps.json` and private dependencies, excluding the server-provided `CounterStrikeSharp.API.dll/xml`), and applies any declared `source_mappings` for language files or sample data. The install directory remains the source of truth for whether the plugin is global or under `plugins/disabled/`.
+
+The source-build README version is displayed as `<branch>@<12-character-SHA>` even though the manifest records the full SHA. The shared README updater preserves this distinction when an upstream commit changes, including for the existing TeamLimiter source-build adapter.
+
+The new adapters are `cs2-poor-mappropads.sh`, `rockthevote.sh`, `cs2-playervotes.sh`, `slayer-noscope.sh`, `cs2-stafflist.sh`, `abs-mapcycle.sh`, `cs2-antibait.sh`, `advancedfriendlyfire.sh`, and `cs2-gunsmenu.sh`. `cs2-killfeedfilter.sh` follows the tagged release asset instead.
 
 This differs from upstream KUS's original Action: this integration commits successful updates to the private `integration/kus-monorepo` branch, rather than opening a pull request into KUS's `master`.
 
