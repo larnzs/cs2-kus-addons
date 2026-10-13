@@ -311,7 +311,7 @@ process_manifest_addons() {
         version=$(printf '%s' "$entry" | jq -r '.version // empty')
         track=$(printf '%s' "$entry" | jq -r '.track // "latest"')
         type=$(printf '%s' "$entry" | jq -r '.type // empty')
-        automation=$(printf '%s' "$entry" | jq -r '.automation_supported // true')
+        automation=$(printf '%s' "$entry" | jq -r '.automation_supported != false')
         branch=$(printf '%s' "$entry" | jq -r '.branch // "main"')
         [ "$automation" = "true" ] || { info "skipping $name: automation_supported=false"; continue; }
         case "$name" in Metamod:Source) continue ;; esac
