@@ -1,0 +1,45 @@
+name: Updater Script Validation
+
+on:
+  push:
+    branches:
+      - integration/kus-monorepo
+    paths:
+      - 'scripts/**'
+      - 'windows/**'
+      - 'DEPENDENCIES.json'
+      - '.github/workflows/updater-validation.yml'
+  pull_request:
+    branches:
+      - integration/kus-monorepo
+    paths:
+      - 'scripts/**'
+      - 'windows/**'
+      - 'DEPENDENCIES.json'
+      - '.github/workflows/updater-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate updater scripts and manifest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate Bash syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/update/manifest-addon.sh
+          while IFS= read -r -d '' file; do
+            echo "Checking $file"
+            bash -n "$file"
+          done < <(find scripts/update/plugins -type f -name '*.sh' -print0)
+
+      - name: Test gameinfo patch and manifest integrity
+        shell: pwsh
+        run: ./scripts/Test-UpdaterIntegrity.ps1
