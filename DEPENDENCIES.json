@@ -609,7 +609,7 @@
       "project": "src/Playervotes.csproj",
       "output_file": "Playervotes.dll",
       "install_directory": "addons/counterstrikesharp/plugins/Playervotes",
-      "installed": false,
+      "installed": true,
       "source_commit": "81b4a2bda817b304fba372d1e6678a5a48ef2e9d",
       "source_mappings": [
         {
