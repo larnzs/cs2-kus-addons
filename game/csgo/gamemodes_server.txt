@@ -570,6 +570,7 @@
 				"workshop/3348038890/de_inferno_prophunt"		""
 				"workshop/3292648008/de_vertigo_prophunt"		""
 				"workshop/3287578956/de_mirage_prophunt"		""
+				"workshop/3446321924/Prison [Hide and Seek][CS2]"	""
 			}
 		}
 		"mg_soccer"
