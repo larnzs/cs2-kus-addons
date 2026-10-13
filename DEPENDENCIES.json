@@ -534,6 +534,266 @@
         "addons/counterstrikesharp/plugins/CS2UpdateMonitor/CS2UpdateMonitor.deps.json",
         "addons/counterstrikesharp/plugins/CS2UpdateMonitor/CS2UpdateMonitor.runtimeconfig.json"
       ]
+    },
+    {
+      "order": 18,
+      "name": "CS2-Poor-MapPropAds",
+      "repository": "https://github.com/Letaryat/CS2-Poor-MapPropAds",
+      "type": "github_source_build",
+      "track": "branch",
+      "branch": "main",
+      "version": "2a1e4ce9e8af55aaa93aa1ed53476bfb2193ffcb",
+      "depends_on": [
+        "CounterStrikeSharp"
+      ],
+      "project": "src/CS2-Poor-MapPropAds.csproj",
+      "output_file": "CS2-Poor-MapPropAds.dll",
+      "install_directory": "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds",
+      "installed": false,
+      "source_commit": "2a1e4ce9e8af55aaa93aa1ed53476bfb2193ffcb",
+      "source_mappings": [
+        {
+          "source_path": "lang",
+          "install_path": "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/lang"
+        }
+      ],
+      "verify_paths": [
+        "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/CS2-Poor-MapPropAds.dll",
+        "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/lang/en.json"
+      ]
+    },
+    {
+      "order": 19,
+      "name": "RockTheVote",
+      "repository": "https://github.com/Oz-Lin/cs2-rockthevote",
+      "type": "github_source_build",
+      "track": "branch",
+      "branch": "main",
+      "version": "bba6dba74836751e25ab4c80270f6b90fe7f255f",
+      "depends_on": [
+        "CounterStrikeSharp"
+      ],
+      "project": "RockTheVote.csproj",
+      "output_file": "RockTheVote.dll",
+      "install_directory": "addons/counterstrikesharp/plugins/RockTheVote",
+      "installed": false,
+      "source_commit": "bba6dba74836751e25ab4c80270f6b90fe7f255f",
+      "source_mappings": [
+        {
+          "source_path": "lang",
+          "install_path": "addons/counterstrikesharp/plugins/RockTheVote/lang"
+        },
+        {
+          "source_path": "maplist.example.txt",
+          "install_path": "addons/counterstrikesharp/plugins/RockTheVote/maplist.example.txt"
+        }
+      ],
+      "verify_paths": [
+        "addons/counterstrikesharp/plugins/RockTheVote/RockTheVote.dll",
+        "addons/counterstrikesharp/plugins/RockTheVote/lang/en.json",
+        "addons/counterstrikesharp/plugins/RockTheVote/maplist.example.txt"
+      ]
+    },
+    {
+      "order": 20,
+      "name": "CS2-Playervotes",
+      "repository": "https://github.com/asapverneri/CS2-Playervotes",
+      "type": "github_source_build",
+      "track": "branch",
+      "branch": "main",
+      "version": "81b4a2bda817b304fba372d1e6678a5a48ef2e9d",
+      "depends_on": [
+        "CounterStrikeSharp"
+      ],
+      "project": "src/Playervotes.csproj",
+      "output_file": "Playervotes.dll",
+      "install_directory": "addons/counterstrikesharp/plugins/Playervotes",
+      "installed": false,
+      "source_commit": "81b4a2bda817b304fba372d1e6678a5a48ef2e9d",
+      "source_mappings": [
+        {
+          "source_path": "src/lang",
+          "install_path": "addons/counterstrikesharp/plugins/Playervotes/lang"
+        }
+      ],
+      "verify_paths": [
+        "addons/counterstrikesharp/plugins/Playervotes/Playervotes.dll",
+        "addons/counterstrikesharp/plugins/Playervotes/Playervotes.deps.json",
+        "addons/counterstrikesharp/plugins/Playervotes/lang/en.json"
+      ]
+    },
+    {
+      "order": 21,
+      "name": "CS2-StaffList",
+      "repository": "https://github.com/asapverneri/CS2-StaffList",
+      "type": "github_source_build",
+      "track": "branch",
+      "branch": "main",
+      "version": "07fc28119686a6dd0c78a74f023f5cc6eff55ec9",
+      "depends_on": [
+        "CounterStrikeSharp"
+      ],
+      "project": "CS2Stafflist.csproj",
+      "output_file": "CS2Stafflist.dll",
+      "install_directory": "addons/counterstrikesharp/plugins/CS2Stafflist",
+      "installed": false,
+      "source_commit": "07fc28119686a6dd0c78a74f023f5cc6eff55ec9",
+      "source_mappings": [
+        {
+          "source_path": "lang",
+          "install_path": "addons/counterstrikesharp/plugins/CS2Stafflist/lang"
+        }
+      ],
+      "verify_paths": [
+        "addons/counterstrikesharp/plugins/CS2Stafflist/CS2Stafflist.dll",
+        "addons/counterstrikesharp/plugins/CS2Stafflist/CS2Stafflist.deps.json",
+        "addons/counterstrikesharp/plugins/CS2Stafflist/lang/en.json"
+      ]
+    },
+    {
+      "order": 22,
+      "name": "SLAYER_Noscope",
+      "repository": "https://github.com/zakriamansoor47/SLAYER_Noscope",
+      "type": "github_source_build",
+      "track": "branch",
+      "branch": "main",
+      "version": "d0987f3934850c674c829dc2ce912a21e626fd0d",
+      "depends_on": [
+        "CounterStrikeSharp"
+      ],
+      "project": "SLAYER_Noscope.csproj",
+      "output_file": "SLAYER_Noscope.dll",
+      "install_directory": "addons/counterstrikesharp/plugins/SLAYER_Noscope",
+      "installed": false,
+      "source_commit": "d0987f3934850c674c829dc2ce912a21e626fd0d",
+      "source_mappings": [
+        {
+          "source_path": "lang",
+          "install_path": "addons/counterstrikesharp/plugins/SLAYER_Noscope/lang"
+        }
+      ],
+      "verify_paths": [
+        "addons/counterstrikesharp/plugins/SLAYER_Noscope/SLAYER_Noscope.dll",
+        "addons/counterstrikesharp/plugins/SLAYER_Noscope/lang/en.json"
+      ]
+    },
+    {
+      "order": 23,
+      "name": "ABS_MapCycle",
+      "repository": "https://github.com/Austinbots/cs2-Change-Map-Rotation-Using-Text-File",
+      "type": "github_source_build",
+      "track": "branch",
+      "branch": "main",
+      "version": "7d71a7bf29bbebcdc192cdc3f7b714620821ea85",
+      "depends_on": [
+        "CounterStrikeSharp"
+      ],
+      "project": "ABS_MapCycle.csproj",
+      "output_file": "ABS_MapCycle.dll",
+      "install_directory": "addons/counterstrikesharp/plugins/disabled/ABS_MapCycle",
+      "installed": false,
+      "source_commit": "7d71a7bf29bbebcdc192cdc3f7b714620821ea85",
+      "verify_paths": [
+        "addons/counterstrikesharp/plugins/disabled/ABS_MapCycle/ABS_MapCycle.dll"
+      ]
+    },
+    {
+      "order": 24,
+      "name": "CS2-Antibait",
+      "repository": "https://github.com/NeuTroNBZh/CS2-Antibait",
+      "type": "github_source_build",
+      "track": "branch",
+      "branch": "main",
+      "version": "825f83202bdb6adb3e982572126c256dce02db05",
+      "depends_on": [
+        "CounterStrikeSharp"
+      ],
+      "project": "Antibait.csproj",
+      "output_file": "Antibait.dll",
+      "install_directory": "addons/counterstrikesharp/plugins/disabled/Antibait",
+      "installed": false,
+      "source_commit": "825f83202bdb6adb3e982572126c256dce02db05",
+      "source_mappings": [
+        {
+          "source_path": "lang",
+          "install_path": "addons/counterstrikesharp/plugins/disabled/Antibait/lang"
+        }
+      ],
+      "verify_paths": [
+        "addons/counterstrikesharp/plugins/disabled/Antibait/Antibait.dll",
+        "addons/counterstrikesharp/plugins/disabled/Antibait/lang/en.json"
+      ]
+    },
+    {
+      "order": 25,
+      "name": "CS2-KillFeedFilter",
+      "repository": "https://github.com/abnerfs/cs2-killfeed-filter",
+      "type": "github_release",
+      "track": "latest",
+      "version": "1.0.1",
+      "release_tag": "1.0.1",
+      "assets": [
+        "KillFeedFilter_{version}.zip"
+      ],
+      "depends_on": [
+        "CounterStrikeSharp"
+      ],
+      "installed": false,
+      "merge": "release_plugin_directory",
+      "source_path": ".",
+      "install_path": "addons/counterstrikesharp/plugins/disabled/KillFeedFilter",
+      "verify_paths": [
+        "addons/counterstrikesharp/plugins/disabled/KillFeedFilter/KillFeedFilter.dll"
+      ]
+    },
+    {
+      "order": 26,
+      "name": "AdvancedFriendlyFire",
+      "repository": "https://github.com/mister-keno/advanced-ff-cs2",
+      "type": "github_source_build",
+      "track": "branch",
+      "branch": "main",
+      "version": "ab332f0b59235339041f680fdf0574223af9b9df",
+      "depends_on": [
+        "CounterStrikeSharp"
+      ],
+      "project": "advanced_friendlyfire.csproj",
+      "output_file": "advanced_friendlyfire.dll",
+      "install_directory": "addons/counterstrikesharp/plugins/disabled/advanced_friendlyfire",
+      "installed": false,
+      "source_commit": "ab332f0b59235339041f680fdf0574223af9b9df",
+      "verify_paths": [
+        "addons/counterstrikesharp/plugins/disabled/advanced_friendlyfire/advanced_friendlyfire.dll",
+        "addons/counterstrikesharp/plugins/disabled/advanced_friendlyfire/advanced_friendlyfire.deps.json"
+      ]
+    },
+    {
+      "order": 27,
+      "name": "CS2-Gunsmenu",
+      "repository": "https://github.com/asapverneri/CS2-Gunsmenu",
+      "type": "github_source_build",
+      "track": "branch",
+      "branch": "main",
+      "version": "ec5dbdd99b2345f0e80410ac950ea1a0d2de7cdb",
+      "depends_on": [
+        "CounterStrikeSharp"
+      ],
+      "project": "src/GunsMenu.csproj",
+      "output_file": "GunsMenu.dll",
+      "install_directory": "addons/counterstrikesharp/plugins/disabled/GunsMenu",
+      "installed": false,
+      "source_commit": "ec5dbdd99b2345f0e80410ac950ea1a0d2de7cdb",
+      "source_mappings": [
+        {
+          "source_path": "src/lang",
+          "install_path": "addons/counterstrikesharp/plugins/disabled/GunsMenu/lang"
+        }
+      ],
+      "verify_paths": [
+        "addons/counterstrikesharp/plugins/disabled/GunsMenu/GunsMenu.dll",
+        "addons/counterstrikesharp/plugins/disabled/GunsMenu/GunsMenu.deps.json",
+        "addons/counterstrikesharp/plugins/disabled/GunsMenu/lang/en.json"
+      ]
     }
   ]
 }

@@ -436,7 +436,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $selected = @("SLAYER_AntiCamp", "SLAYER_HeadshotOnly", "VIPCore", "CS2-TeamLimiter", "cs2-showdamage")
+          $selected = @("SLAYER_AntiCamp", "SLAYER_HeadshotOnly", "VIPCore", "CS2-TeamLimiter", "cs2-showdamage", "CS2-KillFeedFilter")
           $ErrorActionPreference = "Stop"
           & ".\scripts\Inspect-Releases.ps1" -Only $selected
           if (-not $?) {
@@ -505,6 +505,52 @@ jobs:
           Write-Host "Validated $($manifest.addons.Count) manifest entries."
           Write-Host "Automated entries: $($automated.Count)"
           Write-Host "Manual entries: $($manual.Count)"
+
+          $expectedPluginPolicies = @(
+            @{ name = "CS2-Poor-MapPropAds"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds"; verify = "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/CS2-Poor-MapPropAds.dll"; disabled = $false },
+            @{ name = "RockTheVote"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/RockTheVote"; verify = "addons/counterstrikesharp/plugins/RockTheVote/RockTheVote.dll"; disabled = $false },
+            @{ name = "CS2-Playervotes"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/Playervotes"; verify = "addons/counterstrikesharp/plugins/Playervotes/Playervotes.dll"; disabled = $false },
+            @{ name = "CS2-StaffList"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/CS2Stafflist"; verify = "addons/counterstrikesharp/plugins/CS2Stafflist/CS2Stafflist.dll"; disabled = $false },
+            @{ name = "SLAYER_Noscope"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/SLAYER_Noscope"; verify = "addons/counterstrikesharp/plugins/SLAYER_Noscope/SLAYER_Noscope.dll"; disabled = $false },
+            @{ name = "ABS_MapCycle"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/disabled/ABS_MapCycle"; verify = "addons/counterstrikesharp/plugins/disabled/ABS_MapCycle/ABS_MapCycle.dll"; disabled = $true },
+            @{ name = "CS2-Antibait"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/disabled/Antibait"; verify = "addons/counterstrikesharp/plugins/disabled/Antibait/Antibait.dll"; disabled = $true },
+            @{ name = "CS2-KillFeedFilter"; type = "github_release"; install = "addons/counterstrikesharp/plugins/disabled/KillFeedFilter"; verify = "addons/counterstrikesharp/plugins/disabled/KillFeedFilter/KillFeedFilter.dll"; disabled = $true },
+            @{ name = "AdvancedFriendlyFire"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/disabled/advanced_friendlyfire"; verify = "addons/counterstrikesharp/plugins/disabled/advanced_friendlyfire/advanced_friendlyfire.dll"; disabled = $true },
+            @{ name = "CS2-Gunsmenu"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/disabled/GunsMenu"; verify = "addons/counterstrikesharp/plugins/disabled/GunsMenu/GunsMenu.dll"; disabled = $true }
+          )
+          foreach ($policy in $expectedPluginPolicies) {
+            $addon = @($manifest.addons | Where-Object name -eq $policy.name) | Select-Object -First 1
+            if (-not $addon) { throw "Missing manifest entry for $($policy.name)." }
+            if ([string]$addon.type -ne $policy.type) { throw "$($policy.name) uses unexpected updater type '$($addon.type)'." }
+            $configuredInstall = if ($policy.type -eq "github_source_build") {
+              [string]$addon.install_directory
+            } else {
+              [string]$addon.install_path
+            }
+            if ($configuredInstall.TrimEnd("/") -ne $policy.install) {
+              throw "$($policy.name) install target '$configuredInstall' does not match the expected target '$($policy.install)'."
+            }
+            if (@($addon.verify_paths | Where-Object { [string]$_ -eq $policy.verify }).Count -ne 1) {
+              throw "$($policy.name) verification is missing '$($policy.verify)'."
+            }
+            $isDisabledPath = $configuredInstall -match '(?i)(^|/)plugins/disabled/'
+            if ([bool]$policy.disabled -ne [bool]$isDisabledPath) {
+              throw "$($policy.name) is not placed in the requested active/disabled plugin path."
+            }
+            if ($policy.type -eq "github_source_build") {
+              if (-not [string]$addon.project -or -not [string]$addon.output_file) {
+                throw "$($policy.name) source-build project/output_file metadata is missing."
+              }
+            }
+          }
+
+          $sourceBuilder = Get-Content -LiteralPath ".\scripts\Update-Addons.ps1" -Raw
+          foreach ($requiredSourceFeature in @("source_mappings", "install_directory", "all required files are present", "CopyLocalLockFileAssemblies")) {
+            if ($sourceBuilder -notmatch [regex]::Escape($requiredSourceFeature)) {
+              throw "Source-build updater feature check failed: $requiredSourceFeature"
+            }
+          }
+          Write-Host "Validated new plugin updater types, destination policy, and required output paths."
 
       - name: Snapshot fixed configuration paths
         shell: pwsh

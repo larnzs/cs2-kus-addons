@@ -557,7 +557,13 @@ function Get-BranchCommit($Addon) {
 
 function Install-SourceBuildAddon($Addon, $Commit) {
     if ($DryRun) {
-        Write-Info "Would build $($Addon.name) from $($Addon.branch) at $($Commit.sha)"
+        $destinationLabel = if ($Addon.PSObject.Properties.Name -contains "install_directory" -and
+            -not [string]::IsNullOrWhiteSpace([string]$Addon.install_directory)) {
+            [string]$Addon.install_directory
+        } else {
+            [string]$Addon.install_path
+        }
+        Write-Info "Would build $($Addon.name) from $($Addon.branch) at $($Commit.sha) -> $destinationLabel"
         return $Commit.sha
     }
 
@@ -591,12 +597,22 @@ function Install-SourceBuildAddon($Addon, $Commit) {
         throw "Could not find build project '$($Addon.project)'."
     }
 
+    $sourceRootCandidates = @(
+        Get-ChildItem -LiteralPath $workRoot -Directory -ErrorAction SilentlyContinue |
+            Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "README.md") -PathType Leaf }
+    )
+    $sourceRoot = if ($sourceRootCandidates.Count -gt 0) {
+        $sourceRootCandidates[0].FullName
+    } else {
+        $project.Directory.FullName
+    }
+
     $output = Join-Path $workRoot "publish"
     New-Item -ItemType Directory -Force -Path $output | Out-Null
 
     Write-Info "Building $($Addon.name)"
     $buildLog = Join-Path $workRoot "build.log"
-    & dotnet build $project.FullName -c Release -o $output --nologo *> $buildLog
+    & dotnet build $project.FullName -c Release -o $output --nologo -p:CopyLocalLockFileAssemblies=true *> $buildLog
     if ($LASTEXITCODE -ne 0) {
         $tail = (Get-Content -LiteralPath $buildLog -Tail 40 -ErrorAction SilentlyContinue) -join [Environment]::NewLine
         throw "dotnet build failed for $($Addon.name): $tail"
@@ -607,9 +623,111 @@ function Install-SourceBuildAddon($Addon, $Commit) {
         throw "Build completed but expected output was not found: $built"
     }
 
-    $destination = Join-Path $PayloadRoot ([string]$Addon.install_path)
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
-    Copy-Item -LiteralPath $built -Destination $destination -Force
+    $payloadFull = [IO.Path]::GetFullPath($PayloadRoot).TrimEnd([char[]]@('\', '/'))
+    $payloadPrefix = $payloadFull + [IO.Path]::DirectorySeparatorChar
+    if ($Addon.PSObject.Properties.Name -contains "install_directory" -and
+        -not [string]::IsNullOrWhiteSpace([string]$Addon.install_directory)) {
+        $installRelative = ([string]$Addon.install_directory) -replace '/', '\'
+        $installParts = $installRelative -split '[\\/]+'
+        if ([IO.Path]::IsPathRooted($installRelative) -or ($installParts -contains '..')) {
+            throw "Invalid source-build install_directory for $($Addon.name): $installRelative"
+        }
+
+        $destination = Join-Path $PayloadRoot $installRelative
+        $destinationFull = [IO.Path]::GetFullPath($destination)
+        if (-not $destinationFull.StartsWith($payloadPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Source-build install_directory escapes game/csgo for $($Addon.name): $installRelative"
+        }
+
+        # The CounterStrikeSharp API is supplied by the active CSS runtime, not copied
+        # into every plugin directory. Keep private NuGet dependencies (e.g. menu APIs).
+        foreach ($apiFile in @("CounterStrikeSharp.API.dll", "CounterStrikeSharp.API.xml")) {
+            $privateApi = Join-Path $output $apiFile
+            if (Test-Path -LiteralPath $privateApi -PathType Leaf) {
+                Remove-Item -LiteralPath $privateApi -Force
+            }
+        }
+
+        # Merge the full build output: .deps.json, package dependencies and resources
+        # are required by some plugins. Existing files are overwritten in place;
+        # files not present in the new build are never deleted.
+        Merge-Directory $output $destination
+        Write-Info "Merged complete build output into game\csgo\$installRelative"
+    } else {
+        $installRelative = ([string]$Addon.install_path) -replace '/', '\'
+        $installParts = $installRelative -split '[\\/]+'
+        if ([string]::IsNullOrWhiteSpace($installRelative) -or
+            [IO.Path]::IsPathRooted($installRelative) -or
+            ($installParts -contains '..')) {
+            throw "Invalid source-build install_path for $($Addon.name): $installRelative"
+        }
+
+        $destination = Join-Path $PayloadRoot $installRelative
+        $destinationFull = [IO.Path]::GetFullPath($destination)
+        if (-not $destinationFull.StartsWith($payloadPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Source-build install_path escapes game/csgo for $($Addon.name): $installRelative"
+        }
+
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+        Copy-Item -LiteralPath $built -Destination $destination -Force
+        Write-Info "Installed built DLL to game\csgo\$installRelative"
+    }
+
+    $sourceMappings = @()
+    if ($Addon.PSObject.Properties.Name -contains "source_mappings") {
+        $sourceMappings = @($Addon.source_mappings)
+    }
+
+    $sourceRootFull = [IO.Path]::GetFullPath($sourceRoot).TrimEnd([char[]]@('\', '/'))
+    $sourceRootPrefix = $sourceRootFull + [IO.Path]::DirectorySeparatorChar
+    foreach ($mapping in $sourceMappings) {
+        $sourceRelative = ([string]$mapping.source_path) -replace '/', '\'
+        $installRelative = ([string]$mapping.install_path) -replace '/', '\'
+        $sourceParts = $sourceRelative -split '[\\/]+'
+        $installParts = $installRelative -split '[\\/]+'
+
+        if ([string]::IsNullOrWhiteSpace($sourceRelative) -or
+            [IO.Path]::IsPathRooted($sourceRelative) -or
+            ($sourceParts -contains '..')) {
+            throw "Invalid source_mappings source_path for $($Addon.name): $sourceRelative"
+        }
+        if ([string]::IsNullOrWhiteSpace($installRelative) -or
+            [IO.Path]::IsPathRooted($installRelative) -or
+            ($installParts -contains '..')) {
+            throw "Invalid source_mappings install_path for $($Addon.name): $installRelative"
+        }
+
+        $mappedSource = [IO.Path]::GetFullPath((Join-Path $sourceRoot $sourceRelative))
+        if (-not $mappedSource.StartsWith($sourceRootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Source mapping escaped upstream source root for $($Addon.name): $sourceRelative"
+        }
+
+        $mappedDestination = Join-Path $PayloadRoot $installRelative
+        $mappedDestinationFull = [IO.Path]::GetFullPath($mappedDestination)
+        if (-not $mappedDestinationFull.StartsWith($payloadPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Source mapping escaped game/csgo for $($Addon.name): $installRelative"
+        }
+
+        if (Test-Path -LiteralPath $mappedSource -PathType Container) {
+            Merge-Directory $mappedSource $mappedDestination
+        } elseif (Test-Path -LiteralPath $mappedSource -PathType Leaf) {
+            if (Test-IsProtectedConfigDestination $mappedDestination) {
+                Write-Info "Preserving fixed/user-managed config path: $mappedDestination"
+                continue
+            }
+
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $mappedDestination) | Out-Null
+            Copy-Item -LiteralPath $mappedSource -Destination $mappedDestination -Force
+        } else {
+            throw "Configured source_mappings path was not found for $($Addon.name): $mappedSource"
+        }
+    }
+
+    $missing = @(Get-AddonMissingFiles $Addon)
+    if ($missing.Count -gt 0) {
+        throw ("Source-built add-on '$($Addon.name)' is missing required files after installation:" +
+            [Environment]::NewLine + ($missing -join [Environment]::NewLine))
+    }
 
     return [string]$version
 }
@@ -970,14 +1088,20 @@ foreach ($addon in $addons) {
         elseif ($addon.type -eq "github_source_build") {
             $commit = Get-BranchCommit $addon
             $version = $commit.sha
+            $missingFiles = @(Get-AddonMissingFiles $addon)
+            $needsRepair = $missingFiles.Count -gt 0
 
             $needsUpdate = [bool]$Force -or
                 -not [bool]$addon.installed -or
-                ([string]$addon.version -ne $version)
+                ([string]$addon.version -ne $version) -or
+                $needsRepair
 
             if (-not $needsUpdate) {
-                Write-Info "Already at $($version.Substring(0,12))"
+                Write-Info "Already at $($version.Substring(0,12)); all required files are present."
                 continue
+            }
+            if ($needsRepair) {
+                Write-Warn ("Required files are missing; rebuilding {0} {1}:{2}{3}" -f $addon.name, $version, [Environment]::NewLine, ($missingFiles -join [Environment]::NewLine))
             }
 
             $newVersion = Install-SourceBuildAddon $addon $commit
