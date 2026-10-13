@@ -39,8 +39,8 @@ fast-forwards, never merges or rebases:
 `--no-pull` runs against the local checkout as-is, for working offline or on a branch
 you do not want moved.
 
-Requirements: `bash` (3.2+ is fine), `git`, `curl`, `jq`, `unzip`, `tar`, `rsync`
-(macOS openrsync works). A **clean working tree** is required for a real run because
+Requirements: `bash` (3.2+ is fine), `git`, `curl`, `jq`, `unzip`, `tar`, `rsync` and `python3`
+(macOS openrsync works). Python 3 is used by manifest-backed source compatibility patches. Source-built add-on updates also need the .NET SDK (this project uses SDK 8 and 10 side-by-side). A **clean working tree** is required for a real run because
 the tool commits; commit or stash first. The GitHub API is used only to list release
 assets of mods that need updating (one call per mod). Unauthenticated that is
 limited to 60 requests/hour; set `GITHUB_TOKEN`, or be logged in with `gh auth login`
