@@ -240,8 +240,17 @@ manifest_source_build_apply() {
     local -a build_args
     build_args=(build "$project" -c Release -o "$publish" --nologo -p:CopyLocalLockFileAssemblies=true)
     if [ -n "$target_framework" ]; then
-        build_args+=("-p:TargetFramework=$target_framework")
-        step "overriding upstream target framework to $target_framework"
+        # Patch the isolated downloaded project: a global TargetFramework property
+        # alone may leave restore evaluating the upstream net8.0 declaration.
+        if ! grep -Eq '<TargetFrameworks?>[[:space:]]*[^<]*[[:space:]]*</TargetFrameworks?>' "$project"; then
+            die "target_framework is configured for $addon, but no TargetFramework/TargetFrameworks element exists in $project"
+        fi
+        sed -i -E "s#<TargetFrameworks?>[[:space:]]*[^<]*[[:space:]]*</TargetFrameworks?>#<TargetFramework>$target_framework</TargetFramework>#g" "$project"
+        if ! grep -Fq "<TargetFramework>$target_framework</TargetFramework>" "$project"; then
+            die "could not enforce target framework $target_framework for $addon"
+        fi
+        build_args+=(--framework "$target_framework" "-p:TargetFramework=$target_framework" "-p:TargetFrameworks=$target_framework")
+        step "patched isolated source project and restore/build target framework to $target_framework"
     fi
     dotnet "${build_args[@]}" >&3 2>&3 || die "dotnet build failed for $addon"
     [ -f "$publish/$output_file" ] || die "expected build output missing for $addon: $publish/$output_file"
