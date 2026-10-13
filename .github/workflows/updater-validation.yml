@@ -84,3 +84,14 @@ jobs:
       - name: Test gameinfo patch and manifest integrity
         shell: pwsh
         run: ./scripts/Test-UpdaterIntegrity.ps1
+
+  validate-gameinfo-windows:
+    name: Verify gameinfo patch on native Windows
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run manifest and gameinfo regression tests in Windows PowerShell
+        shell: pwsh
+        run: ./scripts/Test-UpdaterIntegrity.ps1
