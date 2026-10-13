@@ -177,7 +177,7 @@ manifest_source_build_assets() {
 
 manifest_source_build_apply() {
     local addon="$1"
-    local project_relative output_file install_directory extract project source_root current
+    local project_relative output_file install_directory target_framework extract project source_root current
     local publish built relative destination source_relative install_relative source target
 
     project_relative=$(jq -er --arg name "$addon" '.addons[] | select(.name == $name) | .project // empty' DEPENDENCIES.json) \
@@ -186,6 +186,11 @@ manifest_source_build_apply() {
         || die "manifest output_file is missing for source-built addon $addon"
     install_directory=$(jq -er --arg name "$addon" '.addons[] | select(.name == $name) | .install_directory // empty' DEPENDENCIES.json) \
         || die "manifest install_directory is missing for source-built addon $addon"
+    target_framework=$(jq -r --arg name "$addon" '.addons[] | select(.name == $name) | .target_framework // empty' DEPENDENCIES.json)
+
+    if [ -n "$target_framework" ] && [[ ! "$target_framework" =~ ^net[0-9]+\.[0-9]+$ ]]; then
+        die "invalid target_framework for $addon: $target_framework"
+    fi
 
     check_repo_relative "$project_relative" || die "unsafe project path for $addon: $project_relative"
     check_repo_relative "game/csgo/$install_directory" || die "unsafe install directory for $addon: $install_directory"
@@ -195,6 +200,7 @@ manifest_source_build_apply() {
 
     if is_dry; then
         dry "download source commit $NEW_VERSION and build $addon using $project_relative"
+        if [ -n "$target_framework" ]; then dry "override upstream target framework to $target_framework"; fi
         dry "overlay build output into game/csgo/$install_directory (excluding CounterStrikeSharp.API.dll/xml)"
         while IFS=$'\t' read -r source_relative install_relative; do
             [ -n "$source_relative" ] || continue
@@ -231,8 +237,13 @@ manifest_source_build_apply() {
     mkdir -p "$publish"
 
     step "building $addon from commit $NEW_VERSION"
-    dotnet build "$project" -c Release -o "$publish" --nologo -p:CopyLocalLockFileAssemblies=true >&3 2>&3 \
-        || die "dotnet build failed for $addon"
+    local -a build_args
+    build_args=(build "$project" -c Release -o "$publish" --nologo -p:CopyLocalLockFileAssemblies=true)
+    if [ -n "$target_framework" ]; then
+        build_args+=("-p:TargetFramework=$target_framework")
+        step "overriding upstream target framework to $target_framework"
+    fi
+    dotnet "${build_args[@]}" >&3 2>&3 || die "dotnet build failed for $addon"
     [ -f "$publish/$output_file" ] || die "expected build output missing for $addon: $publish/$output_file"
 
     # Keep the plugin's full build output (including .deps.json and private

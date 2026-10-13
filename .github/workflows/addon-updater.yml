@@ -53,10 +53,12 @@ jobs:
         with:
           ref: integration/kus-monorepo
           fetch-depth: 0
-      - name: Set up .NET SDK for source-built add-ons
+      - name: Set up .NET SDKs for source-built add-ons
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: |
+            8.0.x
+            10.0.x
       - name: Install KUS updater tools
         run: |
           sudo apt-get update
@@ -204,6 +206,13 @@ jobs:
         with:
           ref: integration/kus-monorepo
           fetch-depth: 0
+
+      - name: Set up .NET SDKs for manifest source builds
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Validate PowerShell syntax, unified updater roles, and runtime policy
         shell: pwsh
@@ -509,14 +518,14 @@ jobs:
           $expectedPluginPolicies = @(
             @{ name = "CS2-Poor-MapPropAds"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds"; verify = "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/CS2-Poor-MapPropAds.dll"; disabled = $false },
             @{ name = "RockTheVote"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/RockTheVote"; verify = "addons/counterstrikesharp/plugins/RockTheVote/RockTheVote.dll"; disabled = $false },
-            @{ name = "CS2-Playervotes"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/Playervotes"; verify = "addons/counterstrikesharp/plugins/Playervotes/Playervotes.dll"; disabled = $false },
-            @{ name = "CS2-StaffList"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/CS2Stafflist"; verify = "addons/counterstrikesharp/plugins/CS2Stafflist/CS2Stafflist.dll"; disabled = $false },
-            @{ name = "SLAYER_Noscope"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/SLAYER_Noscope"; verify = "addons/counterstrikesharp/plugins/SLAYER_Noscope/SLAYER_Noscope.dll"; disabled = $false },
+            @{ name = "CS2-Playervotes"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/Playervotes"; verify = "addons/counterstrikesharp/plugins/Playervotes/Playervotes.dll"; disabled = $false; framework = "net10.0" },
+            @{ name = "CS2-StaffList"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/CS2Stafflist"; verify = "addons/counterstrikesharp/plugins/CS2Stafflist/CS2Stafflist.dll"; disabled = $false; framework = "net10.0" },
+            @{ name = "SLAYER_Noscope"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/SLAYER_Noscope"; verify = "addons/counterstrikesharp/plugins/SLAYER_Noscope/SLAYER_Noscope.dll"; disabled = $false; framework = "net10.0" },
             @{ name = "ABS_MapCycle"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/disabled/ABS_MapCycle"; verify = "addons/counterstrikesharp/plugins/disabled/ABS_MapCycle/ABS_MapCycle.dll"; disabled = $true },
             @{ name = "CS2-Antibait"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/disabled/Antibait"; verify = "addons/counterstrikesharp/plugins/disabled/Antibait/Antibait.dll"; disabled = $true },
             @{ name = "CS2-KillFeedFilter"; type = "github_release"; install = "addons/counterstrikesharp/plugins/disabled/KillFeedFilter"; verify = "addons/counterstrikesharp/plugins/disabled/KillFeedFilter/KillFeedFilter.dll"; disabled = $true },
             @{ name = "AdvancedFriendlyFire"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/disabled/advanced_friendlyfire"; verify = "addons/counterstrikesharp/plugins/disabled/advanced_friendlyfire/advanced_friendlyfire.dll"; disabled = $true },
-            @{ name = "CS2-Gunsmenu"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/disabled/GunsMenu"; verify = "addons/counterstrikesharp/plugins/disabled/GunsMenu/GunsMenu.dll"; disabled = $true }
+            @{ name = "CS2-Gunsmenu"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/disabled/GunsMenu"; verify = "addons/counterstrikesharp/plugins/disabled/GunsMenu/GunsMenu.dll"; disabled = $true; framework = "net10.0" }
           )
           foreach ($policy in $expectedPluginPolicies) {
             $addon = @($manifest.addons | Where-Object name -eq $policy.name) | Select-Object -First 1
@@ -537,6 +546,9 @@ jobs:
             if ([bool]$policy.disabled -ne [bool]$isDisabledPath) {
               throw "$($policy.name) is not placed in the requested active/disabled plugin path."
             }
+            if ($policy.ContainsKey("framework") -and [string]$addon.target_framework -ne [string]$policy.framework) {
+              throw "$($policy.name) must use target_framework '$($policy.framework)' for its source build."
+            }
             if ($policy.type -eq "github_source_build") {
               if (-not [string]$addon.project -or -not [string]$addon.output_file) {
                 throw "$($policy.name) source-build project/output_file metadata is missing."
@@ -545,7 +557,7 @@ jobs:
           }
 
           $sourceBuilder = Get-Content -LiteralPath ".\scripts\Update-Addons.ps1" -Raw
-          foreach ($requiredSourceFeature in @("source_mappings", "install_directory", "all required files are present", "CopyLocalLockFileAssemblies")) {
+          foreach ($requiredSourceFeature in @("source_mappings", "install_directory", "target_framework", "CopyLocalLockFileAssemblies", '-p:TargetFramework=$targetFramework')) {
             if ($sourceBuilder -notmatch [regex]::Escape($requiredSourceFeature)) {
               throw "Source-build updater feature check failed: $requiredSourceFeature"
             }

@@ -601,6 +601,7 @@
       "type": "github_source_build",
       "track": "branch",
       "branch": "main",
+      "target_framework": "net10.0",
       "version": "81b4a2bda817b304fba372d1e6678a5a48ef2e9d",
       "depends_on": [
         "CounterStrikeSharp"
@@ -629,6 +630,7 @@
       "type": "github_source_build",
       "track": "branch",
       "branch": "main",
+      "target_framework": "net10.0",
       "version": "07fc28119686a6dd0c78a74f023f5cc6eff55ec9",
       "depends_on": [
         "CounterStrikeSharp"
@@ -657,6 +659,7 @@
       "type": "github_source_build",
       "track": "branch",
       "branch": "main",
+      "target_framework": "net10.0",
       "version": "d0987f3934850c674c829dc2ce912a21e626fd0d",
       "depends_on": [
         "CounterStrikeSharp"
@@ -774,6 +777,7 @@
       "type": "github_source_build",
       "track": "branch",
       "branch": "main",
+      "target_framework": "net10.0",
       "version": "ec5dbdd99b2345f0e80410ac950ea1a0d2de7cdb",
       "depends_on": [
         "CounterStrikeSharp"
