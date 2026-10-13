@@ -422,6 +422,23 @@ function Resolve-ReleaseInstallTargets($Addon, [string]$ExtractRoot, [string]$As
             }
 
             $sourceRoot = Join-Path $ExtractRoot $sourcePath
+            $normalizedSourcePath = $sourcePath.Replace('\', '/').TrimEnd('/')
+            if ($normalizedSourcePath -eq '.') {
+                $expectedPaths = @($Addon.verify_paths | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | Select-Object -First 1)
+                if ($expectedPaths.Count -eq 0) {
+                    throw "source_path '.' requires a verify_paths entry to identify the plugin archive root for '$AssetName'."
+                }
+                $expectedFileName = [IO.Path]::GetFileName(([string]$expectedPaths[0]).Replace('/', '\'))
+                $candidateFiles = @(Get-ChildItem -LiteralPath $ExtractRoot -Recurse -File -Filter $expectedFileName -ErrorAction SilentlyContinue)
+                if ($candidateFiles.Count -eq 0) {
+                    throw "Could not find expected plugin file '$expectedFileName' anywhere in ZIP '$AssetName'."
+                }
+                if ($candidateFiles.Count -gt 1) {
+                    throw "ZIP '$AssetName' contains multiple '$expectedFileName' files; refusing to guess the plugin root."
+                }
+                $sourceRoot = $candidateFiles[0].DirectoryName
+                Write-Info "Resolved ZIP plugin root for '$AssetName' from $expectedFileName: $sourceRoot"
+            }
             if (-not (Test-Path $sourceRoot -PathType Container)) {
                 throw "Configured release source_path was not found for '$AssetName': $sourceRoot"
             }
@@ -586,6 +603,52 @@ function Set-SourceProjectTargetFramework([string]$ProjectPath, [string]$TargetF
     $document.Save($ProjectPath)
 }
 
+function Apply-SourceBuildPatches($Addon, [string]$SourceRoot) {
+    if ($Addon.PSObject.Properties.Name -notcontains "source_patches") {
+        return
+    }
+    $sourcePatches = @($Addon.source_patches)
+    if ($sourcePatches.Count -eq 0) {
+        return
+    }
+
+    $sourceRootFull = [IO.Path]::GetFullPath($SourceRoot).TrimEnd([char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar))
+    $sourceRootPrefix = $sourceRootFull + [IO.Path]::DirectorySeparatorChar
+    foreach ($patch in $sourcePatches) {
+        $relativePath = ([string]$patch.path).Replace('/', [IO.Path]::DirectorySeparatorChar)
+        $pathParts = $relativePath.Split([char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar))
+        if ([string]::IsNullOrWhiteSpace($relativePath) -or
+            [IO.Path]::IsPathRooted($relativePath) -or ($pathParts -contains '..')) {
+            throw "Invalid source patch path for $($Addon.name): $relativePath"
+        }
+
+        $findText = [string]$patch.find
+        $replaceText = [string]$patch.replace
+        if ([string]::IsNullOrEmpty($findText) -or [string]::IsNullOrEmpty($replaceText)) {
+            throw "Source patch for $($Addon.name) requires non-empty find and replace values."
+        }
+
+        $sourceFile = [IO.Path]::GetFullPath((Join-Path $SourceRoot $relativePath))
+        if (-not $sourceFile.StartsWith($sourceRootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Source patch escaped the extracted repository for $($Addon.name): $relativePath"
+        }
+        if (-not (Test-Path -LiteralPath $sourceFile -PathType Leaf)) {
+            throw "Source patch file was not found for $($Addon.name): $relativePath"
+        }
+
+        $sourceText = [IO.File]::ReadAllText($sourceFile)
+        if ($sourceText.Contains($findText)) {
+            $sourceText = $sourceText.Replace($findText, $replaceText)
+            [IO.File]::WriteAllText($sourceFile, $sourceText, (New-Object System.Text.UTF8Encoding($false)))
+            Write-Info "Applied source compatibility patch to $($Addon.name): $relativePath"
+        } elseif ($sourceText.Contains($replaceText)) {
+            Write-Info "Source compatibility patch already present for $($Addon.name): $relativePath"
+        } else {
+            throw "Neither source patch text nor its replacement was found for $($Addon.name): $relativePath"
+        }
+    }
+}
+
 function Install-SourceBuildAddon($Addon, $Commit) {
     if ($DryRun) {
         $destinationLabel = if ($Addon.PSObject.Properties.Name -contains "install_directory" -and
@@ -674,6 +737,7 @@ function Install-SourceBuildAddon($Addon, $Commit) {
         }
     }
 
+    Apply-SourceBuildPatches -Addon $Addon -SourceRoot $sourceRoot
     New-Item -ItemType Directory -Force -Path $output | Out-Null
 
     Write-Info "Building $($Addon.name)"
