@@ -621,6 +621,13 @@
         "addons/counterstrikesharp/plugins/Playervotes/Playervotes.dll",
         "addons/counterstrikesharp/plugins/Playervotes/Playervotes.deps.json",
         "addons/counterstrikesharp/plugins/Playervotes/lang/en.json"
+      ],
+      "source_patches": [
+        {
+          "path": "src/Main.cs",
+          "find": "PlayerConnectedState.PlayerConnected",
+          "replace": "PlayerConnectedState.Connected"
+        }
       ]
     },
     {
@@ -667,7 +674,7 @@
       "project": "SLAYER_Noscope.csproj",
       "output_file": "SLAYER_Noscope.dll",
       "install_directory": "addons/counterstrikesharp/plugins/SLAYER_Noscope",
-      "installed": false,
+      "installed": true,
       "source_commit": "d0987f3934850c674c829dc2ce912a21e626fd0d",
       "source_mappings": [
         {
@@ -678,7 +685,8 @@
       "verify_paths": [
         "addons/counterstrikesharp/plugins/SLAYER_Noscope/SLAYER_Noscope.dll",
         "addons/counterstrikesharp/plugins/SLAYER_Noscope/lang/en.json"
-      ]
+      ],
+      "automation_supported": false
     },
     {
       "order": 23,
@@ -797,7 +805,8 @@
         "addons/counterstrikesharp/plugins/disabled/GunsMenu/GunsMenu.dll",
         "addons/counterstrikesharp/plugins/disabled/GunsMenu/GunsMenu.deps.json",
         "addons/counterstrikesharp/plugins/disabled/GunsMenu/lang/en.json"
-      ]
+      ],
+      "automation_supported": false
     }
   ]
 }
