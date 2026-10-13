@@ -437,7 +437,7 @@ function Resolve-ReleaseInstallTargets($Addon, [string]$ExtractRoot, [string]$As
                     throw "ZIP '$AssetName' contains multiple '$expectedFileName' files; refusing to guess the plugin root."
                 }
                 $sourceRoot = $candidateFiles[0].DirectoryName
-                Write-Info "Resolved ZIP plugin root for '$AssetName' from $expectedFileName: $sourceRoot"
+                Write-Info ("Resolved ZIP plugin root for '{0}' from {1}: {2}" -f $AssetName, $expectedFileName, $sourceRoot)
             }
             if (-not (Test-Path $sourceRoot -PathType Container)) {
                 throw "Configured release source_path was not found for '$AssetName': $sourceRoot"
