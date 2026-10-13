@@ -549,7 +549,7 @@
       "project": "src/CS2-Poor-MapPropAds.csproj",
       "output_file": "CS2-Poor-MapPropAds.dll",
       "install_directory": "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds",
-      "installed": false,
+      "installed": true,
       "source_commit": "2a1e4ce9e8af55aaa93aa1ed53476bfb2193ffcb",
       "source_mappings": [
         {
