@@ -702,7 +702,7 @@
       "project": "ABS_MapCycle.csproj",
       "output_file": "ABS_MapCycle.dll",
       "install_directory": "addons/counterstrikesharp/plugins/disabled/ABS_MapCycle",
-      "installed": false,
+      "installed": true,
       "source_commit": "7d71a7bf29bbebcdc192cdc3f7b714620821ea85",
       "verify_paths": [
         "addons/counterstrikesharp/plugins/disabled/ABS_MapCycle/ABS_MapCycle.dll"
