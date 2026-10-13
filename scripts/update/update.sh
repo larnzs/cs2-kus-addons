@@ -139,7 +139,7 @@ sync_with_remote() {
 
 # ----------------------------------------------------------------------------- preflight
 preflight() {
-    require_tools bash git curl jq unzip tar rsync awk sed grep find cut
+    require_tools bash git curl jq unzip tar rsync awk sed grep find cut python3
     [ -f README.md ] || die "README.md not found in $(pwd)"
     grep -Eq '^[[:space:]]*[|]?[[:space:]]*Mod[[:space:]]*[|][[:space:]]*Version[^|]*[|][[:space:]]*(Why|Purpose)[[:space:]]*[|]?[[:space:]]*$' README.md || die "README.md: could not find the 'Mod | Version | Why' table header"
     [ -d "$PLUGIN_SCRIPT_DIR" ] || die "missing directory $PLUGIN_SCRIPT_DIR"
