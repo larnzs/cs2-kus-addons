@@ -645,7 +645,7 @@
       "project": "CS2Stafflist.csproj",
       "output_file": "CS2Stafflist.dll",
       "install_directory": "addons/counterstrikesharp/plugins/CS2Stafflist",
-      "installed": false,
+      "installed": true,
       "source_commit": "07fc28119686a6dd0c78a74f023f5cc6eff55ec9",
       "source_mappings": [
         {
