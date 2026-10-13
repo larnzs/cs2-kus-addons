@@ -5,7 +5,7 @@
 
 manifest_assert_automation_supported() {
     local name="$1" enabled
-    enabled=$(jq -r --arg name "$name" '.addons[] | select(.name == $name) | (.automation_supported // true)' DEPENDENCIES.json) \
+    enabled=$(jq -r --arg name "$name" '.addons[] | select(.name == $name) | (.automation_supported != false)' DEPENDENCIES.json) \
         || die "could not read automation policy for $name"
     case "$enabled" in
         true) ;;
