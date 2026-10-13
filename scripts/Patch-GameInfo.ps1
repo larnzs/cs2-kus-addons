@@ -67,7 +67,7 @@ $updated = $text.Remove($marker.Index, $marker.Length).Insert($marker.Index, $re
 
 # CS2 gameinfo.gi is UTF-8. Write without adding a BOM, retaining the file's
 # existing LF/CRLF style and the original newline immediately after the marker.
-$encoding = New-Object System.Text.UTF8Encoding($false)
+$encoding = [System.Text.UTF8Encoding]::new($false)
 [IO.File]::WriteAllText($GameInfoPath, $updated, $encoding)
 
 $verifyText = [IO.File]::ReadAllText($GameInfoPath)
