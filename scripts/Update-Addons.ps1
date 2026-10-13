@@ -594,13 +594,37 @@ function Install-SourceBuildAddon($Addon, $Commit) {
     Invoke-WebRequest -Uri $url -Headers (Get-GitHubHeaders) -OutFile $zip -UseBasicParsing
     Expand-Archive -LiteralPath $zip -DestinationPath $sourceExtractRoot -Force
 
-    $project = @(
-        Get-ChildItem -LiteralPath $sourceExtractRoot -Recurse -File -Filter ([string]$Addon.project)
-    ) | Select-Object -First 1
-
-    if (-not $project) {
-        throw "Could not find build project '$($Addon.project)' in the downloaded source archive."
+    $projectRelative = ([string]$Addon.project) -replace '/', '\'
+    $projectParts = $projectRelative -split '[\\/]+'
+    if ([string]::IsNullOrWhiteSpace($projectRelative) -or
+        [IO.Path]::IsPathRooted($projectRelative) -or
+        ($projectParts -contains '..')) {
+        throw "Invalid source-build project path for $($Addon.name): $projectRelative"
     }
+
+    # The manifest already defines the exact project-relative path. Check the
+    # archive root and its single GitHub wrapper directory directly instead of
+    # recursively walking the extracted tree (which can fail on partial folders).
+    $projectCandidates = New-Object System.Collections.Generic.List[string]
+    $directProject = Join-Path $sourceExtractRoot $projectRelative
+    if (Test-Path -LiteralPath $directProject -PathType Leaf) {
+        [void]$projectCandidates.Add($directProject)
+    }
+    foreach ($directory in @(Get-ChildItem -LiteralPath $sourceExtractRoot -Directory -ErrorAction SilentlyContinue)) {
+        $candidateProject = Join-Path $directory.FullName $projectRelative
+        if (Test-Path -LiteralPath $candidateProject -PathType Leaf) {
+            [void]$projectCandidates.Add($candidateProject)
+        }
+    }
+    if ($projectCandidates.Count -eq 0) {
+        $topLevel = @(Get-ChildItem -LiteralPath $sourceExtractRoot -Force -ErrorAction SilentlyContinue |
+            ForEach-Object { $_.Name }) -join ", "
+        throw "Could not find build project '$projectRelative' at archive root or one wrapper level for $($Addon.name). Top-level entries: $topLevel"
+    }
+    if ($projectCandidates.Count -gt 1) {
+        throw "Found multiple build projects matching '$projectRelative' in the source archive for $($Addon.name)."
+    }
+    $project = Get-Item -LiteralPath $projectCandidates[0]
 
     # GitHub source archives usually contain one wrapper directory, but some may
     # extract directly into sourceExtractRoot. Pick the real repository root so
