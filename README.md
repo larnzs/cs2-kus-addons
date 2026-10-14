@@ -178,7 +178,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | [SharpTimer](https://github.com/Letaryat/poor-sharptimer) | `0.4.0` | SharpTimer is a simple Surf/KZ/Bhop/MG/Deathrun/etc CS2 Timer plugin |
 | [STFixes](https://github.com/rcnoob/STFixes) | `1.0.5` | A CounterStrikeSharp plugin with common fixes and features for SharpTimer servers |
 | [GunGame](https://github.com/ssypchenko/cs2-gungame) | `1.2.4` | GunGame mode on Counter Strike Sharp |
-| [GG1MapChooser](https://github.com/ssypchenko/GG1MapChooser) | `0.0.0` | Larnz-managed map-voting integration with Rock The Vote (RTV), nominations, map pools, and map rotation. |
+| [GG1MapChooser](https://github.com/ssypchenko/GG1MapChooser) | `1.8.1` | Larnz-managed map-voting integration with Rock The Vote (RTV), nominations, map pools, and map rotation. |
 | [K4-Arenas](https://github.com/KitsuneLab-Development/K4-Arenas) | `2.0.8` | All in one arena plugin, that you can use to have a ladder type gameplay. Support all map, 2v2/3v3/etc [Database setup](#setup-mysql-database) |
 | [CS2 Retakes](https://github.com/B3none/cs2-retakes) | `3.1.1` | CS2 implementation of retakes. Based on the version for CS:GO by Splewis. |
 | [CS2 Instadefuse](https://github.com/B3none/cs2-instadefuse) | `2.0.0` | Allows a CT to instantly defuse the bomb when nothing can prevent defusal. Written in C# for CounterStrikeSharp. |
