@@ -2,7 +2,36 @@
   {
     "SteamId64": 76561198214760293,
     "Features": {
-      "player_tag": "\u0000"
+      "player_tag": "\u0000",
+      "player_fov": 90,
+      "TeammatesHeal": 0,
+      "Grenades": 0,
+      "DamageMultiplier": 0,
+      "FastReload": 0,
+      "HealthRegen": 0,
+      "Armor": 0,
+      "Gravity": 0,
+      "SmokeColor": 0,
+      "Money": 0,
+      "Defuser": 0,
+      "InfiniteAmmo": 0,
+      "Zeus": 0,
+      "Speed": 0,
+      "CustomDefaultAmmo": 0,
+      "NoFallDamage": 0,
+      "fastdefuse": 0,
+      "DecoyTp": 0,
+      "ResetDeaths": 0,
+      "Vampirism": 0,
+      "Items": 0,
+      "RainbowModel": 0,
+      "endurance": 0,
+      "Health": 0,
+      "Killscreen": 0,
+      "Healthshot": 0,
+      "fastplant": 0,
+      "Antiflash": 0,
+      "ArmorRegen": 0
     }
   },
   {
@@ -980,7 +1009,8 @@
   {
     "SteamId64": 76561198797429633,
     "Features": {
-      "player_tag": "\u0000"
+      "player_tag": "\u0000",
+      "player_fov": 90
     }
   },
   {
@@ -1219,6 +1249,285 @@
   },
   {
     "SteamId64": 76561199818409848,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561199588792425,
+    "Features": {
+      "player_fov": 90,
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561199059608017,
+    "Features": {
+      "player_tag": "\u0000",
+      "player_fov": 90
+    }
+  },
+  {
+    "SteamId64": 76561199866052585,
+    "Features": {
+      "player_tag": "\u0000",
+      "player_fov": 90
+    }
+  },
+  {
+    "SteamId64": 76561199076878754,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198739540409,
+    "Features": {
+      "player_tag": "\u0000",
+      "player_fov": 90
+    }
+  },
+  {
+    "SteamId64": 76561198642122290,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561199105494014,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561199804609341,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198667571146,
+    "Features": {
+      "player_fov": 90,
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198234282768,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561199881378418,
+    "Features": {
+      "player_tag": "\u0000",
+      "player_fov": 90
+    }
+  },
+  {
+    "SteamId64": 76561199852926090,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561199476014976,
+    "Features": {
+      "player_tag": "\u0000",
+      "player_fov": 90
+    }
+  },
+  {
+    "SteamId64": 76561198956400874,
+    "Features": {
+      "player_tag": "\u0000",
+      "player_fov": 90
+    }
+  },
+  {
+    "SteamId64": 76561198662133869,
+    "Features": {
+      "player_tag": "\u0000",
+      "player_fov": 90
+    }
+  },
+  {
+    "SteamId64": 76561199087722736,
+    "Features": {
+      "player_tag": "\u0000",
+      "player_fov": 90
+    }
+  },
+  {
+    "SteamId64": 76561199543857500,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198965589106,
+    "Features": {
+      "player_fov": 90,
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198924667660,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561199367588863,
+    "Features": {
+      "player_tag": "\u0000",
+      "player_fov": 90
+    }
+  },
+  {
+    "SteamId64": 76561199888221222,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198676664122,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561199888439473,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561199098549762,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561199107346824,
+    "Features": {
+      "player_tag": "\u0000",
+      "player_fov": 90
+    }
+  },
+  {
+    "SteamId64": 76561198844080013,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198680835291,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198379417050,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198658908228,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198447206638,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561199404218534,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198741513213,
+    "Features": {
+      "player_fov": 90,
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198660060866,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198685041136,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198784333100,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198872628153,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198318924436,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198742278986,
+    "Features": {
+      "player_tag": "\u0000",
+      "player_fov": 90
+    }
+  },
+  {
+    "SteamId64": 76561199849145761,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198655634944,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198974787743,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198776082987,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561198426245175,
+    "Features": {
+      "player_tag": "\u0000"
+    }
+  },
+  {
+    "SteamId64": 76561199716847238,
     "Features": {
       "player_tag": "\u0000"
     }
