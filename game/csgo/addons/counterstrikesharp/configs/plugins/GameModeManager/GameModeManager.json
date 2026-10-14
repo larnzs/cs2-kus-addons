@@ -3,11 +3,11 @@
   "RTV": {
     "Enabled": true,
     "Style": "center",
-    "PerMap": false,
+    "PerMap": true,
     "HideHud": false,
     "MinRounds": 0,
     "MinPlayers": 1,
-    "VoteDuration": 60,
+    "VoteDuration": 15,
     "OptionsToShow": 15,
     "VotePercentage": 51,
     "OptionsInCoolDown": 3,
@@ -23,9 +23,9 @@
     "NominationEnabled": true,
     "MaxNominationWinners": 1,
     "ChangeImmediately": false,
-    "TriggerKillsBeforeEnd": 13,
-    "TriggerRoundsBeforeEnd": 0,
-    "TriggerSecondsBeforeEnd": 30
+    "TriggerKillsBeforeEnd": 99,
+    "TriggerRoundsBeforeEnd": 2,
+    "TriggerSecondsBeforeEnd": 60
   },
   "Maps": {
     "Mode": 0,
@@ -36,7 +36,7 @@
   "Votes": {
     "Enabled": true,
     "Maps": true,
-    "Style": "center",
+    "Style": "chat",
     "GameModes": true,
     "GameSettings": false
   },
@@ -179,6 +179,14 @@
         "DefaultMap": "de_mirage",
         "MapGroups": [
           "mg_executes"
+        ]
+      },
+      {
+        "Name": "Awp Only",
+        "Config": "awp.cfg",
+        "DefaultMap": "3142070597",
+        "MapGroups": [
+          "mg_awp"
         ]
       },
       {
@@ -351,6 +359,22 @@
         ]
       },
       {
+        "Name": "Casual Workshop",
+        "Config": "casualw.cfg",
+        "DefaultMap": "de_dust2",
+        "MapGroups": [
+          "mg_casualw"
+        ]
+      },
+      {
+        "Name": "Casual Active",
+        "Config": "casuala.cfg",
+        "DefaultMap": "de_mirage",
+        "MapGroups": [
+          "mg_casuala"
+        ]
+      },
+      {
         "Name": "Retakes (Valve)",
         "Config": "valve-retake.cfg",
         "DefaultMap": "de_dust2",
@@ -364,22 +388,6 @@
         "DefaultMap": "3276886893",
         "MapGroups": [
           "mg_45"
-        ]
-      },
-      {
-        "Name": "Casual (Valve)",
-        "Config": "casual.cfg",
-        "DefaultMap": "de_dust2",
-        "MapGroups": [
-          "mg_valve_casual"
-        ]
-      },
-      {
-        "Name": "AWP Aim",
-        "Config": "awp-aim.cfg",
-        "DefaultMap": "3075511506",
-        "MapGroups": [
-          "mg_aimawp"
         ]
       }
     ]
