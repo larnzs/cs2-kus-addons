@@ -358,10 +358,11 @@
 				"workshop/3386116667/de_ema"		""
 				"workshop/3360723913/paintit"		""
 				"workshop/3464733042/de_mirage_bricks"		""
+			
+				"workshop/3777797034/de_vine"		""
+				"workshop/3618786679/de_shortdust"		""
 			}
 		
-				"workshop/3777797034/de_vine"		""	// Vine
-				"workshop/3618786679/de_shortdust"		""	// Shortdust
 			}
 		"mg_dm"
 		{
@@ -424,9 +425,10 @@
 				"workshop/3437226954/fy_hangemhigh"		""
 				"workshop/3455068243/ar_combat_arena"		""
 				"workshop/3329405459/ar_ds_cornered_gg1"		""
+			
+				"workshop/3458390652"		""
 			}
 		
-				"workshop/3458390652"		""	// GunGame Workshop ID (internal map name not verified)
 			}
 		"mg_1v1"
 		{
@@ -563,10 +565,11 @@
 			{
 				"workshop/3073929825/scoutzknivez_pure_cs2"		""
 				"workshop/3070553020/ar_dizzy"		""
+			
+				"workshop/2119345571/bank"		""
+				"workshop/3106527136/scoutzknivez_random_gm_cs2"		""
 			}
 		
-				"workshop/2119345571/bank"		""	// Bank
-				"workshop/3106527136/scoutzknivez_random_gm_cs2"		""	// Scoutzknivez Random
 			}
 		"mg_hns"
 		{
