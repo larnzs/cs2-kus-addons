@@ -281,7 +281,8 @@ finally {
         # directory is safe and cannot affect another installer's workspace.
         $registered = $false
         $listResult = Invoke-GitCapture -Path $RepositoryRoot -GitArgs @("worktree", "list", "--porcelain")
-        if ($listResult.ExitCode -eq 0) {
+        $registrationCheckSucceeded = ($listResult.ExitCode -eq 0)
+        if ($registrationCheckSucceeded) {
             $wantedPath = [System.IO.Path]::GetFullPath($WorktreeRoot).TrimEnd([char[]]@([char]'\', [char]'/'))
             foreach ($line in $listResult.Output) {
                 if ($line.StartsWith("worktree ", [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -303,6 +304,10 @@ finally {
         if ($registered) {
             $details = (@($removeResult.Output) | ForEach-Object { [string]$_ }) -join " "
             Write-Host ("WARNING: Git still registers this temporary worktree; leaving it in place rather than deleting an active/locked worktree. " + $WorktreeRoot + " " + $details)
+        }
+        elseif (-not $registrationCheckSucceeded) {
+            $details = (@($listResult.Output) | ForEach-Object { [string]$_ }) -join " "
+            Write-Host ("WARNING: Could not verify whether Git still registers temporary worktree '$WorktreeRoot'; leaving it in place. " + $details)
         }
         elseif (Test-Path -LiteralPath $WorktreeRoot) {
             try {

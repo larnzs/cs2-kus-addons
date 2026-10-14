@@ -134,7 +134,13 @@ try {
 
 
     # Runtime updater must serialize runs and avoid the shared initializing-worktree race.
-    $runtimeUpdater = Get-Content -LiteralPath (Join-Path $PSScriptRoot "Invoke-RuntimeAddonUpdate.ps1") -Raw
+    $runtimeUpdaterPath = Join-Path $PSScriptRoot "Invoke-RuntimeAddonUpdate.ps1"
+    $runtimeUpdater = Get-Content -LiteralPath $runtimeUpdaterPath -Raw
+    $runtimeTokens = $null
+    $runtimeParseErrors = $null
+    [System.Management.Automation.Language.Parser]::ParseFile($runtimeUpdaterPath, [ref]$runtimeTokens, [ref]$runtimeParseErrors) | Out-Null
+    $runtimeParseMessage = @($runtimeParseErrors | ForEach-Object { $_.Message }) -join "; "
+    Assert-Condition ($runtimeParseErrors.Count -eq 0) ("Runtime updater has PowerShell syntax errors: " + $runtimeParseMessage)
     Assert-Condition ($runtimeUpdater -match 'runtime-addon-update-\$PID-.*NewGuid') "Runtime updater must use a unique per-run worktree path."
     Assert-Condition ($runtimeUpdater.Contains("[System.IO.FileShare]::None")) "Runtime updater must acquire an exclusive cross-process lock."
     Assert-Condition ($runtimeUpdater.Contains('Invoke-GitCapture -Path $RepositoryRoot -GitArgs @("worktree", "remove", "--force", $WorktreeRoot)')) "Runtime updater cleanup must capture Git failures instead of emitting a terminating native-command error."
