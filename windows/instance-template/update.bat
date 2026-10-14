@@ -84,6 +84,8 @@ goto :DoMaintenance
 :RecentSuccess
 echo [%date% %time%] A successful shared update is less than five minutes old; skipping duplicate update checks.
 echo [%date% %time%] CUSTOM_FOLDER files are copied by run.bat immediately before each server launch.
+call :SyncInstanceRunnerFiles
+if errorlevel 1 goto :MaintenanceFailed
 call :ReleaseLock
 set "RC=0"
 goto :finish
@@ -154,6 +156,9 @@ if errorlevel 1 goto :MaintenanceFailed
 call :AnyCS2Running
 if not errorlevel 1 goto :MaintenanceSkippedBusy
 echo [%date% %time%] CUSTOM_FOLDER copying is handled by run.bat immediately before launch, not by this updater.
+
+call :SyncInstanceRunnerFiles
+if errorlevel 1 goto :MaintenanceFailed
 
 > "%LAST_SUCCESS%" echo Shared maintenance completed at %date% %time%
 echo [%date% %time%] Maintenance completed successfully. Returning to launch-only runner.
@@ -226,6 +231,43 @@ exit /b %ERRORLEVEL%
 tasklist /FI "IMAGENAME eq cs2.exe" /FO CSV /NH 2>nul | findstr /I /C:"cs2.exe" >nul
 if not errorlevel 1 exit /b 0
 exit /b 1
+
+:SyncInstanceRunnerFiles
+rem Keep external Instance launch helpers aligned with the checked-in template.
+rem Never overwrite instance.ini. Only update a standard run.bat when it already exists;
+rem this preserves support for a deliberately named custom *_run.bat runner.
+set "RUNNER_TEMPLATE_DIR=%REPO_ROOT%\windows\instance-template"
+
+if exist "%INSTANCE_DIR%\run.bat" (
+    if not exist "%RUNNER_TEMPLATE_DIR%\run.bat" (
+        echo ERROR: Repository runner template is missing: "%RUNNER_TEMPLATE_DIR%\run.bat"
+        exit /b 1
+    )
+    copy /y "%RUNNER_TEMPLATE_DIR%\run.bat" "%INSTANCE_DIR%\run.bat" >nul
+    if errorlevel 1 (
+        echo ERROR: Could not synchronize "%INSTANCE_DIR%\run.bat".
+        exit /b 1
+    )
+    echo [%date% %time%] Synchronized managed Instance helper: run.bat
+) else (
+    echo [%date% %time%] No standard run.bat found; leaving any custom-named *_run.bat runner untouched.
+)
+
+for %%F in (run.vbs watchdog.bat) do (
+    if exist "%INSTANCE_DIR%\%%F" (
+        if not exist "%RUNNER_TEMPLATE_DIR%\%%F" (
+            echo ERROR: Repository runner template is missing: "%RUNNER_TEMPLATE_DIR%\%%F"
+            exit /b 1
+        )
+        copy /y "%RUNNER_TEMPLATE_DIR%\%%F" "%INSTANCE_DIR%\%%F" >nul
+        if errorlevel 1 (
+            echo ERROR: Could not synchronize "%INSTANCE_DIR%\%%F".
+            exit /b 1
+        )
+        echo [%date% %time%] Synchronized managed Instance helper: %%F
+    )
+)
+exit /b 0
 
 :UpdateRepository
 echo.
