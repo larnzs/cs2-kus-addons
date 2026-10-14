@@ -24,7 +24,7 @@
     "MaxNominationWinners": 1,
     "ChangeImmediately": false,
     "TriggerKillsBeforeEnd": 13,
-    "TriggerRoundsBeforeEnd": 2,
+    "TriggerRoundsBeforeEnd": 0,
     "TriggerSecondsBeforeEnd": 30
   },
   "Maps": {
