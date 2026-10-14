@@ -2,7 +2,7 @@
   "Version": 12,
   "RTV": {
     "Enabled": true,
-    "Style": "chat",
+    "Style": "center",
     "PerMap": false,
     "HideHud": false,
     "MinRounds": 0,
@@ -12,12 +12,12 @@
     "VotePercentage": 51,
     "OptionsInCoolDown": 3,
     "EndOfMapVote": true,
-    "IncludeModes": true,
+    "IncludeModes": false,
     "IncludeExtend": true,
     "MaxExtends": 6,
     "ExtendTime": 10,
     "ExtendRounds": 5,
-    "ModePercentage": 60,
+    "ModePercentage": 40,
     "EnabledInWarmup": false,
     "HideHudAfterVote": false,
     "NominationEnabled": true,
@@ -25,7 +25,7 @@
     "ChangeImmediately": false,
     "TriggerKillsBeforeEnd": 13,
     "TriggerRoundsBeforeEnd": 2,
-    "TriggerSecondsBeforeEnd": 60
+    "TriggerSecondsBeforeEnd": 30
   },
   "Maps": {
     "Mode": 0,
@@ -182,14 +182,6 @@
         ]
       },
       {
-        "Name": "Awp Only",
-        "Config": "awp.cfg",
-        "DefaultMap": "3142070597",
-        "MapGroups": [
-          "mg_awp"
-        ]
-      },
-      {
         "Name": "1v1 Arenas",
         "Config": "1v1.cfg",
         "DefaultMap": "3070253400",
@@ -320,7 +312,7 @@
       },
       {
         "Name": "Casual (1.6)",
-        "Config": "Casual-1.6.cfg",
+        "Config": "casual-1.6.cfg",
         "DefaultMap": "3201205818",
         "MapGroups": [
           "mg_casual-1.6"
@@ -359,22 +351,6 @@
         ]
       },
       {
-        "Name": "Casual Workshop",
-        "Config": "casualw.cfg",
-        "DefaultMap": "de_dust2",
-        "MapGroups": [
-          "mg_casualw"
-        ]
-      },
-      {
-        "Name": "Casual Active",
-        "Config": "casual-active.cfg",
-        "DefaultMap": "de_mirage",
-        "MapGroups": [
-          "mg_casuala"
-        ]
-      },
-      {
         "Name": "Retakes (Valve)",
         "Config": "valve-retake.cfg",
         "DefaultMap": "de_dust2",
@@ -404,14 +380,6 @@
         "DefaultMap": "3075511506",
         "MapGroups": [
           "mg_aimawp"
-        ]
-      },
-      {
-        "Name": "VIP",
-        "Config": "vip.cfg",
-        "DefaultMap": "3711701554",
-        "MapGroups": [
-          "mg_vip"
         ]
       }
     ]
