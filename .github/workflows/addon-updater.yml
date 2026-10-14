@@ -157,7 +157,16 @@ jobs:
           protected_after="$RUNNER_TEMP/protected-configs-after.txt"
           git ls-tree -r HEAD -- "${protected_paths[@]}" | sort > "$protected_before"
 
-          bash scripts/update/update.sh
+          # Bootstrap a newly registered integration in isolation when its payload is
+          # not tracked yet. This avoids unrelated optional-plugin preflight failures
+          # blocking the first release import. Once the DLL is present, retain the normal
+          # full-catalog update path.
+          if [[ -f "game/csgo/addons/counterstrikesharp/plugins/GG1MapChooser/GG1MapChooser.dll" ]]; then
+            bash scripts/update/update.sh
+          else
+            echo "GG1MapChooser payload is not tracked yet; bootstrapping only GG1MapChooser."
+            bash scripts/update/update.sh --only gg1mapchooser
+          fi
 
           # The shell updater creates local commits before publishing. Compare the
           # protected path's tree entries at HEAD, not just the working-tree diff.
