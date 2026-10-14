@@ -10,7 +10,15 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $RepositoryRoot = (Resolve-Path -LiteralPath $RepositoryRoot).Path
-$WorktreeRoot = Join-Path $RepositoryRoot "tmp\runtime-addon-update"
+$WorktreeParent = Join-Path $RepositoryRoot "tmp"
+# Each process gets its own worktree path. A fixed path allowed a second installer
+# to try removing the first installer's worktree while Git was still initializing it.
+$WorktreeRoot = Join-Path $WorktreeParent ("runtime-addon-update-$PID-$([guid]::NewGuid().ToString('N'))")
+# This exclusive OS file lock serializes instances of this updater; the file may
+# remain on disk, but the lock is released when the PowerShell process exits.
+$WorktreeLockPath = Join-Path $RepositoryRoot ".git\runtime-addon-update.lock"
+$WorktreeLockStream = $null
+$WorktreeAttempted = $false
 $OriginalGitHubToken = $env:GITHUB_TOKEN
 $OriginalGitAuthorName = $env:GIT_AUTHOR_NAME
 $OriginalGitAuthorEmail = $env:GIT_AUTHOR_EMAIL
@@ -128,6 +136,20 @@ try {
         throw "Expected branch '$Branch' but found '$($currentBranch.Trim())'."
     }
 
+    try {
+        $WorktreeLockStream = [System.IO.File]::Open(
+            $WorktreeLockPath,
+            [System.IO.FileMode]::OpenOrCreate,
+            [System.IO.FileAccess]::ReadWrite,
+            [System.IO.FileShare]::None
+        )
+    }
+    catch {
+        throw ("Could not acquire the runtime add-on updater lock at '$WorktreeLockPath'. " +
+            "Another install/update may already be running, or the lock file is not accessible. " +
+            "Wait for the active update to finish, then retry. Details: " + $_.Exception.Message)
+    }
+
     $mainStatus = @(Invoke-Git -Path $RepositoryRoot -GitArgs @("status", "--porcelain", "--untracked-files=all"))
     if ($mainStatus.Count -gt 0) {
         throw ("The main repository must be clean before checking upstream add-ons:" +
@@ -159,15 +181,13 @@ try {
     }
     $baseSha = $baseSha.Trim()
 
-    # Use a detached temporary worktree so Update-Addons.ps1 can download files
-    # and create commits without dirtying the long-lived checkout used by Runner.
+    # Use a detached, per-process worktree so concurrent installers never
+    # inspect/remove the same directory while Git marks it "initializing".
     if (Test-Path -LiteralPath $WorktreeRoot) {
-        & git -C $RepositoryRoot worktree remove --force $WorktreeRoot *> $null
-        if (Test-Path -LiteralPath $WorktreeRoot) {
-            Remove-Item -LiteralPath $WorktreeRoot -Recurse -Force
-        }
+        throw "The uniquely named temporary worktree path already exists: $WorktreeRoot"
     }
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $WorktreeRoot) | Out-Null
+    New-Item -ItemType Directory -Force -Path $WorktreeParent | Out-Null
+    $WorktreeAttempted = $true
     Invoke-Git -Path $RepositoryRoot -GitArgs @("worktree", "add", "--detach", $WorktreeRoot, $originRef) | Out-Null
     $WorktreeCreated = $true
 
@@ -244,12 +264,58 @@ catch {
     $ExitCode = 1
 }
 finally {
-    if ($WorktreeCreated -or (Test-Path -LiteralPath $WorktreeRoot)) {
-        & git -C $RepositoryRoot worktree remove --force $WorktreeRoot *> $null
-        if (Test-Path -LiteralPath $WorktreeRoot) {
-            Remove-Item -LiteralPath $WorktreeRoot -Recurse -Force -ErrorAction SilentlyContinue
+    if ($WorktreeAttempted -or (Test-Path -LiteralPath $WorktreeRoot)) {
+        # Git can leave an "initializing" lock if worktree add/remove was
+        # interrupted. First try normal removal, then unlock and retry only this
+        # process's unique worktree. Never prune the repository's other worktrees.
+        $removeResult = Invoke-GitCapture -Path $RepositoryRoot -GitArgs @("worktree", "remove", "--force", $WorktreeRoot)
+        if ($removeResult.ExitCode -ne 0) {
+            $unlockResult = Invoke-GitCapture -Path $RepositoryRoot -GitArgs @("worktree", "unlock", $WorktreeRoot)
+            if ($unlockResult.ExitCode -eq 0) {
+                $removeResult = Invoke-GitCapture -Path $RepositoryRoot -GitArgs @("worktree", "remove", "--force", $WorktreeRoot)
+            }
         }
-        & git -C $RepositoryRoot worktree prune *> $null
+
+        # Do not delete a directory while Git still registers it as a worktree.
+        # If Git no longer registers this unique path, removing a leftover partial
+        # directory is safe and cannot affect another installer's workspace.
+        $registered = $false
+        $listResult = Invoke-GitCapture -Path $RepositoryRoot -GitArgs @("worktree", "list", "--porcelain")
+        if ($listResult.ExitCode -eq 0) {
+            $wantedPath = [System.IO.Path]::GetFullPath($WorktreeRoot).TrimEnd([char[]]@([char]'\', [char]'/'))
+            foreach ($line in $listResult.Output) {
+                if ($line.StartsWith("worktree ", [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $listedPath = $line.Substring(9).Trim()
+                    try {
+                        $listedPath = [System.IO.Path]::GetFullPath($listedPath).TrimEnd([char[]]@([char]'\', [char]'/'))
+                        if ($listedPath.Equals($wantedPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+                            $registered = $true
+                            break
+                        }
+                    }
+                    catch {
+                        # Ignore malformed/unresolvable entries from unrelated worktrees.
+                    }
+                }
+            }
+        }
+
+        if ($registered) {
+            $details = (@($removeResult.Output) | ForEach-Object { [string]$_ }) -join " "
+            Write-Host ("WARNING: Git still registers this temporary worktree; leaving it in place rather than deleting an active/locked worktree. " + $WorktreeRoot + " " + $details)
+        }
+        elseif (Test-Path -LiteralPath $WorktreeRoot) {
+            try {
+                Remove-Item -LiteralPath $WorktreeRoot -Recurse -Force -ErrorAction Stop
+            }
+            catch {
+                Write-Host ("WARNING: Could not remove leftover temporary directory '$WorktreeRoot': " + $_.Exception.Message)
+            }
+        }
+    }
+
+    if ($null -ne $WorktreeLockStream) {
+        try { $WorktreeLockStream.Dispose() } catch { }
     }
 
     $env:GITHUB_TOKEN = $OriginalGitHubToken

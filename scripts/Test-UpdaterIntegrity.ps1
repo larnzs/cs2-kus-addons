@@ -132,7 +132,35 @@ try {
     $unloadCfg = Get-Content -LiteralPath (Join-Path $repoRoot "game/csgo/cfg/unload_plugins.cfg") -Raw
     Assert-Condition ($unloadCfg.Contains('css_plugins unload "Antibait"')) "Antibait is not unloaded when switching out of its game mode."
 
-    Write-Host "PASS: manifest, plugin destination/CFG wiring, disabled automation policy and 5 gameinfo patch scenarios." -ForegroundColor Green
+
+    # Runtime updater must serialize runs and avoid the shared initializing-worktree race.
+    $runtimeUpdater = Get-Content -LiteralPath (Join-Path $PSScriptRoot "Invoke-RuntimeAddonUpdate.ps1") -Raw
+    Assert-Condition ($runtimeUpdater -match 'runtime-addon-update-\$PID-.*NewGuid') "Runtime updater must use a unique per-run worktree path."
+    Assert-Condition ($runtimeUpdater.Contains("[System.IO.FileShare]::None")) "Runtime updater must acquire an exclusive cross-process lock."
+    Assert-Condition ($runtimeUpdater.Contains('Invoke-GitCapture -Path $RepositoryRoot -GitArgs @("worktree", "remove", "--force", $WorktreeRoot)')) "Runtime updater cleanup must capture Git failures instead of emitting a terminating native-command error."
+    Assert-Condition ($runtimeUpdater.Contains('Invoke-GitCapture -Path $RepositoryRoot -GitArgs @("worktree", "unlock", $WorktreeRoot)')) "Runtime updater must recover its own stale worktree lock before retrying removal."
+    Assert-Condition (-not ($runtimeUpdater -match '(?s)if \(Test-Path -LiteralPath \$WorktreeRoot\) \{\s*& git -C \$RepositoryRoot worktree remove --force \$WorktreeRoot')) "Runtime updater must not remove a shared fixed worktree path before creating a new one."
+    Assert-Condition (-not $runtimeUpdater.Contains('worktree prune *> $null')) "Runtime updater must not globally prune unrelated worktrees during cleanup."
+
+    # Windows FileShare.None must reject a second simultaneous lock holder.
+    $lockFixture = Join-Path $tempRoot "runtime-updater-lock.test"
+    $firstLock = [System.IO.File]::Open($lockFixture, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+    $secondLockBlocked = $false
+    try {
+        try {
+            $secondLock = [System.IO.File]::Open($lockFixture, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+            $secondLock.Dispose()
+        }
+        catch [System.IO.IOException] {
+            $secondLockBlocked = $true
+        }
+    }
+    finally {
+        $firstLock.Dispose()
+    }
+    Assert-Condition $secondLockBlocked "Exclusive runtime updater lock allowed two simultaneous holders."
+
+    Write-Host "PASS: manifest, plugin destination/CFG wiring, runtime updater concurrency/cleanup, disabled automation policy and gameinfo patch scenarios." -ForegroundColor Green
 }
 finally {
     if (Test-Path -LiteralPath $tempRoot) { Remove-Item -LiteralPath $tempRoot -Recurse -Force }
