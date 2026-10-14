@@ -1,780 +1,782 @@
 {
-  "schema_version": 2,
-  "name": "cs2-kus-addons",
-  "architecture": {
-    "base_repository": "kus/cs2-modded-server",
-    "target_root": "game/csgo",
-    "merge_mode": "non-destructive-overlay",
-    "deletes_owned_files": false,
-    "overwrite_existing_files": true,
-    "platform_overlay_root": "game/csgo/addons/windows",
-    "runtime_roots": {
-      "windows": "server/game/csgo",
-      "linux": "<SteamCMD install root>/game/csgo"
-    }
-  },
-  "not_managed_by_this_repo": [
-    "Source2ZE/MultiAddonManager",
-    "Source2ZE/ServerListPlayersFix"
-  ],
-  "intentionally_kept_from_kus": [
-    "connercsbn/SimpleAdmin"
-  ],
-  "addons": [
-    {
-      "order": 0,
-      "name": "Metamod:Source",
-      "repository": "https://github.com/alliedmodders/metamod-source",
-      "readme_url": "https://www.metamodsource.net/downloads.php?branch=dev",
-      "type": "github_release",
-      "track": "latest",
-      "version": "2.0.0-1476",
-      "release_tag": "2.0.0.1476",
-      "version_format": "metamod",
-      "assets": [
-        "mmsource-*-windows.zip",
-        "mmsource-*-linux.tar.gz"
-      ],
-      "depends_on": [],
-      "installed": true,
-      "merge": "release_csgo_root",
-      "verify_paths": [
-        "addons/metamod/bin/win64/metamod.2.cs2.dll",
-        "addons/metamod/bin/linuxsteamrt64/metamod.2.cs2.so",
-        "addons/metamod.vdf",
-        "addons/metamod_x64.vdf"
-      ]
-    },
-    {
-      "order": 1,
-      "name": "CounterStrikeSharp",
-      "repository": "https://github.com/roflmuffin/CounterStrikeSharp",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.0.376",
-      "release_tag": "v1.0.376",
-      "assets": [
-        "counterstrikesharp-with-runtime-windows-{version}.zip",
-        "counterstrikesharp-with-runtime-linux-{version}.zip"
-      ],
-      "depends_on": [
-        "Metamod:Source"
-      ],
-      "installed": true,
-      "merge": "release_plugin_directory",
-      "verify_paths": [
-        "addons/windows/addons/counterstrikesharp/api/CounterStrikeSharp.API.dll",
-        "addons/windows/addons/counterstrikesharp/bin/win64/counterstrikesharp.dll",
-        "addons/windows/addons/counterstrikesharp/dotnet/dotnet.exe",
-        "addons/counterstrikesharp/bin/linuxsteamrt64/counterstrikesharp.so"
-      ],
-      "runtime_required": true,
-      "required_asset_name_contains": "with-runtime",
-      "verify_globs": [
-        "addons/windows/addons/counterstrikesharp/dotnet/shared/Microsoft.NETCore.App/*/System.Private.CoreLib.dll",
-        "addons/windows/addons/counterstrikesharp/dotnet/host/fxr/*/hostfxr.dll"
-      ],
-      "source_path": "addons/counterstrikesharp",
-      "install_path": "addons/windows/addons/counterstrikesharp",
-      "asset_mappings": {
-        "counterstrikesharp-with-runtime-windows-{version}.zip": [
-          {
-            "merge": "release_plugin_directory",
-            "source_path": "addons/counterstrikesharp",
-            "install_path": "addons/windows/addons/counterstrikesharp"
-          },
-          {
-            "merge": "release_csgo_root"
-          }
-        ],
-        "counterstrikesharp-with-runtime-linux-{version}.zip": [
-          {
-            "merge": "release_csgo_root"
-          }
-        ]
-      }
-    },
-    {
-      "order": 2,
-      "name": "AnyBaseLibCS2",
-      "repository": "https://github.com/NickFox007/AnyBaseLibCS2",
-      "type": "github_release",
-      "track": "latest",
-      "version": "0.9.4",
-      "release_tag": "0.9.4",
-      "assets": [
-        "AnyBaseLib.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": true,
-      "merge": "release_csgo_root",
-      "verify_paths": [
-        "addons/counterstrikesharp/shared/AnyBaseLib/AnyBaseLib.dll",
-        "addons/counterstrikesharp/shared/AnyBaseLib/runtimes/win-x64/native/e_sqlite3.dll"
-      ]
-    },
-    {
-      "order": 3,
-      "name": "PlayerSettingsCS2",
-      "repository": "https://github.com/NickFox007/PlayerSettingsCS2",
-      "type": "github_release",
-      "track": "latest",
-      "version": "0.9.4",
-      "release_tag": "0.9.4",
-      "assets": [
-        "PlayerSettings.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp",
-        "AnyBaseLibCS2"
-      ],
-      "installed": true,
-      "merge": "release_csgo_root",
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/PlayerSettings/PlayerSettings.dll",
-        "addons/counterstrikesharp/shared/PlayerSettingsApi/PlayerSettingsApi.dll"
-      ]
-    },
-    {
-      "order": 4,
-      "name": "MenuManagerCS2",
-      "repository": "https://github.com/NickFox007/MenuManagerCS2",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.4.1",
-      "release_tag": "1.4.1",
-      "assets": [
-        "MenuManager.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp",
-        "PlayerSettingsCS2"
-      ],
-      "installed": true,
-      "merge": "release_csgo_root",
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/MenuManagerCore/MenuManagerCore.dll",
-        "addons/counterstrikesharp/shared/MenuManagerApi/MenuManagerApi.dll"
-      ]
-    },
-    {
-      "order": 5,
-      "name": "CS2-SimpleAdmin",
-      "repository": "https://github.com/daffyyyy/CS2-SimpleAdmin",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.9.0",
-      "release_tag": "build-1.9.0",
-      "assets": [
-        "CS2-SimpleAdmin-{version}.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp",
-        "AnyBaseLibCS2",
-        "PlayerSettingsCS2",
-        "MenuManagerCS2"
-      ],
-      "installed": true,
-      "merge": "release_plugin_directory",
-      "source_path": "counterstrikesharp",
-      "install_path": "addons/counterstrikesharp",
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/CS2-SimpleAdmin/CS2-SimpleAdmin.dll",
-        "addons/counterstrikesharp/plugins/CS2-SimpleAdmin_FunCommands/CS2-SimpleAdmin_FunCommands.dll",
-        "addons/counterstrikesharp/plugins/CS2-SimpleAdmin_StealthModule/CS2-SimpleAdmin_StealthModule.dll",
-        "addons/counterstrikesharp/shared/CS2-SimpleAdminApi/CS2-SimpleAdminApi.dll"
-      ]
-    },
-    {
-      "order": 6,
-      "name": "WeaponPaints",
-      "repository": "https://github.com/Nereziel/cs2-WeaponPaints",
-      "type": "github_release",
-      "track": "latest",
-      "version": "466",
-      "release_tag": "build-466",
-      "assets": [
-        "WeaponPaints.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp",
-        "AnyBaseLibCS2",
-        "PlayerSettingsCS2",
-        "MenuManagerCS2"
-      ],
-      "installed": true,
-      "merge": "release_csgo_root",
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/WeaponPaints/WeaponPaints.dll",
-        "addons/counterstrikesharp/gamedata/weaponpaints.json"
-      ]
-    },
-    {
-      "order": 7,
-      "name": "AFKManager",
-      "repository": "https://github.com/NiGHT757/AFKManager",
-      "type": "github_release",
-      "track": "latest",
-      "version": "0.2.8",
-      "release_tag": "v0.2.8",
-      "assets": [
-        "AFKManager.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": true,
-      "merge": "release_plugin_directory",
-      "source_path": "AFKManager",
-      "install_path": "addons/counterstrikesharp/plugins/AFKManager",
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/AFKManager/AFKManager.dll"
-      ]
-    },
-    {
-      "order": 8,
-      "name": "CS2-Kill-Plugin",
-      "repository": "https://github.com/Quantor97/CS2-Kill-Plugin",
-      "type": "github_release",
-      "track": "latest",
-      "version": "0.2.0",
-      "release_tag": "0.2.0",
-      "assets": [
-        "Kill-{version}.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": true,
-      "merge": "release_csgo_root",
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/Kill/Kill.dll"
-      ]
-    },
-    {
-      "order": 9,
-      "name": "SimpleResetScore",
-      "repository": "https://github.com/stefanx111/cs2-SimpleResetScore",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.0.7",
-      "release_tag": "1.0.7",
-      "assets": [
-        "cs2-SimpleResetScore.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp",
-        "Metamod:Source"
-      ],
-      "installed": true,
-      "merge": "release_plugin_directory",
-      "source_path": "ResetScore",
-      "install_path": "addons/counterstrikesharp/plugins/ResetScore",
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/ResetScore/ResetScore.dll"
-      ]
-    },
-    {
-      "order": 10,
-      "name": "cs2-showdamage",
-      "repository": "https://github.com/abnerfs/cs2-showdamage",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.1.0",
-      "release_tag": "1.1.0",
-      "assets": [
-        "ShowDamage_*.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": true,
-      "merge": "release_plugin_directory",
-      "source_path": "ShowDamage",
-      "install_path": "addons/counterstrikesharp/plugins/ShowDamage",
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/ShowDamage/ShowDamage.dll"
-      ]
-    },
-    {
-      "order": 11,
-      "name": "cs2-ranks",
-      "repository": "https://github.com/partiusfabaa/cs2-ranks",
-      "type": "github_release",
-      "track": "latest",
-      "version": "2.0.5.5-recompile",
-      "release_tag": "v2.0.5.5-recompile",
-      "assets": [
-        "Ranks.zip",
-        "Modules.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp",
-        "Metamod:Source"
-      ],
-      "installed": true,
-      "merge": "release_csgo_root",
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/Ranks/Ranks.dll",
-        "addons/counterstrikesharp/plugins/Ranks_ExStats_GeoIP/Ranks_ExStats_GeoIP.dll",
-        "addons/counterstrikesharp/plugins/Ranks_ExStats_Hits/Ranks_ExStats_Hits.dll",
-        "addons/counterstrikesharp/plugins/Ranks_FakeRank/Ranks_FakeRank.dll",
-        "addons/counterstrikesharp/plugins/Ranks_Tag/Ranks_Tag.dll",
-        "addons/counterstrikesharp/shared/RanksApi/RanksApi.dll"
-      ]
-    },
-    {
-      "order": 12,
-      "name": "VIPCore",
-      "repository": "https://github.com/partiusfabaa/cs2-VIPCore",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.3.4-recompile3",
-      "release_tag": "v1.3.4-recompile3",
-      "assets": [
-        "VIPCore.zip",
-        "VIP_Modules.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp",
-        "Metamod:Source"
-      ],
-      "installed": true,
-      "merge": "release_csgo_root",
-      "asset_mappings": {
-        "VIPCore.zip": {
-          "merge": "release_csgo_root"
-        },
-        "VIP_Modules.zip": {
-          "merge": "release_plugin_directory",
-          "source_path": ".",
-          "install_path": "addons/counterstrikesharp/plugins"
-        }
-      },
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/VIPCore/VIPCore.dll",
-        "addons/counterstrikesharp/shared/VipCoreApi/VipCoreApi.dll",
-        "addons/counterstrikesharp/plugins/VIP_AntiFlash/VIP_AntiFlash.dll",
-        "addons/counterstrikesharp/plugins/VIP_Armor/VIP_Armor.dll",
-        "addons/counterstrikesharp/plugins/VIP_Bhop/VIP_Bhop.dll",
-        "addons/counterstrikesharp/plugins/VIP_BuyTeamWeapon/VIP_BuyTeamWeapon.dll",
-        "addons/counterstrikesharp/plugins/VIP_CustomDefaultAmmo/VIP_CustomDefaultAmmo.dll",
-        "addons/counterstrikesharp/plugins/VIP_DamageChange/VIP_DamageChange.dll",
-        "addons/counterstrikesharp/plugins/VIP_DecoyTeleport/VIP_DecoyTeleport.dll",
-        "addons/counterstrikesharp/plugins/VIP_Defuser/VIP_Defuser.dll",
-        "addons/counterstrikesharp/plugins/VIP_Endurance/VIP_Endurance.dll",
-        "addons/counterstrikesharp/plugins/VIP_FastDefuse/VIP_FastDefuse.dll",
-        "addons/counterstrikesharp/plugins/VIP_FastPlant/VIP_FastPlant.dll",
-        "addons/counterstrikesharp/plugins/VIP_FastReload/VIP_FastReload.dll",
-        "addons/counterstrikesharp/plugins/VIP_Flags/VIP_Flags.dll",
-        "addons/counterstrikesharp/plugins/VIP_Fov/VIP_Fov.dll",
-        "addons/counterstrikesharp/plugins/VIP_Gravity/VIP_Gravity.dll",
-        "addons/counterstrikesharp/plugins/VIP_Grenades/VIP_Grenades.dll",
-        "addons/counterstrikesharp/plugins/VIP_Health/VIP_Health.dll",
-        "addons/counterstrikesharp/plugins/VIP_Healthshot/VIP_Healthshot.dll",
-        "addons/counterstrikesharp/plugins/VIP_InfiniteAmmo/VIP_InfiniteAmmo.dll",
-        "addons/counterstrikesharp/plugins/VIP_Items/VIP_Items.dll",
-        "addons/counterstrikesharp/plugins/VIP_KillScreen/VIP_KillScreen.dll",
-        "addons/counterstrikesharp/plugins/VIP_Money/VIP_Money.dll",
-        "addons/counterstrikesharp/plugins/VIP_NightVip/VIP_NightVip.dll",
-        "addons/counterstrikesharp/plugins/VIP_NoFallDamage/VIP_NoFallDamage.dll",
-        "addons/counterstrikesharp/plugins/VIP_RainbowModel/VIP_RainbowModel.dll",
-        "addons/counterstrikesharp/plugins/VIP_Random/VIP_Random.dll",
-        "addons/counterstrikesharp/plugins/VIP_RegenArmor/VIP_RegenArmor.dll",
-        "addons/counterstrikesharp/plugins/VIP_RegenHealth/VIP_RegenHealth.dll",
-        "addons/counterstrikesharp/plugins/VIP_ResetDeaths/VIP_ResetDeaths.dll",
-        "addons/counterstrikesharp/plugins/VIP_Respawn/VIP_Respawn.dll",
-        "addons/counterstrikesharp/plugins/VIP_SmokeColor/VIP_SmokeColor.dll",
-        "addons/counterstrikesharp/plugins/VIP_Speed/VIP_Speed.dll",
-        "addons/counterstrikesharp/plugins/VIP_Tag/VIP_Tag.dll",
-        "addons/counterstrikesharp/plugins/VIP_TeammatesHeal/VIP_TeammatesHeal.dll",
-        "addons/counterstrikesharp/plugins/VIP_Test/VIP_Test.dll",
-        "addons/counterstrikesharp/plugins/VIP_Vampirism/VIP_Vampirism.dll",
-        "addons/counterstrikesharp/plugins/VIP_VipsOnline/VIP_VipsOnline.dll",
-        "addons/counterstrikesharp/plugins/VIP_WeaponsMenu/VIP_WeaponsMenu.dll",
-        "addons/counterstrikesharp/plugins/VIP_Zeus/VIP_Zeus.dll"
-      ]
-    },
-    {
-      "order": 13,
-      "name": "SLAYER_AntiCamp",
-      "repository": "https://github.com/zakriamansoor47/SLAYER_AntiCamp",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.2.5",
-      "release_tag": "v1.2.5",
-      "assets": [
-        "CS2.SLAYER_AntiCamp.v{version}.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": true,
-      "merge": "release_plugin_directory",
-      "source_path": "plugins/SLAYER_AntiCamp",
-      "install_path": "addons/counterstrikesharp/plugins/SLAYER_AntiCamp",
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/SLAYER_AntiCamp/SLAYER_AntiCamp.dll",
-        "addons/counterstrikesharp/source/SLAYER_AntiCamp/SLAYER_AntiCamp.cs",
-        "addons/counterstrikesharp/source/SLAYER_AntiCamp/SLAYER_AntiCamp.csproj"
-      ],
-      "asset_mappings": {
-        "CS2.SLAYER_AntiCamp.v{version}.zip": [
-          {
-            "merge": "release_plugin_directory",
-            "source_path": "plugins/SLAYER_AntiCamp",
-            "install_path": "addons/counterstrikesharp/plugins/SLAYER_AntiCamp"
-          },
-          {
-            "merge": "release_plugin_directory",
-            "source_path": "source/SLAYER_AntiCamp",
-            "install_path": "addons/counterstrikesharp/source/SLAYER_AntiCamp"
-          }
-        ]
-      }
-    },
-    {
-      "order": 14,
-      "name": "SLAYER_HeadshotOnly",
-      "repository": "https://github.com/zakriamansoor47/SLAYER_HeadshotOnly",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.2.1",
-      "release_tag": "v1.2.1",
-      "assets": [
-        "CS2.SLAYER_HeadshotOnly.v{version}.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": true,
-      "merge": "release_plugin_directory",
-      "source_path": "plugins/SLAYER_HeadshotOnly",
-      "install_path": "addons/counterstrikesharp/plugins/SLAYER_HeadshotOnly",
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/SLAYER_HeadshotOnly/SLAYER_HeadshotOnly.dll",
-        "addons/counterstrikesharp/source/SLAYER_HeadshotOnly/SLAYER_HeadshotOnly.cs",
-        "addons/counterstrikesharp/source/SLAYER_HeadshotOnly/SLAYER_HeadshotOnly.csproj"
-      ],
-      "asset_mappings": {
-        "CS2.SLAYER_HeadshotOnly.v{version}.zip": [
-          {
-            "merge": "release_plugin_directory",
-            "source_path": "plugins/SLAYER_HeadshotOnly",
-            "install_path": "addons/counterstrikesharp/plugins/SLAYER_HeadshotOnly"
-          },
-          {
-            "merge": "release_plugin_directory",
-            "source_path": "source/SLAYER_HeadshotOnly",
-            "install_path": "addons/counterstrikesharp/source/SLAYER_HeadshotOnly"
-          }
-        ]
-      }
-    },
-    {
-      "order": 15,
-      "name": "CS2-TeamLimiter",
-      "repository": "https://github.com/Ferks-FK/CS2-TeamLimiter",
-      "type": "github_source_build",
-      "track": "branch",
-      "branch": "development",
-      "version": "b9be93940543bd06b771199301c7c8ee6b162e8f",
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "project": "TeamLimiter.csproj",
-      "output_file": "TeamLimiter.dll",
-      "install_path": "addons/counterstrikesharp/plugins/TeamLimiter.dll",
-      "installed": true,
-      "source_commit": "b9be93940543bd06b771199301c7c8ee6b162e8f",
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/TeamLimiter.dll"
-      ]
-    },
-    {
-      "order": 16,
-      "name": "CS2-WeaponRestrict",
-      "repository": "https://github.com/TICHOJEBEC-SK/cs2-WeaponRestrict",
-      "type": "github_release",
-      "track": "latest",
-      "version": "WeaponRestrict1.5",
-      "release_tag": "WeaponRestrict1.5",
-      "assets": [
-        "WeaponRestrict1.5.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": false,
-      "merge": "release_csgo_root",
-      "automation_supported": false
-    },
-    {
-      "order": 17,
-      "name": "CS2UpdateMonitor",
-      "repository": "https://github.com/beanman109/cs2-updatemonitor",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.1.0",
-      "release_tag": "v1.1.0",
-      "assets": [
-        "CS2UpdateMonitor-{version}-windows-x64.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": true,
-      "merge": "release_plugin_directory",
-      "source_path": "CS2UpdateMonitor",
-      "install_path": "addons/counterstrikesharp/plugins/CS2UpdateMonitor",
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/CS2UpdateMonitor/CS2UpdateMonitor.dll",
-        "addons/counterstrikesharp/plugins/CS2UpdateMonitor/CS2UpdateMonitor.deps.json",
-        "addons/counterstrikesharp/plugins/CS2UpdateMonitor/CS2UpdateMonitor.runtimeconfig.json"
-      ]
-    },
-    {
-      "order": 18,
-      "name": "CS2-Poor-MapPropAds",
-      "repository": "https://github.com/Letaryat/CS2-Poor-MapPropAds",
-      "type": "github_source_build",
-      "track": "branch",
-      "branch": "main",
-      "version": "2a1e4ce9e8af55aaa93aa1ed53476bfb2193ffcb",
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "project": "src/CS2-Poor-MapPropAds.csproj",
-      "output_file": "CS2-Poor-MapPropAds.dll",
-      "install_directory": "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds",
-      "installed": true,
-      "source_commit": "2a1e4ce9e8af55aaa93aa1ed53476bfb2193ffcb",
-      "source_mappings": [
-        {
-          "source_path": "lang",
-          "install_path": "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/lang"
-        }
-      ],
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/CS2-Poor-MapPropAds.dll",
-        "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/lang/en.json"
-      ]
-    },
-    {
-      "order": 20,
-      "name": "CS2-Playervotes",
-      "repository": "https://github.com/asapverneri/CS2-Playervotes",
-      "type": "github_source_build",
-      "track": "branch",
-      "branch": "main",
-      "target_framework": "net10.0",
-      "version": "81b4a2bda817b304fba372d1e6678a5a48ef2e9d",
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "project": "src/Playervotes.csproj",
-      "output_file": "Playervotes.dll",
-      "install_directory": "addons/counterstrikesharp/plugins/Playervotes",
-      "installed": true,
-      "source_commit": "81b4a2bda817b304fba372d1e6678a5a48ef2e9d",
-      "source_mappings": [
-        {
-          "source_path": "src/lang",
-          "install_path": "addons/counterstrikesharp/plugins/Playervotes/lang"
-        }
-      ],
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/Playervotes/Playervotes.dll",
-        "addons/counterstrikesharp/plugins/Playervotes/Playervotes.deps.json",
-        "addons/counterstrikesharp/plugins/Playervotes/lang/en.json"
-      ],
-      "source_patches": [
-        {
-          "path": "src/Main.cs",
-          "find": "PlayerConnectedState.PlayerConnected",
-          "replace": "PlayerConnectedState.Connected"
-        }
-      ]
-    },
-    {
-      "order": 21,
-      "name": "CS2-StaffList",
-      "repository": "https://github.com/asapverneri/CS2-StaffList",
-      "type": "github_source_build",
-      "track": "branch",
-      "branch": "main",
-      "target_framework": "net10.0",
-      "version": "07fc28119686a6dd0c78a74f023f5cc6eff55ec9",
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "project": "CS2Stafflist.csproj",
-      "output_file": "CS2Stafflist.dll",
-      "install_directory": "addons/counterstrikesharp/plugins/CS2Stafflist",
-      "installed": true,
-      "source_commit": "07fc28119686a6dd0c78a74f023f5cc6eff55ec9",
-      "source_mappings": [
-        {
-          "source_path": "lang",
-          "install_path": "addons/counterstrikesharp/plugins/CS2Stafflist/lang"
-        }
-      ],
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/CS2Stafflist/CS2Stafflist.dll",
-        "addons/counterstrikesharp/plugins/CS2Stafflist/CS2Stafflist.deps.json",
-        "addons/counterstrikesharp/plugins/CS2Stafflist/lang/en.json"
-      ]
-    },
-    {
-      "order": 22,
-      "name": "SLAYER_Noscope",
-      "repository": "https://github.com/zakriamansoor47/SLAYER_Noscope",
-      "type": "github_source_build",
-      "track": "branch",
-      "branch": "main",
-      "target_framework": "net10.0",
-      "version": "d0987f3934850c674c829dc2ce912a21e626fd0d",
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "project": "SLAYER_Noscope.csproj",
-      "output_file": "SLAYER_Noscope.dll",
-      "install_directory": "addons/counterstrikesharp/plugins/SLAYER_Noscope",
-      "installed": true,
-      "source_commit": "d0987f3934850c674c829dc2ce912a21e626fd0d",
-      "source_mappings": [
-        {
-          "source_path": "lang",
-          "install_path": "addons/counterstrikesharp/plugins/SLAYER_Noscope/lang"
-        }
-      ],
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/SLAYER_Noscope/SLAYER_Noscope.dll",
-        "addons/counterstrikesharp/plugins/SLAYER_Noscope/lang/en.json"
-      ],
-      "automation_supported": false
-    },
-    {
-      "order": 23,
-      "name": "ABS_MapCycle",
-      "repository": "https://github.com/Austinbots/cs2-Change-Map-Rotation-Using-Text-File",
-      "type": "github_source_build",
-      "track": "branch",
-      "branch": "main",
-      "version": "7d71a7bf29bbebcdc192cdc3f7b714620821ea85",
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "project": "ABS_MapCycle.csproj",
-      "output_file": "ABS_MapCycle.dll",
-      "install_directory": "addons/counterstrikesharp/plugins/disabled/ABS_MapCycle",
-      "installed": true,
-      "source_commit": "7d71a7bf29bbebcdc192cdc3f7b714620821ea85",
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/disabled/ABS_MapCycle/ABS_MapCycle.dll"
-      ]
-    },
-    {
-      "order": 24,
-      "name": "CS2-Antibait",
-      "repository": "https://github.com/NeuTroNBZh/CS2-Antibait",
-      "type": "github_source_build",
-      "track": "branch",
-      "branch": "main",
-      "version": "825f83202bdb6adb3e982572126c256dce02db05",
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "project": "Antibait.csproj",
-      "output_file": "Antibait.dll",
-      "install_directory": "addons/counterstrikesharp/plugins/disabled/Antibait",
-      "installed": true,
-      "source_commit": "825f83202bdb6adb3e982572126c256dce02db05",
-      "source_mappings": [
-        {
-          "source_path": "lang",
-          "install_path": "addons/counterstrikesharp/plugins/disabled/Antibait/lang"
-        }
-      ],
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/disabled/Antibait/Antibait.dll",
-        "addons/counterstrikesharp/plugins/disabled/Antibait/lang/en.json"
-      ]
-    },
-    {
-      "order": 25,
-      "name": "CS2-KillFeedFilter",
-      "repository": "https://github.com/abnerfs/cs2-killfeed-filter",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.0.1",
-      "release_tag": "1.0.1",
-      "assets": [
-        "KillFeedFilter_{version}.zip"
-      ],
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "installed": true,
-      "merge": "release_plugin_directory",
-      "source_path": ".",
-      "install_path": "addons/counterstrikesharp/plugins/disabled/KillFeedFilter",
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/disabled/KillFeedFilter/KillFeedFilter.dll"
-      ]
-    },
-    {
-      "order": 26,
-      "name": "AdvancedFriendlyFire",
-      "repository": "https://github.com/mister-keno/advanced-ff-cs2",
-      "type": "github_source_build",
-      "track": "branch",
-      "branch": "main",
-      "version": "ab332f0b59235339041f680fdf0574223af9b9df",
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "project": "advanced_friendlyfire.csproj",
-      "output_file": "advanced_friendlyfire.dll",
-      "install_directory": "addons/counterstrikesharp/plugins/disabled/advanced_friendlyfire",
-      "installed": true,
-      "source_commit": "ab332f0b59235339041f680fdf0574223af9b9df",
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/disabled/advanced_friendlyfire/advanced_friendlyfire.dll",
-        "addons/counterstrikesharp/plugins/disabled/advanced_friendlyfire/advanced_friendlyfire.deps.json"
-      ]
-    },
-    {
-      "order": 27,
-      "name": "CS2-Gunsmenu",
-      "repository": "https://github.com/asapverneri/CS2-Gunsmenu",
-      "type": "github_source_build",
-      "track": "branch",
-      "branch": "main",
-      "target_framework": "net10.0",
-      "version": "ec5dbdd99b2345f0e80410ac950ea1a0d2de7cdb",
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "project": "src/GunsMenu.csproj",
-      "output_file": "GunsMenu.dll",
-      "install_directory": "addons/counterstrikesharp/plugins/disabled/GunsMenu",
-      "installed": false,
-      "source_commit": "ec5dbdd99b2345f0e80410ac950ea1a0d2de7cdb",
-      "source_mappings": [
-        {
-          "source_path": "src/lang",
-          "install_path": "addons/counterstrikesharp/plugins/disabled/GunsMenu/lang"
-        }
-      ],
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/disabled/GunsMenu/GunsMenu.dll",
-        "addons/counterstrikesharp/plugins/disabled/GunsMenu/GunsMenu.deps.json",
-        "addons/counterstrikesharp/plugins/disabled/GunsMenu/lang/en.json"
-      ],
-      "automation_supported": false
-    }
-  ]
+    "schema_version":  2,
+    "name":  "cs2-kus-addons",
+    "architecture":  {
+                         "base_repository":  "kus/cs2-modded-server",
+                         "target_root":  "game/csgo",
+                         "merge_mode":  "non-destructive-overlay",
+                         "deletes_owned_files":  false,
+                         "overwrite_existing_files":  true,
+                         "platform_overlay_root":  "game/csgo/addons/windows",
+                         "runtime_roots":  {
+                                               "windows":  "server/game/csgo",
+                                               "linux":  "\u003cSteamCMD install root\u003e/game/csgo"
+                                           }
+                     },
+    "not_managed_by_this_repo":  [
+                                     "Source2ZE/MultiAddonManager",
+                                     "Source2ZE/ServerListPlayersFix"
+                                 ],
+    "intentionally_kept_from_kus":  [
+                                        "connercsbn/SimpleAdmin"
+                                    ],
+    "addons":  [
+                   {
+                       "order":  0,
+                       "name":  "Metamod:Source",
+                       "repository":  "https://github.com/alliedmodders/metamod-source",
+                       "readme_url":  "https://www.metamodsource.net/downloads.php?branch=dev",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "2.0.0-1479",
+                       "release_tag":  "2.0.0.1479",
+                       "version_format":  "metamod",
+                       "assets":  [
+                                      "mmsource-*-windows.zip",
+                                      "mmsource-*-linux.tar.gz"
+                                  ],
+                       "depends_on":  [
+
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_csgo_root",
+                       "verify_paths":  [
+                                            "addons/metamod/bin/win64/metamod.2.cs2.dll",
+                                            "addons/metamod/bin/linuxsteamrt64/metamod.2.cs2.so",
+                                            "addons/metamod.vdf",
+                                            "addons/metamod_x64.vdf"
+                                        ]
+                   },
+                   {
+                       "order":  1,
+                       "name":  "CounterStrikeSharp",
+                       "repository":  "https://github.com/roflmuffin/CounterStrikeSharp",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.0.376",
+                       "release_tag":  "v1.0.376",
+                       "assets":  [
+                                      "counterstrikesharp-with-runtime-windows-{version}.zip",
+                                      "counterstrikesharp-with-runtime-linux-{version}.zip"
+                                  ],
+                       "depends_on":  [
+                                          "Metamod:Source"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_plugin_directory",
+                       "verify_paths":  [
+                                            "addons/windows/addons/counterstrikesharp/api/CounterStrikeSharp.API.dll",
+                                            "addons/windows/addons/counterstrikesharp/bin/win64/counterstrikesharp.dll",
+                                            "addons/windows/addons/counterstrikesharp/dotnet/dotnet.exe",
+                                            "addons/counterstrikesharp/bin/linuxsteamrt64/counterstrikesharp.so"
+                                        ],
+                       "runtime_required":  true,
+                       "required_asset_name_contains":  "with-runtime",
+                       "verify_globs":  [
+                                            "addons/windows/addons/counterstrikesharp/dotnet/shared/Microsoft.NETCore.App/*/System.Private.CoreLib.dll",
+                                            "addons/windows/addons/counterstrikesharp/dotnet/host/fxr/*/hostfxr.dll"
+                                        ],
+                       "source_path":  "addons/counterstrikesharp",
+                       "install_path":  "addons/windows/addons/counterstrikesharp",
+                       "asset_mappings":  {
+                                              "counterstrikesharp-with-runtime-windows-{version}.zip":  [
+                                                                                                            {
+                                                                                                                "merge":  "release_plugin_directory",
+                                                                                                                "source_path":  "addons/counterstrikesharp",
+                                                                                                                "install_path":  "addons/windows/addons/counterstrikesharp"
+                                                                                                            },
+                                                                                                            {
+                                                                                                                "merge":  "release_csgo_root"
+                                                                                                            }
+                                                                                                        ],
+                                              "counterstrikesharp-with-runtime-linux-{version}.zip":  [
+                                                                                                          {
+                                                                                                              "merge":  "release_csgo_root"
+                                                                                                          }
+                                                                                                      ]
+                                          }
+                   },
+                   {
+                       "order":  2,
+                       "name":  "AnyBaseLibCS2",
+                       "repository":  "https://github.com/NickFox007/AnyBaseLibCS2",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "0.9.4",
+                       "release_tag":  "0.9.4",
+                       "assets":  [
+                                      "AnyBaseLib.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_csgo_root",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/shared/AnyBaseLib/AnyBaseLib.dll",
+                                            "addons/counterstrikesharp/shared/AnyBaseLib/runtimes/win-x64/native/e_sqlite3.dll"
+                                        ]
+                   },
+                   {
+                       "order":  3,
+                       "name":  "PlayerSettingsCS2",
+                       "repository":  "https://github.com/NickFox007/PlayerSettingsCS2",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "0.9.4",
+                       "release_tag":  "0.9.4",
+                       "assets":  [
+                                      "PlayerSettings.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp",
+                                          "AnyBaseLibCS2"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_csgo_root",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/PlayerSettings/PlayerSettings.dll",
+                                            "addons/counterstrikesharp/shared/PlayerSettingsApi/PlayerSettingsApi.dll"
+                                        ]
+                   },
+                   {
+                       "order":  4,
+                       "name":  "MenuManagerCS2",
+                       "repository":  "https://github.com/NickFox007/MenuManagerCS2",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.4.1",
+                       "release_tag":  "1.4.1",
+                       "assets":  [
+                                      "MenuManager.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp",
+                                          "PlayerSettingsCS2"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_csgo_root",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/MenuManagerCore/MenuManagerCore.dll",
+                                            "addons/counterstrikesharp/shared/MenuManagerApi/MenuManagerApi.dll"
+                                        ]
+                   },
+                   {
+                       "order":  5,
+                       "name":  "CS2-SimpleAdmin",
+                       "repository":  "https://github.com/daffyyyy/CS2-SimpleAdmin",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.9.0",
+                       "release_tag":  "build-1.9.0",
+                       "assets":  [
+                                      "CS2-SimpleAdmin-{version}.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp",
+                                          "AnyBaseLibCS2",
+                                          "PlayerSettingsCS2",
+                                          "MenuManagerCS2"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_plugin_directory",
+                       "source_path":  "counterstrikesharp",
+                       "install_path":  "addons/counterstrikesharp",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/CS2-SimpleAdmin/CS2-SimpleAdmin.dll",
+                                            "addons/counterstrikesharp/plugins/CS2-SimpleAdmin_FunCommands/CS2-SimpleAdmin_FunCommands.dll",
+                                            "addons/counterstrikesharp/plugins/CS2-SimpleAdmin_StealthModule/CS2-SimpleAdmin_StealthModule.dll",
+                                            "addons/counterstrikesharp/shared/CS2-SimpleAdminApi/CS2-SimpleAdminApi.dll"
+                                        ]
+                   },
+                   {
+                       "order":  6,
+                       "name":  "WeaponPaints",
+                       "repository":  "https://github.com/Nereziel/cs2-WeaponPaints",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "466",
+                       "release_tag":  "build-466",
+                       "assets":  [
+                                      "WeaponPaints.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp",
+                                          "AnyBaseLibCS2",
+                                          "PlayerSettingsCS2",
+                                          "MenuManagerCS2"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_csgo_root",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/WeaponPaints/WeaponPaints.dll",
+                                            "addons/counterstrikesharp/gamedata/weaponpaints.json"
+                                        ]
+                   },
+                   {
+                       "order":  7,
+                       "name":  "AFKManager",
+                       "repository":  "https://github.com/NiGHT757/AFKManager",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "0.2.8",
+                       "release_tag":  "v0.2.8",
+                       "assets":  [
+                                      "AFKManager.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_plugin_directory",
+                       "source_path":  "AFKManager",
+                       "install_path":  "addons/counterstrikesharp/plugins/AFKManager",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/AFKManager/AFKManager.dll"
+                                        ]
+                   },
+                   {
+                       "order":  8,
+                       "name":  "CS2-Kill-Plugin",
+                       "repository":  "https://github.com/Quantor97/CS2-Kill-Plugin",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "0.2.0",
+                       "release_tag":  "0.2.0",
+                       "assets":  [
+                                      "Kill-{version}.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_csgo_root",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/Kill/Kill.dll"
+                                        ]
+                   },
+                   {
+                       "order":  9,
+                       "name":  "SimpleResetScore",
+                       "repository":  "https://github.com/stefanx111/cs2-SimpleResetScore",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.0.7",
+                       "release_tag":  "1.0.7",
+                       "assets":  [
+                                      "cs2-SimpleResetScore.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp",
+                                          "Metamod:Source"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_plugin_directory",
+                       "source_path":  "ResetScore",
+                       "install_path":  "addons/counterstrikesharp/plugins/ResetScore",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/ResetScore/ResetScore.dll"
+                                        ]
+                   },
+                   {
+                       "order":  10,
+                       "name":  "cs2-showdamage",
+                       "repository":  "https://github.com/abnerfs/cs2-showdamage",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.1.0",
+                       "release_tag":  "1.1.0",
+                       "assets":  [
+                                      "ShowDamage_*.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_plugin_directory",
+                       "source_path":  "ShowDamage",
+                       "install_path":  "addons/counterstrikesharp/plugins/ShowDamage",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/ShowDamage/ShowDamage.dll"
+                                        ]
+                   },
+                   {
+                       "order":  11,
+                       "name":  "cs2-ranks",
+                       "repository":  "https://github.com/partiusfabaa/cs2-ranks",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "2.0.5.5-recompile",
+                       "release_tag":  "v2.0.5.5-recompile",
+                       "assets":  [
+                                      "Ranks.zip",
+                                      "Modules.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp",
+                                          "Metamod:Source"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_csgo_root",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/Ranks/Ranks.dll",
+                                            "addons/counterstrikesharp/plugins/Ranks_ExStats_GeoIP/Ranks_ExStats_GeoIP.dll",
+                                            "addons/counterstrikesharp/plugins/Ranks_ExStats_Hits/Ranks_ExStats_Hits.dll",
+                                            "addons/counterstrikesharp/plugins/Ranks_FakeRank/Ranks_FakeRank.dll",
+                                            "addons/counterstrikesharp/plugins/Ranks_Tag/Ranks_Tag.dll",
+                                            "addons/counterstrikesharp/shared/RanksApi/RanksApi.dll"
+                                        ]
+                   },
+                   {
+                       "order":  12,
+                       "name":  "VIPCore",
+                       "repository":  "https://github.com/partiusfabaa/cs2-VIPCore",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.3.4-recompile3",
+                       "release_tag":  "v1.3.4-recompile3",
+                       "assets":  [
+                                      "VIPCore.zip",
+                                      "VIP_Modules.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp",
+                                          "Metamod:Source"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_csgo_root",
+                       "asset_mappings":  {
+                                              "VIPCore.zip":  {
+                                                                  "merge":  "release_csgo_root"
+                                                              },
+                                              "VIP_Modules.zip":  {
+                                                                      "merge":  "release_plugin_directory",
+                                                                      "source_path":  ".",
+                                                                      "install_path":  "addons/counterstrikesharp/plugins"
+                                                                  }
+                                          },
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/VIPCore/VIPCore.dll",
+                                            "addons/counterstrikesharp/shared/VipCoreApi/VipCoreApi.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_AntiFlash/VIP_AntiFlash.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Armor/VIP_Armor.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Bhop/VIP_Bhop.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_BuyTeamWeapon/VIP_BuyTeamWeapon.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_CustomDefaultAmmo/VIP_CustomDefaultAmmo.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_DamageChange/VIP_DamageChange.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_DecoyTeleport/VIP_DecoyTeleport.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Defuser/VIP_Defuser.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Endurance/VIP_Endurance.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_FastDefuse/VIP_FastDefuse.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_FastPlant/VIP_FastPlant.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_FastReload/VIP_FastReload.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Flags/VIP_Flags.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Fov/VIP_Fov.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Gravity/VIP_Gravity.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Grenades/VIP_Grenades.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Health/VIP_Health.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Healthshot/VIP_Healthshot.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_InfiniteAmmo/VIP_InfiniteAmmo.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Items/VIP_Items.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_KillScreen/VIP_KillScreen.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Money/VIP_Money.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_NightVip/VIP_NightVip.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_NoFallDamage/VIP_NoFallDamage.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_RainbowModel/VIP_RainbowModel.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Random/VIP_Random.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_RegenArmor/VIP_RegenArmor.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_RegenHealth/VIP_RegenHealth.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_ResetDeaths/VIP_ResetDeaths.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Respawn/VIP_Respawn.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_SmokeColor/VIP_SmokeColor.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Speed/VIP_Speed.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Tag/VIP_Tag.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_TeammatesHeal/VIP_TeammatesHeal.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Test/VIP_Test.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Vampirism/VIP_Vampirism.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_VipsOnline/VIP_VipsOnline.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_WeaponsMenu/VIP_WeaponsMenu.dll",
+                                            "addons/counterstrikesharp/plugins/VIP_Zeus/VIP_Zeus.dll"
+                                        ]
+                   },
+                   {
+                       "order":  13,
+                       "name":  "SLAYER_AntiCamp",
+                       "repository":  "https://github.com/zakriamansoor47/SLAYER_AntiCamp",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.2.5",
+                       "release_tag":  "v1.2.5",
+                       "assets":  [
+                                      "CS2.SLAYER_AntiCamp.v{version}.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_plugin_directory",
+                       "source_path":  "plugins/SLAYER_AntiCamp",
+                       "install_path":  "addons/counterstrikesharp/plugins/SLAYER_AntiCamp",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/SLAYER_AntiCamp/SLAYER_AntiCamp.dll",
+                                            "addons/counterstrikesharp/source/SLAYER_AntiCamp/SLAYER_AntiCamp.cs",
+                                            "addons/counterstrikesharp/source/SLAYER_AntiCamp/SLAYER_AntiCamp.csproj"
+                                        ],
+                       "asset_mappings":  {
+                                              "CS2.SLAYER_AntiCamp.v{version}.zip":  [
+                                                                                         {
+                                                                                             "merge":  "release_plugin_directory",
+                                                                                             "source_path":  "plugins/SLAYER_AntiCamp",
+                                                                                             "install_path":  "addons/counterstrikesharp/plugins/SLAYER_AntiCamp"
+                                                                                         },
+                                                                                         {
+                                                                                             "merge":  "release_plugin_directory",
+                                                                                             "source_path":  "source/SLAYER_AntiCamp",
+                                                                                             "install_path":  "addons/counterstrikesharp/source/SLAYER_AntiCamp"
+                                                                                         }
+                                                                                     ]
+                                          }
+                   },
+                   {
+                       "order":  14,
+                       "name":  "SLAYER_HeadshotOnly",
+                       "repository":  "https://github.com/zakriamansoor47/SLAYER_HeadshotOnly",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.2.1",
+                       "release_tag":  "v1.2.1",
+                       "assets":  [
+                                      "CS2.SLAYER_HeadshotOnly.v{version}.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_plugin_directory",
+                       "source_path":  "plugins/SLAYER_HeadshotOnly",
+                       "install_path":  "addons/counterstrikesharp/plugins/SLAYER_HeadshotOnly",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/SLAYER_HeadshotOnly/SLAYER_HeadshotOnly.dll",
+                                            "addons/counterstrikesharp/source/SLAYER_HeadshotOnly/SLAYER_HeadshotOnly.cs",
+                                            "addons/counterstrikesharp/source/SLAYER_HeadshotOnly/SLAYER_HeadshotOnly.csproj"
+                                        ],
+                       "asset_mappings":  {
+                                              "CS2.SLAYER_HeadshotOnly.v{version}.zip":  [
+                                                                                             {
+                                                                                                 "merge":  "release_plugin_directory",
+                                                                                                 "source_path":  "plugins/SLAYER_HeadshotOnly",
+                                                                                                 "install_path":  "addons/counterstrikesharp/plugins/SLAYER_HeadshotOnly"
+                                                                                             },
+                                                                                             {
+                                                                                                 "merge":  "release_plugin_directory",
+                                                                                                 "source_path":  "source/SLAYER_HeadshotOnly",
+                                                                                                 "install_path":  "addons/counterstrikesharp/source/SLAYER_HeadshotOnly"
+                                                                                             }
+                                                                                         ]
+                                          }
+                   },
+                   {
+                       "order":  15,
+                       "name":  "CS2-TeamLimiter",
+                       "repository":  "https://github.com/Ferks-FK/CS2-TeamLimiter",
+                       "type":  "github_source_build",
+                       "track":  "branch",
+                       "branch":  "development",
+                       "version":  "b9be93940543bd06b771199301c7c8ee6b162e8f",
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "project":  "TeamLimiter.csproj",
+                       "output_file":  "TeamLimiter.dll",
+                       "install_path":  "addons/counterstrikesharp/plugins/TeamLimiter.dll",
+                       "installed":  true,
+                       "source_commit":  "b9be93940543bd06b771199301c7c8ee6b162e8f",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/TeamLimiter.dll"
+                                        ]
+                   },
+                   {
+                       "order":  16,
+                       "name":  "CS2-WeaponRestrict",
+                       "repository":  "https://github.com/TICHOJEBEC-SK/cs2-WeaponRestrict",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "WeaponRestrict1.5",
+                       "release_tag":  "WeaponRestrict1.5",
+                       "assets":  [
+                                      "WeaponRestrict1.5.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  false,
+                       "merge":  "release_csgo_root",
+                       "automation_supported":  false
+                   },
+                   {
+                       "order":  17,
+                       "name":  "CS2UpdateMonitor",
+                       "repository":  "https://github.com/beanman109/cs2-updatemonitor",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.1.0",
+                       "release_tag":  "v1.1.0",
+                       "assets":  [
+                                      "CS2UpdateMonitor-{version}-windows-x64.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_plugin_directory",
+                       "source_path":  "CS2UpdateMonitor",
+                       "install_path":  "addons/counterstrikesharp/plugins/CS2UpdateMonitor",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/CS2UpdateMonitor/CS2UpdateMonitor.dll",
+                                            "addons/counterstrikesharp/plugins/CS2UpdateMonitor/CS2UpdateMonitor.deps.json",
+                                            "addons/counterstrikesharp/plugins/CS2UpdateMonitor/CS2UpdateMonitor.runtimeconfig.json"
+                                        ]
+                   },
+                   {
+                       "order":  18,
+                       "name":  "CS2-Poor-MapPropAds",
+                       "repository":  "https://github.com/Letaryat/CS2-Poor-MapPropAds",
+                       "type":  "github_source_build",
+                       "track":  "branch",
+                       "branch":  "main",
+                       "version":  "2a1e4ce9e8af55aaa93aa1ed53476bfb2193ffcb",
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "project":  "src/CS2-Poor-MapPropAds.csproj",
+                       "output_file":  "CS2-Poor-MapPropAds.dll",
+                       "install_directory":  "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds",
+                       "installed":  true,
+                       "source_commit":  "2a1e4ce9e8af55aaa93aa1ed53476bfb2193ffcb",
+                       "source_mappings":  [
+                                               {
+                                                   "source_path":  "lang",
+                                                   "install_path":  "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/lang"
+                                               }
+                                           ],
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/CS2-Poor-MapPropAds.dll",
+                                            "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/lang/en.json"
+                                        ]
+                   },
+                   {
+                       "order":  20,
+                       "name":  "CS2-Playervotes",
+                       "repository":  "https://github.com/asapverneri/CS2-Playervotes",
+                       "type":  "github_source_build",
+                       "track":  "branch",
+                       "branch":  "main",
+                       "target_framework":  "net10.0",
+                       "version":  "81b4a2bda817b304fba372d1e6678a5a48ef2e9d",
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "project":  "src/Playervotes.csproj",
+                       "output_file":  "Playervotes.dll",
+                       "install_directory":  "addons/counterstrikesharp/plugins/Playervotes",
+                       "installed":  true,
+                       "source_commit":  "81b4a2bda817b304fba372d1e6678a5a48ef2e9d",
+                       "source_mappings":  [
+                                               {
+                                                   "source_path":  "src/lang",
+                                                   "install_path":  "addons/counterstrikesharp/plugins/Playervotes/lang"
+                                               }
+                                           ],
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/Playervotes/Playervotes.dll",
+                                            "addons/counterstrikesharp/plugins/Playervotes/Playervotes.deps.json",
+                                            "addons/counterstrikesharp/plugins/Playervotes/lang/en.json"
+                                        ],
+                       "source_patches":  [
+                                              {
+                                                  "path":  "src/Main.cs",
+                                                  "find":  "PlayerConnectedState.PlayerConnected",
+                                                  "replace":  "PlayerConnectedState.Connected"
+                                              }
+                                          ]
+                   },
+                   {
+                       "order":  21,
+                       "name":  "CS2-StaffList",
+                       "repository":  "https://github.com/asapverneri/CS2-StaffList",
+                       "type":  "github_source_build",
+                       "track":  "branch",
+                       "branch":  "main",
+                       "target_framework":  "net10.0",
+                       "version":  "07fc28119686a6dd0c78a74f023f5cc6eff55ec9",
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "project":  "CS2Stafflist.csproj",
+                       "output_file":  "CS2Stafflist.dll",
+                       "install_directory":  "addons/counterstrikesharp/plugins/CS2Stafflist",
+                       "installed":  true,
+                       "source_commit":  "07fc28119686a6dd0c78a74f023f5cc6eff55ec9",
+                       "source_mappings":  [
+                                               {
+                                                   "source_path":  "lang",
+                                                   "install_path":  "addons/counterstrikesharp/plugins/CS2Stafflist/lang"
+                                               }
+                                           ],
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/CS2Stafflist/CS2Stafflist.dll",
+                                            "addons/counterstrikesharp/plugins/CS2Stafflist/CS2Stafflist.deps.json",
+                                            "addons/counterstrikesharp/plugins/CS2Stafflist/lang/en.json"
+                                        ]
+                   },
+                   {
+                       "order":  22,
+                       "name":  "SLAYER_Noscope",
+                       "repository":  "https://github.com/zakriamansoor47/SLAYER_Noscope",
+                       "type":  "github_source_build",
+                       "track":  "branch",
+                       "branch":  "main",
+                       "target_framework":  "net10.0",
+                       "version":  "d0987f3934850c674c829dc2ce912a21e626fd0d",
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "project":  "SLAYER_Noscope.csproj",
+                       "output_file":  "SLAYER_Noscope.dll",
+                       "install_directory":  "addons/counterstrikesharp/plugins/SLAYER_Noscope",
+                       "installed":  true,
+                       "source_commit":  "d0987f3934850c674c829dc2ce912a21e626fd0d",
+                       "source_mappings":  [
+                                               {
+                                                   "source_path":  "lang",
+                                                   "install_path":  "addons/counterstrikesharp/plugins/SLAYER_Noscope/lang"
+                                               }
+                                           ],
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/SLAYER_Noscope/SLAYER_Noscope.dll",
+                                            "addons/counterstrikesharp/plugins/SLAYER_Noscope/lang/en.json"
+                                        ],
+                       "automation_supported":  false
+                   },
+                   {
+                       "order":  23,
+                       "name":  "ABS_MapCycle",
+                       "repository":  "https://github.com/Austinbots/cs2-Change-Map-Rotation-Using-Text-File",
+                       "type":  "github_source_build",
+                       "track":  "branch",
+                       "branch":  "main",
+                       "version":  "7d71a7bf29bbebcdc192cdc3f7b714620821ea85",
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "project":  "ABS_MapCycle.csproj",
+                       "output_file":  "ABS_MapCycle.dll",
+                       "install_directory":  "addons/counterstrikesharp/plugins/disabled/ABS_MapCycle",
+                       "installed":  true,
+                       "source_commit":  "7d71a7bf29bbebcdc192cdc3f7b714620821ea85",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/disabled/ABS_MapCycle/ABS_MapCycle.dll"
+                                        ]
+                   },
+                   {
+                       "order":  24,
+                       "name":  "CS2-Antibait",
+                       "repository":  "https://github.com/NeuTroNBZh/CS2-Antibait",
+                       "type":  "github_source_build",
+                       "track":  "branch",
+                       "branch":  "main",
+                       "version":  "825f83202bdb6adb3e982572126c256dce02db05",
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "project":  "Antibait.csproj",
+                       "output_file":  "Antibait.dll",
+                       "install_directory":  "addons/counterstrikesharp/plugins/disabled/Antibait",
+                       "installed":  true,
+                       "source_commit":  "825f83202bdb6adb3e982572126c256dce02db05",
+                       "source_mappings":  [
+                                               {
+                                                   "source_path":  "lang",
+                                                   "install_path":  "addons/counterstrikesharp/plugins/disabled/Antibait/lang"
+                                               }
+                                           ],
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/disabled/Antibait/Antibait.dll",
+                                            "addons/counterstrikesharp/plugins/disabled/Antibait/lang/en.json"
+                                        ]
+                   },
+                   {
+                       "order":  25,
+                       "name":  "CS2-KillFeedFilter",
+                       "repository":  "https://github.com/abnerfs/cs2-killfeed-filter",
+                       "type":  "github_release",
+                       "track":  "latest",
+                       "version":  "1.0.1",
+                       "release_tag":  "1.0.1",
+                       "assets":  [
+                                      "KillFeedFilter_{version}.zip"
+                                  ],
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "installed":  true,
+                       "merge":  "release_plugin_directory",
+                       "source_path":  ".",
+                       "install_path":  "addons/counterstrikesharp/plugins/disabled/KillFeedFilter",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/disabled/KillFeedFilter/KillFeedFilter.dll"
+                                        ]
+                   },
+                   {
+                       "order":  26,
+                       "name":  "AdvancedFriendlyFire",
+                       "repository":  "https://github.com/mister-keno/advanced-ff-cs2",
+                       "type":  "github_source_build",
+                       "track":  "branch",
+                       "branch":  "main",
+                       "version":  "ab332f0b59235339041f680fdf0574223af9b9df",
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "project":  "advanced_friendlyfire.csproj",
+                       "output_file":  "advanced_friendlyfire.dll",
+                       "install_directory":  "addons/counterstrikesharp/plugins/disabled/advanced_friendlyfire",
+                       "installed":  true,
+                       "source_commit":  "ab332f0b59235339041f680fdf0574223af9b9df",
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/disabled/advanced_friendlyfire/advanced_friendlyfire.dll",
+                                            "addons/counterstrikesharp/plugins/disabled/advanced_friendlyfire/advanced_friendlyfire.deps.json"
+                                        ]
+                   },
+                   {
+                       "order":  27,
+                       "name":  "CS2-Gunsmenu",
+                       "repository":  "https://github.com/asapverneri/CS2-Gunsmenu",
+                       "type":  "github_source_build",
+                       "track":  "branch",
+                       "branch":  "main",
+                       "target_framework":  "net10.0",
+                       "version":  "ec5dbdd99b2345f0e80410ac950ea1a0d2de7cdb",
+                       "depends_on":  [
+                                          "CounterStrikeSharp"
+                                      ],
+                       "project":  "src/GunsMenu.csproj",
+                       "output_file":  "GunsMenu.dll",
+                       "install_directory":  "addons/counterstrikesharp/plugins/disabled/GunsMenu",
+                       "installed":  false,
+                       "source_commit":  "ec5dbdd99b2345f0e80410ac950ea1a0d2de7cdb",
+                       "source_mappings":  [
+                                               {
+                                                   "source_path":  "src/lang",
+                                                   "install_path":  "addons/counterstrikesharp/plugins/disabled/GunsMenu/lang"
+                                               }
+                                           ],
+                       "verify_paths":  [
+                                            "addons/counterstrikesharp/plugins/disabled/GunsMenu/GunsMenu.dll",
+                                            "addons/counterstrikesharp/plugins/disabled/GunsMenu/GunsMenu.deps.json",
+                                            "addons/counterstrikesharp/plugins/disabled/GunsMenu/lang/en.json"
+                                        ],
+                       "automation_supported":  false
+                   }
+               ]
 }
