@@ -12,12 +12,12 @@
     "VotePercentage": 51,
     "OptionsInCoolDown": 3,
     "EndOfMapVote": true,
-    "IncludeModes": false,
+    "IncludeModes": true,
     "IncludeExtend": true,
     "MaxExtends": 6,
     "ExtendTime": 10,
     "ExtendRounds": 5,
-    "ModePercentage": 40,
+    "ModePercentage": 60,
     "EnabledInWarmup": false,
     "HideHudAfterVote": false,
     "NominationEnabled": true,
@@ -25,7 +25,7 @@
     "ChangeImmediately": false,
     "TriggerKillsBeforeEnd": 13,
     "TriggerRoundsBeforeEnd": 2,
-    "TriggerSecondsBeforeEnd": 120
+    "TriggerSecondsBeforeEnd": 60
   },
   "Maps": {
     "Mode": 0,
@@ -368,7 +368,7 @@
       },
       {
         "Name": "Casual Active",
-        "Config": "casual.cfg",
+        "Config": "casual-active.cfg",
         "DefaultMap": "de_mirage",
         "MapGroups": [
           "mg_casuala"
@@ -400,7 +400,7 @@
       },
       {
         "Name": "AWP Aim",
-        "Config": "awp.cfg",
+        "Config": "awp-aim.cfg",
         "DefaultMap": "3075511506",
         "MapGroups": [
           "mg_aimawp"
@@ -408,7 +408,7 @@
       },
       {
         "Name": "VIP",
-        "Config": "casual.cfg",
+        "Config": "vip.cfg",
         "DefaultMap": "3711701554",
         "MapGroups": [
           "mg_vip"
