@@ -150,11 +150,11 @@ You can also enable modifiers in game modes from the `!settings` menu in chat i.
 
 After the server is running, use the server console to check `meta list` for Metamod and the expected native plugins, then run `css_plugins list` to inspect CounterStrikeSharp plugins. CounterStrikeSharp should load with its bundled .NET runtime; the CI validation checks the runtime files but does not replace a real server-load smoke test.
 
-The list below records the KUS catalog when this runtime snapshot was imported. These version labels are reference metadata, not a promise that every optional module is enabled or current. CounterStrikeSharp is intentionally documented only in the Larnz-managed table above: this branch installs the Windows **with-runtime** archive and rejects the no-runtime asset. The KUS SimpleAdmin and the Larnz-managed CS2-SimpleAdmin are distinct projects and are kept separately.
+The list below records the KUS catalog plus explicitly maintained Larnz integrations when this runtime snapshot was imported. These version labels are reference metadata, not a promise that every optional module is enabled or current. CounterStrikeSharp is intentionally documented only in the Larnz-managed table above: this branch installs the Windows **with-runtime** archive and rejects the no-runtime asset. The KUS SimpleAdmin and the Larnz-managed CS2-SimpleAdmin are distinct projects and are kept separately.
 
 ## KUS bundled and optional plugin catalog
 
-This table covers the KUS catalog entries other than CounterStrikeSharp, which is listed in the **Larnz-managed add-ons** table above so its manifest-driven version has one source of truth. Project links and purpose descriptions follow the [current KUS README catalog](https://github.com/kus/cs2-modded-server/blob/master/README.md#mods-installed); version values here remain the versions recorded by this integrated repository and read by its updater.
+This table covers the KUS catalog entries other than CounterStrikeSharp, which is listed in the **Larnz-managed add-ons** table above so its manifest-driven version has one source of truth, plus explicitly maintained Larnz integrations. Project links and purpose descriptions follow the [current KUS README catalog](https://github.com/kus/cs2-modded-server/blob/master/README.md#mods-installed) where applicable; version values here are recorded by this integrated repository and read by its updater.
 
 The first table deliberately retains the updater-compatible three-column structure (`Mod | Version | Purpose`). The second table adds the repository payload location and updater coverage without changing that version table schema.
 
@@ -178,6 +178,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | [SharpTimer](https://github.com/Letaryat/poor-sharptimer) | `0.4.0` | SharpTimer is a simple Surf/KZ/Bhop/MG/Deathrun/etc CS2 Timer plugin |
 | [STFixes](https://github.com/rcnoob/STFixes) | `1.0.5` | A CounterStrikeSharp plugin with common fixes and features for SharpTimer servers |
 | [GunGame](https://github.com/ssypchenko/cs2-gungame) | `1.2.4` | GunGame mode on Counter Strike Sharp |
+| [GG1MapChooser](https://github.com/ssypchenko/GG1MapChooser) | `0.0.0` | Larnz-managed map-voting integration with Rock The Vote (RTV), nominations, map pools, and map rotation. |
 | [K4-Arenas](https://github.com/KitsuneLab-Development/K4-Arenas) | `2.0.8` | All in one arena plugin, that you can use to have a ladder type gameplay. Support all map, 2v2/3v3/etc [Database setup](#setup-mysql-database) |
 | [CS2 Retakes](https://github.com/B3none/cs2-retakes) | `3.1.1` | CS2 implementation of retakes. Based on the version for CS:GO by Splewis. |
 | [CS2 Instadefuse](https://github.com/B3none/cs2-instadefuse) | `2.0.0` | Allows a CT to instantly defuse the bomb when nothing can prevent defusal. Written in C# for CounterStrikeSharp. |
@@ -231,6 +232,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | SharpTimer | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | STFixes | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | GunGame | Mode-specific plugin staged under `plugins/disabled/` | Script: `gungame.sh` |
+| GG1MapChooser | Default CounterStrikeSharp plugin for RTV and map selection | Script: `gg1mapchooser.sh` |
 | K4-Arenas | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | CS2 Retakes | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-retakes.sh` |
 | CS2 Instadefuse | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
@@ -272,7 +274,7 @@ The important difference is **how each script updates files**. Routine runner ma
 
 GitHub Actions checks for new upstream add-on releases every hour at **minute 17 UTC**. It runs KUS's documented per-plugin `.sh` updater scripts first, then checks the enabled add-ons in `DEPENDENCIES.json`, commits successful changes to `integration/kus-monorepo`, and runs the Windows validation workflow. CI checks that every updater listed in `scripts/update/README.md` exists and that every installed, automation-enabled manifest entry has a matching script.
 
-Coverage means the **15 KUS scripts currently provided by KUS** plus the 17 enabled entries in our manifest (MetaMod and CounterStrikeSharp are shared between the two groups). KUS catalog rows that do not have their own upstream updater script are still warning-only/skipped, as documented by KUS; this does not automatically update every optional plugin name in the catalog. `CS2-WeaponRestrict` remains intentionally excluded because it is marked not installed and not automated.
+Coverage means the **15 existing KUS scripts plus the dedicated GG1MapChooser integration updater**, alongside the 17 enabled entries in our manifest (Metamod and CounterStrikeSharp are shared between the KUS-script and manifest groups). KUS catalog rows that do not have their own upstream updater script are still warning-only/skipped, as documented by KUS; this does not automatically update every optional plugin name in the catalog. `CS2-WeaponRestrict` remains intentionally excluded because it is marked not installed and not automated.
 
 The external Instance folder has its own `update.bat` for shared maintenance. Run it manually with all CS2 processes stopped. Start `watchdog.bat` for normal operation: it keeps a visible CMD guardian running `run.vbs` through `cscript.exe`, and relaunches the VBS host if it terminates. Inside that guard, `run.vbs` invokes the runner through `cmd.exe`, waits for it to return, then retries **100 milliseconds** after exit code 100. The VBS/watchdog layers do not run maintenance; each new `run.bat` invocation copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` before starting CS2.
 
