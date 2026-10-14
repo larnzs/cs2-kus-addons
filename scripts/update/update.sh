@@ -163,7 +163,7 @@ preflight() {
 
 # ----------------------------------------------------------------------------- per-mod processing
 load_plugin_script() {   # $1 path
-    unset -f plugin_assets plugin_apply plugin_preflight plugin_resolve_assets 2>/dev/null || true
+    unset -f plugin_assets plugin_apply plugin_preflight plugin_resolve_assets plugin_needs_repair 2>/dev/null || true
     PLUGIN_PATHS=()
     bash -n "$1" || { err "syntax error in $1"; return 1; }
     # shellcheck disable=SC1090
@@ -207,16 +207,33 @@ process_mod() {   # $1 name, $2 url, $3 current version
         return 0
     fi
 
+    script="$PLUGIN_SCRIPT_DIR/$PLUGIN_SLUG.sh"
+    local script_loaded=0
     if [ "$latest" = "$OLD_VERSION" ]; then
-        log "${C_GRN}OK $PLUGIN_NAME $latest${C_OFF}"
-        RES_UPTODATE+=("$PLUGIN_NAME $latest")
-        return 0
+        # A pinned release can still have an incomplete payload (for example, a
+        # plugin dependency was omitted from an earlier import). Allow plugin scripts
+        # to request a same-version repair without changing the recorded version.
+        if [ -f "$script" ]; then
+            if ! load_plugin_script "$script"; then fail_mod "invalid plugin script $script"; return 0; fi
+            script_loaded=1
+            if declare -F plugin_needs_repair >/dev/null && plugin_needs_repair; then
+                NEW_VERSION="$latest"
+                log "${C_YEL}FIX $PLUGIN_NAME $latest - installed payload is incomplete${C_OFF}"
+            else
+                log "${C_GRN}OK $PLUGIN_NAME $latest${C_OFF}"
+                RES_UPTODATE+=("$PLUGIN_NAME $latest")
+                return 0
+            fi
+        else
+            log "${C_GRN}OK $PLUGIN_NAME $latest${C_OFF}"
+            RES_UPTODATE+=("$PLUGIN_NAME $latest")
+            return 0
+        fi
+    else
+        NEW_VERSION="$latest"
+        log "${C_YEL}UP $PLUGIN_NAME update available $OLD_VERSION > $NEW_VERSION  $PLUGIN_URL${C_OFF}"
     fi
 
-    NEW_VERSION="$latest"
-    log "${C_YEL}UP $PLUGIN_NAME update available $OLD_VERSION > $NEW_VERSION  $PLUGIN_URL${C_OFF}"
-
-    script="$PLUGIN_SCRIPT_DIR/$PLUGIN_SLUG.sh"
     if [ ! -f "$script" ]; then
         warn "no update script for '$PLUGIN_NAME' - expected $script - skipped"
         RES_NOSCRIPT+=("$PLUGIN_NAME $OLD_VERSION > $NEW_VERSION (create $script)")
@@ -226,7 +243,9 @@ process_mod() {   # $1 name, $2 url, $3 current version
     info "script: $script"
 
     # ---- plan phase: nothing in the repo is touched until every check passes
-    if ! load_plugin_script "$script"; then fail_mod "invalid plugin script $script"; return 0; fi
+    if [ "$script_loaded" != "1" ]; then
+        if ! load_plugin_script "$script"; then fail_mod "invalid plugin script $script"; return 0; fi
+    fi
     DOWNLOAD_DIR="$TMP_ROOT/$PLUGIN_SLUG/$NEW_VERSION"
     EXTRACT_DIR="$DOWNLOAD_DIR/extracted"
     if ! resolve_assets; then fail_mod "could not resolve release assets"; return 0; fi

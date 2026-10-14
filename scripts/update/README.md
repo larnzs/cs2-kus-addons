@@ -285,6 +285,7 @@ checkout to avoid re-downloading. Delete the clone afterwards.
 | `pick_dir <dir> [dir...]` | Prints the first candidate that exists, for releases whose archive root moves between versions. Dies if none do, so a third layout is still caught. In dry-run it assumes the first. |
 | `remove_extracted <dir>` | Deletes a directory made by `extract_asset` |
 | `require_dir <path>`, `require_file <path>` | Fail unless it exists (reported as `would verify` for extracted paths in dry-run) |
+| `plugin_needs_repair` (optional) | When defined, return success if the installed payload is incomplete; the updater reapplies the current upstream release even when the version matches. |
 | `sync_dir <src> <dest>` | `rsync -rhavz --exclude "._*" --exclude ".DS_Store" --partial --stats src/ dest/` (merge, never deletes at dest) |
 | `copy_dir <src> <dest>` | Copy a directory to `<dest>` (created if missing; same rsync excludes) |
 | `copy_file <src> <dest>` | Copy one file (parent directory created) |
@@ -318,7 +319,7 @@ downloadable asset (size `0` if unknown).
 | CS2 Retakes | `plugins/cs2-retakes.sh` | Uses the full `RetakesPlugin-<v>.zip` (not the `-no-map-configs` one). Replaces `plugins/disabled/RetakesPlugin` (the plugin is kept disabled in this repo, so it is NOT at `plugins/RetakesPlugin`) and `shared/RetakesPluginShared`. |
 | MatchZy | `plugins/matchzy.sh` | Plain `MatchZy-<v>.zip` (not the `-with-cssharp-*` bundles). Merge-copies the plugin folder over `plugins/disabled/MatchZy` (nothing deleted). `game/csgo/cfg/MatchZy/` and `custom_files_example/cfg/MatchZy/` are customised and never written; new upstream files/settings are only reported for a manual port. |
 | GunGame | `plugins/gungame.sh` | Merge-copies `plugins/disabled/GG2` and `shared/GunGameAPI` (old leftovers like `Dapper.dll`/`runtimes/` are kept, as the manual updates did). `game/csgo/cfg/gungame/` is customised and never written; new upstream files, removed files and new settings are reported for a manual port. |
-| GG1MapChooser | `plugins/gg1mapchooser.sh` | Merge-copies the upstream plugin files into `plugins/GG1MapChooser`; does not write `cfg/GGMCmaps.json` or `configs/plugins/GG1MapChooser/`. |
+| GG1MapChooser | `plugins/gg1mapchooser.sh` | Overlays the plugin plus its required `ggmcAPI.dll`; repairs missing payload files even when the release version is unchanged. Never writes `cfg/GGMCmaps.json` or `configs/plugins/GG1MapChooser/`. |
 | CS2 Deathmatch | `plugins/cs2-deathmatch.sh` | Asset is always `Deathmatch.zip`. Archive root is `addons/counterstrikesharp/` from 1.3.6 and `Deathmatch/` before it; `pick_dir` accepts either. Replaces `plugins/disabled/Deathmatch` and `shared/DeathmatchAPI` whole. `configs/plugins/Deathmatch/` and `gamedata/Deathmatch.json` are not shipped and not touched. |
 | deathrun-manager | `plugins/deathrun-manager.sh` | Replaces `plugins/disabled/DeathrunManager` whole. The shipped `configs/plugins/DeathrunManager/DeathrunManager.json` is never written, only compared (new settings reported). Archive junk (`README-ME.txt`, `logs/`) ignored. |
 | RollTheDice | `plugins/rollthedice.sh` | Archive root `RollTheDice/`; replaces `plugins/disabled/RollTheDice` whole. `configs/plugins/RollTheDice/` not touched. |
