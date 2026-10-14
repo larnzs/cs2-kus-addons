@@ -132,6 +132,18 @@ jobs:
           assert "-maxplayers_override %MAXPLAYERS%" in windows_runner, "Windows runner must set actual capacity with -maxplayers_override"
           assert "+sv_visiblemaxplayers %MAXPLAYERS%" in windows_runner, "Windows runner must preserve browser-visible player count"
           assert "+sv_maxplayers" not in windows_runner, "Windows runner must not use deprecated/unknown sv_maxplayers"
+          assert "echo Capacity: %MAXPLAYERS% players" in windows_runner, "Windows runner must print its configured capacity"
+
+          instance_updater = Path("windows/instance-template/update.bat").read_text(encoding="utf-8")
+          assert instance_updater.count("call :SyncInstanceRunnerFiles") == 2, "Instance updater must refresh launch helpers on a full update and recent-success skip"
+          assert ":SyncInstanceRunnerFiles" in instance_updater, "Instance updater must provide a launcher synchronization routine"
+          assert 'if exist "%INSTANCE_DIR%\\run.bat" (' in instance_updater, "Instance updater must only replace an existing standard run.bat"
+          assert 'copy /y "%RUNNER_TEMPLATE_DIR%\\run.bat" "%INSTANCE_DIR%\\run.bat" >nul' in instance_updater, "Instance updater must refresh the standard launcher from the repository template"
+          assert 'for %%F in (run.vbs watchdog.bat) do (' in instance_updater, "Instance updater must refresh existing VBS/watchdog helpers"
+          assert 'copy /y "%RUNNER_TEMPLATE_DIR%\\%%F" "%INSTANCE_DIR%\\%%F" >nul' in instance_updater, "Instance updater must copy helpers from the tracked template"
+          sync_section = instance_updater.split(":SyncInstanceRunnerFiles", 1)[1].split(":UpdateRepository", 1)[0]
+          assert '"%INSTANCE_DIR%\\instance.ini"' not in sync_section, "Launcher synchronization must never overwrite the private instance.ini"
+          assert "leaving any custom-named *_run.bat runner untouched" in sync_section, "Instance updater must preserve custom-named runners"
 
           for script in ("linux/install.sh", "linux/start.sh", "linux/run.sh", "docker/install_docker.sh"):
               text = Path(script).read_text(encoding="utf-8")
