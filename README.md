@@ -428,7 +428,7 @@ The active Windows runner reads `windows/instance-template/instance.ini`, not en
 | `MAP` | `de_mirage` | Initial map requested at launch. |
 | `WORKSHOP_COLLECTION` | empty | Optional Workshop collection ID. |
 
-`run.vbs` invokes the runner through `cmd.exe /d /s /c`, waits for its exit code, and retries after 100 ms on exit code 100. `watchdog.bat` runs VBS under `cscript.exe` and relaunches the host if it exits; run the instance-local updater separately when all shared CS2 processes are stopped. Neither watchdog calls `update.bat`. `run.bat` waits on the maintenance lock before starting CS2.
+`run.vbs` invokes the runner through `cmd.exe /d /s /c`, waits for its exit code, and retries after 100 ms on exit code 100. `watchdog.bat` runs VBS under `cscript.exe` and relaunches the host if it exits; run the instance-local updater separately when all shared CS2 processes are stopped. Neither watchdog calls `update.bat`. `run.bat` waits on the maintenance lock before starting CS2. After shared maintenance succeeds—or is skipped because another instance completed it recently—the instance-local `update.bat` refreshes existing `run.bat`, `run.vbs`, and `watchdog.bat` files from `windows/instance-template/`. It never overwrites private `instance.ini`. If no standard `run.bat` exists, a deliberately named custom `*_run.bat` runner is left untouched; when `run.bat` does exist, it is considered managed and will be overwritten with the current template.
 
 ## Playing workshop maps/collections
 
