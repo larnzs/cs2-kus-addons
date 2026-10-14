@@ -70,9 +70,10 @@ echo.
 echo ============================================
 echo       CS2 Instance Runner
 echo ============================================
-echo Server:  %SERVER_DIR%
-echo Address: %IP%  Port: %PORT%
-echo Map:     %MAP%
+echo Server:   %SERVER_DIR%
+echo Address:  %IP%  Port: %PORT%
+echo Map:      %MAP%
+echo Capacity: %MAXPLAYERS% players
 echo.
 
 rem If update.bat is deploying shared files, wait before opening cs2.exe.
