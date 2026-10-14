@@ -111,7 +111,28 @@ try {
         Assert-Condition ($manual.Count -eq 1) "Expected exactly one manifest row for '$name'."
         Assert-Condition (($manual[0].PSObject.Properties.Name -contains "automation_supported") -and (-not [bool]$manual[0].automation_supported)) "'$name' must remain non-automated."
     }
-    Write-Host "PASS: manifest structure, disabled automation policy and 5 gameinfo patch scenarios." -ForegroundColor Green
+
+    # Mode-specific plugins must be kept under disabled and loaded from cfg files.
+    $inventoryUpdater = Get-Content -LiteralPath (Join-Path $PSScriptRoot "update/plugins/inventory-simulator.sh") -Raw
+    $inventoryPathsMatch = [regex]::Match($inventoryUpdater, '(?s)PLUGIN_PATHS=\((.*?)\)')
+    Assert-Condition $inventoryPathsMatch.Success "Inventory Simulator updater has no PLUGIN_PATHS declaration."
+    Assert-Condition ($inventoryPathsMatch.Groups[1].Value.Contains("plugins/disabled/InventorySimulator")) "Inventory Simulator updater must target plugins/disabled."
+    Assert-Condition (-not $inventoryPathsMatch.Groups[1].Value.Contains('plugins/InventorySimulator"')) "Inventory Simulator updater must not target the auto-load path."
+    Assert-Condition (-not (Test-Path (Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/plugins/InventorySimulator"))) "Inventory Simulator still has a duplicate auto-load folder."
+    Assert-Condition (Test-Path (Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/plugins/disabled/InventorySimulator/InventorySimulator.dll")) "Inventory Simulator DLL is missing from disabled."
+
+    $fixSpawnUpdater = Get-Content -LiteralPath (Join-Path $PSScriptRoot "update/plugins/cs2-fixrandomspawn.sh") -Raw
+    $fixSpawnPathsMatch = [regex]::Match($fixSpawnUpdater, '(?s)PLUGIN_PATHS=\((.*?)\)')
+    Assert-Condition $fixSpawnPathsMatch.Success "FixRandomSpawn updater has no PLUGIN_PATHS declaration."
+    Assert-Condition ($fixSpawnPathsMatch.Groups[1].Value.Contains("plugins/disabled/FixRandomSpawn")) "FixRandomSpawn updater must target plugins/disabled."
+    Assert-Condition (-not $fixSpawnPathsMatch.Groups[1].Value.Contains('plugins/FixRandomSpawn"')) "FixRandomSpawn updater must not target the auto-load path."
+
+    $retakeCfg = Get-Content -LiteralPath (Join-Path $repoRoot "game/csgo/cfg/retake.cfg") -Raw
+    Assert-Condition ($retakeCfg.Contains('css_plugins load "plugins/disabled/Antibait/Antibait.dll"')) "Retake CFG does not load Antibait from the disabled folder."
+    $unloadCfg = Get-Content -LiteralPath (Join-Path $repoRoot "game/csgo/cfg/unload_plugins.cfg") -Raw
+    Assert-Condition ($unloadCfg.Contains('css_plugins unload "Antibait"')) "Antibait is not unloaded when switching out of its game mode."
+
+    Write-Host "PASS: manifest, plugin destination/CFG wiring, disabled automation policy and 5 gameinfo patch scenarios." -ForegroundColor Green
 }
 finally {
     if (Test-Path -LiteralPath $tempRoot) { Remove-Item -LiteralPath $tempRoot -Recurse -Force }
