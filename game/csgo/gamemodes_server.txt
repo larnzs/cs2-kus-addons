@@ -446,6 +446,7 @@
 				"workshop/3082038560/bhop_cherryblossom"		""
 				"workshop/3088973190/bhop_arcturus"		""
 				"workshop/3095219437/bhop_kiwi_cwfx"		""
+				"workshop/3260506171/bhop_arcane_final"		""
 			}
 		}
 		"mg_kz"
