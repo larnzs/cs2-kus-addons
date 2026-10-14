@@ -517,7 +517,6 @@ jobs:
 
           $expectedPluginPolicies = @(
             @{ name = "CS2-Poor-MapPropAds"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds"; verify = "addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/CS2-Poor-MapPropAds.dll"; disabled = $false },
-            @{ name = "RockTheVote"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/RockTheVote"; verify = "addons/counterstrikesharp/plugins/RockTheVote/RockTheVote.dll"; disabled = $false },
             @{ name = "CS2-Playervotes"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/Playervotes"; verify = "addons/counterstrikesharp/plugins/Playervotes/Playervotes.dll"; disabled = $false; framework = "net10.0" },
             @{ name = "CS2-StaffList"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/CS2Stafflist"; verify = "addons/counterstrikesharp/plugins/CS2Stafflist/CS2Stafflist.dll"; disabled = $false; framework = "net10.0" },
             @{ name = "SLAYER_Noscope"; type = "github_source_build"; install = "addons/counterstrikesharp/plugins/SLAYER_Noscope"; verify = "addons/counterstrikesharp/plugins/SLAYER_Noscope/SLAYER_Noscope.dll"; disabled = $false; framework = "net10.0" },

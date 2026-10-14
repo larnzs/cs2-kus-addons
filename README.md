@@ -58,7 +58,6 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 | [CS2-WeaponRestrict](https://github.com/TICHOJEBEC-SK/cs2-WeaponRestrict) | `WeaponRestrict1.5` | Configurable weapon restrictions; not installed and marked manual in the Larnz manifest |
 | [CS2UpdateMonitor](https://github.com/beanman109/cs2-updatemonitor) | `1.1.0` | Detects a new game build and signals the external supervisor |
 | [CS2-Poor-MapPropAds](https://github.com/Letaryat/CS2-Poor-MapPropAds) | `main@2a1e4ce9e8af` | Wall-mounted prop billboard advertisements; global plugin |
-| [RockTheVote](https://github.com/Oz-Lin/cs2-rockthevote) | `main@bba6dba74836` | RTV, nominations and end-of-map map voting; global plugin |
 | [CS2-Playervotes](https://github.com/asapverneri/CS2-Playervotes) | `main@81b4a2bda817` | Player-initiated votes for kick, ban, mute, gag and silence; global plugin |
 | [CS2-StaffList](https://github.com/asapverneri/CS2-StaffList) | `main@07fc28119686` | Lists online staff with hide-from-list controls; global plugin |
 | [SLAYER_Noscope](https://github.com/zakriamansoor47/SLAYER_Noscope) | `main@d0987f393485` | Noscope rules and commands; global plugin |

@@ -106,7 +106,7 @@ The source-build README version is displayed as `<branch>@<12-character-SHA>` ev
 
 For upstream projects whose `.csproj` target framework lags behind their current CounterStrikeSharp API package, an optional manifest `target_framework` (for example, `net10.0`) overrides the framework during both PowerShell bootstrap builds and Bash source-build updates. The workflows install .NET 8 and 10 side-by-side so older plugins can continue targeting `net8.0`.
 
-The new adapters are `cs2-poor-mappropads.sh`, `rockthevote.sh`, `cs2-playervotes.sh`, `slayer-noscope.sh`, `cs2-stafflist.sh`, `abs-mapcycle.sh`, `cs2-antibait.sh`, `advancedfriendlyfire.sh`, and `cs2-gunsmenu.sh`. `cs2-killfeedfilter.sh` follows the tagged release asset instead.
+The new adapters are `cs2-poor-mappropads.sh`, `cs2-playervotes.sh`, `slayer-noscope.sh`, `cs2-stafflist.sh`, `abs-mapcycle.sh`, `cs2-antibait.sh`, `advancedfriendlyfire.sh`, and `cs2-gunsmenu.sh`. `cs2-killfeedfilter.sh` follows the tagged release asset instead.
 
 This differs from upstream KUS's original Action: this integration commits successful updates to the private `integration/kus-monorepo` branch, rather than opening a pull request into KUS's `master`.
 

@@ -563,38 +563,6 @@
       ]
     },
     {
-      "order": 19,
-      "name": "RockTheVote",
-      "repository": "https://github.com/Oz-Lin/cs2-rockthevote",
-      "type": "github_source_build",
-      "track": "branch",
-      "branch": "main",
-      "version": "bba6dba74836751e25ab4c80270f6b90fe7f255f",
-      "depends_on": [
-        "CounterStrikeSharp"
-      ],
-      "project": "RockTheVote.csproj",
-      "output_file": "RockTheVote.dll",
-      "install_directory": "addons/counterstrikesharp/plugins/RockTheVote",
-      "installed": true,
-      "source_commit": "bba6dba74836751e25ab4c80270f6b90fe7f255f",
-      "source_mappings": [
-        {
-          "source_path": "lang",
-          "install_path": "addons/counterstrikesharp/plugins/RockTheVote/lang"
-        },
-        {
-          "source_path": "maplist.example.txt",
-          "install_path": "addons/counterstrikesharp/plugins/RockTheVote/maplist.example.txt"
-        }
-      ],
-      "verify_paths": [
-        "addons/counterstrikesharp/plugins/RockTheVote/RockTheVote.dll",
-        "addons/counterstrikesharp/plugins/RockTheVote/lang/en.json",
-        "addons/counterstrikesharp/plugins/RockTheVote/maplist.example.txt"
-      ]
-    },
-    {
       "order": 20,
       "name": "CS2-Playervotes",
       "repository": "https://github.com/asapverneri/CS2-Playervotes",
