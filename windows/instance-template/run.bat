@@ -89,7 +89,7 @@ start "" /wait "%CS2_EXE%" ^
  -dedicated -console -debug -condebug -conclearlog -usercon -disable_workshop_command_filtering ^
  +game_type 0 +game_mode 0 +mapgroup %MAPGROUP% +map %MAP% %WORKSHOP_ARGS% ^
  -port %PORT% -ip %BIND_IP% %PUBLIC_ARGS% ^
- -tickrate %TICKRATE% +sv_maxplayers %MAXPLAYERS% +sv_visiblemaxplayers %MAXPLAYERS% ^
+ -tickrate %TICKRATE% -maxplayers_override %MAXPLAYERS% +sv_visiblemaxplayers %MAXPLAYERS% ^
  %AUTH_ARGS% %GSLT_ARGS% ^
  +sv_lan %LAN% +sv_password "%SERVER_PASSWORD%" +rcon_password "%RCON_PASSWORD%" ^
  +exec %EXEC%

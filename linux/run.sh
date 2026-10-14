@@ -154,6 +154,7 @@ echo /home/${user}/steamrt/run ./game/bin/linuxsteamrt64/cs2 --graphics-provider
 	"${IP_ARGS[@]}" \
     -port "$PORT" \
     +map de_dust2 \
+    -maxplayers_override "$MAXPLAYERS" \
     +sv_visiblemaxplayers "$MAXPLAYERS" \
     -authkey "$API_KEY" \
     +sv_setsteamaccount "$STEAM_ACCOUNT" \
@@ -174,6 +175,7 @@ sudo -u $user /home/${user}/steamrt/run ./game/bin/linuxsteamrt64/cs2 --graphics
 	"${IP_ARGS[@]}" \
     -port "$PORT" \
     +map de_dust2 \
+    -maxplayers_override "$MAXPLAYERS" \
     +sv_visiblemaxplayers "$MAXPLAYERS" \
     -authkey "$API_KEY" \
     +sv_setsteamaccount "$STEAM_ACCOUNT" \

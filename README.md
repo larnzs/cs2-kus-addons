@@ -417,7 +417,7 @@ The active Windows runner reads `windows/instance-template/instance.ini`, not en
 | `CUSTOM_FOLDER` | `aim` | External folder whose `cfg\` and `addons\` trees are copied into the shared runtime before each launch. Not isolated from other instances sharing `SERVER_DIR`. |
 | `PORT` | `27085` | Player connection port in the current example. |
 | `TICKRATE` | `128` | Requested tickrate in the example; use a value supported by the installed server and plugins. |
-| `MAXPLAYERS` | `64` | Maximum player count in the current example. |
+| `MAXPLAYERS` | `64` | Per-instance capacity, passed through `-maxplayers_override`; `sv_visiblemaxplayers` only controls the browser-displayed count. |
 | `LAN` | `0` | `0` for public/internet mode; `1` for LAN-only mode. |
 | `STEAM_ACCOUNT` | empty | Game Server Login Token; required for normal public-server registration. |
 | `API_KEY` | empty | Optional Steam Web API key for Workshop operations. |

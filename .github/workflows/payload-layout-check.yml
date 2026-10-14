@@ -125,9 +125,19 @@ jobs:
               assert '"changeme"' in text and '"change_me_to_a_strong_password"' in text, f"{script} must reject common RCON placeholders"
           for script in ("linux/install.sh", "linux/start.sh", "linux/run.sh"):
               text = Path(script).read_text(encoding="utf-8")
-              for required in ('-tickrate "$TICKRATE"', '-port "$PORT"', '+sv_visiblemaxplayers "$MAXPLAYERS"', '-authkey "$API_KEY"', '+sv_setsteamaccount "$STEAM_ACCOUNT"', '+sv_password "$SERVER_PASSWORD"', '+rcon_password "$RCON_PASSWORD"', '+exec "$EXEC"'):
+              for required in ('-tickrate "$TICKRATE"', '-port "$PORT"', '-maxplayers_override "$MAXPLAYERS"', '+sv_visiblemaxplayers "$MAXPLAYERS"', '-authkey "$API_KEY"', '+sv_setsteamaccount "$STEAM_ACCOUNT"', '+sv_password "$SERVER_PASSWORD"', '+rcon_password "$RCON_PASSWORD"', '+exec "$EXEC"'):
                   assert required in text, f"{script} must quote launch arguments safely: {required}"
               assert "mkdir -m 777 /home/${user}/cs2" not in text and "chmod 777 /home/${user}/cs2" not in text, f"{script} must not make the game directory world-writable"
+          windows_runner = Path("windows/instance-template/run.bat").read_text(encoding="utf-8")
+          assert "-maxplayers_override %MAXPLAYERS%" in windows_runner, "Windows runner must set actual capacity with -maxplayers_override"
+          assert "+sv_visiblemaxplayers %MAXPLAYERS%" in windows_runner, "Windows runner must preserve browser-visible player count"
+          assert "+sv_maxplayers" not in windows_runner, "Windows runner must not use deprecated/unknown sv_maxplayers"
+
+          for script in ("linux/install.sh", "linux/start.sh", "linux/run.sh", "docker/install_docker.sh"):
+              text = Path(script).read_text(encoding="utf-8")
+              override_count = text.count('-maxplayers_override "$MAXPLAYERS"')
+              visible_count = text.count('+sv_visiblemaxplayers "$MAXPLAYERS"')
+              assert override_count == visible_count == 2, f"{script} must pass capacity on both preview and actual launch"
           for script in ("linux/install.sh", "linux/start.sh", "docker/install_docker.sh"):
               text = Path(script).read_text(encoding="utf-8")
               assert 'if [ ! -x "/steamcmd/steamcmd.sh" ]; then' in text, f"{script} must repair a missing/incomplete SteamCMD install"
