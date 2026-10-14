@@ -298,7 +298,7 @@ process_mod() {   # $1 name, $2 url, $3 current version
         fail_mod "README.md could not be updated - files are updated but not committed. Fix README.md line for $PLUGIN_NAME manually, then commit with: git add -A -- ${PLUGIN_PATHS[*]} README.md && git commit -m \"- UPDATED: $PLUGIN_NAME $OLD_VERSION > $NEW_VERSION\""
         STOP_RUN=1; return 0
     fi
-    if ! verify_readme_diff; then
+    if [ "$OLD_VERSION" != "$NEW_VERSION" ] && ! verify_readme_diff; then
         fail_mod "README.md change is not the expected single-line version bump - not committing. Inspect with 'git diff README.md'."
         STOP_RUN=1; return 0
     fi

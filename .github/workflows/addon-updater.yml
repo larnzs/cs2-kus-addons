@@ -157,14 +157,15 @@ jobs:
           protected_after="$RUNNER_TEMP/protected-configs-after.txt"
           git ls-tree -r HEAD -- "${protected_paths[@]}" | sort > "$protected_before"
 
-          # Bootstrap a newly registered integration in isolation when its payload is
-          # not tracked yet. This avoids unrelated optional-plugin preflight failures
-          # blocking the first release import. Once the DLL is present, retain the normal
-          # full-catalog update path.
-          if [[ -f "game/csgo/addons/counterstrikesharp/plugins/GG1MapChooser/GG1MapChooser.dll" ]]; then
+          # Keep GG1MapChooser bootstrap/repair isolated whenever any required runtime
+          # file is missing. A main DLL alone is not proof that its shared API dependency
+          # was deployed, and unrelated catalog failures must not block this repair.
+          if [[ -f "game/csgo/addons/counterstrikesharp/plugins/GG1MapChooser/GG1MapChooser.dll" &&
+                -f "game/csgo/addons/counterstrikesharp/plugins/GG1MapChooser/GG1MapChooser.deps.json" &&
+                -f "game/csgo/addons/counterstrikesharp/shared/ggmcAPI/ggmcAPI.dll" ]]; then
             bash scripts/update/update.sh
           else
-            echo "GG1MapChooser payload is not tracked yet; bootstrapping only GG1MapChooser."
+            echo "GG1MapChooser payload or shared dependency is missing; repairing only GG1MapChooser."
             bash scripts/update/update.sh --only gg1mapchooser
           fi
 

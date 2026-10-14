@@ -624,6 +624,9 @@ readme_set_version() {   # $1 name, $2 URL, $3 old version, $4 new version
         fi
     fi
 
+    # A same-version payload repair should not require a no-op README edit.
+    [ "$old_version" != "$new_version" ] || return 0
+
     n=$(readme_line_number "$1" "$2")
     line=$(sed -n "${n}p" README.md)
     oldtick='`'"$old_version"'`'; newtick='`'"$new_version"'`'
