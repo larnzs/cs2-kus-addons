@@ -3,7 +3,7 @@
   "RTV": {
     "Enabled": true,
     "Style": "center",
-    "PerMap": true,
+    "PerMap": false,
     "HideHud": false,
     "MinRounds": 0,
     "MinPlayers": 1,
@@ -23,9 +23,9 @@
     "NominationEnabled": true,
     "MaxNominationWinners": 1,
     "ChangeImmediately": false,
-    "TriggerKillsBeforeEnd": 99,
+    "TriggerKillsBeforeEnd": 13,
     "TriggerRoundsBeforeEnd": 2,
-    "TriggerSecondsBeforeEnd": 60
+    "TriggerSecondsBeforeEnd": 120
   },
   "Maps": {
     "Mode": 0,
@@ -36,7 +36,7 @@
   "Votes": {
     "Enabled": true,
     "Maps": true,
-    "Style": "chat",
+    "Style": "center",
     "GameModes": true,
     "GameSettings": false
   },
