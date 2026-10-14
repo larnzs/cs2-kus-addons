@@ -141,7 +141,7 @@ jobs:
           assert 'copy /y "%RUNNER_TEMPLATE_DIR%\\run.bat" "%INSTANCE_DIR%\\run.bat" >nul' in instance_updater, "Instance updater must refresh the standard launcher from the repository template"
           assert 'for %%F in (run.vbs watchdog.bat) do (' in instance_updater, "Instance updater must refresh existing VBS/watchdog helpers"
           assert 'copy /y "%RUNNER_TEMPLATE_DIR%\\%%F" "%INSTANCE_DIR%\\%%F" >nul' in instance_updater, "Instance updater must copy helpers from the tracked template"
-          sync_section = instance_updater.split(":SyncInstanceRunnerFiles", 1)[1].split(":UpdateRepository", 1)[0]
+          sync_section = instance_updater.split("\\n:SyncInstanceRunnerFiles\\n", 1)[1].split("\\n:UpdateRepository\\n", 1)[0]
           assert '"%INSTANCE_DIR%\\instance.ini"' not in sync_section, "Launcher synchronization must never overwrite the private instance.ini"
           assert "leaving any custom-named *_run.bat runner untouched" in sync_section, "Instance updater must preserve custom-named runners"
 
