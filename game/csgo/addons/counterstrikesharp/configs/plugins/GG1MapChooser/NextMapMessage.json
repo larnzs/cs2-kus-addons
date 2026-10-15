@@ -1,0 +1,10 @@
+{
+  "content": "Next map: ",
+  "embeds": [
+    {
+      "image": {
+        "url": "https://example.com/folder/with/mapimages/"
+      }
+    }
+  ]
+}
