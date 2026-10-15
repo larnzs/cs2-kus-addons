@@ -320,7 +320,7 @@
       },
       {
         "Name": "Casual (1.6)",
-        "Config": "casual-1.6.cfg",
+        "Config": "Casual-1.6.cfg",
         "DefaultMap": "3201205818",
         "MapGroups": [
           "mg_casual-1.6"
@@ -361,14 +361,14 @@
       {
         "Name": "Casual Workshop",
         "Config": "casualw.cfg",
-        "DefaultMap": "de_dust2",
+        "DefaultMap": "3073150255",
         "MapGroups": [
           "mg_casualw"
         ]
       },
       {
         "Name": "Casual Active",
-        "Config": "casuala.cfg",
+        "Config": "casual-active.cfg",
         "DefaultMap": "de_mirage",
         "MapGroups": [
           "mg_casuala"

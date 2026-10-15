@@ -2385,32 +2385,6 @@
       "weight": 1
     }
   },
-  "AWP Aim": {
-    "awp_lego_2011": {
-      "ws": true,
-      "display": "Awp Lego 2011",
-      "mapid": "3075511506",
-      "minplayers": 0,
-      "maxplayers": 0,
-      "weight": 1
-    },
-    "awp_india_night": {
-      "ws": true,
-      "display": "Awp India Night",
-      "mapid": "3414483755",
-      "minplayers": 0,
-      "maxplayers": 0,
-      "weight": 1
-    },
-    "awp_lego_winter": {
-      "ws": true,
-      "display": "Awp Lego Winter",
-      "mapid": "3711702590",
-      "minplayers": 0,
-      "maxplayers": 0,
-      "weight": 1
-    }
-  },
   "AWP": {
     "awp_lego_2011": {
       "ws": true,
@@ -2424,14 +2398,6 @@
       "ws": true,
       "display": "Awp India Night",
       "mapid": "3414483755",
-      "minplayers": 0,
-      "maxplayers": 0,
-      "weight": 1
-    },
-    "awp_lego_winter": {
-      "ws": true,
-      "display": "Awp Lego Winter",
-      "mapid": "3711702590",
       "minplayers": 0,
       "maxplayers": 0,
       "weight": 1
@@ -2520,20 +2486,20 @@
       "maxplayers": 0,
       "weight": 1
     },
-    "aim_dour": {
+    "awp_lego_2011": {
       "ws": true,
-      "display": "Aim Dour",
-      "mapid": "3256565058",
-      "minplayers": 1,
-      "maxplayers": 8,
-      "weight": 2
+      "display": "Awp Lego 2011",
+      "mapid": "3075511506",
+      "minplayers": 0,
+      "maxplayers": 0,
+      "weight": 1
     },
-    "aim_fiffy_gg1": {
+    "awp_india_night": {
       "ws": true,
-      "display": "Aim Fiffy",
-      "mapid": "3237190916",
-      "minplayers": 1,
-      "maxplayers": 8,
+      "display": "Awp India Night",
+      "mapid": "3414483755",
+      "minplayers": 0,
+      "maxplayers": 0,
       "weight": 1
     }
   },
@@ -2720,14 +2686,6 @@
     }
   },
   "VIP": {
-    "Overpass": {
-      "ws": true,
-      "display": "Overpass",
-      "mapid": "3711701554",
-      "minplayers": 0,
-      "maxplayers": 0,
-      "weight": 1
-    },
     "VIP de_dust2": {
       "ws": true,
       "display": "VIP De Dust2",
@@ -2772,6 +2730,14 @@
       "ws": true,
       "display": "VIP De Ancient Night",
       "mapid": "3575485852",
+      "minplayers": 0,
+      "maxplayers": 0,
+      "weight": 1
+    },
+    "VIP de_Overpass": {
+      "ws": true,
+      "display": "VIP De Overpass",
+      "mapid": "3711701554",
       "minplayers": 0,
       "maxplayers": 0,
       "weight": 1
