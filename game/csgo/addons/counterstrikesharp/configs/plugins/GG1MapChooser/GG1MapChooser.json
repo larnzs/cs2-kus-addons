@@ -2,7 +2,7 @@
 {
   "VoteSettings": {
     "RememberPlayedMaps": 3,
-    "RememberNominatedMaps": 0,
+    "RememberNominatedMaps": 2,
     "MapsInVote": 7,
     "VotesToWin": 0.6,
     "AllowNominate": true,
@@ -26,8 +26,8 @@
   },
   "WinDrawSettings": {
     "VoteDependsOnRoundWins": true,
-    "TriggerRoundsBeforeEnd": 4,
-    "TriggerRoundsBeforeEndVoteAtRoundStart": false,
+    "TriggerRoundsBeforeEnd": 2,
+    "TriggerRoundsBeforeEndVoteAtRoundStart": true,
     "TriggerVoteAtRoundStartSecondsFromStart": 0,
     "ChangeMapAfterWinDraw": false
   },
