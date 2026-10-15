@@ -42,9 +42,8 @@
 						"mg_retake"			"69"
 						"mg_executes"		"70"
 						"mg_vip"			"71"
-						"mg_aimawp"			"72"
-						"mg_casualw"		"73"
-						"mg_casuala"		"74"
+						"mg_casualw"		"72"
+						"mg_casuala"		"73"
 					}
 				}
 
@@ -592,16 +591,6 @@
 				"workshop/3238565662/field"		""
 			}
 		}
-		"mg_aimawp"
-		{
-			"name"			"mg_aimawp"
-			"displayname"			"AWP Aim"
-			"maps"
-			{
-				"workshop/3075511506/awp_lego_2011"		""
-				"workshop/3414483755/awp_india_night"		""
-			}
-		}
 		"mg_awp"
 		{
 			"name"			"mg_awp"
@@ -693,7 +682,7 @@
 			"displayname"			"VIP"
 			"maps"
 			{
-				"workshop/3711701554/Overpass"				""
+				"workshop/3711701554/VIP de_Overpass"				""
 				"workshop/3711705283/VIP de_dust2"		""
 				"workshop/3711702590/VIP de_vertigo"			""
 				"workshop/3711700605/VIP de_ancient"			""
