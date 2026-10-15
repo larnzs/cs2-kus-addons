@@ -488,11 +488,11 @@
                                       ],
                        "project":  "TeamLimiter.csproj",
                        "output_file":  "TeamLimiter.dll",
-                       "install_path":  "addons/counterstrikesharp/plugins/TeamLimiter.dll",
+                       "install_path":  "addons/counterstrikesharp/plugins/TeamLimiter/TeamLimiter.dll",
                        "installed":  true,
                        "source_commit":  "b9be93940543bd06b771199301c7c8ee6b162e8f",
                        "verify_paths":  [
-                                            "addons/counterstrikesharp/plugins/TeamLimiter.dll"
+                                            "addons/counterstrikesharp/plugins/TeamLimiter/TeamLimiter.dll"
                                         ]
                    },
                    {
