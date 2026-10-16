@@ -8,10 +8,30 @@ if [[ "$EUID" -ne 0 ]]; then
     echo "ERROR: Run this installer as root (for example: sudo -E bash linux/install.sh)." >&2
     exit 1
 fi
-if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+if [[ ! -e "$ROOT_DIR/.git" ]]; then
     echo "ERROR: Run this from a clone of the private cs2-kus-addons repository." >&2
     exit 1
 fi
+if [[ ! -d "$ROOT_DIR/game/csgo/addons" ]]; then
+    echo "ERROR: Tracked plugin payload is missing: $ROOT_DIR/game/csgo/addons" >&2
+    exit 1
+fi
+
+# Git must run as the checkout owner so its read-only HTTPS credentials are reused;
+# the root installer only updates system packages and deploys files to runtime paths.
+REPO_OWNER="$(stat -c '%U' "$ROOT_DIR")"
+REPO_USER="$REPO_OWNER"
+if [[ -n "${SUDO_USER:-}" && "$SUDO_USER" != "root" && "$SUDO_USER" == "$REPO_OWNER" ]]; then
+    REPO_USER="$SUDO_USER"
+fi
+if [[ "$REPO_USER" == "root" ]] || ! id "$REPO_USER" >/dev/null 2>&1; then
+    echo "ERROR: Keep the repository checkout owned by a non-root operator and run this script with sudo from that account." >&2
+    exit 1
+fi
+
+run_as_repo_user() {
+    sudo -u "$REPO_USER" -- "$@"
+}
 if ! command -v flock >/dev/null 2>&1; then
     echo "ERROR: flock is required for safe shared maintenance." >&2
     exit 1
@@ -33,18 +53,25 @@ if pgrep -x cs2 >/dev/null 2>&1; then
     echo "ERROR: A CS2 server process is running. Stop it before updating shared files." >&2
     exit 1
 fi
-if [[ -n "$(git -C "$ROOT_DIR" status --porcelain --untracked-files=all)" ]]; then
+if [[ -n "$(run_as_repo_user git -C "$ROOT_DIR" status --porcelain --untracked-files=all)" ]]; then
     echo "ERROR: The repository has local changes or untracked files. Commit or move them before updating." >&2
     exit 1
 fi
 
-echo "[1/2] Updating repository through linux/update.sh..."
-bash "$ROOT_DIR/linux/update.sh"
+echo "[1/2] Updating the active repository branch (read-only Git access)..."
+if ! run_as_repo_user bash "$ROOT_DIR/linux/update.sh"; then
+    echo "ERROR: Repository update failed. No game/runtime deployment was started." >&2
+    exit 1
+fi
 
 echo
-echo "[2/2] Updating managed plugins, Steam Linux Runtime and CS2 (server stays stopped)..."
-RUN_PLUGIN_UPDATER=1 bash "$ROOT_DIR/linux/setup.sh"
+echo "[2/2] Installing/updating Steam Linux Runtime, CS2 and the committed plugin payload (server stays stopped)..."
+if ! bash "$ROOT_DIR/linux/setup.sh"; then
+    echo "ERROR: Linux setup/install did not complete. Review the first failing step and its diagnostic log." >&2
+    exit 1
+fi
 
 echo
-echo "SUCCESS: repository, plugin payload and CS2 update/deployment completed."
+echo "SUCCESS: repository, Steam Linux Runtime, CS2 and the committed plugin payload are installed/updated."
+echo "This workflow uses read-only Git access and never pushes to GitHub."
 echo "Existing runtime files were overlaid safely; the server was NOT launched."
