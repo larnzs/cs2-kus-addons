@@ -21,10 +21,22 @@ if [[ "$(id -un)" != "$CS2_USER" ]]; then
 fi
 
 matches_script() {
-    local pid="$1" expected="$2" cmdline
+    local pid="$1" expected="$2" arg proc_cwd resolved
     [[ "$pid" =~ ^[0-9]+$ && -r "/proc/$pid/cmdline" ]] || return 1
-    cmdline="$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)"
-    [[ "$cmdline" == *"$expected"* ]]
+    proc_cwd="$(readlink -f -- "/proc/$pid/cwd" 2>/dev/null || true)"
+    [[ -n "$proc_cwd" ]] || return 1
+    while IFS= read -r -d '' arg; do
+        [[ "$arg" == *.sh ]] || continue
+        if [[ "$arg" == /* ]]; then
+            resolved="$(realpath -m -- "$arg" 2>/dev/null || true)"
+        else
+            resolved="$(realpath -m -- "$proc_cwd/$arg" 2>/dev/null || true)"
+        fi
+        if [[ "$resolved" == "$expected" ]]; then
+            return 0
+        fi
+    done < "/proc/$pid/cmdline"
+    return 1
 }
 
 target_pid=""

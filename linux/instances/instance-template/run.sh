@@ -167,6 +167,7 @@ cmd=(
 
 echo "Starting CS2 instance: address=${IP:-auto}, bind=$BIND_IP, port=$PORT, map=$MAP, mapgroup=$MAPGROUP, maxplayers=$MAXPLAYERS"
 echo "Runtime: $SERVER_DIR"
+cd "$SERVER_DIR"
 "${cmd[@]}" &
 LAUNCH_PID=$!
 
