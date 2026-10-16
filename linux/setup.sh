@@ -3,8 +3,8 @@
 # As root (sudo su)
 # Run as root from a clone of this private repository.
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    echo "ERROR: Run setup-and-start.sh from a clone of the private cs2-kus-addons repository."
+if [[ ! -e "$ROOT_DIR/.git" ]]; then
+    echo "ERROR: Run setup.sh from a clone of the private cs2-kus-addons repository." >&2
     exit 1
 fi
 
@@ -179,28 +179,9 @@ else
 	exit 1
 fi
 
-# Run the plugin updater only from the unified updater. All runtime file changes remain
-# overwrite-only overlays; this script never purges add-on directories.
-if [[ "${RUN_PLUGIN_UPDATER:-0}" == "1" ]]; then
-    echo "Updating managed plugin payloads..."
-    apt-get install -y -q git curl jq unzip tar rsync sudo procps || {
-        echo "ERROR: Could not install plugin-updater dependencies."
-        exit 1
-    }
-    if ! bash "$ROOT_DIR/scripts/update/update.sh" --no-pull; then
-        echo "ERROR: Managed plugin update failed."
-        exit 1
-    fi
-    PUSH_BRANCH="$(git -C "$ROOT_DIR" symbolic-ref --quiet --short HEAD)" || {
-        echo "ERROR: Cannot push plugin updates from a detached HEAD; check out the intended branch first." >&2
-        exit 1
-    }
-    PUSH_REMOTE="${CS2_GIT_REMOTE:-origin}"
-    if ! git -C "$ROOT_DIR" push "$PUSH_REMOTE" "HEAD:refs/heads/$PUSH_BRANCH"; then
-        echo "ERROR: Plugin updates were committed locally but could not be pushed to $PUSH_REMOTE/$PUSH_BRANCH."
-        exit 1
-    fi
-fi
+# Plugin versions are curated and committed to this branch by maintainer automation.
+# Node installs must be read-only: deploy the checked-out payload without running an
+# upstream-release updater or attempting to commit/push changes to GitHub.
 
 echo "Checking $user user exists..."
 getent passwd "$user" >/dev/null 2>&1
@@ -237,42 +218,139 @@ fi
 
 chown -R ${user}:${user} /steamcmd
 
-echo "Downloading any updates for Steam Linux Runtime 3.0 (sniper)..."
-# https://discord.com/channels/1160907911501991946/1160907912445710479/1411330429679829013
-# https://steamdb.info/app/1628350/depots/
-if ! sudo -u "$user" /steamcmd/steamcmd.sh \
-  +api_logging 1 1 \
-  +@sSteamCmdForcePlatformType linux \
-  +@sSteamCmdForcePlatformBitness $BITS \
-  +force_install_dir /home/${user}/steamrt \
-  +login anonymous \
-  +app_update 1628350 \
-  +validate \
-  +quit; then
-    echo "ERROR: SteamCMD failed while updating Steam Linux Runtime 3.0."
+STEAMCMD="/steamcmd/steamcmd.sh"
+STEAMCMD_LOG_DIR="/var/log/cs2-kus-steamcmd"
+STEAM_USER_HOME="$(getent passwd "$user" | cut -d: -f6)"
+if [[ -z "$STEAM_USER_HOME" || ! -d "$STEAM_USER_HOME" ]]; then
+    echo "ERROR: Could not determine the home directory for service user '$user'." >&2
     exit 1
 fi
-if [ ! -x "/home/${user}/steamrt/run" ]; then
-    echo "ERROR: Steam Linux Runtime did not install correctly: /home/${user}/steamrt/run is missing."
+STEAM_APPINFO_CACHE="$STEAM_USER_HOME/Steam/appcache/appinfo.vdf"
+mkdir -p "$STEAMCMD_LOG_DIR" || {
+    echo "ERROR: Could not create SteamCMD log directory: $STEAMCMD_LOG_DIR" >&2
     exit 1
-fi
-chown -R ${user}:${user} /home/${user}/steamrt
+}
+chmod 0755 "$STEAMCMD_LOG_DIR"
 
-echo "Downloading any updates for CS2..."
-# https://developer.valvesoftware.com/wiki/Command_line_options
-if ! sudo -u "$user" /steamcmd/steamcmd.sh \
-  +api_logging 1 1 \
-  +@sSteamCmdForcePlatformType linux \
-  +@sSteamCmdForcePlatformBitness $BITS \
-  +force_install_dir /home/${user}/cs2 \
-  +login anonymous \
-  +app_update 730 \
-  +quit; then
-    echo "ERROR: SteamCMD failed while updating CS2 game files."
+# Refresh Steam's app metadata before every install/update. On a fresh SteamCMD
+# setup, app_update can otherwise fail with "Missing configuration" even for a
+# valid public app such as Steam Linux Runtime 3.0 (App ID 1628350).
+steamcmd_refresh_app_info() {
+    local app_id="$1"
+    local log_file="$STEAMCMD_LOG_DIR/app-info-$app_id.log"
+
+    echo "Refreshing Steam app metadata for App ID $app_id..."
+    if ! (
+        set -o pipefail
+        sudo -u "$user" "$STEAMCMD" \
+            +api_logging 1 1 \
+            +@sSteamCmdForcePlatformType linux \
+            +@sSteamCmdForcePlatformBitness "$BITS" \
+            +@ShutdownOnFailedCommand 1 \
+            +@NoPromptForPassword 1 \
+            +login anonymous \
+            +app_info_update 1 \
+            +app_info_request "$app_id" \
+            +quit 2>&1 | tee "$log_file"
+    ); then
+        echo "ERROR: SteamCMD could not refresh app metadata for App ID $app_id." >&2
+        echo "Diagnostic log: $log_file" >&2
+        tail -n 40 "$log_file" 2>/dev/null || true
+        return 1
+    fi
+}
+
+# Install/update an app and check both SteamCMD's exit status and its output.
+# "validate" is an argument to app_update; it must NOT be prefixed with '+'.
+# If SteamCMD reports Missing configuration, clear only its per-user app-info cache
+# and retry once after refreshing metadata.
+steamcmd_install_app() {
+    local app_id="$1"
+    local install_dir="$2"
+    local app_name="$3"
+    local validate="$4"
+    local attempt log_file
+    local -a app_update_args
+
+    app_update_args=(+app_update "$app_id")
+    if [[ "$validate" == "1" ]]; then
+        app_update_args+=(validate)
+    fi
+
+    mkdir -p "$install_dir" || {
+        echo "ERROR: Could not create install directory: $install_dir" >&2
+        return 1
+    }
+    chown "$user:$user" "$install_dir" || {
+        echo "ERROR: Could not assign $install_dir to $user:$user." >&2
+        return 1
+    }
+
+    for attempt in 1 2; do
+        if ! steamcmd_refresh_app_info "$app_id"; then
+            return 1
+        fi
+
+        log_file="$STEAMCMD_LOG_DIR/app-$app_id-attempt-$attempt.log"
+        echo "Installing/updating $app_name (App ID $app_id; attempt $attempt/2)..."
+
+        if (
+            set -o pipefail
+            sudo -u "$user" "$STEAMCMD" \
+                +@ShutdownOnFailedCommand 1 \
+                +@NoPromptForPassword 1 \
+                +api_logging 1 1 \
+                +@sSteamCmdForcePlatformType linux \
+                +@sSteamCmdForcePlatformBitness "$BITS" \
+                +force_install_dir "$install_dir" \
+                +login anonymous \
+                "${app_update_args[@]}" \
+                +quit 2>&1 | tee "$log_file"
+        ) && ! grep -Eiq "ERROR! Failed to install app|Missing configuration" "$log_file"; then
+            return 0
+        fi
+
+        if [[ "$attempt" -eq 1 ]] && grep -Eiq "Missing configuration|No app info for AppID" "$log_file"; then
+            echo "SteamCMD still reports missing app metadata. Clearing only its cached app-info file and retrying..."
+            rm -f "$STEAM_APPINFO_CACHE" || {
+                echo "ERROR: Could not remove stale Steam app-info cache: $STEAM_APPINFO_CACHE" >&2
+                return 1
+            }
+            continue
+        fi
+
+        echo "ERROR: SteamCMD failed to install/update $app_name (App ID $app_id)." >&2
+        echo "Diagnostic log: $log_file" >&2
+        tail -n 60 "$log_file" 2>/dev/null || true
+        return 1
+    done
+
+    echo "ERROR: SteamCMD exhausted retries for $app_name (App ID $app_id)." >&2
+    return 1
+}
+
+echo "Downloading/updating Steam Linux Runtime 3.0 (sniper)..."
+# App ID and Linux depot information: https://steamdb.info/app/1628350/depots/
+if ! steamcmd_install_app 1628350 "/home/$user/steamrt" "Steam Linux Runtime 3.0 (sniper)" 1; then
+    echo "ERROR: Steam Linux Runtime 3.0 installation failed; CS2 installation was not started." >&2
     exit 1
 fi
-if [ ! -x "/home/${user}/cs2/game/bin/linuxsteamrt64/cs2" ]; then
-    echo "ERROR: SteamCMD completed but the CS2 Linux executable is missing."
+if [[ ! -x "/home/$user/steamrt/run" ]]; then
+    echo "ERROR: Steam Linux Runtime did not install correctly: /home/$user/steamrt/run is missing." >&2
+    echo "Check $STEAMCMD_LOG_DIR for SteamCMD diagnostics." >&2
+    exit 1
+fi
+chown -R "$user:$user" "/home/$user/steamrt"
+
+echo "Downloading/updating Counter-Strike 2..."
+# Steam application ID: 730
+if ! steamcmd_install_app 730 "/home/$user/cs2" "Counter-Strike 2" 0; then
+    echo "ERROR: CS2 installation failed." >&2
+    exit 1
+fi
+if [[ ! -x "/home/$user/cs2/game/bin/linuxsteamrt64/cs2" ]]; then
+    echo "ERROR: SteamCMD completed but the CS2 Linux executable is missing." >&2
+    echo "Check $STEAMCMD_LOG_DIR for SteamCMD diagnostics." >&2
     exit 1
 fi
 
