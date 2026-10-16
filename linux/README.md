@@ -4,9 +4,9 @@
 
 | File | Purpose |
 | --- | --- |
-| `install.sh` | Unified install/update entrypoint, matching `windows/install.bat`. Requires root, a clean checkout, and stopped CS2 processes. Updates Git, managed plugin payloads, Steam Linux Runtime and CS2; safely overlays tracked files and patches `gameinfo.gi`. Never launches CS2. |
-| `update.sh` | Repository-only update, matching `windows/update.bat`: switches to `integration/kus-monorepo` and pulls with `--ff-only`. It does not update plugins, CS2, or runtime files. |
-| `setup.sh` | Internal provisioning worker invoked by `install.sh`. Installs OS prerequisites, SteamCMD, Steam Linux Runtime and CS2, deploys the tracked payload and patches `gameinfo.gi`. It also prepares Steam Runtime host settings, but never starts the server. |
+| `install.sh` | Unified install/update entrypoint, matching `windows/install.bat`. Requires root, a clean checkout owned by the non-root operator, and stopped CS2 processes. Fast-forwards the active branch using that operator's read-only Git credentials, installs/updates Steam Linux Runtime and CS2, overlays the committed plugin payload, and patches `gameinfo.gi`. Never pushes to GitHub or launches CS2. |
+| `update.sh` | Repository-only update, matching `windows/update.bat`: fast-forwards the currently checked-out branch from its matching remote branch. It does not update plugins, CS2, or runtime files. |
+| `setup.sh` | Root-only provisioning worker invoked by `install.sh`. Installs OS prerequisites, refreshes Steam app metadata before installing/updating Steam Linux Runtime (App ID `1628350`) and CS2 (App ID `730`), retries a stale/missing app-info cache once, deploys the committed payload, and patches `gameinfo.gi`. It logs SteamCMD diagnostics to `/var/log/cs2-kus-steamcmd/` and prepares Steam Runtime host settings; it never starts the server or pushes to GitHub. |
 | `install-from-gcp.sh` | Google Cloud convenience wrapper for the same full install/update operation. It does not consume server secrets or launch CS2. |
 | `stop-all.sh` | Emergency stop of running CS2 processes for the configured service user. When an Instance watchdog is active, use that Instance's `stop.sh` instead, or the watchdog may start the server again. |
 | `instances/instance-template/` | Per-instance settings and lifecycle scripts: `run.sh`, `watchdog.sh`, `stop.sh`, and instance-local `update.sh`. Only `run.sh` launches CS2. |
@@ -32,7 +32,7 @@ On Google Cloud Compute Engine, the same full no-launch maintenance workflow is 
 sudo -E bash ./linux/install-from-gcp.sh
 ```
 
-The full install/update entrypoints refuse to run while CS2 is active. Runtime overlays are overwrite-only: files absent from the repository payload are left in place, and existing CounterStrikeSharp configs are preserved.
+The full install/update entrypoints refuse to run while CS2 is active. They use the versions already committed to the active repository branch; they do not run the upstream-release updater or need GitHub write access. Keep plugin release discovery/commits in maintainer automation, then let node installs pull those committed updates using read-only Git access. Runtime overlays are overwrite-only: files absent from the repository payload are left in place, and existing CounterStrikeSharp configs are preserved.
 
 ## Multiple instances
 
