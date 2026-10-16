@@ -10,6 +10,7 @@
 | `install-from-gcp.sh` | Google Cloud convenience wrapper for the same full install/update operation. It does not consume server secrets or launch CS2. |
 | `stop-all.sh` | Emergency stop of running CS2 processes for the configured service user. When an Instance watchdog is active, use that Instance's `stop.sh` instead, or the watchdog may start the server again. |
 | `instances/instance-template/` | Per-instance settings and lifecycle scripts: `run.sh`, `watchdog.sh`, `stop.sh`, and instance-local `update.sh`. Only `run.sh` launches CS2. |
+| `setup-and-start.sh` | **Deprecated migration shim** kept for checkouts whose installer began before the rename. It delegates to `setup.sh` and never starts CS2. Use `install.sh` for normal operations. |
 
 ## Commands
 
