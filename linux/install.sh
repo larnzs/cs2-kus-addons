@@ -43,7 +43,7 @@ bash "$ROOT_DIR/linux/update.sh"
 
 echo
 echo "[2/2] Updating managed plugins, Steam Linux Runtime and CS2 (server stays stopped)..."
-RUN_PLUGIN_UPDATER=1 UPDATE_ONLY=1 bash "$ROOT_DIR/linux/setup-and-start.sh"
+RUN_PLUGIN_UPDATER=1 bash "$ROOT_DIR/linux/setup.sh"
 
 echo
 echo "SUCCESS: repository, plugin payload and CS2 update/deployment completed."

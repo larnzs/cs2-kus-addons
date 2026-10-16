@@ -47,4 +47,4 @@ Instances default to the shared runtime at `/home/steam/cs2`, matching the Linux
 
 This is an overwrite-only file overlay, not isolated per-instance storage. If two instances use different custom files for the same runtime path, the last copy wins, and concurrently running servers may read the same shared file paths. Avoid conflicting overrides between active instances.
 
-The shared maintenance lock coordinates this template with `linux/install.sh`. Keep instance folders and secret `instance.env` files out of commits; this directory's `.gitignore` does that automatically.
+The shared maintenance lock coordinates this template with `linux/install.sh`. Install/update scripts never launch CS2; only the instance runner starts a server. Keep instance folders and secret `instance.env` files out of commits; this directory's `.gitignore` does that automatically.

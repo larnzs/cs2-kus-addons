@@ -12,7 +12,7 @@ This README combines Larnz's manifest-managed add-ons with KUS's base plugins, g
 | --- | --- |
 | `server/` | Local Windows SteamCMD installation root; ignored by Git. |
 | `windows/` | Windows BAT entrypoints plus the reusable external Instance runner template. |
-| `linux/` | Linux install/start/stop helpers and the Google Cloud Linux VM bootstrap. |
+| `linux/` | Linux install/update tooling and shared-runtime per-instance server runners; only an Instance launches CS2. |
 | `docker/` | Dockerfile, Compose definition, Docker installer, and the legacy Kubernetes manifest. |
 | `.dockerignore` | Kept at the repository root because Docker uses the repository root as its build context. |
 | `game/csgo/addons/` | Tracked KUS and Larnz payload source, including platform-neutral/Linux files and the Windows overlay. |
@@ -454,13 +454,13 @@ The Windows deployment path is CI-checked. The local Linux installer and Docker 
 
 ### Running on Google Cloud
 
-`linux/setup-and-start-from-gcp.sh` is the metadata-backed bootstrap wrapper. For full maintenance without launching CS2, use `linux/install.sh` on Linux or `google/update.sh` on Google Cloud. These paths update the repository/plugin payload and CS2, then deploy using overwrite-only overlays. `linux/update.sh` is repository-only, matching `windows/update.bat`. The full VM provisioning, firewall, disk, metadata, and secrets lifecycle still needs an end-to-end test. See [the archived KUS guide](docs/upstream/KUS-README.md#running-on-google-cloud) for historical context.
+`linux/install-from-gcp.sh` is the metadata-backed bootstrap wrapper. For full maintenance without launching CS2, use `linux/install.sh` on Linux or `google/update.sh` on Google Cloud. These paths update the repository/plugin payload and CS2, then deploy using overwrite-only overlays. `linux/update.sh` is repository-only, matching `windows/update.bat`. The full VM provisioning, firewall, disk, metadata, and secrets lifecycle still needs an end-to-end test. See [the archived KUS guide](docs/upstream/KUS-README.md#running-on-google-cloud) for historical context.
 
 When GCP support is migrated, this section will document the VM image, disk, firewall, metadata/secrets and game update handoff. For historical VM lifecycle commands, see [the archived KUS guide](docs/upstream/KUS-README.md#running-on-google-cloud); treat it as reference only.
 
 ### Running on Linux
 
-`linux/install.sh` is the unified Linux maintenance entrypoint, matching `windows/install.bat`. It updates the repository and managed plugin payloads, updates Steam Linux Runtime and CS2 through SteamCMD, overlays tracked files without deleting runtime-only files, patches `gameinfo.gi`, and exits without launching the server. `google/update.sh` delegates to the same flow for Google Cloud. `linux/legacy-gcp-start.sh` remains a separate launch path for an already prepared runtime. These Linux entrypoints have not been tested on a live host. Set a strong `RCON_PASSWORD` before running a server-starting script, and provide `STEAM_ACCOUNT` (GSLT) for public hosting. Run only scripts from this private checkout, not archived commands that download public KUS scripts over them.
+`linux/install.sh` is the unified Linux install/update entrypoint, matching `windows/install.bat`. It updates the repository and managed plugin payloads, updates Steam Linux Runtime and CS2 through SteamCMD, overlays tracked files without deleting runtime-only files, patches `gameinfo.gi`, and always exits without launching CS2. `linux/update.sh` only updates the Git branch, matching `windows/update.bat`. `linux/setup.sh` is the internal host/runtime provisioning worker, and `linux/install-from-gcp.sh` invokes the same no-launch install/update workflow on Google Cloud. On Linux, the only script that launches the CS2 process is `linux/instances/<name>/run.sh`; start the instance's `watchdog.sh` for crash recovery instead of launching `run.sh` directly. Keep all server settings and secrets in the instance's private `instance.env`. The Linux scripts have not yet been runtime-tested on a live host. Run only scripts from this private checkout, not archived commands that download public KUS scripts over them.
 
 The tracked source payload is `game/csgo/`; the actual Linux runtime is `<install-root>/game/csgo/`. See [the archived Linux guide](docs/upstream/KUS-README.md#running-on-linux) for historical context.
 

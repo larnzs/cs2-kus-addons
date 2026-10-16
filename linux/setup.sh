@@ -8,26 +8,17 @@ if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     exit 1
 fi
 
-# Defaults for a manual Linux install; caller/GCP environment values take precedence.
-: "${PORT:=27015}"
-: "${TICKRATE:=128}"
-: "${MAXPLAYERS:=32}"
-: "${LAN:=0}"
-: "${EXEC:=on_boot.cfg}"
-: "${API_KEY:=}"
-: "${STEAM_ACCOUNT:=}"
-: "${SERVER_PASSWORD:=}"
-: "${RCON_PASSWORD:=}"
-: "${IP:=}"
-
-if [[ "${UPDATE_ONLY:-0}" != "1" ]]; then
-    rcon_lower="${RCON_PASSWORD,,}"
-    if [[ -z "$RCON_PASSWORD" || "$rcon_lower" == "changeme" || "$rcon_lower" == "change_me_to_a_strong_password" ]]; then
-        echo "ERROR: Set RCON_PASSWORD to a strong, unique value before installing or starting CS2."
-        exit 1
-    fi
+if [[ "$EUID" -ne 0 ]]; then
+    echo "ERROR: Run setup.sh as root. Use linux/install.sh for the unified install/update workflow." >&2
+    exit 1
+fi
+if pgrep -x cs2 >/dev/null 2>&1; then
+    echo "ERROR: A CS2 server process is active. Stop all instances before running setup.sh." >&2
+    exit 1
 fi
 
+
+# Server-specific settings belong in each private linux/instances/<name>/instance.env.
 
 # Function to safely enable unprivileged user namespaces.
 # Steam's runtime sandboxes the game with bwrap (pressure-vessel), which needs
@@ -100,11 +91,6 @@ if [ -z "$BITS" ]; then
     fi
 fi
 
-IP_ARGS=()
-if [[ -n "${IP:-}" ]]; then
-    IP_ARGS=(-ip "$IP")
-fi
-
 if [ -f /etc/os-release ]; then
 	# freedesktop.org and systemd
 	. /etc/os-release
@@ -139,12 +125,6 @@ echo "With $FREE_SPACE Gb free space..."
 # Check distrib
 if ! command -v apt-get &> /dev/null; then
 	echo "ERROR: OS distribution not supported (apt-get not available). $DISTRO_OS: $DISTRO_VERSION"
-	exit 1
-fi
-
-# Check root
-if [ "$EUID" -ne 0 ]; then
-	echo "ERROR: Please run this script as root..."
 	exit 1
 fi
 
@@ -214,19 +194,6 @@ if [[ "${RUN_PLUGIN_UPDATER:-0}" == "1" ]]; then
     if ! git -C "$ROOT_DIR" push origin HEAD:refs/heads/integration/kus-monorepo; then
         echo "ERROR: Plugin updates were committed locally but could not be pushed to origin/integration/kus-monorepo."
         exit 1
-    fi
-fi
-
-# Public-IP discovery and DuckDNS are only needed when starting the server.
-PUBLIC_IP=""
-if [[ "${UPDATE_ONLY:-0}" != "1" ]]; then
-    PUBLIC_IP=$(dig -4 +short myip.opendns.com @resolver1.opendns.com)
-    if [ -z "$PUBLIC_IP" ]; then
-        echo "ERROR: Cannot retrieve your public IP address..."
-        exit 1
-    fi
-    if [ -n "${DUCK_TOKEN:-}" ]; then
-        echo url="http://www.duckdns.org/update?domains=$DUCK_DOMAIN&token=$DUCK_TOKEN&ip=$PUBLIC_IP" | curl -k -o /duck.log -K -
     fi
 fi
 
@@ -392,55 +359,11 @@ if ! grep -qE "$REGEX_TO_CHECK" "$FILE"; then
 fi
 
 
-if [[ "${UPDATE_ONLY:-0}" == "1" ]]; then
-    echo "Update-only mode: deployment and gameinfo.gi patch completed. The CS2 server was NOT launched."
-    exit 0
-fi
-
-# Try to enable unprivileged namespaces
+# Prepare host settings needed by the Steam Linux Runtime for instance launches.
+# This configures the host only; this script must never launch the CS2 process.
 enable_unprivileged_namespaces
 
-echo "Starting server on $PUBLIC_IP:$PORT"
-# https://developer.valvesoftware.com/wiki/Counter-Strike_2/Dedicated_Servers#Command-Line_Parameters
-echo /home/${user}/steamrt/run ./game/bin/linuxsteamrt64/cs2 --graphics-provider "" -- \
-    -dedicated \
-    -console \
-    -usercon \
-    -disable_workshop_command_filtering \
-    -autoupdate \
-    -tickrate "$TICKRATE" \
-	"${IP_ARGS[@]}" \
-    -port "$PORT" \
-    +map de_dust2 \
-    -maxplayers_override "$MAXPLAYERS" \
-    +sv_visiblemaxplayers "$MAXPLAYERS" \
-    -authkey "$API_KEY" \
-	+sv_setsteamaccount "$STEAM_ACCOUNT" \
-    +game_type 0 \
-    +game_mode 0 \
-    +mapgroup mg_active \
-	+sv_lan "$LAN" \
-	+sv_password "$SERVER_PASSWORD" \
-	+rcon_password "$RCON_PASSWORD" \
-	+exec "$EXEC"
-sudo -u $user /home/${user}/steamrt/run ./game/bin/linuxsteamrt64/cs2 --graphics-provider "" -- \
-    -dedicated \
-    -console \
-    -usercon \
-    -disable_workshop_command_filtering \
-    -autoupdate \
-    -tickrate "$TICKRATE" \
-	"${IP_ARGS[@]}" \
-    -port "$PORT" \
-    +map de_dust2 \
-    -maxplayers_override "$MAXPLAYERS" \
-    +sv_visiblemaxplayers "$MAXPLAYERS" \
-    -authkey "$API_KEY" \
-	+sv_setsteamaccount "$STEAM_ACCOUNT" \
-    +game_type 0 \
-    +game_mode 0 \
-    +mapgroup mg_active \
-	+sv_lan "$LAN" \
-	+sv_password "$SERVER_PASSWORD" \
-	+rcon_password "$RCON_PASSWORD" \
-	+exec "$EXEC"
+echo
+echo "SUCCESS: Linux prerequisites, SteamCMD, Steam Linux Runtime, CS2, tracked payload and gameinfo.gi are ready."
+echo "The CS2 server was NOT launched. Configure an instance and start linux/instances/<name>/watchdog.sh."
+exit 0

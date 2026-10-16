@@ -1,5 +1,7 @@
 # Linux instance template
 
+**CS2 execution is Instance-only.** The repository's install/update scripts prepare the shared runtime but never launch a server. Use this template's `watchdog.sh` to start and supervise an instance.
+
 Copy this directory to a unique name under `linux/instances/` and copy `instance.example.env` to `instance.env`.
 
 - `run.sh` launches one CS2 process and returns status `100` when that process exits, allowing the supervisor to distinguish a crash/restart from a configuration error.
