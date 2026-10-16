@@ -236,7 +236,7 @@ jobs:
           assert 'run_as_repo_user bash "$ROOT_DIR/linux/update.sh"' in linux_installer
           assert 'bash "$ROOT_DIR/linux/setup.sh"' in linux_installer
           assert "RUN_PLUGIN_UPDATER" not in linux_installer and 'git -C "$ROOT_DIR" push' not in linux_installer, "Linux install must remain read-only against GitHub"
-          assert 'git pull --ff-only "$REMOTE" "$CURRENT_BRANCH"' in linux_update and 'git switch' not in linux_update, "Linux update must fast-forward the currently checked out branch"
+          assert 'git -C "$ROOT_DIR" pull --ff-only "$REMOTE" "$CURRENT_BRANCH"' in linux_update and 'git switch' not in linux_update, "Linux update must fast-forward the currently checked out branch"
           assert "+app_update 730 +quit" in install_bat
           assert "+app_update 730 validate" not in install_bat
           assert "Invoke-RuntimeAddonUpdate.ps1" in install_bat
