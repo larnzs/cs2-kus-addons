@@ -16,7 +16,10 @@ sudo chmod 600 instance/instance.env
 
 Set INSTANCE_STORAGE_ROOT to a host-side absolute path outside the Git checkout. The script
 requires root and the steam service account because the generated Linux lifecycle scripts run
-as steam. Do not source an instance config supplied by a customer or arbitrary API input.
+as steam. For the default path, it prepares /var/lib/fragcity and /var/lib/fragcity/instances
+for steam to traverse. If you configure a custom root, its parent directories must already be
+traversable by steam; the script validates this instead of changing arbitrary parent paths.
+Do not source an instance config supplied by a customer or arbitrary API input.
 
 ## Preview and create
 
