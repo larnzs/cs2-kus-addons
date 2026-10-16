@@ -45,7 +45,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash -n linux/install.sh linux/update.sh linux/start.sh linux/run.sh linux/stop.sh google/update.sh docker/update.sh docker/install_docker.sh linux/gcp.sh scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh
+          while IFS= read -r -d '' file; do
+            echo "Checking $file"
+            bash -n "$file"
+          done < <(find linux docker google scripts -type f -name '*.sh' -print0)
           echo "Shell syntax passed."
 
       - name: Validate Docker Compose configuration
@@ -115,7 +118,7 @@ jobs:
           assert "addons/metamod/bin/linuxsteamrt64/metamod.2.cs2.so" in metamod["verify_paths"]
           assert Path("game/csgo/addons/counterstrikesharp/bin/linuxsteamrt64/counterstrikesharp.so").is_file()
           assert Path("game/csgo/addons/windows/addons/counterstrikesharp/dotnet/dotnet.exe").is_file()
-          for script in ("linux/install.sh", "linux/start.sh", "linux/run.sh", "docker/install_docker.sh"):
+          for script in ("docker/install_docker.sh",):
               text = Path(script).read_text(encoding="utf-8")
               assert "IP_ARGS=()" in text and '"${IP_ARGS[@]}"' in text, f"{script} must pass optional bind IP as separate arguments"
               assert '"$IP_ARGS"' not in text, f"{script} must not pass bind IP as one quoted string"
@@ -123,7 +126,7 @@ jobs:
               assert "ERROR: SteamCMD failed while updating" in text, f"{script} must fail clearly when SteamCMD fails"
               assert 'rcon_lower="${RCON_PASSWORD,,}"' in text, f"{script} must reject weak or missing RCON passwords"
               assert '"changeme"' in text and '"change_me_to_a_strong_password"' in text, f"{script} must reject common RCON placeholders"
-          for script in ("linux/install.sh", "linux/start.sh", "linux/run.sh"):
+          for script in ("linux/instances/instance-template/run.sh",):
               text = Path(script).read_text(encoding="utf-8")
               for required in ('-tickrate "$TICKRATE"', '-port "$PORT"', '-maxplayers_override "$MAXPLAYERS"', '+sv_visiblemaxplayers "$MAXPLAYERS"', '-authkey "$API_KEY"', '+sv_setsteamaccount "$STEAM_ACCOUNT"', '+sv_password "$SERVER_PASSWORD"', '+rcon_password "$RCON_PASSWORD"', '+exec "$EXEC"'):
                   assert required in text, f"{script} must quote launch arguments safely: {required}"
@@ -145,27 +148,27 @@ jobs:
           assert '"%INSTANCE_DIR%\\instance.ini"' not in sync_section, "Launcher synchronization must never overwrite the private instance.ini"
           assert "leaving any custom-named *_run.bat runner untouched" in sync_section, "Instance updater must preserve custom-named runners"
 
-          for script in ("linux/install.sh", "linux/start.sh", "linux/run.sh", "docker/install_docker.sh"):
+          for script in ("docker/install_docker.sh",):
               text = Path(script).read_text(encoding="utf-8")
               override_count = text.count('-maxplayers_override "$MAXPLAYERS"')
               visible_count = text.count('+sv_visiblemaxplayers "$MAXPLAYERS"')
               assert override_count == visible_count == 2, f"{script} must pass capacity on both preview and actual launch"
-          for script in ("linux/install.sh", "linux/start.sh", "docker/install_docker.sh"):
+          for script in ("linux/setup.sh", "docker/install_docker.sh"):
               text = Path(script).read_text(encoding="utf-8")
               assert 'if [ ! -x "/steamcmd/steamcmd.sh" ]; then' in text, f"{script} must repair a missing/incomplete SteamCMD install"
               assert 'getent passwd "$user" >/dev/null 2>&1' in text, f"{script} must check existing users with valid shell redirection"
               for package_line in (line for line in text.splitlines() if "apt-get install" in line):
                   assert "sudo" in package_line, f"{script} must install sudo because it calls sudo -u to run SteamCMD/server"
                   assert "procps" in package_line, f"{script} must install procps for process tools used by the Linux setup"
-          for script in ("linux/install.sh", "linux/start.sh", "docker/install_docker.sh"):
+          for script in ("linux/setup.sh", "docker/install_docker.sh"):
               text = Path(script).read_text(encoding="utf-8")
               assert 'if ! grep -qE "$REGEX_TO_CHECK" "$FILE"; then' in text, f"{script} must fail if the MetaMod gameinfo patch was not applied"
-          gcp = Path("linux/gcp.sh").read_text(encoding="utf-8")
-          assert "set -o pipefail" in gcp, "GCP bootstrap must propagate installer failure through tee"
-          stop_script = Path("linux/stop.sh").read_text(encoding="utf-8")
-          assert 'pgrep -u "$CS2_USER" -x cs2' in stop_script, "Linux stop must target CS2 processes only"
-          assert "ps -ef | grep" not in stop_script and "xargs kill -9" not in stop_script, "Linux stop must not use the unsafe broad process-kill pipeline"
-          for script in ("linux/install.sh", "docker/install_docker.sh"):
+          gcp = Path("linux/install-from-gcp.sh").read_text(encoding="utf-8")
+          assert "set -Eeuo pipefail" in gcp and 'exec sudo -E bash "$ROOT_DIR/linux/install.sh"' in gcp, "GCP wrapper must propagate the full installer exit status"
+          stop_script = Path("linux/instances/instance-template/stop.sh").read_text(encoding="utf-8")
+          assert 'kill -TERM "$target_pid"' in stop_script, "Instance stop must target the identified watchdog/runner gracefully"
+          assert "ps -ef | grep" not in stop_script and "kill -9" not in stop_script, "Instance stop must not use broad process-kill pipelines or force-kill the server"
+          for script in ("linux/setup.sh", "docker/install_docker.sh"):
               text = Path(script).read_text(encoding="utf-8")
               assert 'tar -C "$PAYLOAD_ROOT"' in text, f"{script} must deploy the tracked payload with a non-destructive overlay"
               for protected in ("addons/counterstrikesharp/configs", "cfg/settings", "addons/windows"):
@@ -176,7 +179,9 @@ jobs:
           expected_entrypoints = (
               "windows/install.bat", "windows/update.bat", "windows/addons-update.bat",
               "windows/addons-inspect.bat", "windows/instance-template/run.bat",
-              "linux/install.sh", "linux/update.sh", "linux/gcp.sh",
+              "linux/install.sh", "linux/update.sh", "linux/setup.sh", "linux/install-from-gcp.sh",
+              "linux/instances/README.md", "linux/instances/instance-template/run.sh",
+              "linux/instances/instance-template/watchdog.sh", "instance/create-instance.sh",
               "google/update.sh", "google/README.md", "docker/update.sh", "docker/Dockerfile",
               "docker/docker-compose.yml", "docker/kubernetes/manifest.yaml", ".env.example",
           )
@@ -216,8 +221,22 @@ jobs:
           assert 'tasklist /FI "IMAGENAME eq cs2.exe"' in install_bat, "install.bat must refuse SteamCMD/deployment while CS2 is active"
           assert 'Get-Process -Name "cs2"' in deploy, "Direct PowerShell deployment must refuse to overlay an active runtime"
           assert 'Get-Process -Name "cs2"' not in source_updater, "Source-only add-on updates must be allowed while CS2 is active"
-          gcp = Path("linux/gcp.sh").read_text(encoding="utf-8")
-          assert 'export API_KEY="${API_KEY:-${META_API_KEY:-}}"' in gcp, "GCP should preserve an environment API key, otherwise use optional metadata without a fake default"
+          linux_setup = Path("linux/setup.sh").read_text(encoding="utf-8")
+          linux_installer = Path("linux/install.sh").read_text(encoding="utf-8")
+          linux_update = Path("linux/update.sh").read_text(encoding="utf-8")
+          assert 'STEAMCMD_LOG_DIR="/var/log/cs2-kus-steamcmd"' in linux_setup
+          assert "steamcmd_refresh_app_info" in linux_setup
+          assert "+app_info_update 1" in linux_setup and '+app_info_request "$app_id"' in linux_setup
+          assert "steamcmd_install_app 1628350" in linux_setup and "steamcmd_install_app 730" in linux_setup
+          assert 'app_update_args+=(validate)' in linux_setup and 'app_update_args+=(+validate)' not in linux_setup
+          assert 'rm -f "$STEAM_APPINFO_CACHE"' in linux_setup and "for attempt in 1 2; do" in linux_setup
+          assert '"/home/$user/steamrt/run"' in linux_setup and '"/home/$user/cs2/game/bin/linuxsteamrt64/cs2"' in linux_setup
+          assert linux_setup.index("steamcmd_install_app 1628350") < linux_setup.index("steamcmd_install_app 730"), "Runtime must be installed before CS2"
+          assert "RUN_PLUGIN_UPDATER" not in linux_setup and 'git -C "$ROOT_DIR" push' not in linux_setup, "Node setup must not require GitHub write access"
+          assert 'run_as_repo_user bash "$ROOT_DIR/linux/update.sh"' in linux_installer
+          assert 'bash "$ROOT_DIR/linux/setup.sh"' in linux_installer
+          assert "RUN_PLUGIN_UPDATER" not in linux_installer and 'git -C "$ROOT_DIR" push' not in linux_installer, "Linux install must remain read-only against GitHub"
+          assert 'git pull --ff-only "$REMOTE" "$CURRENT_BRANCH"' in linux_update and 'git switch' not in linux_update, "Linux update must fast-forward the currently checked out branch"
           assert "+app_update 730 +quit" in install_bat
           assert "+app_update 730 validate" not in install_bat
           assert "Invoke-RuntimeAddonUpdate.ps1" in install_bat
