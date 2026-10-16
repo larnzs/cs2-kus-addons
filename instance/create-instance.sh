@@ -67,6 +67,7 @@ FINAL_INSTANCE_ROOT="$INSTANCE_STORAGE_ROOT/$INSTANCE_ID"
 command -v rsync >/dev/null 2>&1 || die "rsync is required."
 command -v flock >/dev/null 2>&1 || die "flock is required."
 command -v realpath >/dev/null 2>&1 || die "realpath is required."
+command -v runuser >/dev/null 2>&1 || die "runuser is required to verify service-user access."
 
 # The Linux lifecycle scripts are designed to run as the steam service user.
 # Require root so the finished bundle is accessible to that user after creation.
@@ -98,9 +99,18 @@ if [[ "$DRY_RUN" == "1" ]]; then
 fi
 
 mkdir -p -- "$INSTANCE_STORAGE_ROOT"
-# The parent is searchable by the steam group; only root can create/remove Instances.
+# With the default storage path, make its FragCity parent traversable by steam too.
+# Custom storage paths are not silently chmodded/chowned outside their own root.
+if [[ "$INSTANCE_STORAGE_ROOT" == "/var/lib/fragcity/instances" ]]; then
+    chown root:steam /var/lib/fragcity
+    chmod 0750 /var/lib/fragcity
+fi
+# Only root can create/remove Instances; steam needs search access to read/run them.
 chown root:steam "$INSTANCE_STORAGE_ROOT"
 chmod 0750 "$INSTANCE_STORAGE_ROOT"
+if ! runuser -u steam -- test -x "$INSTANCE_STORAGE_ROOT"; then
+    die "The steam user cannot traverse INSTANCE_STORAGE_ROOT or one of its parent directories. Fix parent-directory execute permissions and retry."
+fi
 exec 9>>"$INSTANCE_STORAGE_ROOT/.create-instance.lock"
 flock -x 9
 [[ ! -e "$FINAL_INSTANCE_ROOT" && ! -L "$FINAL_INSTANCE_ROOT" ]] || die "Target appeared while waiting for lock; refusing overwrite."
