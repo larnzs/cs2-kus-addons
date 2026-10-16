@@ -20,9 +20,11 @@ set -Eeuo pipefail
 # - Does not pull Git, run scripts/update/update.sh, download plugin releases, commit/push,
 #   call SteamCMD, install/update CS2 or Steam Linux Runtime, edit cfg/ or root .txt files,
 #   start/stop a server, or delete any target files.
-# - Windows staging, CounterStrikeSharp configs, and configuration/data-like file types
-#   are excluded to avoid overwriting customer settings. If a plugin later needs a new
-#   non-config JSON/text asset, its sync rule must be reviewed explicitly.
+# - Windows staging and CounterStrikeSharp configs are always protected. Config-like file
+#   extensions are excluded by default, with explicit allowlist exceptions for runtime
+#   metadata and upstream-owned data that the repository's updater policy manages (for
+#   example *.deps.json, *.runtimeconfig.json, *.example.json, gamedata, lang/, map_config/,
+#   spawns/, and Metamod's tracked startup metadata).
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 SOURCE_ADDONS="$ROOT_DIR/game/csgo/addons"
@@ -109,9 +111,24 @@ if [[ "$DRY_RUN" == "1" ]]; then
 fi
 
 FILTERS=(
+    # Hard-protected trees first. Never overlay the Windows staging tree or CSS configs.
     --exclude='/windows/***'
     --exclude='/counterstrikesharp/configs'
     --exclude='/counterstrikesharp/configs/***'
+
+    # Explicitly managed upstream/runtime data must remain updatable even though some
+    # of it uses config-like extensions. Keep these exceptions above the generic excludes.
+    --include='*.deps.json'
+    --include='*.runtimeconfig.json'
+    --include='*.example.json'
+    --include='**/gamedata.json'
+    --include='**/lang/***'
+    --include='**/map_config/***'
+    --include='**/spawns/***'
+    --include='/metamod/metaplugins.ini'
+
+    # Conservative config/data protection. Existing customer settings using these
+    # extensions are never overwritten by this deployment step.
     --exclude='*.cfg'
     --exclude='*.json'
     --exclude='*.txt'
@@ -132,7 +149,7 @@ printf 'Source commit: %s\n' "$SOURCE_COMMIT"
 printf 'Source:       %s/\n' "$SOURCE_ADDONS"
 printf 'Instance:     %s\n' "$TARGET_CSGO"
 printf 'Action:       sync approved Linux/shared plugin-runtime files only\n'
-printf 'Protected:    cfg/, root .txt files, CSS configs/, config/data file types\n'
+printf 'Protected:    cfg/, root .txt files, CSS configs/, other customer config/data files\n'
 printf 'Deletion:     disabled (obsolete files are intentionally retained)\n\n'
 
 rsync "${RSYNC_ARGS[@]}" "${FILTERS[@]}" "$SOURCE_ADDONS/" "$TARGET_ADDONS/"
