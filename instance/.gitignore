@@ -1,0 +1,5 @@
+# Local configuration must never be committed.
+instance.env
+created/
+logs/
+*.log

@@ -191,8 +191,13 @@ if [[ "${RUN_PLUGIN_UPDATER:-0}" == "1" ]]; then
         echo "ERROR: Managed plugin update failed."
         exit 1
     fi
-    if ! git -C "$ROOT_DIR" push origin HEAD:refs/heads/integration/kus-monorepo; then
-        echo "ERROR: Plugin updates were committed locally but could not be pushed to origin/integration/kus-monorepo."
+    PUSH_BRANCH="$(git -C "$ROOT_DIR" symbolic-ref --quiet --short HEAD)" || {
+        echo "ERROR: Cannot push plugin updates from a detached HEAD; check out the intended branch first." >&2
+        exit 1
+    }
+    PUSH_REMOTE="${CS2_GIT_REMOTE:-origin}"
+    if ! git -C "$ROOT_DIR" push "$PUSH_REMOTE" "HEAD:refs/heads/$PUSH_BRANCH"; then
+        echo "ERROR: Plugin updates were committed locally but could not be pushed to $PUSH_REMOTE/$PUSH_BRANCH."
         exit 1
     fi
 fi
