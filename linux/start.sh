@@ -220,7 +220,7 @@ else
 fi
 
 if [[ ! -f "$ROOT_DIR/linux/stop.sh" ]]; then
-    echo "ERROR: stop.sh from this repository is missing: $ROOT_DIR/stop.sh"
+    echo "ERROR: stop.sh from this repository is missing: $ROOT_DIR/linux/stop.sh"
     exit 1
 fi
 chmod +x "$ROOT_DIR/linux/stop.sh"

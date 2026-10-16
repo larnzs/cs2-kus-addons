@@ -12,6 +12,23 @@ if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "ERROR: Run this from a clone of the private cs2-kus-addons repository." >&2
     exit 1
 fi
+if ! command -v flock >/dev/null 2>&1; then
+    echo "ERROR: flock is required for safe shared maintenance." >&2
+    exit 1
+fi
+
+LOCK_FILE="${CS2_MAINTENANCE_LOCK_FILE:-/tmp/CS2-KUS-Maintenance.lock}"
+if [[ ! -e "$LOCK_FILE" ]]; then
+    (umask 022; : > "$LOCK_FILE")
+fi
+chmod a+r "$LOCK_FILE" 2>/dev/null || true
+exec 9>>"$LOCK_FILE"
+if ! flock -n -x 9; then
+    echo "ERROR: Shared maintenance lock is held by a running instance or another updater." >&2
+    echo "Stop all CS2 instances and retry after the current operation completes." >&2
+    exit 1
+fi
+
 if pgrep -x cs2 >/dev/null 2>&1; then
     echo "ERROR: A CS2 server process is running. Stop it before updating shared files." >&2
     exit 1

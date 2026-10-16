@@ -1,6 +1,6 @@
 # Linux entrypoints
 
-These scripts target a Linux VM/server. Google Cloud Compute Engine is a hosting platform, so its no-launch maintenance entrypoint is `google/update.sh`.
+These scripts include the Linux VM/GCP provisioning path and a reusable per-instance runner. Google Cloud Compute Engine remains a hosting platform; its no-launch maintenance entrypoint is `google/update.sh`.
 
 | File | Purpose |
 | --- | --- |
@@ -10,6 +10,7 @@ These scripts target a Linux VM/server. Google Cloud Compute Engine is a hosting
 | `run.sh` | Update/start helper for an existing Linux runtime; does not deploy the tracked add-on payload. |
 | `stop.sh` | Gracefully stops CS2 processes only. |
 | `gcp.sh` | Reads Google Cloud instance metadata and invokes this checkout's Linux installer. |
+| `instances/instance-template/` | Per-instance runner with private config, custom-folder overlay, automatic crash restart, per-instance stop, and separate no-launch maintenance. |
 
 Run the unified maintenance script from a clone of this repository:
 
@@ -24,3 +25,10 @@ sudo -E bash ./google/update.sh
 ```
 
 The update entrypoints refuse to run while CS2 is active. They overlay updated paths only: files not present in the repository payload are left in place, and existing CounterStrikeSharp configs are preserved. No update entrypoint launches CS2. Runtime start scripts remain separate.
+
+
+## Multiple instances
+
+See [`instances/README.md`](instances/README.md). Create each instance by copying `instances/instance-template/` and editing its private `instance.env`. Instances use the Linux installer's default shared runtime (`/home/steam/cs2`) unless deliberately configured otherwise. The runner must run as `CS2_USER` (default `steam`), and server output is isolated per instance in `logs/server.log`.
+
+The GCP launcher now respects caller-provided `PORT`, `TICKRATE`, `MAXPLAYERS`, `LAN`, and `EXEC` values before falling back to metadata/defaults.
