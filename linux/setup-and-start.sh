@@ -1,11 +1,32 @@
 #!/usr/bin/env bash
 
-# This KUS-compatible startup path updates the installed game but deliberately does not redeploy add-ons.
-# Use linux/install.sh when you need to provision and overlay the tracked game/csgo payload.
-
 # As root (sudo su)
-# Local KUS-compatible startup helper. It updates the installed game but does not redeploy plugins.
+# Run as root from a clone of this private repository.
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "ERROR: Run setup-and-start.sh from a clone of the private cs2-kus-addons repository."
+    exit 1
+fi
+
+# Defaults for a manual Linux install; caller/GCP environment values take precedence.
+: "${PORT:=27015}"
+: "${TICKRATE:=128}"
+: "${MAXPLAYERS:=32}"
+: "${LAN:=0}"
+: "${EXEC:=on_boot.cfg}"
+: "${API_KEY:=}"
+: "${STEAM_ACCOUNT:=}"
+: "${SERVER_PASSWORD:=}"
+: "${RCON_PASSWORD:=}"
+: "${IP:=}"
+
+if [[ "${UPDATE_ONLY:-0}" != "1" ]]; then
+    rcon_lower="${RCON_PASSWORD,,}"
+    if [[ -z "$RCON_PASSWORD" || "$rcon_lower" == "changeme" || "$rcon_lower" == "change_me_to_a_strong_password" ]]; then
+        echo "ERROR: Set RCON_PASSWORD to a strong, unique value before installing or starting CS2."
+        exit 1
+    fi
+fi
 
 
 # Function to safely enable unprivileged user namespaces.
@@ -59,52 +80,9 @@ enable_unprivileged_namespaces() {
     return 0
 }
 
-METADATA_URL="${METADATA_URL:-http://metadata.google.internal/computeMetadata/v1/instance/attributes}"
-
-get_metadata () {
-    if [ -z "$1" ]
-    then
-        local result=""
-    else
-        local result=$(curl -s "$METADATA_URL/$1?alt=text" -H "Metadata-Flavor: Google")
-		if [[ $result == *"<!DOCTYPE html>"* ]]; then
-			result=""
-		fi
-    fi
-
-    echo $result
-}
-
-# Get meta data from GCP and set environment variables
-META_RCON_PASSWORD=$(get_metadata RCON_PASSWORD)
-META_API_KEY=$(get_metadata API_KEY)
-META_PORT=$(get_metadata PORT)
-META_TICKRATE=$(get_metadata TICKRATE)
-META_MAXPLAYERS=$(get_metadata MAXPLAYERS)
-META_LAN=$(get_metadata LAN)
-META_EXEC=$(get_metadata EXEC)
-export RCON_PASSWORD="${RCON_PASSWORD:-${META_RCON_PASSWORD:-}}"
-export API_KEY="${API_KEY:-${META_API_KEY:-}}"
-export STEAM_ACCOUNT="${STEAM_ACCOUNT:-$(get_metadata STEAM_ACCOUNT)}"
-export SERVER_PASSWORD="${SERVER_PASSWORD:-$(get_metadata SERVER_PASSWORD)}"
-export PORT="${PORT:-${META_PORT:-27015}}"
-export TICKRATE="${TICKRATE:-${META_TICKRATE:-128}}"
-export MAXPLAYERS="${MAXPLAYERS:-${META_MAXPLAYERS:-32}}"
-export LAN="${LAN:-${META_LAN:-0}}"
-export EXEC="${EXEC:-${META_EXEC:-on_boot.cfg}}"
-export DUCK_DOMAIN="${DUCK_DOMAIN:-$(get_metadata DUCK_DOMAIN)}"
-export DUCK_TOKEN="${DUCK_TOKEN:-$(get_metadata DUCK_TOKEN)}"
-
-rcon_lower="${RCON_PASSWORD,,}"
-if [[ -z "$RCON_PASSWORD" || "$rcon_lower" == "changeme" || "$rcon_lower" == "change_me_to_a_strong_password" ]]; then
-    echo "ERROR: Set RCON_PASSWORD in the environment or Google Cloud metadata to a strong, unique value."
-    exit 1
-fi
-
-cd /
-
 # Variables
 user="steam"
+
 # 32 or 64 bit Operating System
 # If BITS environment variable is not set, try determine it
 if [ -z "$BITS" ]; then
@@ -197,9 +175,11 @@ if [ "${DISTRO_OS}" == "Ubuntu" ]; then
 		apt-get install -y -q dnsutils sudo curl wget screen nano file tar bzip2 gzip unzip hostname bsdmainutils python3 util-linux procps xz-utils ca-certificates binutils bc jq tmux netcat lib32stdc++6 libsdl2-2.0-0:i386 distro-info lib32gcc1 steamcmd >/dev/null
 	elif [ "${DISTRO_VERSION}" == "22.04" ]; then
 		apt-get install -y -q dnsutils sudo curl wget screen nano file tar bzip2 gzip unzip hostname bsdmainutils python3 util-linux procps xz-utils ca-certificates binutils bc jq tmux netcat lib32stdc++6 libsdl2-2.0-0:i386 distro-info lib32gcc-s1 steamcmd >/dev/null
+  	elif [ "${DISTRO_VERSION}" == "24.04" ]; then
+		apt-get install -y -q dnsutils sudo curl wget screen nano file tar bzip2 gzip unzip hostname bsdmainutils python3 util-linux procps xz-utils ca-certificates binutils bc jq tmux netcat-traditional lib32stdc++6 libsdl2-2.0-0:i386 distro-info lib32gcc-s1 steamcmd >/dev/null
 	else
-		echo "$DISTRO_OS $DISTRO_VERSION not officially supported; using Ubuntu 22.04 config"
-		apt-get install -y -q dnsutils sudo curl wget screen nano file tar bzip2 gzip unzip hostname bsdmainutils python3 util-linux procps xz-utils ca-certificates binutils bc jq tmux netcat lib32stdc++6 libsdl2-2.0-0:i386 distro-info lib32gcc-s1 steamcmd >/dev/null
+		echo "$DISTRO_OS $DISTRO_VERSION not officially supported; using Ubuntu 24.04 config"
+		apt-get install -y -q dnsutils sudo curl wget screen nano file tar bzip2 gzip unzip hostname bsdmainutils python3 util-linux procps xz-utils ca-certificates binutils bc jq tmux netcat-traditional lib32stdc++6 libsdl2-2.0-0:i386 distro-info lib32gcc-s1 steamcmd >/dev/null
 	fi
 elif [[ $DISTRO_OS == Debian* ]]; then
 	if [ "${DISTRO_VERSION}" == "10" ]; then
@@ -219,22 +199,35 @@ else
 	exit 1
 fi
 
-if [[ ! -f "$ROOT_DIR/linux/stop.sh" ]]; then
-    echo "ERROR: stop.sh from this repository is missing: $ROOT_DIR/linux/stop.sh"
-    exit 1
+# Run the plugin updater only from the unified updater. All runtime file changes remain
+# overwrite-only overlays; this script never purges add-on directories.
+if [[ "${RUN_PLUGIN_UPDATER:-0}" == "1" ]]; then
+    echo "Updating managed plugin payloads..."
+    apt-get install -y -q git curl jq unzip tar rsync sudo procps || {
+        echo "ERROR: Could not install plugin-updater dependencies."
+        exit 1
+    }
+    if ! bash "$ROOT_DIR/scripts/update/update.sh" --no-pull; then
+        echo "ERROR: Managed plugin update failed."
+        exit 1
+    fi
+    if ! git -C "$ROOT_DIR" push origin HEAD:refs/heads/integration/kus-monorepo; then
+        echo "ERROR: Plugin updates were committed locally but could not be pushed to origin/integration/kus-monorepo."
+        exit 1
+    fi
 fi
-chmod +x "$ROOT_DIR/linux/stop.sh"
 
-PUBLIC_IP=$(curl -4 ifconfig.me)
-
-if [ -z "$PUBLIC_IP" ]; then
-	echo "ERROR: Cannot retrieve your public IP address..."
-	exit 1
-fi
-
-# Update DuckDNS with our current IP
-if [ ! -z "$DUCK_TOKEN" ]; then
-    echo url="http://www.duckdns.org/update?domains=$DUCK_DOMAIN&token=$DUCK_TOKEN&ip=$PUBLIC_IP" | curl -k -o /duck.log -K -
+# Public-IP discovery and DuckDNS are only needed when starting the server.
+PUBLIC_IP=""
+if [[ "${UPDATE_ONLY:-0}" != "1" ]]; then
+    PUBLIC_IP=$(dig -4 +short myip.opendns.com @resolver1.opendns.com)
+    if [ -z "$PUBLIC_IP" ]; then
+        echo "ERROR: Cannot retrieve your public IP address..."
+        exit 1
+    fi
+    if [ -n "${DUCK_TOKEN:-}" ]; then
+        echo url="http://www.duckdns.org/update?domains=$DUCK_DOMAIN&token=$DUCK_TOKEN&ip=$PUBLIC_IP" | curl -k -o /duck.log -K -
+    fi
 fi
 
 echo "Checking $user user exists..."
@@ -338,10 +331,37 @@ if [ "${DISTRO_OS}" == "Ubuntu" ]; then
 	fi
 fi
 
-chown -R ${user}:${user} /home/${user}/cs2
+echo "Deploying tracked KUS/Larnz payload..."
+PAYLOAD_ROOT="$ROOT_DIR/game/csgo"
+GAME_ROOT="/home/${user}/cs2/game/csgo"
+if [ ! -d "$PAYLOAD_ROOT/addons" ]; then
+    echo "ERROR: Tracked payload is missing: $PAYLOAD_ROOT/addons"
+    exit 1
+fi
 
-cd /home/${user}/cs2
+# Non-destructive overlay: add or overwrite tracked payload files only.
+# Runtime files that are not present in the payload are never purged.
+# CounterStrikeSharp configs and cfg/settings are manual-only and are not copied by automation.
+# Windows assets are a staging overlay, not part of the Linux runtime copy.
+mkdir -p "$GAME_ROOT"
+if ! (
+    set -o pipefail
+    tar -C "$PAYLOAD_ROOT" \
+        --exclude='./gameinfo.gi' \
+        --exclude='./addons/windows' \
+        --exclude='./addons/windows/*' \
+        --exclude='./addons/counterstrikesharp/configs' \
+        --exclude='./addons/counterstrikesharp/configs/*' \
+        --exclude='./cfg/settings' \
+        --exclude='./cfg/settings/*' \
+        -cf - . | tar -C "$GAME_ROOT" -xf -
+); then
+    echo "ERROR: Non-destructive payload overlay failed."
+    exit 1
+fi
 
+chown -R "${user}:${user}" "/home/${user}/cs2"
+cd "/home/${user}/cs2" || exit
 # Define the file name
 FILE="game/csgo/gameinfo.gi"
 
@@ -369,6 +389,12 @@ fi
 if ! grep -qE "$REGEX_TO_CHECK" "$FILE"; then
     echo "ERROR: MetaMod entry is still missing from $FILE; the insertion marker may have changed."
     exit 1
+fi
+
+
+if [[ "${UPDATE_ONLY:-0}" == "1" ]]; then
+    echo "Update-only mode: deployment and gameinfo.gi patch completed. The CS2 server was NOT launched."
+    exit 0
 fi
 
 # Try to enable unprivileged namespaces

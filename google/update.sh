@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "$0")/.." && pwd)"
-exec bash "$ROOT_DIR/linux/update.sh" "$@"
+exec bash "$ROOT_DIR/linux/install.sh" "$@"

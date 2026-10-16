@@ -1,34 +1,42 @@
 # Linux entrypoints
 
-These scripts include the Linux VM/GCP provisioning path and a reusable per-instance runner. Google Cloud Compute Engine remains a hosting platform; its no-launch maintenance entrypoint is `google/update.sh`.
+The Linux entrypoints now follow the same naming contract as `windows/` wherever the roles match. Linux-only bootstrap and legacy runtime paths use descriptive names to distinguish them from repository maintenance and per-instance scripts.
 
 | File | Purpose |
 | --- | --- |
-| `update.sh` | Unified maintenance entrypoint: fast-forward the repository, update managed plugins, update Steam Linux Runtime and CS2 through SteamCMD, safely overlay the tracked payload, and patch `gameinfo.gi`. Requires root and a stopped CS2 server; does not launch the server. |
-| `install.sh` | Provisioning worker used by `update.sh`; it can also be run directly for initial setup. Set `UPDATE_ONLY=1` to stop after installation/update and payload verification. |
-| `start.sh` | Existing-runtime startup path; updates the game and launches it without redeploying add-ons. |
-| `run.sh` | Update/start helper for an existing Linux runtime; does not deploy the tracked add-on payload. |
-| `stop.sh` | Gracefully stops CS2 processes only. |
-| `gcp.sh` | Reads Google Cloud instance metadata and invokes this checkout's Linux installer. |
-| `instances/instance-template/` | Per-instance runner with private config, custom-folder overlay, automatic crash restart, per-instance stop, and separate no-launch maintenance. |
+| `install.sh` | Unified no-launch install/update entrypoint, matching `windows/install.bat`. Requires root, a clean checkout, and stopped CS2 processes. Updates the branch, managed plugin payloads, Steam Linux Runtime and CS2, overlays tracked files without deleting unrelated runtime files, and patches `gameinfo.gi`. |
+| `update.sh` | Repository-only update, matching `windows/update.bat`: switches to `integration/kus-monorepo` and pulls with `--ff-only`. It does not update plugins, CS2, or runtime files. |
+| `setup-and-start.sh` | Linux-specific system/runtime setup worker. Installs required packages, SteamCMD, Steam Linux Runtime and CS2, overlays the tracked payload, and patches `gameinfo.gi`. When run directly it starts CS2; `install.sh` invokes it with `UPDATE_ONLY=1` so maintenance never launches the server. |
+| `update-game-and-start.sh` | Existing-runtime helper: updates Steam Linux Runtime and CS2 through SteamCMD, then launches the runtime without deploying the tracked add-on payload. |
+| `legacy-gcp-start.sh` | Legacy KUS-compatible startup path that reads Google Cloud metadata, prepares the OS/runtime, and starts CS2. It is separate from the unified managed-plugin update path. |
+| `setup-and-start-from-gcp.sh` | Google Cloud metadata wrapper that loads instance attributes and invokes `setup-and-start.sh`. |
+| `stop-all.sh` | Stops all matching CS2 processes for the configured service user; use the instance template's `stop.sh` when only one instance should be stopped. |
+| `instances/instance-template/` | Reusable per-instance runner with `run.sh`, `watchdog.sh`, `stop.sh`, and instance-local `update.sh`. |
 
-Run the unified maintenance script from a clone of this repository:
+## Commands
+
+Full install/update and safe payload deployment, without launching the server:
 
 ```bash
-sudo -E bash ./linux/update.sh
+sudo -E bash ./linux/install.sh
 ```
 
-On Google Cloud Compute Engine, run:
+Repository-only update (does not touch plugins or game files):
+
+```bash
+bash ./linux/update.sh
+```
+
+On Google Cloud Compute Engine, run the full no-launch maintenance path:
 
 ```bash
 sudo -E bash ./google/update.sh
 ```
 
-The update entrypoints refuse to run while CS2 is active. They overlay updated paths only: files not present in the repository payload are left in place, and existing CounterStrikeSharp configs are preserved. No update entrypoint launches CS2. Runtime start scripts remain separate.
-
+The full update entrypoints refuse to run while CS2 is active. Runtime overlays are overwrite-only: files absent from the repository payload are left in place, and existing CounterStrikeSharp configs are preserved.
 
 ## Multiple instances
 
-See [`instances/README.md`](instances/README.md). Create each instance by copying `instances/instance-template/` and editing its private `instance.env`. Instances use the Linux installer's default shared runtime (`/home/steam/cs2`) unless deliberately configured otherwise. The runner must run as `CS2_USER` (default `steam`), and server output is isolated per instance in `logs/server.log`.
+See [`instances/README.md`](instances/README.md). Create each instance by copying `instances/instance-template/` and editing its private `instance.env`. The instance runner uses the Linux installer's default shared runtime (`/home/steam/cs2`) unless deliberately configured otherwise. Run it as `CS2_USER` (default `steam`); server output is isolated per instance in `logs/server.log`.
 
-The GCP launcher now respects caller-provided `PORT`, `TICKRATE`, `MAXPLAYERS`, `LAN`, and `EXEC` values before falling back to metadata/defaults.
+The GCP bootstrap wrapper respects caller-provided `PORT`, `TICKRATE`, `MAXPLAYERS`, `LAN`, and `EXEC` values before falling back to metadata/defaults.

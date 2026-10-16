@@ -27,7 +27,7 @@ fi
 
 echo "Running the repository's no-launch Linux maintenance entrypoint..."
 if [[ "$EUID" -eq 0 ]]; then
-    exec bash "$REPO_ROOT/linux/update.sh"
+    exec bash "$REPO_ROOT/linux/install.sh"
 else
-    exec sudo -E bash "$REPO_ROOT/linux/update.sh"
+    exec sudo -E bash "$REPO_ROOT/linux/install.sh"
 fi

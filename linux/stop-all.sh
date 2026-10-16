@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -o errexit -o nounset -o pipefail
 
-# Stop CS2 processes only. The old ps|grep|xargs pipeline could match itself and
+# Stop all matching CS2 server processes for the configured service user. The old ps|grep|xargs pipeline could match itself and
 # also killed unrelated installer, HTTP-server, and SCREEN processes on the host.
 CS2_USER="${CS2_USER:-steam}"
 if ! command -v pgrep >/dev/null 2>&1; then

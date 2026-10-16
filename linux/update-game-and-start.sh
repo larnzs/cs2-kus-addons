@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Existing-runtime helper from this private checkout. It updates CS2 via SteamCMD and starts the installed runtime; it does not deploy tracked add-ons.
+# Existing-runtime path: update Steam Linux Runtime and CS2 through SteamCMD, then start the installed runtime without deploying tracked add-ons.
 
 # Function to safely enable unprivileged user namespaces.
 # Steam's runtime sandboxes the game with bwrap (pressure-vessel), which needs

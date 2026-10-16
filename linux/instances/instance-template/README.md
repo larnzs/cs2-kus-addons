@@ -16,4 +16,4 @@ sudo chmod 600 /path/to/instance/instance.env
 
 `instance.env` is Bash assignment syntax and is sourced by the scripts, so quote values containing spaces or shell metacharacters. Never commit real Steam tokens, API keys, server passwords, or RCON passwords.
 
-The default paths match the install flow in `linux/install.sh`: `SERVER_DIR=/home/steam/cs2`, `STEAMRT_DIR=/home/steam/steamrt`. That Linux installer/updater maintains this shared runtime. If you use a separate game installation, provision/update it separately rather than assuming `linux/update.sh` updates arbitrary custom directories.
+The default paths match the install flow in `linux/install.sh`: `SERVER_DIR=/home/steam/cs2`, `STEAMRT_DIR=/home/steam/steamrt`. That Linux installer/updater maintains this shared runtime. If you use a separate game installation, provision/update it separately rather than assuming `linux/install.sh` updates arbitrary custom directories.
