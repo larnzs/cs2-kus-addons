@@ -15,6 +15,7 @@ on:
       - "scripts/Integrate-KUS.ps1"
       - "windows/**"
       - "linux/**"
+      - "instance/**"
       - "google/**"
       - "docker/**"
       - ".dockerignore"
@@ -48,7 +49,7 @@ jobs:
           while IFS= read -r -d '' file; do
             echo "Checking $file"
             bash -n "$file"
-          done < <(find linux docker google scripts -type f -name '*.sh' -print0)
+          done < <(find instance linux docker google scripts -type f -name '*.sh' -print0)
           echo "Shell syntax passed."
 
       - name: Validate Docker Compose configuration
@@ -285,5 +286,19 @@ jobs:
               "Push successful updater commits",
           ):
               assert addon_workflow.count(f"      - name: {critical_step}") == 1, f"Addon updater workflow has a duplicate or missing step: {critical_step}"
+          seeder = Path("instance/create-instance.sh").read_text(encoding="utf-8")
+          for required in (
+              'INSTANCE_TEMPLATE_DIR="$REPO_ROOT/linux/instances/instance-template"',
+              'rsync -a --safe-links --human-readable --itemize-changes "$INSTANCE_TEMPLATE_DIR/" "$STAGING_ROOT/"',
+              '"$SOURCE_CSGO/" "$STAGING_ROOT/instance/"',
+              'CUSTOM_FOLDER=%q\\n',
+              'chown -R -- steam:steam "$STAGING_ROOT"',
+              '"instance/addons", "instance/cfg", "instance/*.txt"',
+          ):
+              assert required in seeder, f"Instance seeder must include full Linux helpers/custom payload behavior: {required}"
+          assert '"$SOURCE_CSGO/" "$STAGING_ROOT/game/csgo/"' not in seeder, "Instance payload should not retain the game/csgo wrapper path"
+          for helper in ("run.sh", "watchdog.sh", "stop.sh", "update.sh", "instance.example.env"):
+              assert Path("linux/instances/instance-template", helper).is_file(), f"Missing Linux Instance template helper: {helper}"
+
           print(f"Validated {len(names)} tracked paths and KUS staged layout.")
           PY
