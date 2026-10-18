@@ -73,7 +73,7 @@
     "PrintNextMapForAll": true,
     "DelayBeforeChangeSeconds": 10,
     "VoteStartSound": "sounds/vo/announcer/cs2_classic/felix_broken_fang_pick_1_map_tk01.wav",
-    "RandomMapOnStart": true,
+    "RandomMapOnStart": false,
     "RandomMapOnStartDelay": 40,
     "LastDisconnectedChangeMap": true,
     "WorkshopMapProblemCheck": true,
