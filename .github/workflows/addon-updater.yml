@@ -481,6 +481,28 @@ jobs:
             throw "CounterStrikeSharp must verify versioned .NET runtime and hostfxr files."
           }
 
+          $vipCore = @($manifest.addons | Where-Object name -eq "VIPCore") | Select-Object -First 1
+          if (-not $vipCore) {
+            throw "VIPCore must be present in DEPENDENCIES.json."
+          }
+          $vipModuleMaps = @($vipCore.asset_mappings.PSObject.Properties | Where-Object Name -eq "VIP_Modules.zip")
+          if ($vipModuleMaps.Count -ne 1) {
+            throw "VIPCore must have exactly one VIP_Modules.zip mapping."
+          }
+          $vipModuleMap = $vipModuleMaps[0].Value
+          if ([string]$vipModuleMap.merge -ne "release_plugin_directory" -or
+              [string]$vipModuleMap.source_path -ne "." -or
+              [string]$vipModuleMap.source_path_mode -ne "archive_root" -or
+              [string]$vipModuleMap.install_path -ne "addons/counterstrikesharp/plugins") {
+            throw "VIP_Modules.zip must overlay plugin directories from the archive root into CounterStrikeSharp plugins."
+          }
+          foreach ($moduleName in @("VIP_DefuseKit", "VIP_ExperienceMultiplier", "VIP_Gifts", "VIP_GunsPack", "VIP_Jumps", "VIP_ShowDamage", "VIP_SniperCount")) {
+            $requiredModulePath = "addons/counterstrikesharp/plugins/$moduleName/$moduleName.dll"
+            if (@($vipCore.verify_paths | Where-Object { [string]$_ -eq $requiredModulePath }).Count -ne 1) {
+              throw "VIPCore verification is missing the current upstream module: $requiredModulePath"
+            }
+          }
+
           $names = @($manifest.addons | ForEach-Object { [string]$_.name })
           $duplicates = @($names | Group-Object | Where-Object Count -gt 1)
           if ($duplicates.Count -gt 0) {

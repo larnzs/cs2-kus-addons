@@ -423,7 +423,29 @@ function Resolve-ReleaseInstallTargets($Addon, [string]$ExtractRoot, [string]$As
 
             $sourceRoot = Join-Path $ExtractRoot $sourcePath
             $normalizedSourcePath = $sourcePath.Replace('\', '/').TrimEnd('/')
-            if ($normalizedSourcePath -eq '.') {
+            $sourceRootMode = if ($mapping.PSObject.Properties.Name -contains 'source_path_mode') {
+                [string]$mapping.source_path_mode
+            } else {
+                ''
+            }
+
+            if ($sourceRootMode -and $sourceRootMode -ne 'archive_root') {
+                throw "Unsupported source_path_mode '$sourceRootMode' for '$AssetName'."
+            }
+            if ($sourceRootMode -eq 'archive_root' -and $normalizedSourcePath -ne '.') {
+                throw "source_path_mode 'archive_root' requires source_path '.' for '$AssetName'."
+            }
+
+            if ($normalizedSourcePath -eq '.' -and $sourceRootMode -eq 'archive_root') {
+                # Some releases (for example VIP_Modules.zip) contain a collection of
+                # plugin directories directly at the archive root, rather than one
+                # primary DLL whose containing directory identifies a single plugin.
+                $sourceRoot = $ExtractRoot
+                Write-Info ("Using archive root as plugin collection for '{0}': {1}" -f $AssetName, $sourceRoot)
+            }
+            elseif ($normalizedSourcePath -eq '.') {
+                # Legacy mode for archives that package one plugin but have no stable
+                # archive root path. Preserve the existing single-plugin auto-detection.
                 $expectedPaths = @($Addon.verify_paths | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | Select-Object -First 1)
                 if ($expectedPaths.Count -eq 0) {
                     throw "source_path '.' requires a verify_paths entry to identify the plugin archive root for '$AssetName'."

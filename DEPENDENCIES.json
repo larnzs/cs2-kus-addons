@@ -352,7 +352,8 @@
                                               "VIP_Modules.zip":  {
                                                                       "merge":  "release_plugin_directory",
                                                                       "source_path":  ".",
-                                                                      "install_path":  "addons/counterstrikesharp/plugins"
+                                                                      "source_path_mode": "archive_root",
+        "install_path": "addons/counterstrikesharp/plugins"
                                                                   }
                                           },
                        "verify_paths":  [
@@ -366,18 +367,23 @@
                                             "addons/counterstrikesharp/plugins/VIP_DamageChange/VIP_DamageChange.dll",
                                             "addons/counterstrikesharp/plugins/VIP_DecoyTeleport/VIP_DecoyTeleport.dll",
                                             "addons/counterstrikesharp/plugins/VIP_Defuser/VIP_Defuser.dll",
+      "addons/counterstrikesharp/plugins/VIP_DefuseKit/VIP_DefuseKit.dll",
                                             "addons/counterstrikesharp/plugins/VIP_Endurance/VIP_Endurance.dll",
+      "addons/counterstrikesharp/plugins/VIP_ExperienceMultiplier/VIP_ExperienceMultiplier.dll",
                                             "addons/counterstrikesharp/plugins/VIP_FastDefuse/VIP_FastDefuse.dll",
                                             "addons/counterstrikesharp/plugins/VIP_FastPlant/VIP_FastPlant.dll",
                                             "addons/counterstrikesharp/plugins/VIP_FastReload/VIP_FastReload.dll",
                                             "addons/counterstrikesharp/plugins/VIP_Flags/VIP_Flags.dll",
                                             "addons/counterstrikesharp/plugins/VIP_Fov/VIP_Fov.dll",
+      "addons/counterstrikesharp/plugins/VIP_Gifts/VIP_Gifts.dll",
                                             "addons/counterstrikesharp/plugins/VIP_Gravity/VIP_Gravity.dll",
                                             "addons/counterstrikesharp/plugins/VIP_Grenades/VIP_Grenades.dll",
+      "addons/counterstrikesharp/plugins/VIP_GunsPack/VIP_GunsPack.dll",
                                             "addons/counterstrikesharp/plugins/VIP_Health/VIP_Health.dll",
                                             "addons/counterstrikesharp/plugins/VIP_Healthshot/VIP_Healthshot.dll",
                                             "addons/counterstrikesharp/plugins/VIP_InfiniteAmmo/VIP_InfiniteAmmo.dll",
                                             "addons/counterstrikesharp/plugins/VIP_Items/VIP_Items.dll",
+      "addons/counterstrikesharp/plugins/VIP_Jumps/VIP_Jumps.dll",
                                             "addons/counterstrikesharp/plugins/VIP_KillScreen/VIP_KillScreen.dll",
                                             "addons/counterstrikesharp/plugins/VIP_Money/VIP_Money.dll",
                                             "addons/counterstrikesharp/plugins/VIP_NightVip/VIP_NightVip.dll",
@@ -388,6 +394,8 @@
                                             "addons/counterstrikesharp/plugins/VIP_RegenHealth/VIP_RegenHealth.dll",
                                             "addons/counterstrikesharp/plugins/VIP_ResetDeaths/VIP_ResetDeaths.dll",
                                             "addons/counterstrikesharp/plugins/VIP_Respawn/VIP_Respawn.dll",
+      "addons/counterstrikesharp/plugins/VIP_ShowDamage/VIP_ShowDamage.dll",
+      "addons/counterstrikesharp/plugins/VIP_SniperCount/VIP_SniperCount.dll",
                                             "addons/counterstrikesharp/plugins/VIP_SmokeColor/VIP_SmokeColor.dll",
                                             "addons/counterstrikesharp/plugins/VIP_Speed/VIP_Speed.dll",
                                             "addons/counterstrikesharp/plugins/VIP_Tag/VIP_Tag.dll",

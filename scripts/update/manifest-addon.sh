@@ -65,9 +65,10 @@ manifest_copy_target() {
 
 manifest_apply_mapping() {
     local addon="$1" extract="$2" mapping="$3"
-    local mode source_path install_path source_root destination_root target relative source
+    local mode source_path source_path_mode install_path source_root destination_root target relative source
     mode=$(printf '%s' "$mapping" | jq -r '.merge // empty')
     source_path=$(printf '%s' "$mapping" | jq -r '.source_path // empty')
+    source_path_mode=$(printf '%s' "$mapping" | jq -r '.source_path_mode // empty')
     install_path=$(printf '%s' "$mapping" | jq -r '.install_path // empty')
     case "$mode" in
         release_csgo_root)
@@ -84,15 +85,29 @@ manifest_apply_mapping() {
             case "$source_path" in ""|/*|*..*) die "unsafe source_path '$source_path' for $addon" ;; esac
             case "$install_path" in ""|/*|*..*) die "unsafe install_path '$install_path' for $addon" ;; esac
             if [ "$source_path" = "." ] || [ "$source_path" = "./" ]; then
-                expected_path=$(jq -er --arg name "$addon" '.addons[] | select(.name == $name) | .verify_paths[0] // empty' DEPENDENCIES.json) \
-                    || die "source_path '.' requires a verify_paths entry to identify the ZIP root for $addon"
-                expected_name=$(basename "$expected_path")
-                candidates=$(find "$extract" -type f -name "$expected_name" -print)
-                candidate_count=$(printf '%s\n' "$candidates" | awk 'NF { count++ } END { print count+0 }')
-                [ "$candidate_count" -eq 1 ] || die "expected exactly one $expected_name in ZIP for $addon, found $candidate_count"
-                source_root=$(dirname "$candidates")
-                step "resolved ZIP plugin root for $addon from $expected_name: $source_root"
+                case "$source_path_mode" in
+                    archive_root)
+                        # This archive contains a collection of plugin directories at its root.
+                        source_root="$extract"
+                        step "using archive root as plugin collection for $addon: $source_root"
+                        ;;
+                    "")
+                        # Keep legacy discovery for single-plugin ZIPs with no stable root path.
+                        expected_path=$(jq -er --arg name "$addon" '.addons[] | select(.name == $name) | .verify_paths[0] // empty' DEPENDENCIES.json) \
+                            || die "source_path '.' requires a verify_paths entry to identify the ZIP root for $addon"
+                        expected_name=$(basename "$expected_path")
+                        candidates=$(find "$extract" -type f -name "$expected_name" -print)
+                        candidate_count=$(printf '%s\n' "$candidates" | awk 'NF { count++ } END { print count+0 }')
+                        [ "$candidate_count" -eq 1 ] || die "expected exactly one $expected_name in ZIP for $addon, found $candidate_count"
+                        source_root=$(dirname "$candidates")
+                        step "resolved ZIP plugin root for $addon from $expected_name: $source_root"
+                        ;;
+                    *)
+                        die "unsupported source_path_mode '$source_path_mode' for $addon"
+                        ;;
+                esac
             else
+                [ -z "$source_path_mode" ] || die "source_path_mode is only supported with source_path '.' for $addon"
                 source_root="$extract/$source_path"
             fi
             destination_root="game/csgo/$install_path"
