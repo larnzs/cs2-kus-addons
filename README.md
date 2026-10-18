@@ -51,7 +51,6 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 | [SimpleResetScore](https://github.com/stefanx111/cs2-SimpleResetScore) | `1.0.7` | Reset-score command |
 | [cs2-showdamage](https://github.com/abnerfs/cs2-showdamage) | `1.1.0` | Damage display |
 | [cs2-ranks](https://github.com/partiusfabaa/cs2-ranks) | `2.0.5.5-recompile` | Persistent ranks and statistics |
-| [VIPCore](https://github.com/partiusfabaa/cs2-VIPCore) | `1.3.4-recompile3` | VIP core/module |
 | [SLAYER_AntiCamp](https://github.com/zakriamansoor47/SLAYER_AntiCamp) | `1.2.5` | Anti-camp mode |
 | [SLAYER_HeadshotOnly](https://github.com/zakriamansoor47/SLAYER_HeadshotOnly) | `1.2.1` | Headshot-only mode |
 | [CS2-TeamLimiter](https://github.com/Ferks-FK/CS2-TeamLimiter) | `development@b9be93940543` | Team-size limits |

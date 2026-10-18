@@ -437,9 +437,9 @@ function Resolve-ReleaseInstallTargets($Addon, [string]$ExtractRoot, [string]$As
             }
 
             if ($normalizedSourcePath -eq '.' -and $sourceRootMode -eq 'archive_root') {
-                # Some releases (for example VIP_Modules.zip) contain a collection of
-                # plugin directories directly at the archive root, rather than one
-                # primary DLL whose containing directory identifies a single plugin.
+                # Some release assets contain a collection of plugin directories
+                # directly at the archive root, rather than one primary DLL whose
+                # containing directory identifies a single plugin.
                 $sourceRoot = $ExtractRoot
                 Write-Info ("Using archive root as plugin collection for '{0}': {1}" -f $AssetName, $sourceRoot)
             }

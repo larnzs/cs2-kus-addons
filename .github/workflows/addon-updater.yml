@@ -455,7 +455,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $selected = @("SLAYER_AntiCamp", "SLAYER_HeadshotOnly", "VIPCore", "CS2-TeamLimiter", "cs2-showdamage", "CS2-KillFeedFilter")
+          $selected = @("SLAYER_AntiCamp", "SLAYER_HeadshotOnly", "CS2-TeamLimiter", "cs2-showdamage", "CS2-KillFeedFilter")
           $ErrorActionPreference = "Stop"
           & ".\scripts\Inspect-Releases.ps1" -Only $selected
           if (-not $?) {
@@ -481,26 +481,12 @@ jobs:
             throw "CounterStrikeSharp must verify versioned .NET runtime and hostfxr files."
           }
 
-          $vipCore = @($manifest.addons | Where-Object name -eq "VIPCore") | Select-Object -First 1
-          if (-not $vipCore) {
-            throw "VIPCore must be present in DEPENDENCIES.json."
+          $vipCore = @($manifest.addons | Where-Object { [string]$_.name -eq "VIPCore" })
+          if ($vipCore.Count -gt 0) {
+            throw "VIPCore must not be managed by DEPENDENCIES.json."
           }
-          $vipModuleMaps = @($vipCore.asset_mappings.PSObject.Properties | Where-Object Name -eq "VIP_Modules.zip")
-          if ($vipModuleMaps.Count -ne 1) {
-            throw "VIPCore must have exactly one VIP_Modules.zip mapping."
-          }
-          $vipModuleMap = $vipModuleMaps[0].Value
-          if ([string]$vipModuleMap.merge -ne "release_plugin_directory" -or
-              [string]$vipModuleMap.source_path -ne "." -or
-              [string]$vipModuleMap.source_path_mode -ne "archive_root" -or
-              [string]$vipModuleMap.install_path -ne "addons/counterstrikesharp/plugins") {
-            throw "VIP_Modules.zip must overlay plugin directories from the archive root into CounterStrikeSharp plugins."
-          }
-          foreach ($moduleName in @("VIP_DefuseKit", "VIP_ExperienceMultiplier", "VIP_Gifts", "VIP_GunsPack", "VIP_Jumps", "VIP_ShowDamage", "VIP_SniperCount")) {
-            $requiredModulePath = "addons/counterstrikesharp/plugins/$moduleName/$moduleName.dll"
-            if (@($vipCore.verify_paths | Where-Object { [string]$_ -eq $requiredModulePath }).Count -ne 1) {
-              throw "VIPCore verification is missing the current upstream module: $requiredModulePath"
-            }
+          if (Test-Path -LiteralPath ".\scripts\update\plugins\vipcore.sh") {
+            throw "VIPCore-specific updater script must not be present."
           }
 
           $names = @($manifest.addons | ForEach-Object { [string]$_.name })
