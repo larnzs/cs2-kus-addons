@@ -167,8 +167,8 @@
                        "repository":  "https://github.com/daffyyyy/CS2-SimpleAdmin",
                        "type":  "github_release",
                        "track":  "latest",
-                       "version":  "1.9.0",
-                       "release_tag":  "build-1.9.0",
+                       "version":  "1.9.1",
+                       "release_tag":  "build-1.9.1",
                        "assets":  [
                                       "CS2-SimpleAdmin-{version}.zip"
                                   ],
