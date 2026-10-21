@@ -53,8 +53,8 @@
                        "repository":  "https://github.com/roflmuffin/CounterStrikeSharp",
                        "type":  "github_release",
                        "track":  "latest",
-                       "version":  "1.0.376",
-                       "release_tag":  "v1.0.376",
+                       "version":  "1.0.377",
+                       "release_tag":  "v1.0.377",
                        "assets":  [
                                       "counterstrikesharp-with-runtime-windows-{version}.zip",
                                       "counterstrikesharp-with-runtime-linux-{version}.zip"

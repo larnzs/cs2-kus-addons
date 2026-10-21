@@ -1,4 +1,4 @@
-# CS2 KUS Addons ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Larnz Unified Server
+# CS2 KUS Addons ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â Larnz Unified Server
 
 A private, single-repository Counter-Strike 2 dedicated-server distribution. It combines the KUS server setup, its bundled plugins and dependency files with the Larnz-managed add-ons and configuration layout.
 
@@ -32,7 +32,7 @@ The tracked `game/csgo/cfg/` tree is operator-managed: both the manifest release
 2. Run `windows/install.bat`. It downloads SteamCMD if needed, installs/checks CS2 with SteamCMD, then prepares the runtime. It does not start the server.
 3. Copy the files in `windows/instance-template/` into an external Instance folder. Create `instance.ini` from `instance.example.ini` and set `SERVER_DIR` to the absolute path of this checkout's `server` folder (for example `W:\cs2-kus-addons\server` for the current machine). Also set the port/map/IP, GSLT, and strong RCON password. The example deliberately has a path placeholder and will not launch until you replace it. Run the instance-local updater separately with all CS2 processes stopped, then start `watchdog.bat`.
 
-For the difference between each maintenance scriptÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âand an important warning about manual deploymentÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âsee [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons).
+For the difference between each maintenance scriptÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Âand an important warning about manual deploymentÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Âsee [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons).
 
 ## Larnz-managed add-ons
 
@@ -40,7 +40,7 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 
 | Add-on | Version | Purpose |
 | --- | --- | --- |
-| [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) | `1.0.376` | Windows with-runtime files (including bundled .NET) are staged under `game/csgo/addons/windows/addons/counterstrikesharp/`; the shared/Linux payload remains under `game/csgo/addons/counterstrikesharp/`. |
+| [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) | `1.0.377` | Windows with-runtime files (including bundled .NET) are staged under `game/csgo/addons/windows/addons/counterstrikesharp/`; the shared/Linux payload remains under `game/csgo/addons/counterstrikesharp/`. |
 | [AnyBaseLibCS2](https://github.com/NickFox007/AnyBaseLibCS2) | `0.9.4` | Shared database/API library |
 | [PlayerSettingsCS2](https://github.com/NickFox007/PlayerSettingsCS2) | `0.9.4` | Persistent player settings |
 | [MenuManagerCS2](https://github.com/NickFox007/MenuManagerCS2) | `1.4.1` | Menu/API library |
@@ -166,7 +166,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | [CS2Fixes-RampbugFix](https://github.com/Interesting-exe/CS2Fixes-RampbugFix) | `5-1` | Minimizes rampbugs (needs to be enabled via `!settings` [How?](#i-run-a-surfkzbhop-server-and-want-movementunlocker-and-cs2fixes-rampbugfix-permanently-enabled)) |
 | [CS2_ExecAfter](https://github.com/kus/CS2_ExecAfter) | `1.0.0` | Executes a command after server event (i.e. OnMapStart) or a delay. |
 | [CS2 Remove Map Weapons](https://github.com/kus/CS2-Remove-Map-Weapons) | `1.0.1` | Remove weapons from the map in CS2 as `mp_weapons_allow_map_placed 0` does not work. |
-| [GameModeManager](https://github.com/nickj609/GameModeManager) | `1.0.62` | ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Upstream notes that this plugin is waiting for a fix. It helps admins manage game modes and map groups. |
+| [GameModeManager](https://github.com/nickj609/GameModeManager) | `1.0.62` | ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Upstream notes that this plugin is waiting for a fix. It helps admins manage game modes and map groups. |
 | [Inventory Simulator](https://github.com/ianlucas/cs2-css-inventory-simulator) | `3.6.0` | Use any Weapon, Knife, Gloves, Agent, Music Kit, Pin or Graffiti. [How?](#skin-changer) |
 | [CS2-PlayerModelChanger](https://github.com/samyycX/CS2-PlayerModelChanger) | `1.8.6` | A lightweighted counterstrikesharp plugin to change player model. [How?](#model-changer) |
 | [MatchZy](https://github.com/shobhit-pathak/MatchZy) | `0.9.2` | MatchZy is a plugin for CS2 for running and managing practice/pugs/scrims/matches with easy configuration! |
@@ -209,7 +209,7 @@ The first table deliberately retains the updater-compatible three-column structu
 
 ### Payload layout and updater coverage
 
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“Mode-specificÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â means the plugin is staged under `plugins/disabled/` rather than loaded from the default plugin directory; KUS can enable such plugins for a game mode. ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“No scriptÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â means the hourly updater can detect a newer release but warns and skips download/deployment. A script name indicates a dedicated updater under `scripts/update/plugins/`.
+ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œMode-specificÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â means the plugin is staged under `plugins/disabled/` rather than loaded from the default plugin directory; KUS can enable such plugins for a game mode. ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œNo scriptÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â means the hourly updater can detect a newer release but warns and skips download/deployment. A script name indicates a dedicated updater under `scripts/update/plugins/`.
 
 | Plugin | Payload placement / activation | Update automation |
 | --- | --- | --- |
@@ -279,9 +279,9 @@ The external Instance folder has its own `update.bat` for shared maintenance. Ru
 
 The instance updater refuses to modify the shared runtime while any `cs2.exe` is active. A shared lock also prevents a waiting launch-only batch from opening CS2 while maintenance is in progress; stale locks are checked against the owner PID before being removed. The five-minute success marker only suppresses duplicate updater work if you run it repeatedly; it does not select a different runner.
 
-#### A. Soft reset of the installed runtime ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â `windows/win.bat`
+#### A. Soft reset of the installed runtime ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â `windows/win.bat`
 
-**Source:** `game/csgo/` ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ **Runtime:** `server/game/csgo/`
+**Source:** `game/csgo/` ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ **Runtime:** `server/game/csgo/`
 
 `windows/win.bat` runs `scripts/Deploy-Runtime.ps1`. That script prepares the current repository payload, backs up the installed `server/game/csgo/addons/` directory, and replaces it with the staged `addons/` tree. After a successful deploy, the temporary backup is removed. This means files that existed only in the installed runtime are removed instead of being left behind.
 
@@ -294,7 +294,7 @@ There are two important limits:
 
 The live CounterStrikeSharp `configs/` tree and the specifically preserved `cfg/settings/` files are handled separately. However, runtime-only add-ons that are absent from the tracked payload can be removed by this replacement.
 
-#### B. Non-destructive overlay ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â `windows/addons-update.bat` and `run.bat`
+#### B. Non-destructive overlay ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â `windows/addons-update.bat` and `run.bat`
 
 These two use overlay-style copying, but they operate at different stages:
 
@@ -338,7 +338,7 @@ GitHub's generic `/releases/latest` endpoint can return MetaMod's legacy `1.12.0
 
 ## Share the love
 
-If you appreciate the project then please take the time to star the repository ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â
+If you appreciate the project then please take the time to star the repository ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â
 
 <img alt="Star the project" src="https://github.com/kus/cs2-modded-server/blob/assets/assets/star.png?raw=true&sanitize=true">
 
@@ -356,9 +356,9 @@ This unified repository deliberately does **not** use the upstream KUS `custom_f
 
 Tracked shared files live under game/csgo/ and are deployed into the SteamCMD runtime:
 
-- `game/csgo/cfg/` ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â server and game-mode configuration.
-- `game/csgo/addons/counterstrikesharp/configs/` ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â CounterStrikeSharp admins, groups and plugin configuration.
-- `game/csgo/gamemodes_server.txt` and `game/csgo/subscribed_file_ids.txt` ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â shared map-group and Workshop subscription configuration when those files exist in the runtime tree.
+- `game/csgo/cfg/` ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â server and game-mode configuration.
+- `game/csgo/addons/counterstrikesharp/configs/` ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â CounterStrikeSharp admins, groups and plugin configuration.
+- `game/csgo/gamemodes_server.txt` and `game/csgo/subscribed_file_ids.txt` ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â shared map-group and Workshop subscription configuration when those files exist in the runtime tree.
 
 Changes made directly to tracked files become local Git changes. Commit them intentionally if they should be part of this private repo. `windows/update.bat` refuses to pull when local or untracked changes exist, rather than silently overwriting your work.
 
@@ -429,7 +429,7 @@ The active Windows runner reads `windows/instance-template/instance.ini`, not en
 | `MAP` | `de_mirage` | Initial map requested at launch. |
 | `WORKSHOP_COLLECTION` | empty | Optional Workshop collection ID. |
 
-`run.vbs` invokes the runner through `cmd.exe /d /s /c`, waits for its exit code, and retries after 100 ms on exit code 100. `watchdog.bat` runs VBS under `cscript.exe` and relaunches the host if it exits; run the instance-local updater separately when all shared CS2 processes are stopped. Neither watchdog calls `update.bat`. `run.bat` waits on the maintenance lock before starting CS2. After shared maintenance succeedsÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Âor is skipped because another instance completed it recentlyÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Âthe instance-local `update.bat` refreshes existing `run.bat`, `run.vbs`, and `watchdog.bat` files from `windows/instance-template/`. It never overwrites private `instance.ini`. If no standard `run.bat` exists, a deliberately named custom `*_run.bat` runner is left untouched; when `run.bat` does exist, it is considered managed and will be overwritten with the current template.
+`run.vbs` invokes the runner through `cmd.exe /d /s /c`, waits for its exit code, and retries after 100 ms on exit code 100. `watchdog.bat` runs VBS under `cscript.exe` and relaunches the host if it exits; run the instance-local updater separately when all shared CS2 processes are stopped. Neither watchdog calls `update.bat`. `run.bat` waits on the maintenance lock before starting CS2. After shared maintenance succeedsÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âor is skipped because another instance completed it recentlyÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âthe instance-local `update.bat` refreshes existing `run.bat`, `run.vbs`, and `watchdog.bat` files from `windows/instance-template/`. It never overwrites private `instance.ini`. If no standard `run.bat` exists, a deliberately named custom `*_run.bat` runner is left untouched; when `run.bat` does exist, it is considered managed and will be overwritten with the current template.
 
 ## Playing workshop maps/collections
 
