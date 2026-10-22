@@ -4,7 +4,7 @@
 # On Debian, the source paths are resolved relative to this file in the repo.
 #
 # Usage:
-#   ./pterodactyl/sync-addon-payload.sh <container-name-or-id> [container-game-root]
+#   bash pterodactyl/sync-addon-payload.sh <container-name-or-id> [container-game-root]
 #
 # Example game root:
 #   /home/container/game/csgo
