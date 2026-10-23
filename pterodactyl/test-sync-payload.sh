@@ -31,7 +31,6 @@ grep -Fq "Sync completed successfully." <<< "$first_output"
 grep -Fq "BotAI/ and disabled/ were not copied or pruned." <<< "$first_output"
 
 # Every allowlisted payload must be installed; no private repo metadata is staged.
-[[ -f "$GAME_ROOT/addons/counterstrikesharp/source" ]] && exit 1 || true
 [[ -d "$GAME_ROOT/addons/counterstrikesharp/source" ]]
 [[ -d "$GAME_ROOT/addons/counterstrikesharp/shared" ]]
 [[ -d "$GAME_ROOT/addons/counterstrikesharp/gamedata" ]]
