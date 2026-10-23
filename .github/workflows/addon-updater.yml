@@ -109,6 +109,20 @@ jobs:
             exit 1
           fi
           CONFIG_GUARD_TEST
+
+          # Regression test: CounterStrikeSharp is in the Larnz-managed table,
+          # whose first-column display name is Markdown-linked.
+          bash -euo pipefail <<'README_VERSION_LOOKUP_TEST'
+          exec 3>&1
+          source scripts/update/lib.sh
+          actual="$(readme_line_number "CounterStrikeSharp" "https://github.com/roflmuffin/CounterStrikeSharp")"
+          expected="$(awk '/^\| \[CounterStrikeSharp\]\(https:\/\/github\.com\/roflmuffin\/CounterStrikeSharp\) \|/ { print NR }' README.md)"
+          if [[ -z "$expected" || "$actual" != "$expected" ]]; then
+            echo "README version lookup failed for Markdown-linked CounterStrikeSharp row: actual=$actual expected=$expected" >&2
+            exit 1
+          fi
+          README_VERSION_LOOKUP_TEST
+
           for special in scripts/update/plugins/metamod-source.sh scripts/update/plugins/counterstrikesharp.sh; do
             grep -q 'source scripts/update/manifest-addon.sh' "$special"
             grep -q 'manifest_update_version' "$special"
