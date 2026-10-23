@@ -89,7 +89,7 @@ TEST_UUID="replace-with-the-new-test-server-uuid"
 php pterodactyl/provision-addon-servers.php --server "$TEST_UUID"
 ~~~
 
-This explicit mode may process a server that is in the baseline, but it still enforces the configured Egg/Node, exact UUID volume, mount definition, startup command, and Docker safety checks. A per-server processed marker makes repeated invocation a no-op.
+This explicit mode may process a server that is in the baseline because it is intended only for the controlled first test. To reduce the chance of an accidental production UUID being supplied, the Panel server name must begin with `FragCity Payload Test`; it still enforces the configured Egg/Node, exact UUID volume, mount definition, startup command, and Docker safety checks. Normal newly-created servers are processed by `--watch` only if their UUID was not recorded in the one-time baseline. A per-server processed marker makes repeated invocation a no-op.
 
 Expected behavior:
 
