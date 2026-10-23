@@ -124,7 +124,16 @@ validate_revision() {
     done
 }
 
-if [[ -d "$FINAL_REVISION" ]] && validate_revision "$FINAL_REVISION"; then
+# A structurally valid revision can still be unusable in a container if its
+# directories are owner-only (for example, mktemp creates the revision root as 0700).
+# Validate access bits as well, so older broken snapshots are safely re-staged.
+revision_permissions_ok() {
+    local root="$1"
+    [[ -z "$(find "$root" -type d ! -perm -0005 -print -quit)" ]] || return 1
+    [[ -z "$(find "$root" -type f ! -perm -0004 -print -quit)" ]] || return 1
+}
+
+if [[ -d "$FINAL_REVISION" ]] && validate_revision "$FINAL_REVISION" && revision_permissions_ok "$FINAL_REVISION"; then
     log "Revision is already staged and passes the required-file checks."
 else
     [[ ! -e "$FINAL_REVISION" ]] || rm -rf -- "$FINAL_REVISION"
@@ -158,8 +167,14 @@ else
     printf '%s\n' "$SOURCE_COMMIT" > "$STAGING/.source-commit"
     validate_revision "$STAGING" || die "Staged revision failed required-file validation."
 
-    # The snapshot becomes visible only after every allowlisted file is staged.
+    # Publish an immutable snapshot, but keep it readable/traversable by the
+    # unprivileged Pterodactyl container user. mktemp creates STAGING as 0700,
+    # so chmod -R a-w alone would leave the revision root at 0500 and hide the
+    # marker from the game container.
     chmod -R a-w "$STAGING"
+    find "$STAGING" -type d -exec chmod a+rx {} +
+    find "$STAGING" -type f -exec chmod a+r {} +
+    revision_permissions_ok "$STAGING" || die "Staged revision is not readable by container users."
     mv -- "$STAGING" "$FINAL_REVISION"
     STAGING=""
     trap - EXIT
