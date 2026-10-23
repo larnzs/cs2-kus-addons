@@ -1,4 +1,4 @@
-name: Validate Pterodactyl payload sync
+name: Validate Pterodactyl payload sync and provisioning
 
 on:
   push:
@@ -26,10 +26,10 @@ jobs:
           ref: integration/kus-monorepo
           fetch-depth: 0
 
-      - name: Install staging dependency
+      - name: Install staging and PHP validation dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y rsync
+          sudo apt-get install -y rsync php-cli
 
       - name: Validate shell syntax
         shell: bash
@@ -38,7 +38,26 @@ jobs:
           bash -n \
             pterodactyl/sync-addon-payload-host.sh \
             pterodactyl/sync-addon-payload-container.sh \
-            pterodactyl/test-sync-payload.sh
+            pterodactyl/test-sync-payload.sh \
+            pterodactyl/install-host-services.sh
+
+      - name: Validate PHP provisioner syntax and safe CLI argument handling
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l pterodactyl/provision-addon-servers.php
+          php pterodactyl/provision-addon-servers.php --help > "$RUNNER_TEMP/fragcity-provisioner-help.txt"
+          grep -Fq -- '--initialize-baseline' "$RUNNER_TEMP/fragcity-provisioner-help.txt"
+          grep -Fq -- '--server <server-uuid>' "$RUNNER_TEMP/fragcity-provisioner-help.txt"
+          set +e
+          php pterodactyl/provision-addon-servers.php --server not-a-uuid > "$RUNNER_TEMP/fragcity-invalid-uuid.txt" 2>&1
+          status=$?
+          set -e
+          if [[ "$status" -ne 2 ]]; then
+            cat "$RUNNER_TEMP/fragcity-invalid-uuid.txt"
+            echo "Expected invalid UUID arguments to be rejected with exit code 2."
+            exit 1
+          fi
 
       - name: Stage an immutable snapshot using the real host publisher
         shell: bash
