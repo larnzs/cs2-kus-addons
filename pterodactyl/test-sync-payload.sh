@@ -26,6 +26,15 @@ printf 'protect-disabled\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/disa
 printf 'protect-css-config\n' > "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-keep.json"
 printf 'protect-game-config\n' > "$GAME_ROOT/cfg/fragcity-test-keep.cfg"
 
+# A missing server UUID must fail closed before writing into any game directory.
+set +e
+missing_uuid_output="$(env -u P_SERVER_UUID FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
+missing_uuid_status=$?
+set -e
+[[ "$missing_uuid_status" -ne 0 ]]
+grep -Fq "P_SERVER_UUID is missing or invalid" <<< "$missing_uuid_output"
+[[ ! -d "$GAME_ROOT/addons/counterstrikesharp/source" ]]
+
 first_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
 printf '%s\n' "$first_output"
 grep -Fq "Target server UUID: $TEST_SERVER_UUID." <<< "$first_output"
