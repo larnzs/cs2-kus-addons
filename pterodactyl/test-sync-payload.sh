@@ -16,8 +16,22 @@ TEST_SERVER_UUID="${FRAGCITY_TEST_SERVER_UUID:-00000000-0000-4000-8000-000000000
 [[ -f "$SYNC_SCRIPT" ]]
 commit="$(tr -d '\r\n' < "$PAYLOAD_BASE/CURRENT_COMMIT")"
 [[ "$commit" =~ ^[0-9a-f]{40}$ ]]
-[[ "$(tr -d '\r\n' < "$PAYLOAD_BASE/revisions/$commit/.source-commit")" == "$commit" ]]
-[[ ! -e "$PAYLOAD_BASE/revisions/$commit/game/csgo/addons/counterstrikesharp/plugins/CS2UpdateMonitor" ]]
+revision_root="$PAYLOAD_BASE/revisions/$commit"
+[[ "$(tr -d '\r\n' < "$revision_root/.source-commit")" == "$commit" ]]
+
+# A root-only revision directory can pass tests run by the publishing account
+# but fail in a non-root Pterodactyl container. Assert access mode bits directly.
+bad_directory="$(find "$revision_root" -type d ! -perm -0005 -print -quit)"
+[[ -z "$bad_directory" ]] || {
+    echo "FAIL: revision directory is not readable/traversable by container users: $bad_directory"
+    exit 1
+}
+bad_file="$(find "$revision_root" -type f ! -perm -0004 -print -quit)"
+[[ -z "$bad_file" ]] || {
+    echo "FAIL: revision file is not readable by container users: $bad_file"
+    exit 1
+}
+[[ ! -e "$revision_root/game/csgo/addons/counterstrikesharp/plugins/CS2UpdateMonitor" ]]
 
 mkdir -p \
     "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI" \
