@@ -10,7 +10,7 @@ This integration connects the existing scheduled “Update CS2 Addons” workflo
 4. provision-addon-servers.php --watch checks the Panel database every minute. After the initial safety baseline, it processes only newly created servers that match the Mount's single eligible Egg and Node and have finished installation.
 5. For each eligible new server, the provisioner validates the UUID and exact host volume, prepares the empty mount target under that server's own volume, attaches the Mount to that server through the installed Panel's Laravel models, and prefixes only that server's stored startup command with the sync script.
 6. If a Docker container already exists and is stopped, the provisioner verifies its exact name and /home/container volume mapping, then runs docker rm <container-id> without -v so the next Panel start creates a fresh container with the Mount. It never removes the server's volume. A running container is not changed.
-7. At the next normal start, K4ryuu's runtime update work runs first; the FragCity startup prefix then executes sync-addon-payload-container.sh before CS2 launches. That script copies and SHA-256 verifies only the managed addon payload into the same server's /home/container/game/csgo/ tree.
+7. At the next normal start, K4ryuu's runtime update work runs first; the FragCity startup prefix then executes sync-addon-payload-container.sh before CS2 launches. The container script requires the runtime-provided P_SERVER_UUID, validates it as a UUID and logs the target identity before changing any game files. It copies and SHA-256 verifies only the managed addon payload into that same server's /home/container/game/csgo/ tree. If the UUID is missing or malformed, synchronization fails closed before creating or updating managed game paths.
 
 The host's volume path contains each server UUID, for example /var/lib/pterodactyl/volumes/<server-uuid>. Inside that container, /home/container is already bound to that exact volume. The container sync script therefore writes to /home/container/game/csgo/ and does not hardcode any host volume UUID.
 
@@ -100,7 +100,17 @@ Expected behavior:
 - If an exact server container exists in exited state, verifies that /home/container maps to this UUID's volume and removes only that Docker container without -v. If no container exists, no removal is needed. If it is running or in an unexpected state, the provisioner skips/refuses rather than interrupting it.
 - Records completion under /var/lib/pterodactyl/fragcity-addon-provisioner/processed/<UUID>.json.
 
-After the command reports success, inspect the Mount entry for this single test server in the Panel and then start it normally. The new container should expose the Mount at /home/container/egg/fragcity-payload. The console should report Sync completed successfully and SHA-256 verification counts before the CS2 launch proceeds. If the sync script fails or the Mount is missing, the && prefix fails closed and CS2 will not launch with an incomplete payload.
+After the command reports success, inspect the Mount entry for this single test server in the Panel and then start it normally. The provisioner prepares the empty host-side mount target under that server's validated UUID volume. If an older stopped Docker container exists, it confirms that the container name and /home/container source match this UUID, then removes only that container without -v so Wings recreates it with the Mount; it does not remove or alter the volume. A running container is never removed or modified by the provisioner.
+
+The new container should expose the Mount at /home/container/egg/fragcity-payload with ReadOnly=true and should have P_SERVER_UUID equal to the Panel server UUID. The console should report the target server UUID, Sync completed successfully and SHA-256 verification counts before the CS2 launch proceeds. If the UUID is missing/malformed, the sync script fails before touching managed paths; if the sync script or Mount fails, the && prefix prevents CS2 from launching with an incomplete payload.
+
+After starting the test server, run the read-only verification mode on the host:
+
+~~~bash
+php pterodactyl/provision-addon-servers.php --verify-server "$TEST_UUID"
+~~~
+
+This verifies the Panel Mount relation, exact UUID-to-volume mapping, running Docker container identity, payload source and destination, read-only mount flag, P_SERVER_UUID, server-specific startup prefix, required runtime commands, and published snapshot metadata. It makes no changes. Do not enable the provisioning timer until this verification passes.
 
 Do not manually copy the 243 MB snapshot into the server volume: the Mount exposes the payload read-only, and the container script deploys the managed files at startup.
 
@@ -135,6 +145,9 @@ This baseline is a critical safety barrier: **do not delete or regenerate it cas
 # One-shot provisioning for a particular newly-created test server:
 read -r -p "New test server UUID: " TEST_UUID
 sudo php /opt/fragcity/cs2-kus-addons/pterodactyl/provision-addon-servers.php --server "$TEST_UUID"
+
+# Verify that one running test server received the correct read-only Mount:
+sudo php /opt/fragcity/cs2-kus-addons/pterodactyl/provision-addon-servers.php --verify-server "$TEST_UUID"
 
 # Scan once for new eligible servers, without waiting for the timer:
 sudo php /opt/fragcity/cs2-kus-addons/pterodactyl/provision-addon-servers.php --watch
