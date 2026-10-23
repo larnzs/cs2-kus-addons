@@ -204,7 +204,13 @@ for relative_path in "${!DESIRED_SOURCE[@]}"; do
 
     log "Updating $relative_path (missing or SHA-256 differs)."
     mkdir -p -- "$(dirname -- "$target_path")"
-    cp -p -- "$source_path" "$target_path"
+    # A published snapshot is read-only; deployed files should remain editable by
+    # the server's container user, as in an ordinary Pterodactyl game volume.
+    if [[ -e "$target_path" ]]; then
+        chmod u+w -- "$target_path" || die "Could not make managed target writable before copy: $target_path"
+    fi
+    cp -- "$source_path" "$target_path"
+    chmod u+w -- "$target_path" || die "Could not make managed target writable after copy: $target_path"
 
     actual_hash="$(sha256sum -- "$target_path" | awk 'NR == 1 {print $1}')"
     [[ "$actual_hash" == "$expected_hash" ]] || die "SHA-256 verification failed after copy: $relative_path"
