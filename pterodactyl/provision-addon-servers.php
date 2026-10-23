@@ -49,6 +49,7 @@ FragCity Pterodactyl addon provisioner
 Usage:
   php provision-addon-servers.php --initialize-baseline
   php provision-addon-servers.php --server <server-uuid>
+  php provision-addon-servers.php --verify-server <server-uuid>
   php provision-addon-servers.php --watch
   php provision-addon-servers.php --help
 
@@ -547,6 +548,112 @@ function provisionOne(
     return true;
 }
 
+
+/**
+ * Read-only post-start verification for a single explicitly selected server.
+ * Confirms that the Panel relation, server UUID, volume mapping, read-only
+ * payload mount, startup prefix, and runtime prerequisites all agree.
+ */
+function verifyOne(
+    Server $server,
+    Mount $mount,
+    string $volumeRoot,
+    string $payloadRoot,
+    string $mountTarget
+): void {
+    if (!serverIsEligible($server, $mount)) {
+        fail('Server ' . $server->uuid . ' is not eligible for the configured FragCity Mount.');
+    }
+    if (!isServerReady($server) || $server->isSuspended()) {
+        fail('Server is not in a runnable installed state; start/finish installation before verification.');
+    }
+
+    $uuid = (string) $server->uuid;
+    $volumePath = serverVolumePath($server, $volumeRoot);
+    $container = inspectServerContainer($uuid, $volumePath);
+    if ($container === null) {
+        fail('No Docker container exists for ' . $uuid . '; start the server from the Panel first.');
+    }
+    if ($container['state'] !== 'running') {
+        fail('Docker container is not running; start the server from the Panel before verification.');
+    }
+
+    $prefix = serverStartupPrefix($mountTarget);
+    if (!str_starts_with((string) $server->startup, $prefix)) {
+        fail('The expected FragCity sync prefix is not present at the start of the server startup command.');
+    }
+    if (!$mount->servers()->where('servers.id', (int) $server->id)->exists()) {
+        fail('The FragCity Mount is not attached to this server in the Panel database.');
+    }
+
+    $decoded = json_decode(runCommand(['docker', 'inspect', $container['id']]), true);
+    if (!is_array($decoded) || count($decoded) !== 1 || !is_array($decoded[0])) {
+        fail('Could not decode Docker inspection while verifying the payload Mount.');
+    }
+    $docker = $decoded[0];
+    $payloadMounts = array_values(array_filter(
+        $docker['Mounts'] ?? [],
+        static fn (array $entry): bool => ($entry['Destination'] ?? '') === $mountTarget
+    ));
+    if (count($payloadMounts) !== 1) {
+        fail('Expected exactly one Docker Mount at ' . $mountTarget . '; found ' . count($payloadMounts) . '.');
+    }
+    $actualSource = rtrim((string) ($payloadMounts[0]['Source'] ?? ''), '/');
+    if ($actualSource !== $payloadRoot) {
+        fail('Payload Mount source mismatch. Expected ' . $payloadRoot . ', got ' . $actualSource . '.');
+    }
+    if (($payloadMounts[0]['RW'] ?? true) !== false) {
+        fail('Payload Mount is not read-only inside Docker.');
+    }
+
+    $environment = $docker['Config']['Env'] ?? [];
+    $serverUuidValues = [];
+    foreach ($environment as $value) {
+        if (str_starts_with((string) $value, 'P_SERVER_UUID=')) {
+            $serverUuidValues[] = substr((string) $value, strlen('P_SERVER_UUID='));
+        }
+    }
+    if (count($serverUuidValues) !== 1 || $serverUuidValues[0] !== $uuid) {
+        fail('Docker P_SERVER_UUID does not uniquely match the Panel server UUID ' . $uuid . '.');
+    }
+
+    $preflight = <<<'BASH'
+set -Eeuo pipefail
+for command_name in bash sha256sum find cp mkdir rm awk flock tr chmod dirname; do
+    command -v "$command_name" >/dev/null 2>&1 || {
+        printf 'MISSING required command: %s\n' "$command_name" >&2
+        exit 21
+    }
+done
+base="${FRAGCITY_VERIFY_PAYLOAD_BASE:?missing payload base}"
+test -d "$base" && test ! -L "$base"
+test -r "$base/CURRENT_COMMIT"
+test -r "$base/.sync.lock"
+test -r "$base/sync-addon-payload-container.sh"
+commit="$(tr -d '\r\n' < "$base/CURRENT_COMMIT")"
+[[ "$commit" =~ ^[0-9a-f]{40}$ ]]
+revision="$base/revisions/$commit"
+test -d "$revision" && test ! -L "$revision"
+test -f "$revision/.source-commit" && test ! -L "$revision/.source-commit"
+marker="$(tr -d '\r\n' < "$revision/.source-commit")"
+test "$marker" = "$commit"
+bash -n "$base/sync-addon-payload-container.sh"
+printf 'PASS: required commands available; read-only payload revision %s is valid.\n' "$commit"
+BASH;
+
+    $runtimeOutput = runCommand([
+        'docker', 'exec',
+        '-e', 'FRAGCITY_VERIFY_PAYLOAD_BASE=' . $mountTarget,
+        $container['id'],
+        '/bin/bash', '-lc', $preflight,
+    ]);
+    logLine('Verified server UUID and host volume mapping: ' . $uuid . ' -> ' . $volumePath . '.');
+    logLine('Verified Docker payload mount source, target, and read-only mode.');
+    logLine('Verified P_SERVER_UUID and server-specific startup prefix.');
+    logLine($runtimeOutput);
+    logLine('Read-only verification completed. No server files, startup settings, mounts, or containers were changed.');
+}
+
 function main(array $argv): int
 {
     $mode = $argv[1] ?? '--help';
@@ -557,10 +664,10 @@ function main(array $argv): int
     }
 
     $serverUuid = null;
-    if ($mode === '--server') {
+    if (in_array($mode, ['--server', '--verify-server'], true)) {
         $serverUuid = $argv[2] ?? '';
         if (!validUuid($serverUuid)) {
-            fwrite(STDERR, "ERROR: --server requires a canonical lowercase UUID.\n");
+            fwrite(STDERR, "ERROR: {$mode} requires a canonical lowercase UUID.\n");
             usage();
             return 2;
         }
@@ -660,6 +767,13 @@ function main(array $argv): int
     $server = Server::query()->where('uuid', $serverUuid)->first();
     if ($server === null) {
         fail('No Panel server was found with UUID ' . $serverUuid . '.');
+    }
+
+    if ($mode === '--verify-server') {
+        verifyOne(
+            $server, $mount, $config['volumeRoot'], $config['payloadRoot'], $config['mountTarget']
+        );
+        return 0;
     }
 
     $markerPath = processedMarkerPath($config['stateRoot'], $serverUuid);
