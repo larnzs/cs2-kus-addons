@@ -23,6 +23,7 @@ set -Eeuo pipefail
 
 PAYLOAD_BASE="${FRAGCITY_PAYLOAD_BASE:-/home/container/egg/fragcity-payload}"
 GAME_ROOT="${FRAGCITY_GAME_ROOT:-/home/container/game/csgo}"
+SERVER_UUID="${P_SERVER_UUID:-}"
 
 log() { printf '[fragcity-payload] %s\n' "$*"; }
 die() { printf '[fragcity-payload] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -37,6 +38,11 @@ validate_absolute_path() {
 
 validate_absolute_path "FRAGCITY_PAYLOAD_BASE" "$PAYLOAD_BASE"
 validate_absolute_path "FRAGCITY_GAME_ROOT" "$GAME_ROOT"
+
+# Wings injects this UUID per server. Do not run the deployment without a
+# trustworthy server identity; the destination is the current server's volume.
+[[ "$SERVER_UUID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] \
+    || die "P_SERVER_UUID is missing or invalid; refusing to sync without a verified server identity."
 
 command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required."
 command -v find >/dev/null 2>&1 || die "find is required."
@@ -166,6 +172,7 @@ add_tree() {
     fi
 }
 
+log "Target server UUID: $SERVER_UUID."
 log "Using published payload revision $SOURCE_COMMIT."
 log "Building the desired-file list from the immutable snapshot."
 add_tree "$CSS_SOURCE/source" "addons/counterstrikesharp/source"
