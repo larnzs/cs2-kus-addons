@@ -56,7 +56,8 @@ Usage:
 Safety model:
   * --initialize-baseline only records currently eligible servers; it does not modify them.
   * --watch only processes servers not present in that baseline and not already provisioned.
-  * --server is an explicit, auditable override intended for a new test server.
+  * --server is a one-shot test override and requires a Panel name beginning "FragCity Payload Test".
+  * --verify-server is read-only with respect to server files, mounts, startup settings, and Docker containers.
   * Only stopped Docker containers named exactly after the server UUID may be removed.
   * Docker container removal never uses -v; the server volume is preserved.
 
@@ -694,9 +695,13 @@ function main(array $argv): int
         'stateRoot' => rtrim((string) (getenv('FRAGCITY_PROVISIONER_STATE') ?: DEFAULT_STATE_ROOT), '/'),
     ];
 
-    ensureStateDirectory($config['stateRoot']);
-    $processedDir = $config['stateRoot'] . '/processed';
-    ensureStateDirectory($processedDir);
+    // Post-start verification must not create or chmod provisioner state directories.
+    // Mutating modes create their protected state roots as needed.
+    if ($mode !== '--verify-server') {
+        ensureStateDirectory($config['stateRoot']);
+        $processedDir = $config['stateRoot'] . '/processed';
+        ensureStateDirectory($processedDir);
+    }
 
     $lockPath = '/run/lock/fragcity-addon-provisioner.lock';
     $lock = fopen($lockPath, 'c');
