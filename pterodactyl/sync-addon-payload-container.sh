@@ -1,20 +1,27 @@
 #!/usr/bin/env bash
 # Container-side FragCity addon synchronizer for the custom K4ryuu/Pterodactyl Egg.
 #
-# This script runs INSIDE the game container, after K4ryuu has updated the
-# Metamod/CounterStrikeSharp runtime and immediately before CS2 is launched.
-# The Egg installer must stage this script and the selected payload under:
-#   /home/container/egg/fragcity-payload/
-# with the repo-relative layout preserved (including game/csgo and pterodactyl/).
+# This script runs inside the game container, after K4ryuu updates its runtimes and
+# immediately before the CS2 launch command. The private repository is NOT cloned in
+# the container. The read-only host mount must expose:
+#   CURRENT_COMMIT
+#   .sync.lock
+#   sync-addon-payload-container.sh
+#   revisions/<40-char-commit>/.source-commit
+#   revisions/<40-char-commit>/game/csgo/...
 #
-# Only FragCity-managed addon paths are synced/pruned. The Egg-managed runtime,
-# cfg/configs, and these user-managed plugin folders are deliberately untouched:
+# The host-side script publishes complete immutable snapshots, then atomically swaps
+# CURRENT_COMMIT. The shared lock prevents old snapshots being pruned during a sync.
+#
+# These paths are deliberately outside the managed sync scope:
 #   addons/counterstrikesharp/plugins/BotAI/
 #   addons/counterstrikesharp/plugins/disabled/
+#   cfg/ and CounterStrikeSharp configs
+#   Egg-managed Metamod/CounterStrikeSharp runtime directories
 
 set -Eeuo pipefail
 
-PAYLOAD_ROOT="${FRAGCITY_PAYLOAD_ROOT:-/home/container/egg/fragcity-payload}"
+PAYLOAD_BASE="${FRAGCITY_PAYLOAD_BASE:-/home/container/egg/fragcity-payload}"
 GAME_ROOT="${FRAGCITY_GAME_ROOT:-/home/container/game/csgo}"
 
 log() { printf '[fragcity-payload] %s\n' "$*"; }
@@ -28,22 +35,38 @@ validate_absolute_path() {
     esac
 }
 
-validate_absolute_path "FRAGCITY_PAYLOAD_ROOT" "$PAYLOAD_ROOT"
+validate_absolute_path "FRAGCITY_PAYLOAD_BASE" "$PAYLOAD_BASE"
 validate_absolute_path "FRAGCITY_GAME_ROOT" "$GAME_ROOT"
 
-command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required in the container."
-command -v find >/dev/null 2>&1 || die "find is required in the container."
-command -v cp >/dev/null 2>&1 || die "cp is required in the container."
-command -v mkdir >/dev/null 2>&1 || die "mkdir is required in the container."
-command -v rm >/dev/null 2>&1 || die "rm is required in the container."
-command -v awk >/dev/null 2>&1 || die "awk is required in the container."
+command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required."
+command -v find >/dev/null 2>&1 || die "find is required."
+command -v cp >/dev/null 2>&1 || die "cp is required."
+command -v mkdir >/dev/null 2>&1 || die "mkdir is required."
+command -v rm >/dev/null 2>&1 || die "rm is required."
+command -v awk >/dev/null 2>&1 || die "awk is required."
+command -v flock >/dev/null 2>&1 || die "flock is required."
 
-REPO_ROOT="$PAYLOAD_ROOT"
-GAME_SOURCE="$REPO_ROOT/game/csgo"
+[[ -d "$PAYLOAD_BASE" && ! -L "$PAYLOAD_BASE" ]] || die "Payload mount is missing or is a symlink: $PAYLOAD_BASE"
+[[ -f "$PAYLOAD_BASE/.sync.lock" && ! -L "$PAYLOAD_BASE/.sync.lock" ]] || die "Host payload lock file is missing."
+[[ -f "$PAYLOAD_BASE/CURRENT_COMMIT" && ! -L "$PAYLOAD_BASE/CURRENT_COMMIT" ]] || die "No published payload snapshot is available (CURRENT_COMMIT missing)."
+
+# Hold a shared lock until this sync completes. Host publication/pruning takes the
+# exclusive lock, so the revision selected below remains present and immutable.
+exec 9< "$PAYLOAD_BASE/.sync.lock"
+flock -s 9
+
+SOURCE_COMMIT="$(tr -d '\r\n' < "$PAYLOAD_BASE/CURRENT_COMMIT")"
+[[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || die "CURRENT_COMMIT is not a full lowercase Git commit SHA."
+PAYLOAD_ROOT="$PAYLOAD_BASE/revisions/$SOURCE_COMMIT"
+
+[[ -d "$PAYLOAD_ROOT" && ! -L "$PAYLOAD_ROOT" ]] || die "Published revision directory is missing: $PAYLOAD_ROOT"
+[[ -f "$PAYLOAD_ROOT/.source-commit" && ! -L "$PAYLOAD_ROOT/.source-commit" ]] || die "Revision marker is missing."
+[[ "$(tr -d '\r\n' < "$PAYLOAD_ROOT/.source-commit")" == "$SOURCE_COMMIT" ]] || die "Revision marker does not match CURRENT_COMMIT."
+
+GAME_SOURCE="$PAYLOAD_ROOT/game/csgo"
 ADDONS_SOURCE="$GAME_SOURCE/addons"
 CSS_SOURCE="$ADDONS_SOURCE/counterstrikesharp"
 
-[[ -d "$PAYLOAD_ROOT" ]] || die "Staged payload root not found: $PAYLOAD_ROOT (Egg install script must stage it first)."
 [[ -d "$CSS_SOURCE/source" ]] || die "Missing staged folder: $CSS_SOURCE/source"
 [[ -d "$CSS_SOURCE/plugins" ]] || die "Missing staged folder: $CSS_SOURCE/plugins"
 [[ -d "$CSS_SOURCE/shared" ]] || die "Missing staged folder: $CSS_SOURCE/shared"
@@ -54,14 +77,10 @@ for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmana
     [[ -d "$ADDONS_SOURCE/$name" ]] || die "Missing staged addon directory: $ADDONS_SOURCE/$name"
 done
 
-# Reject symlinks in managed source content. BotAI/ and disabled/ are excluded
-# from the sync contract and therefore pruned from checks, copies, and cleanup.
 reject_source_symlinks() {
-    local source_path="$1"
-    local source_label="$2"
-    local link_path
+    local source_path="$1" link_path
     while IFS= read -r -d '' link_path; do
-        die "Symlink found in managed payload ($source_label): $link_path"
+        die "Symlink found in managed payload: $link_path"
     done < <(find "$source_path" -type l -print0)
 }
 
@@ -69,10 +88,10 @@ for source_path in \
     "$CSS_SOURCE/source" "$CSS_SOURCE/shared" "$CSS_SOURCE/gamedata" \
     "$ADDONS_SOURCE/MovementUnlocker" "$ADDONS_SOURCE/serverlistplayersfix_mm" \
     "$ADDONS_SOURCE/surf" "$ADDONS_SOURCE/scripts" "$ADDONS_SOURCE/multiaddonmanager"; do
-    reject_source_symlinks "$source_path" "$source_path"
+    reject_source_symlinks "$source_path"
 done
 while IFS= read -r -d '' link_path; do
-    die "Symlink found in managed payload (CounterStrikeSharp plugins): $link_path"
+    die "Symlink found in managed CounterStrikeSharp plugin payload: $link_path"
 done < <(
     find "$CSS_SOURCE/plugins" -mindepth 1 \
         \( -path "$CSS_SOURCE/plugins/BotAI" -o -path "$CSS_SOURCE/plugins/disabled" \) -prune \
@@ -80,7 +99,6 @@ done < <(
 )
 [[ ! -L "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf" ]] || die "Managed VDF must not be a symlink."
 
-# Managed paths inside the CS2 game directory. No other paths are modified.
 CSS_TARGET="$GAME_ROOT/addons/counterstrikesharp"
 MANAGED_ROOTS=(
     "$CSS_TARGET/source"
@@ -94,39 +112,31 @@ MANAGED_ROOTS=(
     "$GAME_ROOT/addons/multiaddonmanager"
 )
 
-# Avoid following symlinked directory roots, which could redirect writes or
-# deletion outside the explicitly managed tree.
-for managed_path in \
-    "$GAME_ROOT" "$GAME_ROOT/addons" "$CSS_TARGET" \
-    "${MANAGED_ROOTS[@]}" "$GAME_ROOT/addons/metamod"; do
-    [[ ! -L "$managed_path" ]] || die "Managed target path is a symlink: $managed_path"
+for target_path in "$GAME_ROOT" "$GAME_ROOT/addons" "$CSS_TARGET" "${MANAGED_ROOTS[@]}" "$GAME_ROOT/addons/metamod"; do
+    [[ ! -L "$target_path" ]] || die "Managed target path is a symlink: $target_path"
 done
 
-# Symlinks anywhere inside managed roots are unexpected; fail safely rather
-# than copy through or prune a path whose destination is ambiguous.
+# Reject symlinks inside managed targets rather than risk following a redirected path.
 for managed_root in "${MANAGED_ROOTS[@]}"; do
-    if [[ -d "$managed_root" ]]; then
-        while IFS= read -r -d '' link_path; do
-            die "Symlink found inside managed target tree: $link_path"
-        done < <(
-            if [[ "$managed_root" == "$CSS_TARGET/plugins" ]]; then
-                find "$managed_root" -mindepth 1 \
-                    \( -path "$managed_root/BotAI" -o -path "$managed_root/disabled" \) -prune \
-                    -o -type l -print0
-            else
-                find "$managed_root" -type l -print0
-            fi
-        )
-    fi
+    [[ -d "$managed_root" ]] || continue
+    while IFS= read -r -d '' link_path; do
+        die "Symlink found inside managed target tree: $link_path"
+    done < <(
+        if [[ "$managed_root" == "$CSS_TARGET/plugins" ]]; then
+            find "$managed_root" -mindepth 1 \
+                \( -path "$managed_root/BotAI" -o -path "$managed_root/disabled" \) -prune \
+                -o -type l -print0
+        else
+            find "$managed_root" -type l -print0
+        fi
+    )
 done
 
 declare -A DESIRED_SOURCE=()
 declare -A DESIRED_HASH=()
 
 add_file() {
-    local relative_path="$1"
-    local source_path="$2"
-    local source_hash
+    local relative_path="$1" source_path="$2" source_hash
     [[ -f "$source_path" ]] || die "Expected staged payload file does not exist: $source_path"
     source_hash="$(sha256sum -- "$source_path" | awk '{print $1}')"
     [[ -n "$source_hash" ]] || die "Could not calculate SHA-256 for: $source_path"
@@ -135,9 +145,7 @@ add_file() {
 }
 
 add_tree() {
-    local source_dir="$1"
-    local target_relative_dir="$2"
-    local exclude_botai_disabled="${3:-0}"
+    local source_dir="$1" target_relative_dir="$2" exclude_botai_disabled="${3:-0}"
     local source_file relative_file
     [[ -d "$source_dir" ]] || die "Missing staged source directory: $source_dir"
 
@@ -158,7 +166,8 @@ add_tree() {
     fi
 }
 
-log "Building the desired-file list from staged FragCity payload."
+log "Using published payload revision $SOURCE_COMMIT."
+log "Building the desired-file list from the immutable snapshot."
 add_tree "$CSS_SOURCE/source" "addons/counterstrikesharp/source"
 add_tree "$CSS_SOURCE/plugins" "addons/counterstrikesharp/plugins" 1
 add_tree "$CSS_SOURCE/shared" "addons/counterstrikesharp/shared"
@@ -168,22 +177,20 @@ for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmana
 done
 add_file "addons/metamod/serverlistplayersfix_mm.vdf" "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf"
 
-for managed_root in "${MANAGED_ROOTS[@]}"; do
-    mkdir -p -- "$managed_root"
-done
+for managed_root in "${MANAGED_ROOTS[@]}"; do mkdir -p -- "$managed_root"; done
 mkdir -p -- "$GAME_ROOT/addons/metamod"
 
 COPIED=0
 UNCHANGED=0
 VERIFIED=0
 
-# Hash-first sync: don't write files already identical to the staged payload.
+# Transfer only missing/changed files. Each changed copy is verified before cleanup.
 for relative_path in "${!DESIRED_SOURCE[@]}"; do
     source_path="${DESIRED_SOURCE[$relative_path]}"
     expected_hash="${DESIRED_HASH[$relative_path]}"
     target_path="$GAME_ROOT/$relative_path"
-
     [[ ! -L "$target_path" ]] || die "Managed target file is a symlink: $target_path"
+
     actual_hash=""
     if [[ -f "$target_path" ]]; then
         actual_hash="$(sha256sum -- "$target_path" | awk 'NR == 1 {print $1}')"
@@ -195,7 +202,7 @@ for relative_path in "${!DESIRED_SOURCE[@]}"; do
         continue
     fi
 
-    log "Updating ${relative_path} (missing or SHA-256 differs)."
+    log "Updating $relative_path (missing or SHA-256 differs)."
     mkdir -p -- "$(dirname -- "$target_path")"
     cp -p -- "$source_path" "$target_path"
 
@@ -205,7 +212,7 @@ for relative_path in "${!DESIRED_SOURCE[@]}"; do
     VERIFIED=$((VERIFIED + 1))
 done
 
-# Only prune stale files after every staged file was copied/verified.
+# Stale cleanup runs only after all desired files have passed hash verification.
 DELETED=0
 for managed_root in "${MANAGED_ROOTS[@]}"; do
     while IFS= read -r -d '' target_path; do
@@ -216,7 +223,6 @@ for managed_root in "${MANAGED_ROOTS[@]}"; do
                 continue
                 ;;
         esac
-
         if [[ -z "${DESIRED_SOURCE[$relative_path]+present}" ]]; then
             log "Removing stale managed file: $relative_path"
             rm -f -- "$target_path"
@@ -225,14 +231,11 @@ for managed_root in "${MANAGED_ROOTS[@]}"; do
     done < <(find "$managed_root" -type f -print0)
 done
 
-# Remove only empty directories under the managed roots, while protecting the
-# user-managed BotAI/ and disabled/ subtrees from even empty-dir pruning.
 for managed_root in "${MANAGED_ROOTS[@]}"; do
     if [[ "$managed_root" == "$CSS_TARGET/plugins" ]]; then
         find "$managed_root" -mindepth 1 -depth -type d -empty \
             ! -path "$managed_root/BotAI" ! -path "$managed_root/BotAI/*" \
-            ! -path "$managed_root/disabled" ! -path "$managed_root/disabled/*" \
-            -delete
+            ! -path "$managed_root/disabled" ! -path "$managed_root/disabled/*" -delete
     else
         find "$managed_root" -mindepth 1 -depth -type d -empty -delete
     fi
