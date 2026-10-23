@@ -100,6 +100,12 @@ mkdir -p -- "$REVISION_ROOT"
 touch "$MOUNT_ROOT/.sync.lock"
 chmod 0644 "$MOUNT_ROOT/.sync.lock"
 
+# Hold the exclusive lock while validating/replacing revision directories as well
+# as while publishing CURRENT_COMMIT. Without this, recovery from a malformed
+# revision could remove a snapshot a container is currently reading.
+exec 9> "$MOUNT_ROOT/.sync.lock"
+flock -x 9
+
 validate_revision() {
     local root="$1"
     [[ -d "$root" && ! -L "$root" ]] || return 1
@@ -160,11 +166,8 @@ else
     log "Staged a new immutable revision."
 fi
 
-# Publication is the only critical section. The container holds a shared lock while
-# reading/copying, so the selected snapshot cannot disappear during its sync.
-exec 9> "$MOUNT_ROOT/.sync.lock"
-flock -x 9
-
+# We hold the exclusive payload lock from revision validation/staging through
+# atomic publication and pruning. Container syncs hold a shared lock throughout copy.
 SCRIPT_TEMP="$MOUNT_ROOT/.sync-addon-container.tmp.$$"
 install -m 0555 "$REPO_ROOT/pterodactyl/sync-addon-payload-container.sh" "$SCRIPT_TEMP"
 mv -f -- "$SCRIPT_TEMP" "$MOUNT_ROOT/sync-addon-payload-container.sh"
