@@ -32,7 +32,7 @@ Create one Mount in Admin → Mounts with these exact properties:
 
 The mount source must exist before it is attached. In /etc/pterodactyl/config.yml, the existing allowed_mounts entry for /var/lib/pterodactyl/mounts already permits this child path; do not modify Wings config or restart Wings just for this mount. The older mountplugins and mountconfigs paths are unrelated and are not used by this flow.
 
-Keep the Mount eligible for exactly one Egg and one Node. The provisioner deliberately fails closed if the definition is absent, not read-only, user-mountable, or assigned to multiple Eggs/Nodes.
+Keep the Mount eligible for exactly one Egg and one Node. The provisioner deliberately fails closed if the definition is absent, duplicated for the same source/target, not read-only, user-mountable, or assigned to multiple Eggs/Nodes.
 
 ## Payload files and exclusions
 
@@ -97,7 +97,7 @@ Expected behavior:
 - Creates the empty <volume>/egg/fragcity-payload target if absent. A symlink or non-empty target causes a hard stop instead of hiding existing files.
 - Attaches the existing read-only Mount if not already attached.
 - Prefixes only the server's stored startup command with bash /home/container/egg/fragcity-payload/sync-addon-payload-container.sh &&; the global Egg startup and other servers are not changed.
-- If an exact server container exists in exited state, verifies that /home/container maps to this UUID's volume and removes only that Docker container without -v. If no container exists, no removal is needed. If it is running or in an unexpected state, the provisioner skips/refuses rather than interrupting it.
+- If an exact server container exists in exited state, verifies that /home/container maps to this UUID's volume and removes only that Docker container without -v. If no container exists, no removal is needed. If the exact container is running, the provisioner defers without changes; an unexpected state, mismatched /home/container volume, or Docker image that differs from the Panel server image causes a hard stop rather than interrupting an unrelated container.
 - Records completion under /var/lib/pterodactyl/fragcity-addon-provisioner/processed/<UUID>.json.
 
 After the command reports success, inspect the Mount entry for this single test server in the Panel and then start it normally. The provisioner prepares the empty host-side mount target under that server's validated UUID volume. If an older stopped Docker container exists, it confirms that the container name and /home/container source match this UUID, then removes only that container without -v so Wings recreates it with the Mount; it does not remove or alter the volume. A running container is never removed or modified by the provisioner.
@@ -135,7 +135,7 @@ sudo journalctl -u fragcity-addon-payload-sync.service -n 100 --no-pager
 sudo journalctl -u fragcity-addon-provision.service -n 100 --no-pager
 ~~~
 
-The publisher timer refreshes the payload about every five minutes. The provisioner timer scans about every minute. For each watch pass, the provisioner ignores UUIDs in the original baseline and UUIDs already marked processed. A new server is eligible only if its Egg and Node match the Mount; it is left alone while installation is incomplete. If its container is running, no changes are made and the watcher retries a later pass after it stops. The provisioner does not automatically start or restart servers.
+The publisher timer refreshes the payload about every five minutes. The provisioner timer scans about every minute. For each watch pass, the provisioner ignores UUIDs in the original baseline and UUIDs already marked processed. A new server is eligible only if its Egg and Node match the Mount; it is left alone while installation is incomplete, a transfer is active, or the Node is under maintenance. If its container is running, no changes are made and the watcher retries a later pass after it stops. The provisioner does not automatically start or restart servers.
 
 This baseline is a critical safety barrier: **do not delete or regenerate it casually.** If you need to reset the provisioning state, first back up the state directory and explicitly review the impact on existing servers.
 
