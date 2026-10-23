@@ -1,0 +1,26 @@
+[Unit]
+Description=Provision newly created eligible FragCity CS2 servers
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+ConditionPathIsDirectory=/var/www/pterodactyl
+ConditionPathExists=/var/lib/pterodactyl/fragcity-addon-provisioner/baseline-uuids.txt
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/fragcity/cs2-kus-addons
+Environment=FRAGCITY_PANEL_ROOT=/var/www/pterodactyl
+Environment=FRAGCITY_VOLUME_ROOT=/var/lib/pterodactyl/volumes
+Environment=FRAGCITY_PAYLOAD_SOURCE=/var/lib/pterodactyl/mounts/fragcity-addon-payload
+Environment=FRAGCITY_MOUNT_TARGET=/home/container/egg/fragcity-payload
+Environment=FRAGCITY_PROVISIONER_STATE=/var/lib/pterodactyl/fragcity-addon-provisioner
+ExecStart=/usr/bin/php /opt/fragcity/cs2-kus-addons/pterodactyl/provision-addon-servers.php --watch
+TimeoutStartSec=5min
+UMask=0077
+ProtectSystem=full
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
