@@ -44,13 +44,9 @@ validate_absolute_path "FRAGCITY_GAME_ROOT" "$GAME_ROOT"
 [[ "$SERVER_UUID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] \
     || die "P_SERVER_UUID is missing or invalid; refusing to sync without a verified server identity."
 
-command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required."
-command -v find >/dev/null 2>&1 || die "find is required."
-command -v cp >/dev/null 2>&1 || die "cp is required."
-command -v mkdir >/dev/null 2>&1 || die "mkdir is required."
-command -v rm >/dev/null 2>&1 || die "rm is required."
-command -v awk >/dev/null 2>&1 || die "awk is required."
-command -v flock >/dev/null 2>&1 || die "flock is required."
+for command_name in sha256sum find cp mkdir rm awk flock tr chmod dirname; do
+    command -v "$command_name" >/dev/null 2>&1 || die "$command_name is required."
+done
 
 [[ -d "$PAYLOAD_BASE" && ! -L "$PAYLOAD_BASE" ]] || die "Payload mount is missing or is a symlink: $PAYLOAD_BASE"
 [[ -f "$PAYLOAD_BASE/.sync.lock" && ! -L "$PAYLOAD_BASE/.sync.lock" ]] || die "Host payload lock file is missing."
