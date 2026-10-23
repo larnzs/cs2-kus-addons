@@ -1,0 +1,63 @@
+name: Validate Pterodactyl payload sync
+
+on:
+  push:
+    branches:
+      - integration/kus-monorepo
+    paths:
+      - "pterodactyl/**"
+      - ".github/workflows/pterodactyl-sync-validation.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pterodactyl-payload-sync-validation
+  cancel-in-progress: false
+
+jobs:
+  validate-payload-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the integration branch
+        uses: actions/checkout@v5
+        with:
+          ref: integration/kus-monorepo
+          fetch-depth: 0
+
+      - name: Install staging dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rsync
+
+      - name: Validate shell syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n \
+            pterodactyl/sync-addon-payload-host.sh \
+            pterodactyl/sync-addon-payload-container.sh \
+            pterodactyl/test-sync-payload.sh
+
+      - name: Stage an immutable snapshot using the real host publisher
+        shell: bash
+        env:
+          FRAGCITY_PAYLOAD_MOUNT: ${{ runner.temp }}/fragcity-addon-payload
+          FRAGCITY_KEEP_REVISIONS: "3"
+        run: |
+          set -euo pipefail
+          bash pterodactyl/sync-addon-payload-host.sh
+          test -f "$FRAGCITY_PAYLOAD_MOUNT/CURRENT_COMMIT"
+          test -f "$FRAGCITY_PAYLOAD_MOUNT/.sync.lock"
+          test -f "$FRAGCITY_PAYLOAD_MOUNT/sync-addon-payload-container.sh"
+
+      - name: Test container sync, idempotency, stale-file cleanup, and exclusions
+        shell: bash
+        env:
+          FRAGCITY_PAYLOAD_MOUNT: ${{ runner.temp }}/fragcity-addon-payload
+        run: |
+          set -euo pipefail
+          bash pterodactyl/test-sync-payload.sh \
+            "$FRAGCITY_PAYLOAD_MOUNT" \
+            "$RUNNER_TEMP/fragcity-game"
