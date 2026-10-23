@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Integration test for the host publisher + in-container SHA-256 sync.
 set -Eeuo pipefail
+# Trace assertions so the integration job identifies exactly which safety check fails.
+set -x
 
 PAYLOAD_BASE="${1:?Usage: test-sync-payload.sh <published-payload-mount> <temporary-root>}"
 TEST_ROOT="${2:?Usage: test-sync-payload.sh <published-payload-mount> <temporary-root>}"
@@ -39,7 +41,7 @@ grep -Fq "P_SERVER_UUID is missing or invalid" <<< "$missing_uuid_output"
 [[ ! -d "$GAME_ROOT/addons/counterstrikesharp/source" ]]
 
 first_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
-printf '%s\n' "$first_output"
+printf '%s\n' "$first_output" | grep -E 'Target server UUID|Using published payload revision|Sync completed successfully|Files copied:|BotAI/|ERROR'
 grep -Fq "Target server UUID: $TEST_SERVER_UUID." <<< "$first_output"
 grep -Fq "Using published payload revision $commit." <<< "$first_output"
 grep -Fq "Sync completed successfully." <<< "$first_output"
@@ -64,8 +66,16 @@ done
 
 # A stale file is removed from a managed tree only after verified payload copies.
 printf 'stale\n' > "$GAME_ROOT/addons/counterstrikesharp/source/fragcity-sync-test-stale.tmp"
+set +e
 second_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
-printf '%s\n' "$second_output"
+second_status=$?
+set -e
+printf '%s\n' "$second_output" | grep -E 'Target server UUID|Using published payload revision|Sync completed successfully|Files copied:|BotAI/|ERROR' || true
+if [[ "$second_status" -ne 0 ]]; then
+    echo "FAIL: second container sync exited with status $second_status."
+    printf '%s\n' "$second_output" | tail -n 80
+    exit 1
+fi
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/source/fragcity-sync-test-stale.tmp" ]]
 grep -Eq 'Files copied: 0; already matching SHA-256: [0-9]+; verified: [0-9]+; stale files removed: 1\.' <<< "$second_output"
 
