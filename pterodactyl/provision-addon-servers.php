@@ -236,22 +236,25 @@ function validatedPayloadCommit(string $payloadRoot): string
  */
 function getConfiguredMount(string $payloadRoot, string $target): Mount
 {
+    // Count every definition using this source/target pair, not only valid flags.
+    // Otherwise a valid mount plus a conflicting writable duplicate could be missed.
     $mounts = Mount::query()
         ->where('source', $payloadRoot)
         ->where('target', $target)
-        ->where('read_only', true)
-        ->where('user_mountable', false)
         ->get();
 
     if ($mounts->count() !== 1) {
         fail(
-            'Expected exactly one read-only, non-user-mountable Mount with source ' .
+            'Expected exactly one Mount definition with source ' .
             $payloadRoot . ' and target ' . $target . '; found ' . $mounts->count() . '.'
         );
     }
 
     /** @var Mount $mount */
     $mount = $mounts->first();
+    if (!$mount->read_only || $mount->user_mountable) {
+        fail('The unique FragCity Mount must be read-only and not user-mountable.');
+    }
     $eggIds = $mount->eggs()->pluck('eggs.id')->map(static fn ($id) => (int) $id)->values()->all();
     $nodeIds = $mount->nodes()->pluck('nodes.id')->map(static fn ($id) => (int) $id)->values()->all();
 
@@ -387,7 +390,7 @@ function prepareMountTarget(string $volumePath, string $mountTarget): string
  * Find and validate the exact Docker container that belongs to this server.
  * A running container is returned as-is so the caller can defer without changes.
  */
-function inspectServerContainer(string $uuid, string $volumePath): ?array
+function inspectServerContainer(string $uuid, string $volumePath, string $expectedImage): ?array
 {
     $rawIds = runCommand(['docker', 'ps', '-aq', '--filter', 'name=^/' . $uuid . '$']);
     $ids = array_values(array_unique(array_filter(array_map('trim', preg_split('/\R/', $rawIds) ?: []))));
@@ -419,6 +422,14 @@ function inspectServerContainer(string $uuid, string $volumePath): ?array
         fail('Docker container /home/container mount does not match the server volume; refusing to remove it.');
     }
 
+    $actualImage = (string) ($container['Config']['Image'] ?? '');
+    if ($actualImage !== $expectedImage) {
+        fail(
+            'Docker image mismatch for server ' . $uuid . '. Expected ' .
+            $expectedImage . ', got ' . $actualImage . '; refusing to alter this container.'
+        );
+    }
+
     $status = (string) ($container['State']['Status'] ?? '');
     if ($status !== 'running' && $status !== 'exited') {
         fail('Docker container state is unexpected (' . $status . '); refusing to alter it.');
@@ -441,6 +452,16 @@ function isServerReady(Server $server): bool
             Server::STATUS_SUSPENDED,
         ], true)) {
         logLine('Skipping ' . $server->uuid . ': server is not in a completed, runnable installation state.');
+        return false;
+    }
+
+    if (!is_null($server->transfer)) {
+        logLine('Skipping ' . $server->uuid . ': a server transfer is pending or in progress.');
+        return false;
+    }
+
+    if ($server->node->isUnderMaintenance()) {
+        logLine('Skipping ' . $server->uuid . ': the node is under maintenance.');
         return false;
     }
 
@@ -485,7 +506,7 @@ function provisionOne(
 
     $uuid = (string) $server->uuid;
     $volumePath = serverVolumePath($server, $volumeRoot);
-    $container = inspectServerContainer($uuid, $volumePath);
+    $container = inspectServerContainer($uuid, $volumePath, (string) $server->image);
 
     if ($container !== null && $container['state'] === 'running') {
         logLine('Skipping ' . $uuid . ': its Docker container is running; no changes were made.');
@@ -571,7 +592,7 @@ function verifyOne(
 
     $uuid = (string) $server->uuid;
     $volumePath = serverVolumePath($server, $volumeRoot);
-    $container = inspectServerContainer($uuid, $volumePath);
+    $container = inspectServerContainer($uuid, $volumePath, (string) $server->image);
     if ($container === null) {
         fail('No Docker container exists for ' . $uuid . '; start the server from the Panel first.');
     }
