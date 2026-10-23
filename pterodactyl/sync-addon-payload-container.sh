@@ -25,6 +25,7 @@ set -Eeuo pipefail
 PAYLOAD_BASE="${FRAGCITY_PAYLOAD_BASE:-/home/container/egg/fragcity-payload}"
 GAME_ROOT="${FRAGCITY_GAME_ROOT:-/home/container/game/csgo}"
 SERVER_UUID="${P_SERVER_UUID:-}"
+VERBOSE="${FRAGCITY_SYNC_VERBOSE:-0}"
 
 log() { printf '[fragcity-payload] %s\n' "$*"; }
 die() { printf '[fragcity-payload] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -39,6 +40,7 @@ validate_absolute_path() {
 
 validate_absolute_path "FRAGCITY_PAYLOAD_BASE" "$PAYLOAD_BASE"
 validate_absolute_path "FRAGCITY_GAME_ROOT" "$GAME_ROOT"
+[[ "$VERBOSE" == "0" || "$VERBOSE" == "1" ]] || die "FRAGCITY_SYNC_VERBOSE must be 0 or 1."
 
 # Wings injects this UUID per server. Do not run the deployment without a
 # trustworthy server identity; the destination is the current server's volume.
@@ -212,7 +214,9 @@ for relative_path in "${!DESIRED_SOURCE[@]}"; do
         continue
     fi
 
-    log "Updating $relative_path (missing or SHA-256 differs)."
+    if [[ "$VERBOSE" == "1" ]]; then
+        log "Updating $relative_path (missing or SHA-256 differs)."
+    fi
     mkdir -p -- "$(dirname -- "$target_path")"
     # A published snapshot is read-only; deployed files should remain editable by
     # the server's container user, as in an ordinary Pterodactyl game volume.
