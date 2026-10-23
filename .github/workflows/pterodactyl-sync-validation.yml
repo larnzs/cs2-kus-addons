@@ -49,13 +49,17 @@ jobs:
           php pterodactyl/provision-addon-servers.php --help > "$RUNNER_TEMP/fragcity-provisioner-help.txt"
           grep -Fq -- '--initialize-baseline' "$RUNNER_TEMP/fragcity-provisioner-help.txt"
           grep -Fq -- '--server <server-uuid>' "$RUNNER_TEMP/fragcity-provisioner-help.txt"
+          grep -Fq -- '--verify-server <server-uuid>' "$RUNNER_TEMP/fragcity-provisioner-help.txt"
+
           set +e
           php pterodactyl/provision-addon-servers.php --server not-a-uuid > "$RUNNER_TEMP/fragcity-invalid-uuid.txt" 2>&1
-          status=$?
+          server_status=$?
+          php pterodactyl/provision-addon-servers.php --verify-server not-a-uuid > "$RUNNER_TEMP/fragcity-invalid-verify-uuid.txt" 2>&1
+          verify_status=$?
           set -e
-          if [[ "$status" -ne 2 ]]; then
-            cat "$RUNNER_TEMP/fragcity-invalid-uuid.txt"
-            echo "Expected invalid UUID arguments to be rejected with exit code 2."
+          if [[ "$server_status" -ne 2 || "$verify_status" -ne 2 ]]; then
+            cat "$RUNNER_TEMP/fragcity-invalid-uuid.txt" "$RUNNER_TEMP/fragcity-invalid-verify-uuid.txt"
+            echo "Expected invalid UUID arguments for --server and --verify-server to be rejected with exit code 2."
             exit 1
           fi
 
