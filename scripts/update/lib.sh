@@ -590,12 +590,19 @@ readme_line_number() {   # $1 name, $2 url -> one row in KUS or Larnz table
     ' README.md)
     count=$(printf '%s\n' "$nums" | grep -c . || true)
     if [ "$count" != "1" ]; then
+        # Larnz-managed rows use Markdown links in the first column, e.g.
+        # "[CounterStrikeSharp](https://github.com/...)" rather than bare names.
+        # Compare the displayed name while preserving the original row for edits.
         nums=$(awk -F'|' -v wanted="$1" '
             /^## Larnz-managed add-ons[[:space:]]*$/ { section = 1; next }
             /^## / && section { exit }
             section && /^[|]/ {
                 name = $2
                 gsub(/^[[:space:]]+|[[:space:]]+$/, "", name)
+                if (name ~ /^\[[^]]+\]\([^)]*\)$/) {
+                    sub(/^\[/, "", name)
+                    sub(/\]\([^)]*\)$/, "", name)
+                }
                 if (name == wanted) print NR
             }
         ' README.md)
