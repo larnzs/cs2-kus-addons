@@ -192,7 +192,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | [AnnouncementBroadcaster](https://github.com/lengran/CS2AnnouncementBroadcaster) | `0.5` | Conditional messages, OnCommand, OnPlayerConnect, OnRoundStart, and TimerMsgs. |
 | [CS2-GameModifiers](https://github.com/vinicius-trev/CS2-GameModifiers-Plugin) | `1.0.4` | CS2, but every round is a SURPRISE. Inspiration from [NadeKings video](https://www.youtube.com/watch?v=OQQBUFB56Iw). Fork from [Lewisscrivens](https://github.com/Lewisscrivens/CS2-GameModifiers-Plugin). |
 | [CS2FunMatchPlugin](https://github.com/TitaniumLithium/CS2FunMatchPlugin) | `1.1.1` | Random fun mode every round |
-| [jRandomSkills](https://github.com/Juzlus/jRandomSkills) | `1.2.4.b3` | CS2, but every round is a SURPRISE. Inspiration from [NadeKings video](https://www.youtube.com/watch?v=OQQBUFB56Iw). |
+| [jRandomSkills](https://github.com/Juzlus/jRandomSkills) | `1.2.4.b6` | CS2, but every round is a SURPRISE. Inspiration from [NadeKings video](https://www.youtube.com/watch?v=OQQBUFB56Iw). |
 | [RollTheDice](https://github.com/Kandru/cs2-roll-the-dice) | `26.10.12` | Roll the dice to get either a positive or negative effect for the current round. |
 | [CS2-FixRandomSpawn](https://github.com/qstage/CS2-FixRandomSpawn) | `1.2.0` | Fixes ConVar `mp_randomspawn` for any game mode. |
 | [CS2-MutualScoringPlayers](https://github.com/qstage/CS2-MutualScoringPlayers) | `1.0.3` | Keeps score of kills between players. |
