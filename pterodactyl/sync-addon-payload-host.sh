@@ -88,16 +88,19 @@ done < <(
 )
 [[ ! -L "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf" ]] || die "Managed VDF must not be a symlink."
 
+mkdir -p -- "$MOUNT_ROOT"
+[[ ! -L "$MOUNT_ROOT" ]] || die "Payload mount root must not be a symlink."
 REVISION_ROOT="$MOUNT_ROOT/revisions"
 FINAL_REVISION="$REVISION_ROOT/$SOURCE_COMMIT"
-mkdir -p -- "$REVISION_ROOT"
 [[ ! -L "$REVISION_ROOT" ]] || die "Revision root must not be a symlink."
-[[ ! -e "$MOUNT_ROOT/.sync.lock" || ! -L "$MOUNT_ROOT/.sync.lock" ]] || die "Lock path must not be a symlink."
+mkdir -p -- "$REVISION_ROOT"
+[[ ! -L "$MOUNT_ROOT/.sync.lock" ]] || die "Lock path must not be a symlink."
 touch "$MOUNT_ROOT/.sync.lock"
 chmod 0644 "$MOUNT_ROOT/.sync.lock"
 
 validate_revision() {
     local root="$1"
+    [[ -d "$root" && ! -L "$root" ]] || return 1
     [[ -f "$root/.source-commit" && ! -L "$root/.source-commit" ]] || return 1
     [[ "$(tr -d '\r\n' < "$root/.source-commit")" == "$SOURCE_COMMIT" ]] || return 1
     [[ -d "$root/game/csgo/addons/counterstrikesharp/source" ]] || return 1
