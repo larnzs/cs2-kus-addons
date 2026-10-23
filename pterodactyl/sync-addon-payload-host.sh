@@ -83,7 +83,9 @@ while IFS= read -r -d '' link_path; do
     die "Symlink found in managed plugin source: $link_path"
 done < <(
     find "$CSS_SOURCE/plugins" -mindepth 1 \
-        \( -path "$CSS_SOURCE/plugins/BotAI" -o -path "$CSS_SOURCE/plugins/disabled" \) -prune \
+        \( -path "$CSS_SOURCE/plugins/BotAI" \
+           -o -path "$CSS_SOURCE/plugins/disabled" \
+           -o -path "$CSS_SOURCE/plugins/CS2UpdateMonitor" \) -prune \
         -o -type l -print0
 )
 [[ ! -L "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf" ]] || die "Managed VDF must not be a symlink."
@@ -105,6 +107,8 @@ validate_revision() {
     [[ "$(tr -d '\r\n' < "$root/.source-commit")" == "$SOURCE_COMMIT" ]] || return 1
     [[ -d "$root/game/csgo/addons/counterstrikesharp/source" ]] || return 1
     [[ -d "$root/game/csgo/addons/counterstrikesharp/plugins" ]] || return 1
+    # Do not publish CS2UpdateMonitor as an active plugin on new servers.
+    [[ ! -e "$root/game/csgo/addons/counterstrikesharp/plugins/CS2UpdateMonitor" ]] || return 1
     [[ -d "$root/game/csgo/addons/counterstrikesharp/shared" ]] || return 1
     [[ -d "$root/game/csgo/addons/counterstrikesharp/gamedata" ]] || return 1
     [[ -f "$root/game/csgo/addons/metamod/serverlistplayersfix_mm.vdf" ]] || return 1
@@ -132,8 +136,11 @@ else
     }
     copy_tree "$CSS_SOURCE/source" "$STAGING_CSS/source"
     mkdir -p -- "$STAGING_CSS/plugins"
-    rsync -a --safe-links --exclude='/BotAI/***' --exclude='/disabled/***' -- \
-        "$CSS_SOURCE/plugins/" "$STAGING_CSS/plugins/"
+    rsync -a --safe-links \
+        --exclude='/BotAI/***' \
+        --exclude='/disabled/***' \
+        --exclude='/CS2UpdateMonitor/***' \
+        -- "$CSS_SOURCE/plugins/" "$STAGING_CSS/plugins/"
     copy_tree "$CSS_SOURCE/shared" "$STAGING_CSS/shared"
     copy_tree "$CSS_SOURCE/gamedata" "$STAGING_CSS/gamedata"
     for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmanager; do
