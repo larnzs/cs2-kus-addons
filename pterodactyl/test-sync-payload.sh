@@ -15,14 +15,17 @@ TEST_SERVER_UUID="${FRAGCITY_TEST_SERVER_UUID:-00000000-0000-4000-8000-000000000
 commit="$(tr -d '\r\n' < "$PAYLOAD_BASE/CURRENT_COMMIT")"
 [[ "$commit" =~ ^[0-9a-f]{40}$ ]]
 [[ "$(tr -d '\r\n' < "$PAYLOAD_BASE/revisions/$commit/.source-commit")" == "$commit" ]]
+[[ ! -e "$PAYLOAD_BASE/revisions/$commit/game/csgo/addons/counterstrikesharp/plugins/CS2UpdateMonitor" ]]
 
 mkdir -p \
     "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI" \
     "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled" \
+    "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor" \
     "$GAME_ROOT/addons/counterstrikesharp/configs" \
     "$GAME_ROOT/cfg"
 printf 'protect-botai\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI/fragcity-test-keep.txt"
 printf 'protect-disabled\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-keep.txt"
+printf 'protect-update-monitor\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt"
 printf 'protect-css-config\n' > "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-keep.json"
 printf 'protect-game-config\n' > "$GAME_ROOT/cfg/fragcity-test-keep.cfg"
 
@@ -40,7 +43,8 @@ printf '%s\n' "$first_output"
 grep -Fq "Target server UUID: $TEST_SERVER_UUID." <<< "$first_output"
 grep -Fq "Using published payload revision $commit." <<< "$first_output"
 grep -Fq "Sync completed successfully." <<< "$first_output"
-grep -Fq "BotAI/ and disabled/ were not copied or pruned." <<< "$first_output"
+grep -Fq "BotAI/, disabled/, and CS2UpdateMonitor/ were not copied or pruned." <<< "$first_output"
+[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
 
 # Every allowlisted payload must be installed; no private repo metadata is staged.
 [[ -d "$GAME_ROOT/addons/counterstrikesharp/source" ]]
@@ -54,6 +58,7 @@ done
 # User-owned paths and manually managed configs must survive first sync and re-sync.
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI/fragcity-test-keep.txt")" == "protect-botai" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-keep.txt")" == "protect-disabled" ]]
+[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-keep.json")" == "protect-css-config" ]]
 [[ "$(cat "$GAME_ROOT/cfg/fragcity-test-keep.cfg")" == "protect-game-config" ]]
 
@@ -66,6 +71,7 @@ grep -Eq 'Files copied: 0; already matching SHA-256: [0-9]+; verified: [0-9]+; s
 
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI/fragcity-test-keep.txt")" == "protect-botai" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-keep.txt")" == "protect-disabled" ]]
+[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-keep.json")" == "protect-css-config" ]]
 [[ "$(cat "$GAME_ROOT/cfg/fragcity-test-keep.cfg")" == "protect-game-config" ]]
 
