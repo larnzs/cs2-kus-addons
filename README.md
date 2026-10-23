@@ -160,7 +160,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | Mod | Version in the KUS snapshot | Purpose |
 | --- | --- | --- |
 | [Metamod:Source](https://www.metamodsource.net/downloads.php?branch=dev) | `2.0.0-1483` | Sits between the Game and the Engine, and allows plugins to intercept calls that flow between |
-| [MultiAddonManager](https://github.com/Source2ZE/MultiAddonManager) | `1.6.2` | Allows you to use multiple workshop addons at once and have clients download them [How?](#i-want-to-permanently-enable-multi-addon-manager) |
+| [MultiAddonManager](https://github.com/Source2ZE/MultiAddonManager) | `1.7` | Allows you to use multiple workshop addons at once and have clients download them [How?](#i-want-to-permanently-enable-multi-addon-manager) |
 | [ServerListPlayersFix](https://github.com/Source2ZE/ServerListPlayersFix) | `2.0` | Fixes players not showing up in the server browser |
 | [MovementUnlocker](https://github.com/Source2ZE/MovementUnlocker) | `2.0.1` | Removes max speed limitation from players on the ground, feels like CS:S [How?](#i-run-a-surfkzbhop-server-and-want-movementunlocker-and-cs2fixes-rampbugfix-permanently-enabled) |
 | [CS2Fixes-RampbugFix](https://github.com/Interesting-exe/CS2Fixes-RampbugFix) | `5-1` | Minimizes rampbugs (needs to be enabled via `!settings` [How?](#i-run-a-surfkzbhop-server-and-want-movementunlocker-and-cs2fixes-rampbugfix-permanently-enabled)) |
