@@ -81,11 +81,12 @@ It then creates /var/lib/pterodactyl/fragcity-addon-provisioner/baseline-uuids.t
 
 ### Explicitly provision a test server
 
-Use the UUID of a newly created test server, not an existing production server. For the first FragCity test instance in the current rollout, the UUID was db90ea2c-8aa0-4ae1-9923-4a5fb82f9721.
+Use the UUID of a newly created test server, not an existing production server. Do not put a UUID in the script or unit files; supply the test server's UUID only for this explicit one-shot test command.
 
 ~~~bash
 cd /opt/fragcity/cs2-kus-addons
-php pterodactyl/provision-addon-servers.php --server db90ea2c-8aa0-4ae1-9923-4a5fb82f9721
+TEST_UUID="replace-with-the-new-test-server-uuid"
+php pterodactyl/provision-addon-servers.php --server "$TEST_UUID"
 ~~~
 
 This explicit mode may process a server that is in the baseline, but it still enforces the configured Egg/Node, exact UUID volume, mount definition, startup command, and Docker safety checks. A per-server processed marker makes repeated invocation a no-op.
@@ -131,8 +132,9 @@ This baseline is a critical safety barrier: **do not delete or regenerate it cas
 ## Useful commands
 
 ~~~bash
-# One-shot provisioning for a particular newly-created server:
-sudo php /opt/fragcity/cs2-kus-addons/pterodactyl/provision-addon-servers.php --server <server-uuid>
+# One-shot provisioning for a particular newly-created test server:
+read -r -p "New test server UUID: " TEST_UUID
+sudo php /opt/fragcity/cs2-kus-addons/pterodactyl/provision-addon-servers.php --server "$TEST_UUID"
 
 # Scan once for new eligible servers, without waiting for the timer:
 sudo php /opt/fragcity/cs2-kus-addons/pterodactyl/provision-addon-servers.php --watch
