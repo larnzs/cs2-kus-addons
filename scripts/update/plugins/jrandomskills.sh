@@ -4,32 +4,25 @@
 # README row:        [jRandomSkills](https://github.com/Juzlus/jRandomSkills)
 # Sourced by scripts/update/update.sh - do not run directly.
 #
-# Process (derived from the version-bump commits by Vinicius Trevisan: c6f2918d, 2870ad55,
-# 80a5c94d, 79c0cbc5, a455e6a0, 47ede6d0, 0ff6f7e6, 5f8ba4b6, and from the v1.2.4.b3 archive):
+# Process:
 #   1. Download the release zip, named jRandomSkills.v<version>.zip
 #   2. Extract it. The archive is laid out relative to addons/counterstrikesharp/:
 #        plugins/jRandomSkills/                plugin, its configs, languages and packages
 #        gamedata/jRandomSkills.gamedata.json  the signatures
-#   3. Replace game/csgo/addons/counterstrikesharp/plugins/disabled/jRandomSkills whole, and
-#      copy the gamedata over game/csgo/addons/counterstrikesharp/gamedata/.
-#   4. Delete the extracted folder
+#   3. Keep the managed copy under plugins/disabled/jRandomSkills so it remains
+#      disabled by default and can be enabled deliberately by a game mode.
+#   4. The updater's repository-wide non-destructive overlay policy preserves existing
+#      files and adds/updates release content; it never deletes stale files automatically.
 #
-# The plugin is kept under plugins/disabled/ in this repo; it is switched on per game mode.
+# This is an optional, disabled-by-default payload. Older integrated checkouts may not
+# contain its folder or gamedata file yet, so preflight allows a safe bootstrap while
+# still refusing symlink/type conflicts. The parent roots must exist.
 #
-# configs/config.json and configs/skillsInfo.json are NOT customised here: both are
-# byte-identical to the release, and since the folder was renamed from !jRandomSkills in
-# 4163c6bd every change to them has come from a version bump. So they are upstream-owned and
-# replaced, like the languages/ and packages/ files. The pre-rename "improvements" commits
-# (c6829731, 2703895d) predate that and are not customisations of the current paths.
+# configs/config.json and configs/skillsInfo.json are upstream-owned release content.
+# Existing copies are retained by the shared non-destructive updater policy.
 #
-# Replace-whole, not merge, because the manual history deletes files when a release stops
-# shipping them (a455e6a0 dropped jRandomSkills.pdb) and adds them back when it resumes
-# (47ede6d0). Note the repo currently carries WASDMenuAPI.pdb and jRandomSkills.pdb, which
-# v1.2.4.b3 does not ship, so the first run that applies an update will drop both.
-#
-# Release versions look like v1.2.4.b3, so NEW_VERSION is the bare 1.2.4.b3 after the usual
-# normalisation. The README table must hold the bare form too: a leading "v" there never
-# compares equal to the detected version and would report an update forever.
+# Release versions look like v1.2.4.b3, so NEW_VERSION is the bare 1.2.4.b3 after the
+# normalisation performed by check-updates.sh.
 
 PLUGIN_PATHS=(
     "game/csgo/addons/counterstrikesharp/plugins/disabled/jRandomSkills"
@@ -41,9 +34,16 @@ plugin_assets() {
 }
 
 plugin_preflight() {
-    require_dir  "game/csgo/addons/counterstrikesharp/plugins/disabled/jRandomSkills"
-    require_dir  "game/csgo/addons/counterstrikesharp/gamedata"
-    require_file "game/csgo/addons/counterstrikesharp/gamedata/jRandomSkills.gamedata.json"
+    local plugin_dir="game/csgo/addons/counterstrikesharp/plugins/disabled/jRandomSkills"
+    local gamedata_file="game/csgo/addons/counterstrikesharp/gamedata/jRandomSkills.gamedata.json"
+
+    require_dir "game/csgo/addons/counterstrikesharp/plugins/disabled"
+    require_dir "game/csgo/addons/counterstrikesharp/gamedata"
+
+    [[ ! -L "$plugin_dir" ]] || die "refusing to update jRandomSkills: target directory is a symlink"
+    [[ ! -e "$plugin_dir" || -d "$plugin_dir" ]] || die "refusing to update jRandomSkills: target exists but is not a directory"
+    [[ ! -L "$gamedata_file" ]] || die "refusing to update jRandomSkills: gamedata target is a symlink"
+    [[ ! -e "$gamedata_file" || -f "$gamedata_file" ]] || die "refusing to update jRandomSkills: gamedata target exists but is not a regular file"
 }
 
 plugin_apply() {
