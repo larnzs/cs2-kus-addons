@@ -12,7 +12,7 @@ WorkingDirectory=/opt/fragcity/cs2-kus-addons
 Environment=FRAGCITY_GIT_BRANCH=integration/kus-monorepo
 Environment=FRAGCITY_PAYLOAD_MOUNT=/var/lib/pterodactyl/mounts/fragcity-addon-payload
 Environment=FRAGCITY_KEEP_REVISIONS=5
-ExecStart=/opt/fragcity/cs2-kus-addons/pterodactyl/sync-addon-payload-host.sh
+ExecStart=/usr/bin/bash /opt/fragcity/cs2-kus-addons/pterodactyl/sync-addon-payload-host.sh
 TimeoutStartSec=10min
 UMask=0022
 ProtectSystem=full
