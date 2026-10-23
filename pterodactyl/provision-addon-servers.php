@@ -769,6 +769,17 @@ function main(array $argv): int
         fail('No Panel server was found with UUID ' . $serverUuid . '.');
     }
 
+    // Explicit provisioning is reserved for an intentionally named test server.
+    // Normal newly-created production/test servers are handled by --watch after
+    // the one-time baseline, so a mistyped UUID cannot provision an ordinary server.
+    if ($mode === '--server'
+        && preg_match('/^FragCity Payload Test(?:\\b|$)/i', (string) $server->name) !== 1) {
+        fail(
+            'Manual --server mode is restricted to Panel server names beginning with ' .
+            '"FragCity Payload Test". Normal new servers are handled by --watch after the baseline.'
+        );
+    }
+
     if ($mode === '--verify-server') {
         verifyOne(
             $server, $mount, $config['volumeRoot'], $config['payloadRoot'], $config['mountTarget']
