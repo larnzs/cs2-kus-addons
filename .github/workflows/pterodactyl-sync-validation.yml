@@ -114,7 +114,7 @@ jobs:
           # Failure-path regression: make this revision incomplete again, then make a
           # required source directory unreadable so staging fails after it has begun.
           # The publisher must keep CURRENT_COMMIT and the existing revision directory.
-          commit="$(tr -d '\\r\\n' < "$FRAGCITY_PAYLOAD_MOUNT/CURRENT_COMMIT")"
+          commit="$(tr -d '\r\n' < "$FRAGCITY_PAYLOAD_MOUNT/CURRENT_COMMIT")"
           disabled_tree="$FRAGCITY_PAYLOAD_MOUNT/revisions/$commit/game/csgo/addons/counterstrikesharp/plugins/disabled"
           chmod u+w -- "$(dirname -- "$disabled_tree")"
           chmod -R u+w -- "$disabled_tree"
