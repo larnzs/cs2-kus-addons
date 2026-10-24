@@ -34,6 +34,7 @@ command -v find >/dev/null 2>&1 || die "find is required."
 command -v flock >/dev/null 2>&1 || die "flock is required."
 command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required."
 command -v install >/dev/null 2>&1 || die "install is required."
+command -v cmp >/dev/null 2>&1 || die "cmp is required."
 command -v sort >/dev/null 2>&1 || die "sort is required."
 
 [[ "$MOUNT_ROOT" == /* ]] || die "FRAGCITY_PAYLOAD_MOUNT must be an absolute path."
@@ -289,3 +290,55 @@ while IFS=' ' read -r _mtime revision_name; do
 done < <(find "$REVISION_ROOT" -mindepth 1 -maxdepth 1 -type d -name '[0-9a-f]*' -printf '%T@ %f\n' | sort -rn)
 
 log "Payload staging finished successfully."
+# Keep the XFCE operator dashboard current from the same branch as the payload.
+# This affects only the root-owned host dashboard, never files inside game volumes.
+# The dashboard itself detects atomic replacement and reloads in an already-open window.
+publish_status_dashboard() {
+    [[ "$(id -u)" -eq 0 ]] || return 0
+
+    local dashboard_source="$REPO_ROOT/pterodactyl/systemd/fragcity-status-dashboard.sh"
+    local dashboard_target="/usr/local/libexec/fragcity-status-dashboard.sh"
+    local temporary
+
+    if [[ ! -f "$dashboard_source" || -L "$dashboard_source" ]]; then
+        log "WARNING: dashboard source is missing or unsafe; payload publishing remains successful."
+        return 0
+    fi
+    if ! bash -n "$dashboard_source"; then
+        log "WARNING: dashboard shell syntax check failed; installed dashboard was left unchanged."
+        return 0
+    fi
+    if [[ -L "/usr/local/libexec" || -L "$dashboard_target" ]]; then
+        log "WARNING: refusing dashboard deployment through a symlink; installed dashboard was left unchanged."
+        return 0
+    fi
+    if ! install -d -o root -g root -m 0755 /usr/local/libexec; then
+        log "WARNING: could not prepare /usr/local/libexec; payload publishing remains successful."
+        return 0
+    fi
+
+    temporary="$(mktemp /usr/local/libexec/.fragcity-status-dashboard.sh.XXXXXX)" || {
+        log "WARNING: could not create an atomic dashboard update file."
+        return 0
+    }
+    if ! install -o root -g root -m 0755 -- "$dashboard_source" "$temporary"; then
+        rm -f -- "$temporary"
+        log "WARNING: could not stage the new dashboard; installed dashboard was left unchanged."
+        return 0
+    fi
+
+    if [[ -f "$dashboard_target" ]] && cmp -s -- "$temporary" "$dashboard_target"; then
+        rm -f -- "$temporary"
+        return 0
+    fi
+
+    if mv -f -- "$temporary" "$dashboard_target"; then
+        log "Updated live status dashboard. Any open dashboard window will reload the new UI automatically."
+    else
+        rm -f -- "$temporary"
+        log "WARNING: could not publish the dashboard update; installed dashboard was left unchanged."
+    fi
+}
+
+publish_status_dashboard
+
