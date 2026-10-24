@@ -24,7 +24,8 @@ Example for a deliberately selected new/test server:
 
 ```bash
 cd /opt/fragcity/cs2-kus-addons || exit 1
-FRAGCITY_BASELINE_EXCLUDE_UUID='7d859327-c028-4bf6-9071-c048ce795a95' \
+NEW_SERVER_UUID='replace-with-the-new-server-uuid'
+FRAGCITY_BASELINE_EXCLUDE_UUID="$NEW_SERVER_UUID" \
 FRAGCITY_ENABLE_TIMERS=1 \
 bash pterodactyl/install-host-services.sh
 ```
