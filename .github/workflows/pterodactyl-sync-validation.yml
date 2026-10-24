@@ -45,7 +45,14 @@ jobs:
 
           grep -Fq 'publish_status_dashboard' pterodactyl/sync-addon-payload-host.sh
           grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/systemd/fragcity-status-dashboard.sh
-          grep -Fq 'print_active_switch' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'paint_switch' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'HOST HEALTH' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'SERVICE HEALTH' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'ACTIVE MOUNTED SERVERS' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'server-mount-status.php' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'NETWORK SNAPSHOT' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'LATEST AUTOMATION EVENTS' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'MOUNT_REFRESH_SECONDS' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/fragcity-manager.sh
           grep -Fq 'enable --now' pterodactyl/fragcity-manager.sh
           grep -Fq 'disable --now' pterodactyl/fragcity-manager.sh
