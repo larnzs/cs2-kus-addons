@@ -47,7 +47,7 @@ function usage(): void
 FragCity Pterodactyl addon provisioner
 
 Usage:
-  php provision-addon-servers.php --initialize-baseline
+  php provision-addon-servers.php --initialize-baseline [--exclude <server-uuid>]
   php provision-addon-servers.php --server <server-uuid>
   php provision-addon-servers.php --verify-server <server-uuid>
   php provision-addon-servers.php --watch
@@ -826,6 +826,7 @@ function main(array $argv): int
     }
 
     $serverUuid = null;
+    $baselineExcludeUuid = null;
     if (in_array($mode, ['--server', '--verify-server'], true)) {
         $serverUuid = $argv[2] ?? '';
         if (!validUuid($serverUuid)) {
@@ -838,7 +839,19 @@ function main(array $argv): int
             usage();
             return 2;
         }
-    } elseif (!in_array($mode, ['--initialize-baseline', '--watch'], true) || isset($argv[2])) {
+    } elseif ($mode === '--initialize-baseline') {
+        if (isset($argv[2])) {
+            if (($argv[2] ?? '') !== '--exclude'
+                || !isset($argv[3])
+                || isset($argv[4])
+                || !validUuid((string) $argv[3])) {
+                fwrite(STDERR, "ERROR: --initialize-baseline accepts only --exclude followed by one canonical lowercase UUID.\n");
+                usage();
+                return 2;
+            }
+            $baselineExcludeUuid = (string) $argv[3];
+        }
+    } elseif ($mode !== '--watch' || isset($argv[2])) {
         fwrite(STDERR, "ERROR: invalid arguments.\n");
         usage();
         return 2;
@@ -886,16 +899,36 @@ function main(array $argv): int
         }
 
         $servers = eligibleServers($mount);
-        $uuids = [];
+        $eligibleUuids = [];
         foreach ($servers as $server) {
-            if (!validUuid((string) $server->uuid)) {
+            $uuid = (string) $server->uuid;
+            if (!validUuid($uuid)) {
                 fail('Panel returned an invalid UUID while creating the baseline.');
             }
-            $uuids[] = (string) $server->uuid;
+            $eligibleUuids[$uuid] = $uuid;
         }
+
+        if ($baselineExcludeUuid !== null) {
+            if (!isset($eligibleUuids[$baselineExcludeUuid])) {
+                fail(
+                    'The explicitly excluded UUID is not currently eligible for the configured Mount/Egg/Node: ' .
+                    $baselineExcludeUuid
+                );
+            }
+            unset($eligibleUuids[$baselineExcludeUuid]);
+            logLine(
+                'Explicitly excluded ' . $baselineExcludeUuid .
+                ' from the one-time baseline; it remains eligible for the watcher.'
+            );
+        }
+
+        $uuids = array_values($eligibleUuids);
         sort($uuids, SORT_STRING);
         writeAtomically($baselinePath, implode(PHP_EOL, $uuids) . ($uuids === [] ? '' : PHP_EOL));
         logLine('Baseline initialized with ' . count($uuids) . ' currently eligible server(s).');
+        if ($baselineExcludeUuid !== null) {
+            logLine('One explicitly excluded eligible server will be picked up by --watch when it is ready.');
+        }
         logLine('No server volumes, Mount assignments, Docker containers, or startup commands were changed.');
         return 0;
     }
