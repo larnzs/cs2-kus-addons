@@ -21,11 +21,11 @@
 #   Egg-managed Metamod/CounterStrikeSharp runtime directories
 #
 # Configs are one-time first-install seed files, not update-managed files:
-#   Only a newly provisioned volume carrying .fragcity-config-seed-v1.pending
-#   receives the repository CounterStrikeSharp configs/, listed custom cfg/ files,
-#   and five top-level CS2 config/list files. On success, a per-volume done marker
-#   is committed. Existing/legacy volumes without a pending marker are marked as
-#   legacy and their configs are never overwritten or pruned by later starts.
+#   Only a newly provisioned volume carrying .fragcity-config-seed-v1.state with
+#   mode=pending receives the repository CounterStrikeSharp configs/, listed custom
+#   cfg/ files, and five top-level CS2 config/list files. On success, mode=completed
+#   is appended to that per-volume state file. Existing volumes without a state file
+#   are treated as legacy and their configs are never overwritten or pruned.
 # Plugin/source/shared/gamedata and allowlisted addon payloads continue to sync
 # every normal server start with SHA-256 validation and stale managed-file cleanup.
 
