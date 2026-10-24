@@ -58,6 +58,9 @@ mkdir -p \
     "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI" \
     "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled" \
     "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor" \
+    "$GAME_ROOT/addons/counterstrikesharp/plugins/PlayerSettings" \
+    "$GAME_ROOT/addons/counterstrikesharp/plugins/SimpleAdmin/data" \
+    "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/maps" \
     "$GAME_ROOT/addons/counterstrikesharp/configs" \
     "$GAME_ROOT/cfg"
 # Simulate stock game files that are not present in the repository payload.
@@ -67,6 +70,10 @@ printf 'stock-machine-convars\n' > "$GAME_ROOT/cfg/machine_convars_default.vcfg"
 printf 'protect-botai\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI/fragcity-test-keep.txt"
 printf 'stale-disabled-marker\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt"
 printf 'protect-update-monitor\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt"
+printf 'persistent-player-settings-db\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/PlayerSettings/settings.sqlite"
+printf 'persistent-admin-bans-db\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/SimpleAdmin/bans.db"
+printf 'persistent-simpleadmin-data\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/SimpleAdmin/data/groups.json"
+printf '{"customer":"map data must persist"}\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/maps/de_dust2.json"
 printf 'stale-config-marker\n' > "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json"
 printf 'stale-cfg-marker\n' > "$GAME_ROOT/cfg/fragcity-test-stale.cfg"
 # Simulate the marker created by the provisioner for a newly created server.
@@ -183,11 +190,20 @@ grep -Fq "First-install config seed completed successfully" <<< "$first_output"
 [[ -f "$TEST_ROOT/.fragcity-config-seed-v1.state" && ! -L "$TEST_ROOT/.fragcity-config-seed-v1.state" ]]
 grep -Fxq "mode=completed" "$TEST_ROOT/.fragcity-config-seed-v1.state"
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
-[[ ! -e "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt" ]]
+[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt")" == "stale-disabled-marker" ]]
 [[ -e "$disabled_target" && ! -L "$disabled_target" ]]
 [[ "$(sha256sum -- "$disabled_sample" | awk '{print $1}')" == "$(sha256sum -- "$disabled_target" | awk '{print $1}')" ]]
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json" ]]
 [[ -e "$GAME_ROOT/cfg/fragcity-test-stale.cfg" ]]
+[[ -f "$TEST_ROOT/.fragcity-managed-payload-v1.list" ]]
+! grep -Fq 'PlayerSettings/settings.sqlite' "$TEST_ROOT/.fragcity-managed-payload-v1.list"
+! grep -Fq 'SimpleAdmin/bans.db' "$TEST_ROOT/.fragcity-managed-payload-v1.list"
+! grep -Fq 'SimpleAdmin/data/groups.json' "$TEST_ROOT/.fragcity-managed-payload-v1.list"
+! grep -Fq 'CS2-Poor-MapPropAds/maps/de_dust2.json' "$TEST_ROOT/.fragcity-managed-payload-v1.list"
+[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/PlayerSettings/settings.sqlite")" == "persistent-player-settings-db" ]]
+[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/SimpleAdmin/bans.db")" == "persistent-admin-bans-db" ]]
+[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/SimpleAdmin/data/groups.json")" == "persistent-simpleadmin-data" ]]
+[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/maps/de_dust2.json")" == '{"customer":"map data must persist"}' ]]
 assert_tree_mirror "$CONFIGS_SOURCE" "$GAME_ROOT/addons/counterstrikesharp/configs" "CounterStrikeSharp configs"
 assert_payload_files_present "$CFG_SOURCE" "$GAME_ROOT/cfg" "game/csgo/cfg"
 for stock_file in user_keys_default.vcfg gamemode_competitive.cfg machine_convars_default.vcfg; do
@@ -226,6 +242,8 @@ done
 
 # A stale plugin file should still be removed after all desired addon copies verify.
 printf 'stale\n' > "$GAME_ROOT/addons/counterstrikesharp/source/fragcity-sync-test-stale.tmp"
+# These two entries simulate files owned by the previous payload that are now stale.
+printf '%s\n' 'addons/counterstrikesharp/source/fragcity-sync-test-stale.tmp' 'addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt' >> "$TEST_ROOT/.fragcity-managed-payload-v1.list"
 set +e
 second_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
 second_status=$?
@@ -237,13 +255,17 @@ if [[ "$second_status" -ne 0 ]]; then
     exit 1
 fi
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/source/fragcity-sync-test-stale.tmp" ]]
-grep -Eq 'Files copied: 0; already matching SHA-256: [0-9]+; verified: [0-9]+; stale files removed: 1\.' <<< "$second_output"
+grep -Eq 'Files copied: 0; already matching SHA-256: [0-9]+; verified: [0-9]+; stale files removed: 2\.' <<< "$second_output"
 
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI/fragcity-test-keep.txt")" == "protect-botai" ]]
-[[ ! -e "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt" ]]
+[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt")" == "stale-disabled-marker" ]]
 [[ -e "$disabled_target" && ! -L "$disabled_target" ]]
 [[ "$(sha256sum -- "$disabled_sample" | awk '{print $1}')" == "$(sha256sum -- "$disabled_target" | awk '{print $1}')" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
+[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/PlayerSettings/settings.sqlite")" == "persistent-player-settings-db" ]]
+[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/SimpleAdmin/bans.db")" == "persistent-admin-bans-db" ]]
+[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/SimpleAdmin/data/groups.json")" == "persistent-simpleadmin-data" ]]
+[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/maps/de_dust2.json")" == '{"customer":"map data must persist"}' ]]
 [[ "$(cat "$configs_sample_target")" == "customer-customized-config" ]]
 [[ "$(cat "$cfg_sample_target")" == "customer-customized-cfg" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json")" == "customer-added-after-seed" ]]
