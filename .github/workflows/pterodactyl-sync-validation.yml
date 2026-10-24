@@ -75,6 +75,20 @@ jobs:
           test -f "$FRAGCITY_PAYLOAD_MOUNT/.sync.lock"
           test -f "$FRAGCITY_PAYLOAD_MOUNT/sync-addon-payload-container.sh"
 
+      - name: Verify publisher repairs a revision missing disabled plugins
+        shell: bash
+        env:
+          FRAGCITY_PAYLOAD_MOUNT: ${{ runner.temp }}/fragcity-addon-payload
+        run: |
+          set -euo pipefail
+          commit="$(tr -d '\r\n' < "$FRAGCITY_PAYLOAD_MOUNT/CURRENT_COMMIT")"
+          disabled_tree="$FRAGCITY_PAYLOAD_MOUNT/revisions/$commit/game/csgo/addons/counterstrikesharp/plugins/disabled"
+          test -n "$(find "$disabled_tree" -type f -print -quit)"
+          # Simulate a previously published but incomplete revision in the temporary CI mount.
+          rm -rf -- "$disabled_tree"
+          bash pterodactyl/sync-addon-payload-host.sh
+          test -n "$(find "$disabled_tree" -type f -print -quit)"
+
       - name: Test container sync, idempotency, stale-file cleanup, and exclusions
         shell: bash
         env:
