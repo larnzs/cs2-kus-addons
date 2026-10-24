@@ -161,7 +161,20 @@ revision_permissions_ok() {
 if [[ -d "$FINAL_REVISION" ]] && validate_revision "$FINAL_REVISION" && revision_permissions_ok "$FINAL_REVISION"; then
     log "Revision is already staged and passes the required-file checks."
 else
-    [[ ! -e "$FINAL_REVISION" ]] || rm -rf -- "$FINAL_REVISION"
+    # Published revisions are intentionally read-only. Before discarding an invalid
+    # revision, restore owner-write on its directories/files so rm can safely remove
+    # the tree even when this script runs as the non-root CI owner of the temp mount.
+    # The revision name is derived from the validated 40-character Git commit SHA.
+    if [[ -e "$FINAL_REVISION" || -L "$FINAL_REVISION" ]]; then
+        [[ "$FINAL_REVISION" == "$REVISION_ROOT/$SOURCE_COMMIT" ]] || die "Refusing to remove unexpected revision path: $FINAL_REVISION"
+        if [[ -L "$FINAL_REVISION" ]]; then
+            rm -f -- "$FINAL_REVISION" || die "Could not remove invalid revision symlink: $FINAL_REVISION"
+        else
+            [[ -d "$FINAL_REVISION" ]] || die "Invalid revision path exists but is not a directory: $FINAL_REVISION"
+            chmod -R u+w -- "$FINAL_REVISION" || die "Could not make invalid revision removable: $FINAL_REVISION"
+            rm -rf -- "$FINAL_REVISION" || die "Could not remove incomplete revision: $FINAL_REVISION"
+        fi
+    fi
     STAGING="$(mktemp -d "$REVISION_ROOT/.staging.XXXXXX")"
     trap 'if [[ -n "${STAGING:-}" && -d "$STAGING" ]]; then rm -rf -- "$STAGING"; fi' EXIT
     STAGING_GAME="$STAGING/game/csgo"
