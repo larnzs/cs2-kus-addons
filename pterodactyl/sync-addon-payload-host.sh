@@ -36,6 +36,8 @@ command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required."
 command -v install >/dev/null 2>&1 || die "install is required."
 command -v cmp >/dev/null 2>&1 || die "cmp is required."
 command -v sort >/dev/null 2>&1 || die "sort is required."
+command -v grep >/dev/null 2>&1 || die "grep is required."
+command -v wc >/dev/null 2>&1 || die "wc is required."
 
 [[ "$MOUNT_ROOT" == /* ]] || die "FRAGCITY_PAYLOAD_MOUNT must be an absolute path."
 case "/$MOUNT_ROOT/" in *"/../"*) die "FRAGCITY_PAYLOAD_MOUNT must not contain '..'." ;; esac
