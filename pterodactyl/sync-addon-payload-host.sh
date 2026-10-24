@@ -157,7 +157,11 @@ validate_revision() {
     grep -Fxq 'disabled' "$plugin_inventory" || return 1
     while IFS= read -r plugin_name || [[ -n "$plugin_name" ]]; do
         [[ "$plugin_name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || return 1
-        [[ "$plugin_name" != "BotAI" && "$plugin_name" != "CS2UpdateMonitor" ]] || return 1
+        # BotAI and CS2UpdateMonitor are intentionally not copied by this payload,
+        # but their presence in GitHub still keeps their existing target dirs valid.
+        case "$plugin_name" in
+            BotAI|CS2UpdateMonitor) continue ;;
+        esac
         [[ -d "$root/game/csgo/addons/counterstrikesharp/plugins/$plugin_name" && ! -L "$root/game/csgo/addons/counterstrikesharp/plugins/$plugin_name" ]] || return 1
     done < "$plugin_inventory"
     [[ "$(sort -u "$plugin_inventory" | wc -l)" -eq "$(wc -l < "$plugin_inventory")" ]] || return 1
@@ -238,11 +242,8 @@ else
     # to retire directories removed from the repository, including on legacy
     # volumes that do not yet have a previous managed-file manifest.
     PLUGIN_INVENTORY="$STAGING/.fragcity-plugin-inventory-v1.list"
-    find "$STAGING_CSS/plugins" -mindepth 1 -maxdepth 1 -type d -printf '%f\\n' | LC_ALL=C sort > "$PLUGIN_INVENTORY"
-    grep -Fxq 'disabled' "$PLUGIN_INVENTORY" || die "Staged plugin inventory is missing the reserved disabled/ directory."
-    if grep -Fxq 'BotAI' "$PLUGIN_INVENTORY" || grep -Fxq 'CS2UpdateMonitor' "$PLUGIN_INVENTORY"; then
-        die "Staged plugin inventory must exclude separately managed BotAI/ and CS2UpdateMonitor/ directories."
-    fi
+    find "$CSS_SOURCE/plugins" -mindepth 1 -maxdepth 1 -type d -printf '%f\\n' | LC_ALL=C sort > "$PLUGIN_INVENTORY"
+    grep -Fxq 'disabled' "$PLUGIN_INVENTORY" || die "GitHub plugin inventory is missing the reserved disabled/ directory."
     validate_revision "$STAGING" || die "Staged revision failed required-file validation."
 
     # Immutable for containers, but readable/traversable by the non-root game user.
