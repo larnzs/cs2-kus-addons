@@ -62,49 +62,32 @@ case "$GAME_ROOT" in
 esac
 [[ -d "$SERVER_ROOT" && ! -L "$SERVER_ROOT" ]] || die "Server volume root is missing or unsafe: $SERVER_ROOT"
 
-CONFIG_SEED_PENDING="$SERVER_ROOT/.fragcity-config-seed-v1.pending"
-CONFIG_SEED_DONE="$SERVER_ROOT/.fragcity-config-seed-v1.done"
-CONFIG_SEED_LEGACY="$SERVER_ROOT/.fragcity-config-seed-v1.legacy"
+CONFIG_SEED_STATE="$SERVER_ROOT/.fragcity-config-seed-v1.state"
 CONFIG_SEED_ACTIVE=0
 
-for marker_path in "$CONFIG_SEED_PENDING" "$CONFIG_SEED_DONE" "$CONFIG_SEED_LEGACY"; do
-    [[ ! -L "$marker_path" ]] || die "Config seed marker must not be a symlink: $marker_path"
-    [[ ! -e "$marker_path" || -f "$marker_path" ]] || die "Config seed marker must be a regular file: $marker_path"
-done
+[[ ! -L "$CONFIG_SEED_STATE" ]] || die "Config seed state file must not be a symlink: $CONFIG_SEED_STATE"
+[[ ! -e "$CONFIG_SEED_STATE" || -f "$CONFIG_SEED_STATE" ]] || die "Config seed state path must be a regular file: $CONFIG_SEED_STATE"
 
-if [[ -f "$CONFIG_SEED_DONE" ]]; then
-    grep -Fxq 'fragcity-config-seed-v1' "$CONFIG_SEED_DONE" \
-        && grep -Fxq "server_uuid=$SERVER_UUID" "$CONFIG_SEED_DONE" \
-        || die "Completed config-seed marker does not match this server UUID."
-    log "First-install config seed already completed; all cfg/configs/txt files will be preserved."
-elif [[ -f "$CONFIG_SEED_LEGACY" ]]; then
-    grep -Fxq 'fragcity-config-seed-v1' "$CONFIG_SEED_LEGACY" \
-        && grep -Fxq "server_uuid=$SERVER_UUID" "$CONFIG_SEED_LEGACY" \
-        || die "Legacy config-preservation marker does not match this server UUID."
-    log "Legacy server detected; preserving all existing cfg/configs/txt files."
-elif [[ -f "$CONFIG_SEED_PENDING" ]]; then
-    grep -Fxq 'fragcity-config-seed-v1' "$CONFIG_SEED_PENDING" \
-        && grep -Fxq "server_uuid=$SERVER_UUID" "$CONFIG_SEED_PENDING" \
-        || die "Pending first-install config marker does not match this server UUID."
-    CONFIG_SEED_ACTIVE=1
-    log "New-server first-install config seed is pending; config files will be installed once."
-else
-    # Existing servers provisioned before this feature have no pending marker.
-    # Record that they are legacy so the new seed is never accidentally applied
-    # to a customer's established settings on a later restart.
-    legacy_tmp="$SERVER_ROOT/.fragcity-config-seed-v1.legacy.tmp.$BASHPID"
-    [[ ! -e "$legacy_tmp" && ! -L "$legacy_tmp" ]] || die "Legacy marker temp path already exists."
-    printf 'fragcity-config-seed-v1\nserver_uuid=%s\nmode=preserve-existing\n' "$SERVER_UUID" > "$legacy_tmp"
-    chmod 0644 "$legacy_tmp"
-    if [[ ! -e "$CONFIG_SEED_PENDING" && ! -e "$CONFIG_SEED_DONE" && ! -e "$CONFIG_SEED_LEGACY" ]]; then
-        mv -- "$legacy_tmp" "$CONFIG_SEED_LEGACY"
+if [[ -f "$CONFIG_SEED_STATE" ]]; then
+    grep -Fxq 'fragcity-config-seed-v1' "$CONFIG_SEED_STATE" \
+        && grep -Fxq "server_uuid=$SERVER_UUID" "$CONFIG_SEED_STATE" \
+        || die "Config-seed state does not match this server UUID."
+    if grep -Fxq 'mode=completed' "$CONFIG_SEED_STATE"; then
+        log "First-install config seed already completed; all cfg/configs/txt files will be preserved."
+    elif grep -Fxq 'mode=pending' "$CONFIG_SEED_STATE"; then
+        [[ -w "$CONFIG_SEED_STATE" ]] || die "Pending config-seed state is not writable; refusing to seed configs without being able to record completion."
+        CONFIG_SEED_ACTIVE=1
+        log "New-server first-install config seed is pending; config files will be installed once."
     else
-        rm -f -- "$legacy_tmp"
+        die "Config-seed state has no recognized pending/completed mode."
     fi
+else
+    # Existing servers from before this feature have no state marker. Do not
+    # initialize a seed marker here: no marker means preserve all customer config.
     log "No first-install marker found; treating this as an existing server and preserving all cfg/configs/txt files."
 fi
 
-for command_name in sha256sum find cp mkdir rm awk flock tr chmod dirname grep mv; do
+for command_name in sha256sum find cp mkdir rm awk flock tr chmod dirname grep; do
     command -v "$command_name" >/dev/null 2>&1 || die "$command_name is required."
 done
 
@@ -386,13 +369,11 @@ for managed_root in "${MANAGED_ROOTS[@]}"; do
 done
 
 if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
-    done_tmp="$SERVER_ROOT/.fragcity-config-seed-v1.done.tmp.$BASHPID"
-    [[ ! -e "$done_tmp" && ! -L "$done_tmp" ]] || die "Config-seed completion temp path already exists."
-    printf 'fragcity-config-seed-v1\nserver_uuid=%s\nmode=completed\nsource_commit=%s\n' "$SERVER_UUID" "$SOURCE_COMMIT" > "$done_tmp"
-    chmod 0644 "$done_tmp"
-    [[ ! -L "$CONFIG_SEED_DONE" && ! -e "$CONFIG_SEED_DONE" ]] || die "Config-seed completion marker already exists or is unsafe."
-    mv -- "$done_tmp" "$CONFIG_SEED_DONE"
-    rm -f -- "$CONFIG_SEED_PENDING"
+    # The host provisioner creates this per-volume state file with mode 0666:
+    # the isolated game-container user can record completion even if it cannot
+    # create new entries in the root of the bind-mounted server volume.
+    printf 'mode=completed\nsource_commit=%s\ncompleted_at_utc=%s\n' "$SOURCE_COMMIT" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$CONFIG_SEED_STATE" \
+        || die "Could not record one-time config-seed completion; refusing to report a successful sync."
     log "First-install config seed completed successfully; future starts will never overwrite or prune cfg/configs/txt files."
 else
     log "First-install config seed not active; all existing cfg/configs/txt settings were preserved."
