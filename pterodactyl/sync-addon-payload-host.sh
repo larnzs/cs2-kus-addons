@@ -7,8 +7,9 @@
 #
 # It stages a minimal allowlisted payload into immutable revisions and publishes
 # the selected revision by atomically replacing CURRENT_COMMIT. The matching
-# container-side synchronizer uses SHA-256 and preserves user-owned BotAI/,
-# cfg/configs, and Egg-managed framework runtimes. plugins/disabled/ is payload-managed.
+# container-side synchronizer uses SHA-256, preserves the active BotAI/ and
+# CS2UpdateMonitor/ plugin directories plus Egg-managed runtimes, and manages
+# plugins/disabled/, CounterStrikeSharp configs/, cfg/, and five top-level CS2 files.
 #
 # Environment overrides:
 #   FRAGCITY_PAYLOAD_MOUNT  default /var/lib/pterodactyl/mounts/fragcity-addon-payload
