@@ -225,7 +225,7 @@ done
 
 # User-owned plugin directories remain untouched; config files are seeded once and then preserved.
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI/fragcity-test-keep.txt")" == "protect-botai" ]]
-[[ ! -e "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt" ]]
+[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt")" == "stale-disabled-marker" ]]
 [[ -f "$disabled_target" ]]
 [[ "$(sha256sum -- "$disabled_sample" | awk '{print $1}')" == "$(sha256sum -- "$disabled_target" | awk '{print $1}')" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
@@ -258,7 +258,7 @@ fi
 grep -Eq 'Files copied: 0; already matching SHA-256: [0-9]+; verified: [0-9]+; stale files removed: 2\.' <<< "$second_output"
 
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI/fragcity-test-keep.txt")" == "protect-botai" ]]
-[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt")" == "stale-disabled-marker" ]]
+[[ ! -e "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt" ]]
 [[ -e "$disabled_target" && ! -L "$disabled_target" ]]
 [[ "$(sha256sum -- "$disabled_sample" | awk '{print $1}')" == "$(sha256sum -- "$disabled_target" | awk '{print $1}')" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
