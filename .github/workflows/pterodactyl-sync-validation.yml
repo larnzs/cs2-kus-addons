@@ -49,6 +49,10 @@ jobs:
           grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/fragcity-manager.sh
           grep -Fq 'enable --now' pterodactyl/fragcity-manager.sh
           grep -Fq 'disable --now' pterodactyl/fragcity-manager.sh
+          grep -Fq 'installation_wizard()' pterodactyl/fragcity-manager.sh
+          grep -Fq 'Full first install / reinstall / repair' pterodactyl/fragcity-manager.sh
+          grep -Fq "FRAGCITY_LAUNCH_DASHBOARD=0" pterodactyl/fragcity-manager.sh
+          grep -Fq 'FRAGCITY_LAUNCH_DASHBOARD' pterodactyl/install-host-services.sh
           grep -Fq 'Exec=xfce4-terminal' pterodactyl/FragCity-Control-Center.desktop
           for screen in screen_docker screen_wings screen_cs2node screen_php screen_nginx screen_panel screen_mariadb screen_redis screen_all screen_host; do
             grep -Fq "$screen()" pterodactyl/fragcity-manager.sh
