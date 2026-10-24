@@ -234,6 +234,11 @@ add_tree() {
     if [[ "$skip_protected_plugin_dirs" -eq 1 ]]; then
         while IFS= read -r -d '' source_file; do
             relative_file="${source_file#"$source_dir"/}"
+            if is_protected_plugin_runtime_path "$target_relative_dir/$relative_file"; then
+                # Runtime data must never be sourced from the repository or placed
+                # in the managed manifest even if it is accidentally committed there.
+                continue
+            fi
             add_file "$target_relative_dir/$relative_file" "$source_file"
         done < <(
             find "$source_dir" -mindepth 1 \
@@ -270,6 +275,22 @@ assert_no_symlink_parent_components() {
 
 # Only files actually supplied by this payload may be stale-pruned. Files generated
 # by plugins (SQLite databases, bans, per-map JSON data, etc.) are unmanaged.
+is_protected_plugin_runtime_path() {
+    local path="$1"
+    case "$path" in
+        addons/counterstrikesharp/plugins/PlayerSettings/settings.sqlite|\
+        addons/counterstrikesharp/plugins/SimpleAdmin/bans.db|\
+        addons/counterstrikesharp/plugins/SimpleAdmin/data/*|\
+        addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/maps/*.json|\
+        addons/counterstrikesharp/plugins/*/*.db|\
+        addons/counterstrikesharp/plugins/*/*.sqlite|\
+        addons/counterstrikesharp/plugins/*/*.sqlite3)
+            return 0
+            ;;
+    esac
+    return 1
+}
+
 is_payload_managed_path() {
     local path="$1"
     [[ -n "$path" && "$path" != /* && "$path" != *".."* && "$path" != *"//"* ]] || return 1
@@ -289,6 +310,9 @@ is_payload_managed_path() {
             return 1
             ;;
     esac
+    if is_protected_plugin_runtime_path "$path"; then
+        return 1
+    fi
     case "$path" in
         addons/counterstrikesharp/plugins/BotAI|addons/counterstrikesharp/plugins/BotAI/*|\
         addons/counterstrikesharp/plugins/CS2UpdateMonitor|addons/counterstrikesharp/plugins/CS2UpdateMonitor/*)
