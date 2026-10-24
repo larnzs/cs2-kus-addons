@@ -1,19 +1,35 @@
 #!/usr/bin/env bash
-# Live, colorized FragCity dashboard. The publisher atomically replaces this file;
-# the running window detects the changed checksum and execs the latest version.
+# FragCity live node monitor: host health, services, automation and real Docker Mount state.
+# The host publisher deploys this script atomically; this process hot-reloads on checksum change.
 set -o pipefail
 
 PAYLOAD_ROOT="${FRAGCITY_PAYLOAD_SOURCE:-/var/lib/pterodactyl/mounts/fragcity-addon-payload}"
 STATE_ROOT="${FRAGCITY_PROVISIONER_STATE:-/var/lib/pterodactyl/fragcity-addon-provisioner}"
 REPO_ROOT="${FRAGCITY_REPO_ROOT:-/opt/fragcity/cs2-kus-addons}"
 REFRESH_SECONDS="${FRAGCITY_STATUS_REFRESH_SECONDS:-5}"
-UI_VERSION="2.0-live"
+MOUNT_REFRESH_SECONDS="${FRAGCITY_STATUS_MOUNT_REFRESH_SECONDS:-15}"
 
 [[ "$REFRESH_SECONDS" =~ ^[1-9][0-9]*$ ]] || REFRESH_SECONDS=5
+[[ "$MOUNT_REFRESH_SECONDS" =~ ^[5-9][0-9]*$|^[1-9][0-9]+$ ]] || MOUNT_REFRESH_SECONDS=15
+UI_VERSION="3.0-live-grid"
 SELF_PATH="$(readlink -f -- "$0" 2>/dev/null || printf '%s' "$0")"
-STARTUP_SHA="$(sha256sum -- "$SELF_PATH" 2>/dev/null | awk '{print $1}')"
 
-if [[ -t 1 && -z "${NO_COLOR:-}" && "${TERM:-dumb}" != "dumb" ]]; then
+# This inventory deliberately requires root because it reads Panel's database and
+# Docker's actual Mounts. Elevate in the visible terminal so the status is truthful.
+if [[ "$(id -u)" -ne 0 ]]; then
+  if command -v sudo >/dev/null 2>&1 && [[ -t 0 ]]; then
+    exec sudo -E /bin/bash "$SELF_PATH" "$@"
+  fi
+  printf 'FragCity dashboard needs root access to inspect actual Docker Mounts.\n'
+  printf 'Launch it from an interactive terminal with sudo.\n'
+  exit 1
+fi
+
+STARTUP_SHA="$(sha256sum -- "$SELF_PATH" 2>/dev/null | awk '{print $1}')"
+term_value="$(printenv TERM 2>/dev/null || printf 'dumb')"
+no_color_value="$(printenv NO_COLOR 2>/dev/null || true)"
+
+if [[ -t 1 && -z "$no_color_value" && "$term_value" != "dumb" ]]; then
   C_RESET=$'\033[0m'
   C_BOLD=$'\033[1m'
   C_DIM=$'\033[2m'
@@ -37,176 +53,320 @@ else
   C_WHITE=''
 fi
 
-unit_exists() {
-  systemctl cat "$1" >/dev/null 2>&1
-}
+MOUNT_STATUS_OUTPUT=''
+MOUNT_STATUS_ERROR=''
+MOUNT_LAST_REFRESH=0
+MOUNT_ID='?'
+MOUNT_SOURCE="$PAYLOAD_ROOT"
+MOUNT_TARGET='/home/container/egg/fragcity-payload'
+MOUNT_ELIGIBLE=0
+MOUNT_PANEL_ON=0
+MOUNT_PANEL_OFF=0
+MOUNT_DOCKER_ON=0
+MOUNT_DOCKER_OFF=0
+MOUNT_PENDING=0
+MOUNT_UNKNOWN=0
+MOUNT_PROCESSED=0
+MOUNT_STARTUP=0
+MOUNT_ACTIVE_COUNT=0
+MOUNT_INACTIVE_NAMES=''
+MOUNT_ACTIVE_ROWS=''
+MOUNT_EXTRA_ACTIVE=0
 
-print_active_switch() {
+paint_switch() {
   case "$1" in
-    active|activating|reloading)
-      printf '%bON%b' "$C_GREEN" "$C_RESET"
-      ;;
-    *)
-      printf '%bOFF%b' "$C_RED" "$C_RESET"
-      ;;
+    ON) printf '%bON%b' "$C_GREEN" "$C_RESET" ;;
+    FAIL|OFF|MISS) printf '%b%s%b' "$C_RED" "$1" "$C_RESET" ;;
+    *) printf '%b%s%b' "$C_YELLOW" "$1" "$C_RESET" ;;
   esac
 }
 
-print_enabled_switch() {
+active_code() {
   case "$1" in
-    enabled|enabled-runtime|linked|linked-runtime|alias)
-      printf '%bON%b' "$C_GREEN" "$C_RESET"
-      ;;
-    *)
-      printf '%bOFF%b' "$C_RED" "$C_RESET"
-      ;;
+    active|activating|reloading) printf ON ;;
+    failed) printf FAIL ;;
+    not-found) printf MISS ;;
+    *) printf OFF ;;
   esac
 }
 
-section() {
-  printf '\n%b┌─ %s ─%b\n' "$C_CYAN" "$1" "$C_RESET"
+enabled_code() {
+  case "$1" in
+    enabled|enabled-runtime|linked|linked-runtime|alias) printf ON ;;
+    not-found) printf MISS ;;
+    *) printf OFF ;;
+  esac
 }
 
-show_unit() {
-  local unit="$1" kind="$2" active enabled
-  if ! unit_exists "$unit"; then
-    printf '  %b%-39s NOT INSTALLED%b\n' "$C_RED" "$unit" "$C_RESET"
-    return
-  fi
-
-  active="$(systemctl is-active "$unit" 2>/dev/null || true)"
-  enabled="$(systemctl is-enabled "$unit" 2>/dev/null || true)"
-
-  printf '  %-39s ' "$unit"
-  printf 'active='
-  print_active_switch "$active"
-  printf '   enabled='
-  print_enabled_switch "$enabled"
-
-  if [[ "$kind" == "oneshot" && "$active" != "active" ]]; then
-    printf '   %b(idle between runs is normal)%b' "$C_DIM" "$C_RESET"
-  fi
+show_service_triplet() {
+  local left_label="$1" left_unit="$2" middle_label="$3" middle_unit="$4" right_label="$5" right_unit="$6"
+  local active enabled code
+  printf '  %-7s ' "$left_label"
+  active="$(systemctl is-active "$left_unit" 2>/dev/null || true)"
+  enabled="$(systemctl is-enabled "$left_unit" 2>/dev/null || true)"
+  code="$(active_code "$active")"; paint_switch "$code"; printf '/'
+  code="$(enabled_code "$enabled")"; paint_switch "$code"
+  printf '  │  %-8s ' "$middle_label"
+  active="$(systemctl is-active "$middle_unit" 2>/dev/null || true)"
+  enabled="$(systemctl is-enabled "$middle_unit" 2>/dev/null || true)"
+  code="$(active_code "$active")"; paint_switch "$code"; printf '/'
+  code="$(enabled_code "$enabled")"; paint_switch "$code"
+  printf '  │  %-10s ' "$right_label"
+  active="$(systemctl is-active "$right_unit" 2>/dev/null || true)"
+  enabled="$(systemctl is-enabled "$right_unit" 2>/dev/null || true)"
+  code="$(active_code "$active")"; paint_switch "$code"; printf '/'
+  code="$(enabled_code "$enabled")"; paint_switch "$code"
   printf '\n'
 }
 
-show_service_details() {
-  local unit="$1" result exit_status start_time entries
-  printf '\n%b%s%b\n' "$C_MAGENTA" "  ── $unit ──" "$C_RESET"
-
-  if ! unit_exists "$unit"; then
-    printf '  %bUnit is not installed.%b\n' "$C_RED" "$C_RESET"
-    return
-  fi
-
-  result="$(systemctl show "$unit" --property=Result --value 2>/dev/null || true)"
-  exit_status="$(systemctl show "$unit" --property=ExecMainStatus --value 2>/dev/null || true)"
-  start_time="$(systemctl show "$unit" --property=ExecMainStartTimestamp --value 2>/dev/null || true)"
-  [[ -n "$result" ]] || result="unknown"
-  [[ -n "$exit_status" ]] || exit_status="unknown"
-  [[ -n "$start_time" ]] || start_time="not recorded"
-
-  printf '  last result: '
-  case "$result" in
-    success)
-      printf '%bSUCCESS%b' "$C_GREEN" "$C_RESET"
-      ;;
-    failed)
-      printf '%bFAILED%b' "$C_RED" "$C_RESET"
-      ;;
-    *)
-      printf '%b%s%b' "$C_YELLOW" "$result" "$C_RESET"
-      ;;
+short_time() {
+  local value="$1"
+  case "$value" in
+    ''|n/a|unknown) printf '—'; return ;;
   esac
-  printf '   exit=%s\n' "$exit_status"
-  printf '  last start: %s\n' "$start_time"
+  printf '%s\n' "$value" | awk '{
+    if (NF >= 3) printf "%s %s", $2, substr($3, 1, 5);
+    else printf "%s", $0;
+  }'
+}
 
-  entries="$(journalctl -u "$unit" -n 5 --no-pager -o short-iso 2>/dev/null || true)"
-  if [[ -n "$entries" ]]; then
-    printf '%s\n' "$entries" | sed 's/^/    /'
+timer_time() {
+  local unit="$1" property="$2" value
+  value="$(systemctl show "$unit" --property="$property" --value 2>/dev/null || true)"
+  short_time "$value"
+}
+
+system_memory_line() {
+  local mem swap
+  mem="$(free -b 2>/dev/null | awk '$1=="Mem:" {printf "%.1f GiB / %.1f GiB (%d%%)", $3/1073741824, $2/1073741824, ($2 ? $3*100/$2 : 0)}')"
+  swap="$(free -b 2>/dev/null | awk '$1=="Swap:" {printf "%.1f GiB / %.1f GiB (%d%%)", $3/1073741824, $2/1073741824, ($2 ? $3*100/$2 : 0)}')"
+  [[ -n "$mem" ]] || mem='unavailable'
+  [[ -n "$swap" ]] || swap='unavailable'
+  printf '  RAM   %-28s  SWAP %s\n' "$mem" "$swap"
+}
+
+system_disk_line() {
+  local disk counts total
+  disk="$(df -B1 --output=used,size,pcent / 2>/dev/null | awk 'NR==2 {printf "%.1f / %.1f GiB (%s)", $1/1073741824, $2/1073741824, $3}')"
+  [[ -n "$disk" ]] || disk='unavailable'
+  printf '  ROOT  %-33s' "$disk"
+  if timeout 3 docker info >/dev/null 2>&1; then
+    counts="$(docker ps -q 2>/dev/null | wc -l | tr -d ' ')"
+    total="$(docker ps -aq 2>/dev/null | wc -l | tr -d ' ')"
+    printf '  DOCKER %s running / %s total\n' "$counts" "$total"
   else
-    printf '    %bNo readable journal entries yet.%b\n' "$C_DIM" "$C_RESET"
+    printf '  DOCKER unavailable\n'
   fi
 }
 
-while true; do
-  clear 2>/dev/null || true
-  printf '%b╔══════════════════════════════════════════════════════════════════════════════╗%b\n' "$C_BLUE" "$C_RESET"
-  printf '%b║%b  %bFRAGCITY%b  %b/ PTERODACTYL AUTOMATION%b                                      %b║%b\n' \
-    "$C_BLUE" "$C_RESET" "$C_WHITE" "$C_RESET" "$C_CYAN" "$C_RESET" "$C_BLUE" "$C_RESET"
-  printf '%b╚══════════════════════════════════════════════════════════════════════════════╝%b\n' "$C_BLUE" "$C_RESET"
+draw_rule() {
+  local width="$1" rule='' idx
+  for ((idx=0; idx<width; idx++)); do rule+='─'; done
+  printf '%b%s%b\n' "$C_BLUE" "$rule" "$C_RESET"
+}
 
-  printf '  %bUI%b %s   %bREFRESH%b %ss   %bLIVE RELOAD%b checksum-watch ON\n' \
-    "$C_MAGENTA" "$C_RESET" "$UI_VERSION" "$C_CYAN" "$C_RESET" "$REFRESH_SECONDS" "$C_GREEN" "$C_RESET"
+section_title() {
+  printf '\n%b▸ %s%b\n' "$C_CYAN" "$1" "$C_RESET"
+}
 
-  source_commit="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || printf 'unavailable')"
-  script_sha="$(printf '%s' "$STARTUP_SHA" | cut -c1-12)"
-  [[ -n "$script_sha" ]] || script_sha="unavailable"
-  printf '  source commit: %b%s%b   running UI SHA: %b%s%b\n' \
-    "$C_YELLOW" "$source_commit" "$C_RESET" "$C_YELLOW" "$script_sha" "$C_RESET"
-
-  section "AUTOMATION SWITCHES"
-  printf '  %bTimers must remain ON. One-shot services normally return to OFF when idle.%b\n' \
-    "$C_DIM" "$C_RESET"
-  show_unit "fragcity-addon-payload-sync.timer" "timer"
-  show_unit "fragcity-addon-provision.timer" "timer"
-  show_unit "fragcity-addon-payload-sync.service" "oneshot"
-  show_unit "fragcity-addon-provision.service" "oneshot"
-
-  section "NEXT / LAST SCHEDULED RUNS"
-  systemctl list-timers --all --no-pager \
-    fragcity-addon-payload-sync.timer fragcity-addon-provision.timer 2>&1 | sed 's/^/  /'
-
-  section "PUBLISHED PAYLOAD"
-  if [[ -r "$PAYLOAD_ROOT/CURRENT_COMMIT" ]]; then
-    payload_commit="$(tr -d '\r\n' < "$PAYLOAD_ROOT/CURRENT_COMMIT")"
-    printf '  current payload: %b%s%b\n' "$C_GREEN" "$payload_commit" "$C_RESET"
-    if [[ -r "$PAYLOAD_ROOT/revisions/$payload_commit/.source-commit" ]]; then
-      revision_marker="$(tr -d '\r\n' < "$PAYLOAD_ROOT/revisions/$payload_commit/.source-commit")"
-      if [[ "$revision_marker" == "$payload_commit" ]]; then
-        printf '  revision marker: %bMATCH%b\n' "$C_GREEN" "$C_RESET"
-      else
-        printf '  revision marker: %bMISMATCH — CHECK REQUIRED%b\n' "$C_RED" "$C_RESET"
-      fi
-    else
-      printf '  %bWARNING: published revision marker is missing.%b\n' "$C_RED" "$C_RESET"
-    fi
+mount_inventory_parse() {
+  local now kind f1 f2 f3 f4 f5 f6 f7 f8 f9 state uuid_short row name
+  now="$(date +%s)"
+  if (( MOUNT_LAST_REFRESH > 0 && now - MOUNT_LAST_REFRESH < MOUNT_REFRESH_SECONDS )); then
+    return
+  fi
+  MOUNT_LAST_REFRESH="$now"
+  MOUNT_STATUS_OUTPUT="$(timeout 20 php "$REPO_ROOT/pterodactyl/server-mount-status.php" 2>&1)"
+  local rc=$?
+  if [[ "$rc" -ne 0 || "$MOUNT_STATUS_OUTPUT" != META$'\t'OK$'\t'* ]]; then
+    MOUNT_STATUS_ERROR="$(printf '%s' "$MOUNT_STATUS_OUTPUT" | tr '\t\r\n' '   ' | cut -c1-150)"
+    [[ -n "$MOUNT_STATUS_ERROR" ]] || MOUNT_STATUS_ERROR="Status command exited with code $rc."
+    MOUNT_STATUS_OUTPUT=''
   else
-    printf '  %bOFF — published payload missing: %s%b\n' "$C_RED" "$PAYLOAD_ROOT" "$C_RESET"
+    MOUNT_STATUS_ERROR=''
   fi
 
-  section "PROVISIONER STATE"
-  baseline="$STATE_ROOT/baseline-uuids.txt"
-  if [[ -r "$baseline" ]]; then
-    baseline_count="$(grep -Ec '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' "$baseline" 2>/dev/null || true)"
+  MOUNT_ID='?'
+  MOUNT_SOURCE="$PAYLOAD_ROOT"
+  MOUNT_TARGET='/home/container/egg/fragcity-payload'
+  MOUNT_ELIGIBLE=0; MOUNT_PANEL_ON=0; MOUNT_PANEL_OFF=0
+  MOUNT_DOCKER_ON=0; MOUNT_DOCKER_OFF=0; MOUNT_PENDING=0; MOUNT_UNKNOWN=0
+  MOUNT_PROCESSED=0; MOUNT_STARTUP=0; MOUNT_ACTIVE_COUNT=0
+  MOUNT_INACTIVE_NAMES=''; MOUNT_ACTIVE_ROWS=''; MOUNT_EXTRA_ACTIVE=0
+
+  [[ -n "$MOUNT_STATUS_OUTPUT" ]] || return
+  while IFS= read -r row; do
+    IFS=$'\t' read -r kind f1 f2 f3 f4 f5 f6 f7 f8 f9 <<< "$row"
+    case "$kind" in
+      META)
+        MOUNT_ID="$f2"; MOUNT_SOURCE="$f3"; MOUNT_TARGET="$f4"
+        ;;
+      SERVER)
+        uuid_short="$(printf '%s' "$f1" | cut -c1-8)"
+        name="$(printf '%s' "$f2" | tr '\r\n\t' '   ' | cut -c1-20)"
+        state="$f4"
+        if [[ "$f5" == ON && "$state" == RUNNING ]]; then
+          MOUNT_ACTIVE_COUNT=$((MOUNT_ACTIVE_COUNT + 1))
+          if (( MOUNT_ACTIVE_COUNT <= 5 )); then
+            MOUNT_ACTIVE_ROWS+="$(printf '  %-8s %-20s %-9s %-6s %-7s %-6s %-7s\n' "$uuid_short" "$name" "$state" "$f3" "$f5" "$f6" "$f7")"
+          else
+            MOUNT_EXTRA_ACTIVE=$((MOUNT_EXTRA_ACTIVE + 1))
+          fi
+        elif [[ "$f5" == ON ]]; then
+          if [[ -n "$MOUNT_INACTIVE_NAMES" ]]; then MOUNT_INACTIVE_NAMES+=", "; fi
+          MOUNT_INACTIVE_NAMES+="$name ($state)"
+        fi
+        ;;
+      SUMMARY)
+        MOUNT_ELIGIBLE="$f1"; MOUNT_PANEL_ON="$f2"; MOUNT_PANEL_OFF="$f3"
+        MOUNT_DOCKER_ON="$f4"; MOUNT_DOCKER_OFF="$f5"
+        MOUNT_PENDING="$f6"; MOUNT_UNKNOWN="$f7"
+        MOUNT_PROCESSED="$f8"; MOUNT_STARTUP="$f9"
+        ;;
+    esac
+  done <<< "$MOUNT_STATUS_OUTPUT"
+}
+
+render_mount_section() {
+  section_title "ACTIVE MOUNTED SERVERS  ·  REAL DOCKER STATE"
+  if [[ -z "$MOUNT_STATUS_OUTPUT" ]]; then
+    printf '  %bINVENTORY UNAVAILABLE%b  %s\n' "$C_RED" "$C_RESET" "$MOUNT_STATUS_ERROR"
+    printf '  The read-only check validates Panel assignment and Docker source/target/read-only flags.\n'
+    return
+  fi
+  printf '  Active %b%d%b  │ Mounted %d  │ Eligible %d  │ Panel ON %d  │ Pending %d  │ Unknown %d\n' \
+    "$C_GREEN" "$MOUNT_ACTIVE_COUNT" "$C_RESET" "$MOUNT_DOCKER_ON" "$MOUNT_ELIGIBLE" "$MOUNT_PANEL_ON" "$MOUNT_PENDING" "$MOUNT_UNKNOWN"
+  printf '  UUID     SERVER NAME          STATE     PANEL  DOCKER  PROC   STARTUP\n'
+  if [[ -n "$MOUNT_ACTIVE_ROWS" ]]; then
+    printf '%s' "$MOUNT_ACTIVE_ROWS"
+    if (( MOUNT_EXTRA_ACTIVE > 0 )); then printf '  ... plus %d more active mounted server(s)\n' "$MOUNT_EXTRA_ACTIVE"; fi
+  else
+    printf '  %bNo running container currently has the actual FragCity Docker Mount.%b\n' "$C_YELLOW" "$C_RESET"
+  fi
+  if [[ -n "$MOUNT_INACTIVE_NAMES" ]]; then
+    printf '  %bMounted but not active:%b %s\n' "$C_YELLOW" "$C_RESET" "$(printf '%s' "$MOUNT_INACTIVE_NAMES" | cut -c1-70)"
+  fi
+  printf '  Mount #%s  ·  read-only target: %s\n' "$MOUNT_ID" "$MOUNT_TARGET"
+}
+
+latest_event() {
+  local unit="$1" limit="$2" message
+  message="$(journalctl -u "$unit" -n 1 --no-pager -o cat 2>/dev/null | awk -v width="$limit" 'NR==1 {gsub(/[[:cntrl:]]/, " "); if (length($0)>width) print substr($0,1,width-3)"..."; else print; exit}')"
+  [[ -n "$message" ]] || message='No journal entry yet.'
+  printf '%s' "$message"
+}
+
+render_dashboard() {
+  local width="$1" hostname_label timestamp load cores uptime_value source_commit payload_commit marker
+  hostname_label="$(hostname -s 2>/dev/null || hostname 2>/dev/null || printf 'unknown-node')"
+  timestamp="$(date '+%Y-%m-%d %H:%M:%S %Z')"
+  load="$(awk '{print $1" / "$2" / "$3}' /proc/loadavg 2>/dev/null)"
+  cores="$(nproc 2>/dev/null || printf '?')"
+  uptime_value="$(uptime -p 2>/dev/null | sed 's/^up //')"
+  source_commit="$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD 2>/dev/null || printf 'unavailable')"
+  payload_commit="$(tr -d '\r\n' < "$PAYLOAD_ROOT/CURRENT_COMMIT" 2>/dev/null | cut -c1-12)"
+  [[ -n "$payload_commit" ]] || payload_commit='MISSING'
+  if [[ -r "$PAYLOAD_ROOT/revisions/$payload_commit/.source-commit" ]] &&
+     [[ "$(tr -d '\r\n' < "$PAYLOAD_ROOT/revisions/$payload_commit/.source-commit" 2>/dev/null)" == "$(tr -d '\r\n' < "$PAYLOAD_ROOT/CURRENT_COMMIT" 2>/dev/null)" ]]; then
+    marker='MATCH'
+  else
+    marker='CHECK'
+  fi
+
+  printf '%b╭%s╮%b\n' "$C_BLUE" "$(printf '%*s' "$width" '' | tr ' ' '─')" "$C_RESET"
+  printf '%b│%b %bFRAGCITY%b  /  %bLIVE NODE MONITOR%b%*s%b│%b\n' \
+    "$C_BLUE" "$C_RESET" "$C_WHITE" "$C_RESET" "$C_CYAN" "$C_RESET" 3 '' "$C_BLUE" "$C_RESET"
+  printf '%b│%b NODE %-20.20s  ·  %s  ·  refresh %ss  ·  UI %s%*s%b│%b\n' \
+    "$C_BLUE" "$C_RESET" "$hostname_label" "$timestamp" "$REFRESH_SECONDS" "$UI_VERSION" 2 '' "$C_BLUE" "$C_RESET"
+  printf '%b╰%s╯%b\n' "$C_BLUE" "$(printf '%*s' "$width" '' | tr ' ' '─')" "$C_RESET"
+
+  section_title "HOST HEALTH"
+  printf '  CPU load %-23s  cores %s\n' "$load" "$cores"
+  system_memory_line
+  system_disk_line
+  printf '  UPTIME  %-68.68s\n' "$uptime_value"
+
+  section_title "SERVICE HEALTH  ·  ACTIVE / ENABLED AT BOOT"
+  show_service_triplet Docker docker.service Wings wings.service Nginx nginx.service
+  show_service_triplet PHP-FPM php8.3-fpm.service PanelQ pteroq.service MariaDB mariadb.service
+  show_service_triplet Redis redis-server.service SyncT fragcity-addon-payload-sync.timer ProvT fragcity-addon-provision.timer
+
+  section_title "AUTOMATION / PUBLISH STATUS"
+  printf '  Source %s  │  Published %s  │  Revision marker ' "$source_commit" "$payload_commit"
+  if [[ "$marker" == MATCH ]]; then paint_switch ON; else paint_switch CHECK; fi
+  printf '\n'
+  printf '  Sync timer: next %-16s last %-16s\n' \
+    "$(timer_time fragcity-addon-payload-sync.timer NextElapseUSecRealtime)" \
+    "$(timer_time fragcity-addon-payload-sync.timer LastTriggerUSec)"
+  printf '  Watch timer: next %-16s last %-16s\n' \
+    "$(timer_time fragcity-addon-provision.timer NextElapseUSecRealtime)" \
+    "$(timer_time fragcity-addon-provision.timer LastTriggerUSec)"
+  local baseline_count processed_count last_sync last_provision
+  if [[ -r "$STATE_ROOT/baseline-uuids.txt" ]]; then
+    baseline_count="$(grep -Ec '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' "$STATE_ROOT/baseline-uuids.txt" 2>/dev/null || true)"
     [[ -n "$baseline_count" ]] || baseline_count=0
-    printf '  baseline UUIDs: %b%s%b\n' "$C_WHITE" "$baseline_count" "$C_RESET"
   else
-    printf '  %bBASELINE MISSING — watcher cannot run safely%b\n' "$C_RED" "$C_RESET"
+    baseline_count='MISSING'
   fi
-
   if [[ -d "$STATE_ROOT/processed" ]]; then
-    processed_count="$(find "$STATE_ROOT/processed" -maxdepth 1 -type f -name '*.json' 2>/dev/null | wc -l)"
+    processed_count="$(find "$STATE_ROOT/processed" -maxdepth 1 -type f -name '*.json' 2>/dev/null | wc -l | tr -d ' ')"
   else
     processed_count=0
   fi
-  printf '  processed server markers: %b%s%b\n' "$C_WHITE" "$processed_count" "$C_RESET"
+  printf '  Baseline %s UUIDs  │  Processed markers %s\n' "$baseline_count" "$processed_count"
+  last_sync="$(systemctl show fragcity-addon-payload-sync.service --property=Result --value 2>/dev/null || printf 'unknown')"
+  last_provision="$(systemctl show fragcity-addon-provision.service --property=Result --value 2>/dev/null || printf 'unknown')"
+  printf '  Last run result: sync %-9s  │  provisioner %s\n' "$last_sync" "$last_provision"
 
-  show_service_details "fragcity-addon-provision.service"
-  show_service_details "fragcity-addon-payload-sync.service"
+  render_mount_section
 
-  printf '\n%bRefreshing in %s seconds...%b  %bCtrl+C closes this window%b\n' \
-    "$C_DIM" "$REFRESH_SECONDS" "$C_RESET" "$C_DIM" "$C_RESET"
+  section_title "NETWORK SNAPSHOT"
+  printf '  IPv4  %s\n' "$(ip -o -4 addr show scope global 2>/dev/null | awk '{gsub(/\/.*/, "", $4); printf "%s=%s ", $2, $4}' | cut -c1-70)"
+  local game_ports web_ports
+  game_ports="$(ss -H -lun 2>/dev/null | awk '{print $5}' | grep -E ':(29[0-9]{3})$' | head -n 4 | paste -sd ', ' -)"
+  web_ports="$(ss -H -ltn 2>/dev/null | awk '{print $4}' | grep -E ':(80|443)$' | paste -sd ', ' -)"
+  [[ -n "$game_ports" ]] || game_ports='none detected in UDP 29xxx range'
+  [[ -n "$web_ports" ]] || web_ports='none detected'
+  printf '  Game UDP  %s\n' "$(printf '%s' "$game_ports" | cut -c1-70)"
+  printf '  HTTP      %s\n' "$(printf '%s' "$web_ports" | cut -c1-70)"
+
+  section_title "LATEST AUTOMATION EVENTS"
+  printf '  SYNC  %s\n' "$(latest_event fragcity-addon-payload-sync.service 70)"
+  printf '  WATCH %s\n' "$(latest_event fragcity-addon-provision.service 70)"
+  draw_rule "$width"
+  printf '  %bLIVE%b  host checks %ss  ·  Panel/Docker Mount scan %ss  ·  Ctrl+C closes window\n' \
+    "$C_GREEN" "$C_RESET" "$REFRESH_SECONDS" "$MOUNT_REFRESH_SECONDS"
+  printf '  %bRead-only monitor: closing this window does not stop or disable systemd timers.%b\n' "$C_DIM" "$C_RESET"
+}
+
+if [[ -t 1 ]]; then
+  cols="$(tput cols 2>/dev/null || printf '80')"
+  [[ "$cols" =~ ^[0-9]+$ ]] || cols=80
+  WIDTH=$((cols - 2))
+  (( WIDTH < 72 )) && WIDTH=72
+  (( WIDTH > 116 )) && WIDTH=116
+  printf '\033[2J\033[H'
+else
+  WIDTH=78
+fi
+
+while true; do
+  mount_inventory_parse
+  FRAME="$(render_dashboard "$WIDTH")"
+  # Home-and-overwrite redraw avoids repeated full-screen clear/flicker.
+  # Clear each printed line and the remaining screen to prevent stale characters.
+  if [[ -t 1 ]]; then printf '\033[H'; fi
+  while IFS= read -r frame_line; do
+    if [[ -t 1 ]]; then printf '%s\033[K\n' "$frame_line"; else printf '%s\n' "$frame_line"; fi
+  done <<< "$FRAME"
+  if [[ -t 1 ]]; then printf '\033[J'; fi
   sleep "$REFRESH_SECONDS"
 
-  # The host publisher replaces this script atomically after fetching the branch.
-  # Detect that replacement and exec the new file so an already-open window updates live.
-  if [[ -r "$SELF_PATH" ]]; then
-    current_sha="$(sha256sum -- "$SELF_PATH" 2>/dev/null | awk '{print $1}')"
-    if [[ -n "$current_sha" && "$current_sha" != "$STARTUP_SHA" ]]; then
-      printf '\n%b★ LIVE UPDATE DETECTED%b — restarting the dashboard with the new UI...\n' \
-        "$C_GREEN" "$C_RESET"
-      sleep 1
-      exec bash "$SELF_PATH"
-    fi
+  # The publisher replaces this file atomically after a successful fetch.
+  current_sha="$(sha256sum -- "$SELF_PATH" 2>/dev/null | awk '{print $1}')"
+  if [[ -n "$current_sha" && "$current_sha" != "$STARTUP_SHA" ]]; then
+    printf '\n%bLIVE UPDATE DETECTED%b — launching the refreshed monitor...\n' "$C_GREEN" "$C_RESET"
+    sleep 1
+    exec /bin/bash "$SELF_PATH" "$@"
   fi
 done
