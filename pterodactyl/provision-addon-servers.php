@@ -725,7 +725,7 @@ function verifyOne(
 
     $preflight = <<<'BASH'
 set -Eeuo pipefail
-for command_name in bash sha256sum find cp mkdir rm awk flock tr chmod dirname; do
+for command_name in bash sha256sum find cp mkdir rm awk flock tr chmod dirname grep mv; do
     command -v "$command_name" >/dev/null 2>&1 || {
         printf 'MISSING required command: %s\n' "$command_name" >&2
         exit 21
@@ -825,28 +825,27 @@ verify_mirror_tree() {
     fi
 }
 
-verify_mirror_tree \
-    "$revision/game/csgo/addons/counterstrikesharp/configs" \
-    "/home/container/game/csgo/addons/counterstrikesharp/configs" \
-    "CounterStrikeSharp configs"
-verify_mirror_tree \
-    "$revision/game/csgo/cfg" \
-    "/home/container/game/csgo/cfg" \
-    "game/csgo/cfg" "subset"
-
-for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
-    source_file="$revision/game/csgo/$name"
-    target_file="/home/container/game/csgo/$name"
-    test -f "$source_file" && test ! -L "$source_file"
-    test -f "$target_file" && test ! -L "$target_file"
-    source_hash="$(sha256sum -- "$source_file" | awk '{print $1}')"
-    target_hash="$(sha256sum -- "$target_file" | awk '{print $1}')"
-    test "$source_hash" = "$target_hash" || {
-        printf 'Top-level CS2 config/list file SHA-256 mismatch: %s\n' "$name" >&2
-        exit 26
+seed_done="/home/container/.fragcity-config-seed-v1.done"
+seed_legacy="/home/container/.fragcity-config-seed-v1.legacy"
+seed_pending="/home/container/.fragcity-config-seed-v1.pending"
+for state_file in "$seed_done" "$seed_legacy" "$seed_pending"; do
+    test ! -L "$state_file" || {
+        printf 'Config-seed state file is a symlink: %s\n' "$state_file" >&2
+        exit 29
     }
 done
-printf 'PASS: all five top-level CS2 config/list files match the published payload.\n'
+if [[ -f "$seed_done" ]]; then
+    grep -Fxq 'fragcity-config-seed-v1' "$seed_done"
+    grep -Fxq "server_uuid=$P_SERVER_UUID" "$seed_done"
+    printf 'PASS: first-install config seed has completed. Customer-owned config files are intentionally not compared with repository defaults.\n'
+elif [[ -f "$seed_legacy" ]]; then
+    grep -Fxq 'fragcity-config-seed-v1' "$seed_legacy"
+    grep -Fxq "server_uuid=$P_SERVER_UUID" "$seed_legacy"
+    printf 'PASS: legacy server configuration is preserved; repository config defaults are not reapplied.\n'
+else
+    printf 'Config-seed state marker is missing; start the server once so its initial config policy can be recorded.\n' >&2
+    exit 30
+fi
 
 bash -n "$base/sync-addon-payload-container.sh"
 printf 'PASS: required commands available; read-only payload revision %s is valid.\n' "$commit"
