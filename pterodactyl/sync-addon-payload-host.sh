@@ -7,8 +7,8 @@
 #
 # It stages a minimal allowlisted payload into immutable revisions and publishes
 # the selected revision by atomically replacing CURRENT_COMMIT. The matching
-# container-side synchronizer uses SHA-256 and never touches user-owned BotAI/,
-# disabled/, cfg/configs, or Egg-managed framework runtimes.
+# container-side synchronizer uses SHA-256 and preserves user-owned BotAI/,
+# cfg/configs, and Egg-managed framework runtimes. plugins/disabled/ is payload-managed.
 #
 # Environment overrides:
 #   FRAGCITY_PAYLOAD_MOUNT  default /var/lib/pterodactyl/mounts/fragcity-addon-payload
@@ -84,7 +84,6 @@ while IFS= read -r -d '' link_path; do
 done < <(
     find "$CSS_SOURCE/plugins" -mindepth 1 \
         \( -path "$CSS_SOURCE/plugins/BotAI" \
-           -o -path "$CSS_SOURCE/plugins/disabled" \
            -o -path "$CSS_SOURCE/plugins/CS2UpdateMonitor" \) -prune \
         -o -type l -print0
 )
@@ -153,7 +152,6 @@ else
     mkdir -p -- "$STAGING_CSS/plugins"
     rsync -a --safe-links \
         --exclude='/BotAI/***' \
-        --exclude='/disabled/***' \
         --exclude='/CS2UpdateMonitor/***' \
         -- "$CSS_SOURCE/plugins/" "$STAGING_CSS/plugins/"
     copy_tree "$CSS_SOURCE/shared" "$STAGING_CSS/shared"
