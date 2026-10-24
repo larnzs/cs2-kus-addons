@@ -119,6 +119,22 @@ CSS_SOURCE="$ADDONS_SOURCE/counterstrikesharp"
 [[ -d "$CSS_SOURCE/plugins" ]] || die "Missing staged folder: $CSS_SOURCE/plugins"
 [[ -d "$CSS_SOURCE/plugins/disabled" && ! -L "$CSS_SOURCE/plugins/disabled" ]] || die "Missing or unsafe staged folder: $CSS_SOURCE/plugins/disabled"
 [[ -n "$(find "$CSS_SOURCE/plugins/disabled" -type f -print -quit)" ]] || die "No files found under staged folder: $CSS_SOURCE/plugins/disabled"
+
+# The host publisher generates this authoritative list from the plugin folders
+# actually staged from the current GitHub commit. Unlike the file manifest, it
+# also works for legacy volumes that predate FragCity's managed-file tracking.
+PLUGIN_INVENTORY="$PAYLOAD_ROOT/.fragcity-plugin-inventory-v1.list"
+[[ -f "$PLUGIN_INVENTORY" && ! -L "$PLUGIN_INVENTORY" ]] || die "Published plugin inventory is missing or unsafe."
+declare -A DESIRED_PLUGIN_DIRS=()
+while IFS= read -r plugin_name || [[ -n "$plugin_name" ]]; do
+    [[ "$plugin_name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die "Unsafe plugin name in published inventory: $plugin_name"
+    [[ "$plugin_name" != "BotAI" && "$plugin_name" != "CS2UpdateMonitor" ]] || die "Protected plugin directory must not appear in managed inventory: $plugin_name"
+    [[ -z "${DESIRED_PLUGIN_DIRS[$plugin_name]+present}" ]] || die "Duplicate plugin entry in published inventory: $plugin_name"
+    [[ -d "$CSS_SOURCE/plugins/$plugin_name" && ! -L "$CSS_SOURCE/plugins/$plugin_name" ]] || die "Inventory plugin directory is missing or unsafe in the published revision: $plugin_name"
+    DESIRED_PLUGIN_DIRS["$plugin_name"]=1
+done < "$PLUGIN_INVENTORY"
+[[ -n "${DESIRED_PLUGIN_DIRS[disabled]+present}" ]] || die "Published plugin inventory is missing the reserved disabled/ directory."
+[[ "$(sort -u "$PLUGIN_INVENTORY" | wc -l)" -eq "$(wc -l < "$PLUGIN_INVENTORY")" ]] || die "Published plugin inventory is not unique."
 [[ -d "$CSS_SOURCE/shared" ]] || die "Missing staged folder: $CSS_SOURCE/shared"
 [[ -d "$CSS_SOURCE/gamedata" ]] || die "Missing staged folder: $CSS_SOURCE/gamedata"
 [[ -d "$CSS_SOURCE/configs" && ! -L "$CSS_SOURCE/configs" ]] || die "Missing or unsafe staged folder: $CSS_SOURCE/configs"
@@ -200,18 +216,25 @@ fi
 # Reject symlinks inside managed targets rather than risk following a redirected path.
 for managed_root in "${MANAGED_ROOTS[@]}"; do
     [[ -d "$managed_root" ]] || continue
-    while IFS= read -r -d '' link_path; do
-        die "Symlink found inside managed target tree: $link_path"
-    done < <(
-        if [[ "$managed_root" == "$CSS_TARGET/plugins" ]]; then
-            find "$managed_root" -mindepth 1 \
-                \( -path "$managed_root/BotAI" \
-                   -o -path "$managed_root/CS2UpdateMonitor" \) -prune \
-                -o -type l -print0
-        else
-            find "$managed_root" -type l -print0
-        fi
-    )
+    if [[ "$managed_root" == "$CSS_TARGET/plugins" ]]; then
+        # Only inspect directories represented by the current authoritative
+        # inventory. Obsolete directories are moved out of the live plugin root
+        # below without walking through their contents.
+        while IFS= read -r -d '' plugin_dir; do
+            plugin_name="${plugin_dir##*/}"
+            case "$plugin_name" in
+                BotAI|CS2UpdateMonitor) continue ;;
+            esac
+            [[ -n "${DESIRED_PLUGIN_DIRS[$plugin_name]+present}" ]] || continue
+            while IFS= read -r -d '' link_path; do
+                die "Symlink found inside managed target plugin tree: $link_path"
+            done < <(find "$plugin_dir" -type l -print0)
+        done < <(find "$managed_root" -mindepth 1 -maxdepth 1 -type d -print0)
+    else
+        while IFS= read -r -d '' link_path; do
+            die "Symlink found inside managed target tree: $link_path"
+        done < <(find "$managed_root" -type l -print0)
+    fi
 done
 
 declare -A DESIRED_SOURCE=()
@@ -397,6 +420,40 @@ for relative_path in "${!DESIRED_SOURCE[@]}"; do
     COPIED=$((COPIED + 1))
     VERIFIED=$((VERIFIED + 1))
 done
+
+# Reconcile plugin directories against the current GitHub inventory on every
+# server start. A plugin folder no longer present in the current payload must not
+# remain under CounterStrikeSharp's live plugins/ path, even when this old server
+# has no prior managed-file manifest. Move it outside the runtime tree instead of
+# deleting it outright, preserving its old files/data for recovery.
+RETIRED_PLUGIN_COUNT=0
+RETIRE_BATCH=""
+RETIRE_ROOT="$SERVER_ROOT/.fragcity-retired-plugins"
+while IFS= read -r -d '' plugin_path; do
+    plugin_name="${plugin_path##*/}"
+    case "$plugin_name" in
+        BotAI|CS2UpdateMonitor|disabled) continue ;;
+    esac
+    [[ -d "$plugin_path" ]] || continue
+    [[ -z "${DESIRED_PLUGIN_DIRS[$plugin_name]+present}" ]] || continue
+    [[ "$plugin_name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die "Refusing to retire plugin directory with an unsafe name: $plugin_name"
+
+    if [[ -z "$RETIRE_BATCH" ]]; then
+        [[ ! -L "$RETIRE_ROOT" ]] || die "Retired-plugin storage must not be a symlink: $RETIRE_ROOT"
+        [[ ! -e "$RETIRE_ROOT" || -d "$RETIRE_ROOT" ]] || die "Retired-plugin storage exists but is not a directory: $RETIRE_ROOT"
+        mkdir -p -- "$RETIRE_ROOT"
+        RETIRE_BATCH="$RETIRE_ROOT/${SOURCE_COMMIT}-$(date -u '+%Y%m%dT%H%M%SZ')-$BASHPID"
+        [[ ! -e "$RETIRE_BATCH" && ! -L "$RETIRE_BATCH" ]] || die "Retired-plugin batch path already exists: $RETIRE_BATCH"
+        mkdir -- "$RETIRE_BATCH"
+    fi
+
+    retired_path="$RETIRE_BATCH/$plugin_name"
+    [[ ! -e "$retired_path" && ! -L "$retired_path" ]] || die "Retired-plugin destination already exists: $retired_path"
+    mv -- "$plugin_path" "$retired_path" || die "Could not move obsolete plugin out of the live plugin root: $plugin_name"
+    RETIRED_PLUGIN_COUNT=$((RETIRED_PLUGIN_COUNT + 1))
+    log "Quarantined stale plugin directory missing from current GitHub inventory: $plugin_name"
+done < <(find "$CSS_TARGET/plugins" -mindepth 1 -maxdepth 1 -print0)
+log "Authoritative plugin inventory checked: ${#DESIRED_PLUGIN_DIRS[@]} entries including disabled/; stale plugin directories quarantined: $RETIRED_PLUGIN_COUNT."
 
 # Delete stale files only when the previous manifest proves FragCity deployed them.
 # Never sweep a plugin directory and assume every unlisted file is disposable.
