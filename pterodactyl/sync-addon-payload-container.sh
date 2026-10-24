@@ -18,8 +18,13 @@
 #   addons/counterstrikesharp/plugins/CS2UpdateMonitor/
 # The plugins/disabled/ directory is synced from the payload but remains in that
 # directory; this script never promotes disabled plugins into the active plugins root.
-#   cfg/ and CounterStrikeSharp configs
 #   Egg-managed Metamod/CounterStrikeSharp runtime directories
+#
+# Managed configuration paths (repo is authoritative; local extras are removed):
+#   addons/counterstrikesharp/configs/
+#   cfg/
+#   gamemodes_server.txt, mapcycle.txt, mapcyclecustom.txt,
+#   subscribed_collection_ids.txt, subscribed_file_ids.txt
 
 set -Eeuo pipefail
 
@@ -79,6 +84,13 @@ CSS_SOURCE="$ADDONS_SOURCE/counterstrikesharp"
 [[ -n "$(find "$CSS_SOURCE/plugins/disabled" -type f -print -quit)" ]] || die "No files found under staged folder: $CSS_SOURCE/plugins/disabled"
 [[ -d "$CSS_SOURCE/shared" ]] || die "Missing staged folder: $CSS_SOURCE/shared"
 [[ -d "$CSS_SOURCE/gamedata" ]] || die "Missing staged folder: $CSS_SOURCE/gamedata"
+[[ -d "$CSS_SOURCE/configs" && ! -L "$CSS_SOURCE/configs" ]] || die "Missing or unsafe staged folder: $CSS_SOURCE/configs"
+[[ -n "$(find "$CSS_SOURCE/configs" -type f -print -quit)" ]] || die "No files found under staged folder: $CSS_SOURCE/configs"
+[[ -d "$GAME_SOURCE/cfg" && ! -L "$GAME_SOURCE/cfg" ]] || die "Missing or unsafe staged folder: $GAME_SOURCE/cfg"
+[[ -n "$(find "$GAME_SOURCE/cfg" -type f -print -quit)" ]] || die "No files found under staged folder: $GAME_SOURCE/cfg"
+for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
+    [[ -f "$GAME_SOURCE/$name" && ! -L "$GAME_SOURCE/$name" ]] || die "Missing or unsafe staged CS2 config file: $GAME_SOURCE/$name"
+done
 [[ -f "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf" ]] || die "Missing staged VDF: $ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf"
 
 for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmanager; do
@@ -94,6 +106,7 @@ reject_source_symlinks() {
 
 for source_path in \
     "$CSS_SOURCE/source" "$CSS_SOURCE/shared" "$CSS_SOURCE/gamedata" \
+    "$CSS_SOURCE/configs" "$GAME_SOURCE/cfg" \
     "$ADDONS_SOURCE/MovementUnlocker" "$ADDONS_SOURCE/serverlistplayersfix_mm" \
     "$ADDONS_SOURCE/surf" "$ADDONS_SOURCE/scripts" "$ADDONS_SOURCE/multiaddonmanager"; do
     reject_source_symlinks "$source_path"
@@ -106,14 +119,26 @@ done < <(
            -o -path "$CSS_SOURCE/plugins/CS2UpdateMonitor" \) -prune \
         -o -type l -print0
 )
+for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
+    [[ ! -L "$GAME_SOURCE/$name" ]] || die "Managed CS2 config file must not be a symlink: $GAME_SOURCE/$name"
+done
 [[ ! -L "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf" ]] || die "Managed VDF must not be a symlink."
 
 CSS_TARGET="$GAME_ROOT/addons/counterstrikesharp"
+MANAGED_FILES=(
+    "gamemodes_server.txt"
+    "mapcycle.txt"
+    "mapcyclecustom.txt"
+    "subscribed_collection_ids.txt"
+    "subscribed_file_ids.txt"
+)
 MANAGED_ROOTS=(
     "$CSS_TARGET/source"
     "$CSS_TARGET/plugins"
     "$CSS_TARGET/shared"
     "$CSS_TARGET/gamedata"
+    "$CSS_TARGET/configs"
+    "$GAME_ROOT/cfg"
     "$GAME_ROOT/addons/MovementUnlocker"
     "$GAME_ROOT/addons/serverlistplayersfix_mm"
     "$GAME_ROOT/addons/surf"
@@ -123,6 +148,9 @@ MANAGED_ROOTS=(
 
 for target_path in "$GAME_ROOT" "$GAME_ROOT/addons" "$CSS_TARGET" "${MANAGED_ROOTS[@]}" "$GAME_ROOT/addons/metamod"; do
     [[ ! -L "$target_path" ]] || die "Managed target path is a symlink: $target_path"
+done
+for relative_file in "${MANAGED_FILES[@]}"; do
+    [[ ! -L "$GAME_ROOT/$relative_file" ]] || die "Managed target file is a symlink: $GAME_ROOT/$relative_file"
 done
 
 # Reject symlinks inside managed targets rather than risk following a redirected path.
@@ -184,6 +212,11 @@ add_tree "$CSS_SOURCE/source" "addons/counterstrikesharp/source"
 add_tree "$CSS_SOURCE/plugins" "addons/counterstrikesharp/plugins" 1
 add_tree "$CSS_SOURCE/shared" "addons/counterstrikesharp/shared"
 add_tree "$CSS_SOURCE/gamedata" "addons/counterstrikesharp/gamedata"
+add_tree "$CSS_SOURCE/configs" "addons/counterstrikesharp/configs"
+add_tree "$GAME_SOURCE/cfg" "cfg"
+for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
+    add_file "$name" "$GAME_SOURCE/$name"
+done
 for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmanager; do
     add_tree "$ADDONS_SOURCE/$name" "addons/$name"
 done
@@ -251,6 +284,16 @@ for managed_root in "${MANAGED_ROOTS[@]}"; do
     done < <(find "$managed_root" -type f -print0)
 done
 
+for relative_path in "${MANAGED_FILES[@]}"; do
+    target_path="$GAME_ROOT/$relative_path"
+    [[ ! -L "$target_path" ]] || die "Managed target file is a symlink: $target_path"
+    if [[ -e "$target_path" && -z "${DESIRED_SOURCE[$relative_path]+present}" ]]; then
+        log "Removing stale managed file: $relative_path"
+        rm -f -- "$target_path"
+        DELETED=$((DELETED + 1))
+    fi
+done
+
 for managed_root in "${MANAGED_ROOTS[@]}"; do
     if [[ "$managed_root" == "$CSS_TARGET/plugins" ]]; then
         find "$managed_root" -mindepth 1 -depth -type d -empty \
@@ -263,6 +306,7 @@ done
 
 log "Sync completed successfully."
 log "Files copied: $COPIED; already matching SHA-256: $UNCHANGED; verified: $VERIFIED; stale files removed: $DELETED."
-log "BotAI/ and CS2UpdateMonitor/ were not copied or pruned."
+log "BotAI/ and CS2UpdateMonitor/ plugin directories were not copied or pruned."
 log "plugins/disabled/ was synced from the published payload and remains under disabled/."
-log "cfg/configs and Egg-managed Metamod/CounterStrikeSharp runtime files were not touched."
+log "CounterStrikeSharp configs/, cfg/, and the five top-level CS2 config/list files were synced from the repository."
+log "Egg-managed Metamod/CounterStrikeSharp runtime files were not touched."
