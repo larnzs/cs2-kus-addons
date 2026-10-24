@@ -179,7 +179,7 @@ mount_inventory_parse() {
   MOUNT_STATUS_OUTPUT="$(timeout 20 php "$REPO_ROOT/pterodactyl/server-mount-status.php" 2>&1)"
   local rc=$?
   if [[ "$rc" -ne 0 || "$MOUNT_STATUS_OUTPUT" != META$'\t'OK$'\t'* ]]; then
-    MOUNT_STATUS_ERROR="$(printf '%s' "$MOUNT_STATUS_OUTPUT" | tr '\t\r\n' '   ' | cut -c1-150)"
+    MOUNT_STATUS_ERROR="$(printf '%s' "$MOUNT_STATUS_OUTPUT" | tr -cd '[:print:]' | cut -c1-150)"
     [[ -n "$MOUNT_STATUS_ERROR" ]] || MOUNT_STATUS_ERROR="Status command exited with code $rc."
     MOUNT_STATUS_OUTPUT=''
   else
@@ -203,7 +203,7 @@ mount_inventory_parse() {
         ;;
       SERVER)
         uuid_short="$(printf '%s' "$f1" | cut -c1-8)"
-        name="$(printf '%s' "$f2" | tr '\r\n\t' '   ' | cut -c1-20)"
+        name="$(printf '%s' "$f2" | tr -cd '[:print:]' | cut -c1-20)"
         state="$f4"
         if [[ "$f5" == ON && "$state" == RUNNING ]]; then
           MOUNT_ACTIVE_COUNT=$((MOUNT_ACTIVE_COUNT + 1))
