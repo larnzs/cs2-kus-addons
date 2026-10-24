@@ -42,6 +42,10 @@ jobs:
             pterodactyl/install-host-services.sh \
             pterodactyl/systemd/fragcity-status-dashboard.sh
 
+          grep -Fq 'publish_status_dashboard' pterodactyl/sync-addon-payload-host.sh
+          grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'print_active_switch' pterodactyl/systemd/fragcity-status-dashboard.sh
+
       - name: Validate PHP provisioner syntax and safe CLI argument handling
         shell: bash
         run: |
