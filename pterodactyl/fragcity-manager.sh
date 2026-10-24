@@ -102,7 +102,7 @@ followlogs() {
 }
 
 installation_wizard() {
-  local mode timers exclude ans rc baseline
+  local mode timers exclude ans rc baseline confirm
   baseline="/var/lib/pterodactyl/fragcity-addon-provisioner/baseline-uuids.txt"
   heading "FULL INSTALL / REINSTALL"
   printf '\n%bThis wizard installs or repairs the FragCity host automation files.%b\n' "$C" "$Z"
@@ -132,7 +132,7 @@ installation_wizard() {
       fi
       printf '\nTimer policy for the full install:\n'
       printf '  %b1%b  Turn both automation timers ON (persistent across reboot)\n' "$G" "$Z"
-      printf '  %b2%b  Install files but do not enable timers\n\nChoice: ' "$G" "$Z"
+      printf '  %b2%b  Keep current timer settings (fresh installs stay OFF)\n\nChoice: ' "$G" "$Z"
       read -r timers
       case "$timers" in
         1) timers=1 ;;
