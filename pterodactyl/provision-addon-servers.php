@@ -520,32 +520,29 @@ function serverStartupPrefix(string $mountTarget): string
  */
 function prepareConfigSeedMarker(string $volumePath, string $uuid, int $mountId, string $payloadCommit): void
 {
-    $pending = $volumePath . '/.fragcity-config-seed-v1.pending';
-    $done = $volumePath . '/.fragcity-config-seed-v1.done';
-    $legacy = $volumePath . '/.fragcity-config-seed-v1.legacy';
+    $state = $volumePath . '/.fragcity-config-seed-v1.state';
 
-    foreach ([$pending, $done, $legacy] as $path) {
-        if (is_link($path)) {
-            fail('Config-seed state path is a symlink: ' . $path);
-        }
-        if (file_exists($path) && !is_file($path)) {
-            fail('Config-seed state path is not a regular file: ' . $path);
-        }
+    if (is_link($state)) {
+        fail('Config-seed state path is a symlink: ' . $state);
+    }
+    if (file_exists($state) && !is_file($state)) {
+        fail('Config-seed state path is not a regular file: ' . $state);
     }
 
-    if (is_file($done) || is_file($legacy)) {
-        logLine('Existing config-seed state found for ' . $uuid . '; preserving all current cfg/configs/txt files.');
-        return;
-    }
-
-    if (is_file($pending)) {
-        $lines = file($pending, FILE_IGNORE_NEW_LINES);
+    if (is_file($state)) {
+        $lines = file($state, FILE_IGNORE_NEW_LINES);
         if ($lines === false
             || !in_array('fragcity-config-seed-v1', $lines, true)
             || !in_array('server_uuid=' . $uuid, $lines, true)) {
-            fail('Pending config-seed marker does not match server UUID ' . $uuid . '.');
+            fail('Config-seed state does not match server UUID ' . $uuid . '.');
         }
-        logLine('One-time config seed already pending for ' . $uuid . '.');
+        if (in_array('mode=completed', $lines, true)) {
+            logLine('Config seed already completed for ' . $uuid . '; current cfg/configs/txt files will be preserved.');
+        } elseif (in_array('mode=pending', $lines, true)) {
+            logLine('One-time config seed already pending for ' . $uuid . '.');
+        } else {
+            fail('Config-seed state has no recognized pending/completed mode for ' . $uuid . '.');
+        }
         return;
     }
 
@@ -556,8 +553,11 @@ function prepareConfigSeedMarker(string $volumePath, string $uuid, int $mountId,
         . 'payload_commit=' . $payloadCommit . "\n"
         . 'created_at_utc=' . gmdate('c') . "\n";
 
-    writeAtomically($pending, $contents, 0644);
-    logLine('Created first-install config-seed marker for ' . $uuid . '; cfg/configs/txt files will be installed once on its next start.');
+    // The container cannot always create files in the root of its bind-mounted
+    // volume, so make this isolated per-server state file writable for its own
+    // container user. It is not an authority boundary and contains no secrets.
+    writeAtomically($state, $contents, 0666);
+    logLine('Created first-install config-seed state for ' . $uuid . '; cfg/configs/txt files will be installed once on its next start.');
 }
 
 /**
@@ -825,26 +825,25 @@ verify_mirror_tree() {
     fi
 }
 
-seed_done="/home/container/.fragcity-config-seed-v1.done"
-seed_legacy="/home/container/.fragcity-config-seed-v1.legacy"
-seed_pending="/home/container/.fragcity-config-seed-v1.pending"
-for state_file in "$seed_done" "$seed_legacy" "$seed_pending"; do
-    test ! -L "$state_file" || {
-        printf 'Config-seed state file is a symlink: %s\n' "$state_file" >&2
-        exit 29
-    }
-done
-if [[ -f "$seed_done" ]]; then
-    grep -Fxq 'fragcity-config-seed-v1' "$seed_done"
-    grep -Fxq "server_uuid=$P_SERVER_UUID" "$seed_done"
-    printf 'PASS: first-install config seed has completed. Customer-owned config files are intentionally not compared with repository defaults.\n'
-elif [[ -f "$seed_legacy" ]]; then
-    grep -Fxq 'fragcity-config-seed-v1' "$seed_legacy"
-    grep -Fxq "server_uuid=$P_SERVER_UUID" "$seed_legacy"
-    printf 'PASS: legacy server configuration is preserved; repository config defaults are not reapplied.\n'
+seed_state="/home/container/.fragcity-config-seed-v1.state"
+test ! -L "$seed_state" || {
+    printf 'Config-seed state file is a symlink: %s\n' "$seed_state" >&2
+    exit 29
+}
+if [[ -f "$seed_state" ]]; then
+    grep -Fxq 'fragcity-config-seed-v1' "$seed_state"
+    grep -Fxq "server_uuid=$P_SERVER_UUID" "$seed_state"
+    if grep -Fxq 'mode=completed' "$seed_state"; then
+        printf 'PASS: first-install config seed completed. Customer-owned config files are intentionally not compared with repository defaults.\n'
+    elif grep -Fxq 'mode=pending' "$seed_state"; then
+        printf 'Config-seed state is still pending; the startup sync did not complete the initial config seed.\n' >&2
+        exit 30
+    else
+        printf 'Config-seed state has no recognized mode.\n' >&2
+        exit 31
+    fi
 else
-    printf 'Config-seed state marker is missing; start the server once so its initial config policy can be recorded.\n' >&2
-    exit 30
+    printf 'PASS: legacy server has no first-install seed marker; existing configuration is preserved.\n'
 fi
 
 bash -n "$base/sync-addon-payload-container.sh"
