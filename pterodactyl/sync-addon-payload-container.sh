@@ -63,7 +63,10 @@ esac
 [[ -d "$SERVER_ROOT" && ! -L "$SERVER_ROOT" ]] || die "Server volume root is missing or unsafe: $SERVER_ROOT"
 
 CONFIG_SEED_STATE="$SERVER_ROOT/.fragcity-config-seed-v1.state"
+MANAGED_MANIFEST="$SERVER_ROOT/.fragcity-managed-payload-v1.list"
 CONFIG_SEED_ACTIVE=0
+[[ ! -L "$MANAGED_MANIFEST" ]] || die "Managed-payload manifest must not be a symlink: $MANAGED_MANIFEST"
+[[ ! -e "$MANAGED_MANIFEST" || -f "$MANAGED_MANIFEST" ]] || die "Managed-payload manifest must be a regular file: $MANAGED_MANIFEST"
 
 [[ ! -L "$CONFIG_SEED_STATE" ]] || die "Config seed state file must not be a symlink: $CONFIG_SEED_STATE"
 [[ ! -e "$CONFIG_SEED_STATE" || -f "$CONFIG_SEED_STATE" ]] || die "Config seed state path must be a regular file: $CONFIG_SEED_STATE"
@@ -87,7 +90,7 @@ else
     log "No first-install marker found; treating this as an existing server and preserving all cfg/configs/txt files."
 fi
 
-for command_name in sha256sum find cp mkdir rm awk flock tr chmod dirname grep date; do
+for command_name in sha256sum find cp mkdir rm awk flock tr chmod dirname grep date sort mv; do
     command -v "$command_name" >/dev/null 2>&1 || die "$command_name is required."
 done
 
@@ -264,6 +267,37 @@ assert_no_symlink_parent_components() {
     done
 }
 
+
+# Only files actually supplied by this payload may be stale-pruned. Files generated
+# by plugins (SQLite databases, bans, per-map JSON data, etc.) are unmanaged.
+is_payload_managed_path() {
+    local path="$1"
+    [[ -n "$path" && "$path" != /* && "$path" != *".."* && "$path" != *"//"* ]] || return 1
+    case "$path" in
+        addons/counterstrikesharp/source/*|\
+        addons/counterstrikesharp/plugins/*|\
+        addons/counterstrikesharp/shared/*|\
+        addons/counterstrikesharp/gamedata/*|\
+        addons/MovementUnlocker/*|\
+        addons/serverlistplayersfix_mm/*|\
+        addons/surf/*|\
+        addons/scripts/*|\
+        addons/multiaddonmanager/*|\
+        addons/metamod/serverlistplayersfix_mm.vdf)
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+    case "$path" in
+        addons/counterstrikesharp/plugins/BotAI|addons/counterstrikesharp/plugins/BotAI/*|\
+        addons/counterstrikesharp/plugins/CS2UpdateMonitor|addons/counterstrikesharp/plugins/CS2UpdateMonitor/*)
+            return 1
+            ;;
+    esac
+    return 0
+}
+
 log "Target server UUID: $SERVER_UUID."
 log "Using published payload revision $SOURCE_COMMIT."
 log "Building the desired-file list from the immutable snapshot."
@@ -282,6 +316,19 @@ for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmana
     add_tree "$ADDONS_SOURCE/$name" "addons/$name"
 done
 add_file "addons/metamod/serverlistplayersfix_mm.vdf" "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf"
+
+# Load the previous successful inventory. On the first rollout this manifest does
+# not exist, so skip stale cleanup once rather than delete unknown plugin-generated data.
+declare -A PREVIOUS_MANAGED=()
+MANIFEST_PRESENT=0
+if [[ -f "$MANAGED_MANIFEST" ]]; then
+    MANIFEST_PRESENT=1
+    while IFS= read -r previous_path || [[ -n "$previous_path" ]]; do
+        [[ -z "$previous_path" || "$previous_path" == "# fragcity-managed-payload-v1" ]] && continue
+        is_payload_managed_path "$previous_path" || die "Unsafe path in managed-payload manifest: $previous_path"
+        PREVIOUS_MANAGED["$previous_path"]=1
+    done < "$MANAGED_MANIFEST"
+fi
 
 for managed_root in "${MANAGED_ROOTS[@]}"; do mkdir -p -- "$managed_root"; done
 mkdir -p -- "$GAME_ROOT/addons/metamod"
@@ -327,24 +374,39 @@ for relative_path in "${!DESIRED_SOURCE[@]}"; do
     VERIFIED=$((VERIFIED + 1))
 done
 
-# Stale cleanup runs only after all desired files have passed hash verification.
+# Delete stale files only when the previous manifest proves FragCity deployed them.
+# Never sweep a plugin directory and assume every unlisted file is disposable.
 DELETED=0
-for managed_root in "${MANAGED_ROOTS[@]}"; do
-    while IFS= read -r -d '' target_path; do
-        relative_path="${target_path#"$GAME_ROOT"/}"
-        case "$relative_path" in
-            addons/counterstrikesharp/plugins/BotAI|addons/counterstrikesharp/plugins/BotAI/*|\
-            addons/counterstrikesharp/plugins/CS2UpdateMonitor|addons/counterstrikesharp/plugins/CS2UpdateMonitor/*)
-                continue
-                ;;
-        esac
-        if [[ -z "${DESIRED_SOURCE[$relative_path]+present}" ]]; then
-            log "Removing stale managed file: $relative_path"
+if [[ "$MANIFEST_PRESENT" -eq 1 ]]; then
+    for relative_path in "${!PREVIOUS_MANAGED[@]}"; do
+        [[ -n "${DESIRED_SOURCE[$relative_path]+present}" ]] && continue
+        target_path="$GAME_ROOT/$relative_path"
+        assert_no_symlink_parent_components "$target_path"
+        [[ ! -L "$target_path" ]] || die "Previously managed payload target is a symlink: $target_path"
+        if [[ -e "$target_path" ]]; then
+            [[ -f "$target_path" ]] || die "Previously managed payload target is not a regular file: $target_path"
+            log "Removing stale previously-managed payload file: $relative_path"
             rm -f -- "$target_path"
             DELETED=$((DELETED + 1))
         fi
-    done < <(find "$managed_root" -type f -print0)
-done
+    done
+else
+    log "No prior managed-payload manifest; skipping stale-file deletion on this rollout to preserve existing plugin/runtime data."
+fi
+
+# CSS configs can be cleaned only during the first-install seed.
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    while IFS= read -r -d '' target_path; do
+        relative_path="${target_path#"$GAME_ROOT"/}"
+        if [[ -z "${DESIRED_SOURCE[$relative_path]+present}" ]]; then
+            assert_no_symlink_parent_components "$target_path"
+            [[ ! -L "$target_path" ]] || die "First-install config target is a symlink: $target_path"
+            log "Removing stale first-install config file: $relative_path"
+            rm -f -- "$target_path"
+            DELETED=$((DELETED + 1))
+        fi
+    done < <(find "$CONFIG_ROOT" -type f -print0)
+fi
 
 if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
     for relative_path in "${CONFIG_FILES[@]}"; do
@@ -359,14 +421,24 @@ if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
 fi
 
 for managed_root in "${MANAGED_ROOTS[@]}"; do
-    if [[ "$managed_root" == "$CSS_TARGET/plugins" ]]; then
-        find "$managed_root" -mindepth 1 -depth -type d -empty \
-            ! -path "$managed_root/BotAI" ! -path "$managed_root/BotAI/*" \
-            ! -path "$managed_root/CS2UpdateMonitor" ! -path "$managed_root/CS2UpdateMonitor/*" -delete
-    else
-        find "$managed_root" -mindepth 1 -depth -type d -empty -delete
-    fi
+    # Empty plugin directories may contain runtime-created data; keep them.
+    [[ "$managed_root" == "$CSS_TARGET/plugins" ]] && continue
+    find "$managed_root" -mindepth 1 -depth -type d -empty -delete
 done
+
+# Publish the new managed inventory atomically after copies and stale cleanup succeed.
+manifest_tmp="$MANAGED_MANIFEST.tmp.$BASHPID"
+[[ ! -e "$manifest_tmp" && ! -L "$manifest_tmp" ]] || die "Managed-payload manifest temp path already exists."
+{
+    printf '# fragcity-managed-payload-v1\n'
+    for relative_path in "${!DESIRED_SOURCE[@]}"; do
+        if is_payload_managed_path "$relative_path"; then
+            printf '%s\n' "$relative_path"
+        fi
+    done
+} | sort -u > "$manifest_tmp" || die "Could not write managed-payload manifest."
+chmod 0644 "$manifest_tmp" || die "Could not set managed-payload manifest permissions."
+mv -f -- "$manifest_tmp" "$MANAGED_MANIFEST" || die "Could not publish managed-payload manifest atomically."
 
 if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
     # The host provisioner creates this per-volume state file with mode 0666:
