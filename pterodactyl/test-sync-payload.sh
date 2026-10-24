@@ -203,8 +203,10 @@ grep -Fxq "mode=completed" "$TEST_ROOT/.fragcity-config-seed-v1.state"
 [[ -f "$TEST_ROOT/.fragcity-managed-payload-v1.list" ]]
 [[ -f "$revision_root/.fragcity-plugin-inventory-v1.list" ]]
 grep -Fxq 'disabled' "$revision_root/.fragcity-plugin-inventory-v1.list"
-! grep -Fxq 'BotAI' "$revision_root/.fragcity-plugin-inventory-v1.list"
-! grep -Fxq 'CS2UpdateMonitor' "$revision_root/.fragcity-plugin-inventory-v1.list"
+grep -Fxq 'BotAI' "$revision_root/.fragcity-plugin-inventory-v1.list"
+grep -Fxq 'CS2UpdateMonitor' "$revision_root/.fragcity-plugin-inventory-v1.list"
+[[ ! -d "$revision_root/game/csgo/addons/counterstrikesharp/plugins/BotAI" ]]
+[[ ! -d "$revision_root/game/csgo/addons/counterstrikesharp/plugins/CS2UpdateMonitor" ]]
 # Directory reconciliation must work on the first sync without a prior manifest.
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/plugins/RemovedFromGitHubPlugin" ]]
 retired_plugin="$(find "$TEST_ROOT/.fragcity-retired-plugins" -mindepth 2 -maxdepth 2 -type d -name 'RemovedFromGitHubPlugin' -print -quit)"
