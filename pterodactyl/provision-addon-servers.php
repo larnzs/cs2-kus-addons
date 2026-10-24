@@ -727,16 +727,32 @@ test "$target_disabled_files" -eq "$verified_disabled_files" || {
 printf 'PASS: verified all %d disabled-plugin file(s) and exact file count against this server volume.\n' "$verified_disabled_files"
 
 verify_mirror_tree() {
-    local source_dir="$1" target_dir="$2" label="$3"
+    local source_dir="$1" target_dir="$2" label="$3" mode="${4:-exact}"
     local source_file relative_file target_file source_hash target_hash
-    local verified_count=0 target_count
+    local verified_count=0 target_count current_path part component_index
+    local -a components=()
     test -d "$source_dir" && test ! -L "$source_dir"
     test -d "$target_dir" && test ! -L "$target_dir"
     test -z "$(find "$source_dir" -type l -print -quit)"
-    test -z "$(find "$target_dir" -type l -print -quit)"
+    if [[ "$mode" == "exact" ]]; then
+        test -z "$(find "$target_dir" -type l -print -quit)"
+    elif [[ "$mode" != "subset" ]]; then
+        printf 'Unknown verification mode for %s: %s\n' "$label" "$mode" >&2
+        exit 27
+    fi
     while IFS= read -r -d '' source_file; do
         relative_file="${source_file#"$source_dir"/}"
         target_file="$target_dir/$relative_file"
+        IFS='/' read -r -a components <<< "$relative_file"
+        current_path="$target_dir"
+        for ((component_index = 0; component_index < ${#components[@]} - 1; component_index++)); do
+            part="${components[$component_index]}"
+            current_path="$current_path/$part"
+            if [[ -L "$current_path" ]]; then
+                printf '%s destination parent is a symlink: %s\n' "$label" "$current_path" >&2
+                exit 28
+            fi
+        done
         test -f "$target_file" && test ! -L "$target_file"
         source_hash="$(sha256sum -- "$source_file" | awk '{print $1}')"
         target_hash="$(sha256sum -- "$target_file" | awk '{print $1}')"
@@ -747,13 +763,17 @@ verify_mirror_tree() {
         verified_count=$((verified_count + 1))
     done < <(find "$source_dir" -type f -print0)
     test "$verified_count" -gt 0
-    mapfile -d '' -t target_files < <(find "$target_dir" -type f -print0)
-    target_count="${#target_files[@]}"
-    test "$target_count" -eq "$verified_count" || {
-        printf '%s file count mismatch: payload=%d volume=%d\n' "$label" "$verified_count" "$target_count" >&2
-        exit 25
-    }
-    printf 'PASS: verified %d %s file(s) and exact file count.\n' "$verified_count" "$label"
+    if [[ "$mode" == "exact" ]]; then
+        mapfile -d '' -t target_files < <(find "$target_dir" -type f -print0)
+        target_count="${#target_files[@]}"
+        test "$target_count" -eq "$verified_count" || {
+            printf '%s file count mismatch: payload=%d volume=%d\n' "$label" "$verified_count" "$target_count" >&2
+            exit 25
+        }
+        printf 'PASS: verified %d %s file(s) and exact file count.\n' "$verified_count" "$label"
+    else
+        printf 'PASS: verified %d %s payload file(s); unrelated game-owned files are allowed and preserved.\n' "$verified_count" "$label"
+    fi
 }
 
 verify_mirror_tree \
@@ -763,7 +783,7 @@ verify_mirror_tree \
 verify_mirror_tree \
     "$revision/game/csgo/cfg" \
     "/home/container/game/csgo/cfg" \
-    "game/csgo/cfg"
+    "game/csgo/cfg" "subset"
 
 for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
     source_file="$revision/game/csgo/$name"

@@ -60,6 +60,10 @@ mkdir -p \
     "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor" \
     "$GAME_ROOT/addons/counterstrikesharp/configs" \
     "$GAME_ROOT/cfg"
+# Simulate stock game files that are not present in the repository payload.
+printf 'stock-user-keys\n' > "$GAME_ROOT/cfg/user_keys_default.vcfg"
+printf 'stock-competitive-mode\n' > "$GAME_ROOT/cfg/gamemode_competitive.cfg"
+printf 'stock-machine-convars\n' > "$GAME_ROOT/cfg/machine_convars_default.vcfg"
 printf 'protect-botai\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI/fragcity-test-keep.txt"
 printf 'stale-disabled-marker\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt"
 printf 'protect-update-monitor\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt"
@@ -104,6 +108,39 @@ assert_tree_mirror() {
     echo "PASS: $label exactly mirrors $source_count file(s)."
 }
 
+assert_payload_files_present() {
+    local source_dir="$1" target_dir="$2" label="$3"
+    local source_file relative_file target_file source_hash target_hash source_count=0
+    [[ -d "$source_dir" && -d "$target_dir" && ! -L "$target_dir" ]] || {
+        echo "FAIL: $label source or target directory missing or unsafe."
+        return 1
+    }
+    [[ -z "$(find "$source_dir" -type l -print -quit)" ]] || {
+        echo "FAIL: symlink exists in $label source tree."
+        return 1
+    }
+    while IFS= read -r -d '' source_file; do
+        relative_file="${source_file#"$source_dir"/}"
+        target_file="$target_dir/$relative_file"
+        [[ -f "$target_file" && ! -L "$target_file" ]] || {
+            echo "FAIL: $label payload file missing or unsafe: $relative_file"
+            return 1
+        }
+        source_hash="$(sha256sum -- "$source_file" | awk '{print $1}')"
+        target_hash="$(sha256sum -- "$target_file" | awk '{print $1}')"
+        [[ "$source_hash" == "$target_hash" ]] || {
+            echo "FAIL: $label SHA-256 mismatch: $relative_file"
+            return 1
+        }
+        source_count=$((source_count + 1))
+    done < <(find "$source_dir" -type f -print0)
+    [[ "$source_count" -gt 0 ]] || {
+        echo "FAIL: $label contains no payload files."
+        return 1
+    }
+    echo "PASS: all $source_count $label payload file(s) match; unrelated target files are preserved."
+}
+
 assert_top_level_config_files() {
     local name source_file target_file source_hash target_hash
     for name in "${CONFIG_FILE_NAMES[@]}"; do
@@ -144,9 +181,15 @@ grep -Fq "plugins/disabled/ was synced from the published payload and remains un
 [[ -e "$disabled_target" && ! -L "$disabled_target" ]]
 [[ "$(sha256sum -- "$disabled_sample" | awk '{print $1}')" == "$(sha256sum -- "$disabled_target" | awk '{print $1}')" ]]
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json" ]]
-[[ ! -e "$GAME_ROOT/cfg/fragcity-test-stale.cfg" ]]
+[[ -e "$GAME_ROOT/cfg/fragcity-test-stale.cfg" ]]
 assert_tree_mirror "$CONFIGS_SOURCE" "$GAME_ROOT/addons/counterstrikesharp/configs" "CounterStrikeSharp configs"
-assert_tree_mirror "$CFG_SOURCE" "$GAME_ROOT/cfg" "game/csgo/cfg"
+assert_payload_files_present "$CFG_SOURCE" "$GAME_ROOT/cfg" "game/csgo/cfg"
+for stock_file in user_keys_default.vcfg gamemode_competitive.cfg machine_convars_default.vcfg; do
+    [[ -f "$GAME_ROOT/cfg/$stock_file" && ! -L "$GAME_ROOT/cfg/$stock_file" ]] || {
+        echo "FAIL: game-owned cfg file was removed or replaced unsafely: $stock_file"
+        exit 1
+    }
+done
 assert_top_level_config_files
 
 # Every allowlisted payload must be installed; no Git metadata is staged.
@@ -165,7 +208,7 @@ done
 [[ "$(sha256sum -- "$disabled_sample" | awk '{print $1}')" == "$(sha256sum -- "$disabled_target" | awk '{print $1}')" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json" ]]
-[[ ! -e "$GAME_ROOT/cfg/fragcity-test-stale.cfg" ]]
+[[ -e "$GAME_ROOT/cfg/fragcity-test-stale.cfg" ]]
 
 # A stale managed file is removed only after all desired payload copies are verified.
 printf 'stale\n' > "$GAME_ROOT/addons/counterstrikesharp/source/fragcity-sync-test-stale.tmp"
@@ -188,9 +231,44 @@ grep -Eq 'Files copied: 0; already matching SHA-256: [0-9]+; verified: [0-9]+; s
 [[ "$(sha256sum -- "$disabled_sample" | awk '{print $1}')" == "$(sha256sum -- "$disabled_target" | awk '{print $1}')" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json" ]]
-[[ ! -e "$GAME_ROOT/cfg/fragcity-test-stale.cfg" ]]
+[[ -e "$GAME_ROOT/cfg/fragcity-test-stale.cfg" ]]
 assert_tree_mirror "$CONFIGS_SOURCE" "$GAME_ROOT/addons/counterstrikesharp/configs" "CounterStrikeSharp configs after second sync"
-assert_tree_mirror "$CFG_SOURCE" "$GAME_ROOT/cfg" "game/csgo/cfg after second sync"
+assert_payload_files_present "$CFG_SOURCE" "$GAME_ROOT/cfg" "game/csgo/cfg after second sync"
+for stock_file in user_keys_default.vcfg gamemode_competitive.cfg machine_convars_default.vcfg; do
+    [[ -f "$GAME_ROOT/cfg/$stock_file" && ! -L "$GAME_ROOT/cfg/$stock_file" ]] || {
+        echo "FAIL: game-owned cfg file disappeared after the second sync: $stock_file"
+        exit 1
+    }
+done
 assert_top_level_config_files
 
-echo "PASS: publisher sync, complete configs/cfg mirrors, five CS2 config/list files, disabled-plugin deployment, idempotency, safe stale cleanup, and protected-plugin exclusions."
+# Symlinked parent directories and destination files must fail closed.
+cfg_nested_target="$GAME_ROOT/cfg/MatchZy"
+cfg_nested_backup="$TEST_ROOT/fragcity-test-MatchZy-backup"
+if [[ -d "$CFG_SOURCE/MatchZy" && -f "$CFG_SOURCE/MatchZy/config.cfg" ]]; then
+    mv "$cfg_nested_target" "$cfg_nested_backup"
+    ln -s "$cfg_nested_backup" "$cfg_nested_target"
+    set +e
+    parent_guard_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
+    parent_guard_status=$?
+    set -e
+    [[ "$parent_guard_status" -ne 0 ]]
+    grep -Fq "Refusing to write through symlinked parent path" <<< "$parent_guard_output"
+    rm "$cfg_nested_target"
+    mv "$cfg_nested_backup" "$cfg_nested_target"
+fi
+
+cfg_guard_sentinel="$TEST_ROOT/fragcity-protected-target.txt"
+printf 'do-not-overwrite-through-symlink\n' > "$cfg_guard_sentinel"
+rm -f -- "$cfg_sample_target"
+ln -s "$cfg_guard_sentinel" "$cfg_sample_target"
+set +e
+file_guard_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
+file_guard_status=$?
+set -e
+[[ "$file_guard_status" -ne 0 ]]
+grep -Fq "Managed target file is a symlink" <<< "$file_guard_output"
+[[ "$(cat "$cfg_guard_sentinel")" == "do-not-overwrite-through-symlink" ]]
+[[ -L "$cfg_sample_target" ]]
+
+echo "PASS: publisher sync, authoritative CounterStrikeSharp configs, non-destructive custom cfg deployment, preservation of stock game cfg files, symlink-safe writes, five CS2 config/list files, disabled-plugin deployment, idempotency, safe addon stale cleanup, and protected-plugin exclusions."

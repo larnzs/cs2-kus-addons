@@ -20,11 +20,13 @@
 # directory; this script never promotes disabled plugins into the active plugins root.
 #   Egg-managed Metamod/CounterStrikeSharp runtime directories
 #
-# Managed configuration paths (repo is authoritative; local extras are removed):
-#   addons/counterstrikesharp/configs/
-#   cfg/
-#   gamemodes_server.txt, mapcycle.txt, mapcyclecustom.txt,
-#   subscribed_collection_ids.txt, subscribed_file_ids.txt
+# Managed configuration paths:
+#   addons/counterstrikesharp/configs/ is an authoritative FragCity-managed mirror.
+#   Files listed under the repository's cfg/ tree are copied/updated by exact path,
+#   but cfg/ is NOT a mirror: unrelated Valve/game-owned files must be preserved.
+#   In particular, stock gamemode_*.cfg, machine_convars_default.vcfg,
+#   user_keys_default.vcfg and user_keys_dev_default.vcfg are never stale-pruned.
+#   The five top-level CS2 config/list files are explicitly managed.
 
 set -Eeuo pipefail
 
@@ -138,7 +140,6 @@ MANAGED_ROOTS=(
     "$CSS_TARGET/shared"
     "$CSS_TARGET/gamedata"
     "$CSS_TARGET/configs"
-    "$GAME_ROOT/cfg"
     "$GAME_ROOT/addons/MovementUnlocker"
     "$GAME_ROOT/addons/serverlistplayersfix_mm"
     "$GAME_ROOT/addons/surf"
@@ -205,6 +206,24 @@ add_tree() {
     fi
 }
 
+assert_no_symlink_parent_components() {
+    local target_path="$1" relative_path current_path part component_index
+    local -a components=()
+
+    case "$target_path" in
+        "$GAME_ROOT"/*) relative_path="${target_path#"$GAME_ROOT"/}" ;;
+        *) die "Refusing to write outside GAME_ROOT: $target_path" ;;
+    esac
+
+    IFS='/' read -r -a components <<< "$relative_path"
+    current_path="$GAME_ROOT"
+    for ((component_index = 0; component_index < ${#components[@]} - 1; component_index++)); do
+        part="${components[$component_index]}"
+        current_path="$current_path/$part"
+        [[ ! -L "$current_path" ]] || die "Refusing to write through symlinked parent path: $current_path"
+    done
+}
+
 log "Target server UUID: $SERVER_UUID."
 log "Using published payload revision $SOURCE_COMMIT."
 log "Building the desired-file list from the immutable snapshot."
@@ -234,6 +253,7 @@ for relative_path in "${!DESIRED_SOURCE[@]}"; do
     source_path="${DESIRED_SOURCE[$relative_path]}"
     expected_hash="${DESIRED_HASH[$relative_path]}"
     target_path="$GAME_ROOT/$relative_path"
+    assert_no_symlink_parent_components "$target_path"
     [[ ! -L "$target_path" ]] || die "Managed target file is a symlink: $target_path"
 
     actual_hash=""
@@ -308,5 +328,7 @@ log "Sync completed successfully."
 log "Files copied: $COPIED; already matching SHA-256: $UNCHANGED; verified: $VERIFIED; stale files removed: $DELETED."
 log "BotAI/ and CS2UpdateMonitor/ plugin directories were not copied or pruned."
 log "plugins/disabled/ was synced from the published payload and remains under disabled/."
-log "CounterStrikeSharp configs/, cfg/, and the five top-level CS2 config/list files were synced from the repository."
+log "CounterStrikeSharp configs/ was mirrored from the repository."
+log "Repository-listed custom cfg/ files were updated by exact path; unrelated game-owned cfg files were preserved and cfg/ was not stale-pruned."
+log "The five top-level CS2 config/list files were synced from the repository."
 log "Egg-managed Metamod/CounterStrikeSharp runtime files were not touched."
