@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=FragCity Systemd Status
+Comment=Live status of FragCity payload refresh and new-server provisioning
+Exec=/usr/bin/xfce4-terminal --title=FragCity-Systemd-Status --hold --command=/usr/local/libexec/fragcity-status-dashboard.sh
+Terminal=false
+OnlyShowIn=XFCE;
+X-GNOME-Autostart-enabled=true
+X-XFCE-Autostart-Override=true
