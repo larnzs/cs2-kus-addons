@@ -40,11 +40,16 @@ jobs:
             pterodactyl/sync-addon-payload-container.sh \
             pterodactyl/test-sync-payload.sh \
             pterodactyl/install-host-services.sh \
-            pterodactyl/systemd/fragcity-status-dashboard.sh
+            pterodactyl/systemd/fragcity-status-dashboard.sh \
+            pterodactyl/fragcity-manager.sh
 
           grep -Fq 'publish_status_dashboard' pterodactyl/sync-addon-payload-host.sh
           grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'print_active_switch' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/fragcity-manager.sh
+          grep -Fq 'enable --now' pterodactyl/fragcity-manager.sh
+          grep -Fq 'disable --now' pterodactyl/fragcity-manager.sh
+          grep -Fq 'Exec=xfce4-terminal' pterodactyl/FragCity-Control-Center.desktop
 
       - name: Validate PHP provisioner syntax and safe CLI argument handling
         shell: bash
