@@ -60,6 +60,8 @@ ADDONS_SOURCE="$GAME_SOURCE/addons"
 CSS_SOURCE="$ADDONS_SOURCE/counterstrikesharp"
 [[ -d "$CSS_SOURCE/source" ]] || die "Missing source folder: $CSS_SOURCE/source"
 [[ -d "$CSS_SOURCE/plugins" ]] || die "Missing source folder: $CSS_SOURCE/plugins"
+[[ -d "$CSS_SOURCE/plugins/disabled" ]] || die "Missing source folder: $CSS_SOURCE/plugins/disabled"
+[[ -n "$(find "$CSS_SOURCE/plugins/disabled" -type f -print -quit)" ]] || die "No files found under managed source folder: $CSS_SOURCE/plugins/disabled"
 [[ -d "$CSS_SOURCE/shared" ]] || die "Missing source folder: $CSS_SOURCE/shared"
 [[ -d "$CSS_SOURCE/gamedata" ]] || die "Missing source folder: $CSS_SOURCE/gamedata"
 [[ -f "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf" ]] || die "Missing VDF: $ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf"
@@ -112,6 +114,11 @@ validate_revision() {
     [[ "$(tr -d '\r\n' < "$root/.source-commit")" == "$SOURCE_COMMIT" ]] || return 1
     [[ -d "$root/game/csgo/addons/counterstrikesharp/source" ]] || return 1
     [[ -d "$root/game/csgo/addons/counterstrikesharp/plugins" ]] || return 1
+    # Treat revisions created by an older publisher (which excluded disabled/)
+    # as invalid even when their commit marker and other required paths are valid.
+    # Re-running this publisher will safely rebuild that same commit revision.
+    [[ -d "$root/game/csgo/addons/counterstrikesharp/plugins/disabled" && ! -L "$root/game/csgo/addons/counterstrikesharp/plugins/disabled" ]] || return 1
+    [[ -n "$(find "$root/game/csgo/addons/counterstrikesharp/plugins/disabled" -type f -print -quit)" ]] || return 1
     # Do not publish CS2UpdateMonitor as an active plugin on new servers.
     [[ ! -e "$root/game/csgo/addons/counterstrikesharp/plugins/CS2UpdateMonitor" ]] || return 1
     [[ -d "$root/game/csgo/addons/counterstrikesharp/shared" ]] || return 1
