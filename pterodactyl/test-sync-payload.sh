@@ -32,6 +32,12 @@ bad_file="$(find "$revision_root" -type f ! -perm -0004 -print -quit)"
     exit 1
 }
 [[ ! -e "$revision_root/game/csgo/addons/counterstrikesharp/plugins/CS2UpdateMonitor" ]]
+DISABLED_SOURCE="$revision_root/game/csgo/addons/counterstrikesharp/plugins/disabled"
+[[ -d "$DISABLED_SOURCE" ]]
+disabled_sample="$(find "$DISABLED_SOURCE" -type f -print -quit)"
+[[ -n "$disabled_sample" ]] || { echo "FAIL: payload contains no files under plugins/disabled/"; exit 1; }
+disabled_relative="${disabled_sample#"$DISABLED_SOURCE"/}"
+disabled_target="$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/$disabled_relative"
 
 mkdir -p \
     "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI" \
@@ -40,7 +46,7 @@ mkdir -p \
     "$GAME_ROOT/addons/counterstrikesharp/configs" \
     "$GAME_ROOT/cfg"
 printf 'protect-botai\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI/fragcity-test-keep.txt"
-printf 'protect-disabled\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-keep.txt"
+printf 'stale-disabled-marker\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt"
 printf 'protect-update-monitor\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt"
 printf 'protect-css-config\n' > "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-keep.json"
 printf 'protect-game-config\n' > "$GAME_ROOT/cfg/fragcity-test-keep.cfg"
@@ -59,8 +65,12 @@ printf '%s\n' "$first_output" | grep -E 'Target server UUID|Using published payl
 grep -Fq "Target server UUID: $TEST_SERVER_UUID." <<< "$first_output"
 grep -Fq "Using published payload revision $commit." <<< "$first_output"
 grep -Fq "Sync completed successfully." <<< "$first_output"
-grep -Fq "BotAI/, disabled/, and CS2UpdateMonitor/ were not copied or pruned." <<< "$first_output"
+grep -Fq "BotAI/ and CS2UpdateMonitor/ were not copied or pruned." <<< "$first_output"
+grep -Fq "plugins/disabled/ was synced from the published payload and remains under disabled/." <<< "$first_output"
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
+[[ ! -e "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt" ]]
+[[ -f "$disabled_target" ]]
+[[ "$(sha256sum -- "$disabled_sample" | awk '{print $1}')" == "$(sha256sum -- "$disabled_target" | awk '{print $1}')" ]]
 
 # Every allowlisted payload must be installed; no private repo metadata is staged.
 [[ -d "$GAME_ROOT/addons/counterstrikesharp/source" ]]
@@ -73,7 +83,9 @@ done
 
 # User-owned paths and manually managed configs must survive first sync and re-sync.
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI/fragcity-test-keep.txt")" == "protect-botai" ]]
-[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-keep.txt")" == "protect-disabled" ]]
+[[ ! -e "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt" ]]
+[[ -f "$disabled_target" ]]
+[[ "$(sha256sum -- "$disabled_sample" | awk '{print $1}')" == "$(sha256sum -- "$disabled_target" | awk '{print $1}')" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-keep.json")" == "protect-css-config" ]]
 [[ "$(cat "$GAME_ROOT/cfg/fragcity-test-keep.cfg")" == "protect-game-config" ]]
@@ -94,9 +106,11 @@ fi
 grep -Eq 'Files copied: 0; already matching SHA-256: [0-9]+; verified: [0-9]+; stale files removed: 1\.' <<< "$second_output"
 
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI/fragcity-test-keep.txt")" == "protect-botai" ]]
-[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-keep.txt")" == "protect-disabled" ]]
+[[ ! -e "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt" ]]
+[[ -f "$disabled_target" ]]
+[[ "$(sha256sum -- "$disabled_sample" | awk '{print $1}')" == "$(sha256sum -- "$disabled_target" | awk '{print $1}')" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-keep.json")" == "protect-css-config" ]]
 [[ "$(cat "$GAME_ROOT/cfg/fragcity-test-keep.cfg")" == "protect-game-config" ]]
 
-echo "PASS: staging metadata, hash sync, idempotency, safe stale cleanup, and exclusions."
+echo "PASS: staging metadata, hash sync, disabled-plugin deployment, idempotency, safe stale cleanup, and protected-path exclusions."
