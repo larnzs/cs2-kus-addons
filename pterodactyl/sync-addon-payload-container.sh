@@ -63,7 +63,10 @@ esac
 [[ -d "$SERVER_ROOT" && ! -L "$SERVER_ROOT" ]] || die "Server volume root is missing or unsafe: $SERVER_ROOT"
 
 CONFIG_SEED_STATE="$SERVER_ROOT/.fragcity-config-seed-v1.state"
+MANAGED_MANIFEST="$SERVER_ROOT/.fragcity-managed-payload-v1.list"
 CONFIG_SEED_ACTIVE=0
+[[ ! -L "$MANAGED_MANIFEST" ]] || die "Managed-payload manifest must not be a symlink: $MANAGED_MANIFEST"
+[[ ! -e "$MANAGED_MANIFEST" || -f "$MANAGED_MANIFEST" ]] || die "Managed-payload manifest must be a regular file: $MANAGED_MANIFEST"
 
 [[ ! -L "$CONFIG_SEED_STATE" ]] || die "Config seed state file must not be a symlink: $CONFIG_SEED_STATE"
 [[ ! -e "$CONFIG_SEED_STATE" || -f "$CONFIG_SEED_STATE" ]] || die "Config seed state path must be a regular file: $CONFIG_SEED_STATE"
@@ -87,7 +90,7 @@ else
     log "No first-install marker found; treating this as an existing server and preserving all cfg/configs/txt files."
 fi
 
-for command_name in sha256sum find cp mkdir rm awk flock tr chmod dirname grep date; do
+for command_name in sha256sum find cp mkdir rm awk flock tr chmod dirname grep date sort mv; do
     command -v "$command_name" >/dev/null 2>&1 || die "$command_name is required."
 done
 
@@ -262,6 +265,331 @@ assert_no_symlink_parent_components() {
         current_path="$current_path/$part"
         [[ ! -L "$current_path" ]] || die "Refusing to write through symlinked parent path: $current_path"
     done
+}
+
+# Only files shipped by this payload are eligible for manifest-based stale cleanup.
+# Anything created by a running plugin but absent from the repository is unmanaged
+# and must not be deleted (for example PlayerSettings/settings.sqlite or bans.db).
+is_payload_managed_path() {
+    local path="$1"
+    [[ -n "$path" && "$path" != /* && "$path" != *
+log "Target server UUID: $SERVER_UUID."
+log "Using published payload revision $SOURCE_COMMIT."
+log "Building the desired-file list from the immutable snapshot."
+add_tree "$CSS_SOURCE/source" "addons/counterstrikesharp/source"
+add_tree "$CSS_SOURCE/plugins" "addons/counterstrikesharp/plugins" 1
+add_tree "$CSS_SOURCE/shared" "addons/counterstrikesharp/shared"
+add_tree "$CSS_SOURCE/gamedata" "addons/counterstrikesharp/gamedata"
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    add_tree "$CSS_SOURCE/configs" "addons/counterstrikesharp/configs"
+    add_tree "$GAME_SOURCE/cfg" "cfg"
+    for name in "${CONFIG_FILES[@]}"; do
+        add_file "$name" "$GAME_SOURCE/$name"
+    done
+fi
+for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmanager; do
+    add_tree "$ADDONS_SOURCE/$name" "addons/$name"
+done
+add_file "addons/metamod/serverlistplayersfix_mm.vdf" "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf"
+
+# Read the last successful managed-file inventory before writing anything. A missing
+# manifest is the safe rollout path: preserve all untracked files this first time.
+declare -A PREVIOUS_MANAGED=()
+MANIFEST_PRESENT=0
+if [[ -f "$MANAGED_MANIFEST" ]]; then
+    MANIFEST_PRESENT=1
+    while IFS= read -r previous_path || [[ -n "$previous_path" ]]; do
+        [[ -z "$previous_path" || "$previous_path" == "# fragcity-managed-payload-v1" ]] && continue
+        is_payload_managed_path "$previous_path" || die "Unsafe path in managed-payload manifest: $previous_path"
+        PREVIOUS_MANAGED["$previous_path"]=1
+    done < "$MANAGED_MANIFEST"
+fi
+
+for managed_root in "${MANAGED_ROOTS[@]}"; do mkdir -p -- "$managed_root"; done
+mkdir -p -- "$GAME_ROOT/addons/metamod"
+
+COPIED=0
+UNCHANGED=0
+VERIFIED=0
+
+# Transfer only missing/changed files. Each changed copy is verified before cleanup.
+for relative_path in "${!DESIRED_SOURCE[@]}"; do
+    source_path="${DESIRED_SOURCE[$relative_path]}"
+    expected_hash="${DESIRED_HASH[$relative_path]}"
+    target_path="$GAME_ROOT/$relative_path"
+    assert_no_symlink_parent_components "$target_path"
+    [[ ! -L "$target_path" ]] || die "Managed target file is a symlink: $target_path"
+
+    actual_hash=""
+    if [[ -f "$target_path" ]]; then
+        actual_hash="$(sha256sum -- "$target_path" | awk 'NR == 1 {print $1}')"
+    fi
+
+    if [[ "$actual_hash" == "$expected_hash" ]]; then
+        UNCHANGED=$((UNCHANGED + 1))
+        VERIFIED=$((VERIFIED + 1))
+        continue
+    fi
+
+    if [[ "$VERBOSE" == "1" ]]; then
+        log "Updating $relative_path (missing or SHA-256 differs)."
+    fi
+    mkdir -p -- "$(dirname -- "$target_path")"
+    # A published snapshot is read-only; deployed files should remain editable by
+    # the server's container user, as in an ordinary Pterodactyl game volume.
+    if [[ -e "$target_path" ]]; then
+        chmod u+w -- "$target_path" || die "Could not make managed target writable before copy: $target_path"
+    fi
+    cp -- "$source_path" "$target_path"
+    chmod u+w -- "$target_path" || die "Could not make managed target writable after copy: $target_path"
+
+    actual_hash="$(sha256sum -- "$target_path" | awk 'NR == 1 {print $1}')"
+    [[ "$actual_hash" == "$expected_hash" ]] || die "SHA-256 verification failed after copy: $relative_path"
+    COPIED=$((COPIED + 1))
+    VERIFIED=$((VERIFIED + 1))
+done
+
+# Stale cleanup is allowed only for files listed in the previous successful manifest.
+# Never delete an untracked file merely because it lives inside a plugin directory.
+DELETED=0
+if [[ "$MANIFEST_PRESENT" -eq 1 ]]; then
+    for relative_path in "${!PREVIOUS_MANAGED[@]}"; do
+        [[ -n "${DESIRED_SOURCE[$relative_path]+present}" ]] && continue
+        target_path="$GAME_ROOT/$relative_path"
+        assert_no_symlink_parent_components "$target_path"
+        [[ ! -L "$target_path" ]] || die "Previous managed payload target is a symlink: $target_path"
+        if [[ -e "$target_path" ]]; then
+            [[ -f "$target_path" ]] || die "Previous managed payload target is not a regular file: $target_path"
+            log "Removing stale previously-managed payload file: $relative_path"
+            rm -f -- "$target_path"
+            DELETED=$((DELETED + 1))
+        fi
+    done
+else
+    log "No prior managed-payload manifest; skipping stale-file deletion on this rollout to preserve existing plugin/runtime data."
+fi
+
+# CounterStrikeSharp configs/ is pruned only while a new server is receiving its
+# one-time config seed. After that, customer edits and generated files are untouched.
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    while IFS= read -r -d '' target_path; do
+        relative_path="${target_path#"$GAME_ROOT"/}"
+        if [[ -z "${DESIRED_SOURCE[$relative_path]+present}" ]]; then
+            assert_no_symlink_parent_components "$target_path"
+            [[ ! -L "$target_path" ]] || die "First-install config target is a symlink: $target_path"
+            log "Removing stale first-install config file: $relative_path"
+            rm -f -- "$target_path"
+            DELETED=$((DELETED + 1))
+        fi
+    done < <(find "$CONFIG_ROOT" -type f -print0)
+fi
+
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    for relative_path in "${CONFIG_FILES[@]}"; do
+        target_path="$GAME_ROOT/$relative_path"
+        [[ ! -L "$target_path" ]] || die "First-install config target file is a symlink: $target_path"
+        if [[ -e "$target_path" && -z "${DESIRED_SOURCE[$relative_path]+present}" ]]; then
+            log "Removing stale first-install config file: $relative_path"
+            rm -f -- "$target_path"
+            DELETED=$((DELETED + 1))
+        fi
+    done
+fi
+
+for managed_root in "${MANAGED_ROOTS[@]}"; do
+    # Empty plugin directories may belong to runtime/plugin data; leave them alone.
+    [[ "$managed_root" == "$CSS_TARGET/plugins" ]] && continue
+    find "$managed_root" -mindepth 1 -depth -type d -empty -delete
+done
+
+# Publish the new manifest atomically only after copies and cleanup have succeeded.
+manifest_tmp="$MANAGED_MANIFEST.tmp.$BASHPID"
+[[ ! -e "$manifest_tmp" && ! -L "$manifest_tmp" ]] || die "Managed-payload manifest temp path already exists."
+{
+    printf '# fragcity-managed-payload-v1\n'
+    for relative_path in "${!DESIRED_SOURCE[@]}"; do
+        if is_payload_managed_path "$relative_path"; then
+            printf '%s\n' "$relative_path"
+        fi
+    done
+} | sort -u > "$manifest_tmp" || die "Could not write managed-payload manifest."
+chmod 0644 "$manifest_tmp" || die "Could not set managed-payload manifest permissions."
+mv -f -- "$manifest_tmp" "$MANAGED_MANIFEST" || die "Could not atomically publish managed-payload manifest."
+
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    # The host provisioner creates this per-volume state file with mode 0666:
+    # the isolated game-container user can record completion even if it cannot
+    # create new entries in the root of the bind-mounted server volume.
+    printf 'mode=completed\nsource_commit=%s\ncompleted_at_utc=%s\n' "$SOURCE_COMMIT" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$CONFIG_SEED_STATE" \
+        || die "Could not record one-time config-seed completion; refusing to report a successful sync."
+    log "First-install config seed completed successfully; future starts will never overwrite or prune cfg/configs/txt files."
+else
+    log "First-install config seed not active; all existing cfg/configs/txt settings were preserved."
+fi
+
+log "Sync completed successfully."
+log "Files copied: $COPIED; already matching SHA-256: $UNCHANGED; verified: $VERIFIED; stale files removed: $DELETED."
+log "BotAI/ and CS2UpdateMonitor/ plugin directories were not copied or pruned."
+log "plugins/disabled/ was synced from the published payload and remains under disabled/."
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    log "CounterStrikeSharp configs/, listed cfg/ files, and five top-level CS2 config/list files were installed as first-install defaults."
+else
+    log "CounterStrikeSharp configs/, cfg/, and five top-level CS2 config/list files were not copied or stale-pruned."
+fi
+log "Egg-managed Metamod/CounterStrikeSharp runtime files were not touched."
+\n'* && "$path" != *
+log "Target server UUID: $SERVER_UUID."
+log "Using published payload revision $SOURCE_COMMIT."
+log "Building the desired-file list from the immutable snapshot."
+add_tree "$CSS_SOURCE/source" "addons/counterstrikesharp/source"
+add_tree "$CSS_SOURCE/plugins" "addons/counterstrikesharp/plugins" 1
+add_tree "$CSS_SOURCE/shared" "addons/counterstrikesharp/shared"
+add_tree "$CSS_SOURCE/gamedata" "addons/counterstrikesharp/gamedata"
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    add_tree "$CSS_SOURCE/configs" "addons/counterstrikesharp/configs"
+    add_tree "$GAME_SOURCE/cfg" "cfg"
+    for name in "${CONFIG_FILES[@]}"; do
+        add_file "$name" "$GAME_SOURCE/$name"
+    done
+fi
+for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmanager; do
+    add_tree "$ADDONS_SOURCE/$name" "addons/$name"
+done
+add_file "addons/metamod/serverlistplayersfix_mm.vdf" "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf"
+
+for managed_root in "${MANAGED_ROOTS[@]}"; do mkdir -p -- "$managed_root"; done
+mkdir -p -- "$GAME_ROOT/addons/metamod"
+
+COPIED=0
+UNCHANGED=0
+VERIFIED=0
+
+# Transfer only missing/changed files. Each changed copy is verified before cleanup.
+for relative_path in "${!DESIRED_SOURCE[@]}"; do
+    source_path="${DESIRED_SOURCE[$relative_path]}"
+    expected_hash="${DESIRED_HASH[$relative_path]}"
+    target_path="$GAME_ROOT/$relative_path"
+    assert_no_symlink_parent_components "$target_path"
+    [[ ! -L "$target_path" ]] || die "Managed target file is a symlink: $target_path"
+
+    actual_hash=""
+    if [[ -f "$target_path" ]]; then
+        actual_hash="$(sha256sum -- "$target_path" | awk 'NR == 1 {print $1}')"
+    fi
+
+    if [[ "$actual_hash" == "$expected_hash" ]]; then
+        UNCHANGED=$((UNCHANGED + 1))
+        VERIFIED=$((VERIFIED + 1))
+        continue
+    fi
+
+    if [[ "$VERBOSE" == "1" ]]; then
+        log "Updating $relative_path (missing or SHA-256 differs)."
+    fi
+    mkdir -p -- "$(dirname -- "$target_path")"
+    # A published snapshot is read-only; deployed files should remain editable by
+    # the server's container user, as in an ordinary Pterodactyl game volume.
+    if [[ -e "$target_path" ]]; then
+        chmod u+w -- "$target_path" || die "Could not make managed target writable before copy: $target_path"
+    fi
+    cp -- "$source_path" "$target_path"
+    chmod u+w -- "$target_path" || die "Could not make managed target writable after copy: $target_path"
+
+    actual_hash="$(sha256sum -- "$target_path" | awk 'NR == 1 {print $1}')"
+    [[ "$actual_hash" == "$expected_hash" ]] || die "SHA-256 verification failed after copy: $relative_path"
+    COPIED=$((COPIED + 1))
+    VERIFIED=$((VERIFIED + 1))
+done
+
+# Stale cleanup runs only after all desired files have passed hash verification.
+DELETED=0
+for managed_root in "${MANAGED_ROOTS[@]}"; do
+    while IFS= read -r -d '' target_path; do
+        relative_path="${target_path#"$GAME_ROOT"/}"
+        case "$relative_path" in
+            addons/counterstrikesharp/plugins/BotAI|addons/counterstrikesharp/plugins/BotAI/*|\
+            addons/counterstrikesharp/plugins/CS2UpdateMonitor|addons/counterstrikesharp/plugins/CS2UpdateMonitor/*)
+                continue
+                ;;
+        esac
+        if [[ -z "${DESIRED_SOURCE[$relative_path]+present}" ]]; then
+            log "Removing stale managed file: $relative_path"
+            rm -f -- "$target_path"
+            DELETED=$((DELETED + 1))
+        fi
+    done < <(find "$managed_root" -type f -print0)
+done
+
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    for relative_path in "${CONFIG_FILES[@]}"; do
+        target_path="$GAME_ROOT/$relative_path"
+        [[ ! -L "$target_path" ]] || die "First-install config target file is a symlink: $target_path"
+        if [[ -e "$target_path" && -z "${DESIRED_SOURCE[$relative_path]+present}" ]]; then
+            log "Removing stale first-install config file: $relative_path"
+            rm -f -- "$target_path"
+            DELETED=$((DELETED + 1))
+        fi
+    done
+fi
+
+for managed_root in "${MANAGED_ROOTS[@]}"; do
+    if [[ "$managed_root" == "$CSS_TARGET/plugins" ]]; then
+        find "$managed_root" -mindepth 1 -depth -type d -empty \
+            ! -path "$managed_root/BotAI" ! -path "$managed_root/BotAI/*" \
+            ! -path "$managed_root/CS2UpdateMonitor" ! -path "$managed_root/CS2UpdateMonitor/*" -delete
+    else
+        find "$managed_root" -mindepth 1 -depth -type d -empty -delete
+    fi
+done
+
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    # The host provisioner creates this per-volume state file with mode 0666:
+    # the isolated game-container user can record completion even if it cannot
+    # create new entries in the root of the bind-mounted server volume.
+    printf 'mode=completed\nsource_commit=%s\ncompleted_at_utc=%s\n' "$SOURCE_COMMIT" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$CONFIG_SEED_STATE" \
+        || die "Could not record one-time config-seed completion; refusing to report a successful sync."
+    log "First-install config seed completed successfully; future starts will never overwrite or prune cfg/configs/txt files."
+else
+    log "First-install config seed not active; all existing cfg/configs/txt settings were preserved."
+fi
+
+log "Sync completed successfully."
+log "Files copied: $COPIED; already matching SHA-256: $UNCHANGED; verified: $VERIFIED; stale files removed: $DELETED."
+log "BotAI/ and CS2UpdateMonitor/ plugin directories were not copied or pruned."
+log "plugins/disabled/ was synced from the published payload and remains under disabled/."
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    log "CounterStrikeSharp configs/, listed cfg/ files, and five top-level CS2 config/list files were installed as first-install defaults."
+else
+    log "CounterStrikeSharp configs/, cfg/, and five top-level CS2 config/list files were not copied or stale-pruned."
+fi
+log "Egg-managed Metamod/CounterStrikeSharp runtime files were not touched."
+\r'* ]] || return 1
+    case "/$path/" in
+        *"/../"*|*"/./"*|*"//"*) return 1 ;;
+    esac
+    case "$path" in
+        addons/counterstrikesharp/source/*|\
+        addons/counterstrikesharp/plugins/*|\
+        addons/counterstrikesharp/shared/*|\
+        addons/counterstrikesharp/gamedata/*|\
+        addons/MovementUnlocker/*|\
+        addons/serverlistplayersfix_mm/*|\
+        addons/surf/*|\
+        addons/scripts/*|\
+        addons/multiaddonmanager/*|\
+        addons/metamod/serverlistplayersfix_mm.vdf)
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+    case "$path" in
+        addons/counterstrikesharp/plugins/BotAI|addons/counterstrikesharp/plugins/BotAI/*|\
+        addons/counterstrikesharp/plugins/CS2UpdateMonitor|addons/counterstrikesharp/plugins/CS2UpdateMonitor/*)
+            return 1
+            ;;
+    esac
+    return 0
 }
 
 log "Target server UUID: $SERVER_UUID."
