@@ -81,7 +81,7 @@ for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmana
     [[ -d "$GAME_ROOT/addons/$name" ]]
 done
 
-# User-owned paths and manually managed configs must survive first sync and re-sync.
+# Protected user-owned paths/configs must survive; disabled/ must mirror the payload.
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI/fragcity-test-keep.txt")" == "protect-botai" ]]
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt" ]]
 [[ -f "$disabled_target" ]]
