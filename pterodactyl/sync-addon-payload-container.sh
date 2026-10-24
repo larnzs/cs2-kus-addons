@@ -92,7 +92,7 @@ else
     # Existing servers provisioned before this feature have no pending marker.
     # Record that they are legacy so the new seed is never accidentally applied
     # to a customer's established settings on a later restart.
-    legacy_tmp="$SERVER_ROOT/.fragcity-config-seed-v1.legacy.tmp.$"
+    legacy_tmp="$SERVER_ROOT/.fragcity-config-seed-v1.legacy.tmp.$BASHPID"
     [[ ! -e "$legacy_tmp" && ! -L "$legacy_tmp" ]] || die "Legacy marker temp path already exists."
     printf 'fragcity-config-seed-v1\nserver_uuid=%s\nmode=preserve-existing\n' "$SERVER_UUID" > "$legacy_tmp"
     chmod 0644 "$legacy_tmp"
@@ -386,7 +386,7 @@ for managed_root in "${MANAGED_ROOTS[@]}"; do
 done
 
 if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
-    done_tmp="$SERVER_ROOT/.fragcity-config-seed-v1.done.tmp.$"
+    done_tmp="$SERVER_ROOT/.fragcity-config-seed-v1.done.tmp.$BASHPID"
     [[ ! -e "$done_tmp" && ! -L "$done_tmp" ]] || die "Config-seed completion temp path already exists."
     printf 'fragcity-config-seed-v1\nserver_uuid=%s\nmode=completed\nsource_commit=%s\n' "$SERVER_UUID" "$SOURCE_COMMIT" > "$done_tmp"
     chmod 0644 "$done_tmp"
