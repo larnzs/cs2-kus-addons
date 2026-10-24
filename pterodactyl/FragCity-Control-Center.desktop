@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=FragCity Control Center
+Comment=Manage FragCity Pterodactyl automation
+Exec=xfce4-terminal --title=FragCity-Control-Center --hold --execute /bin/bash /opt/fragcity/cs2-kus-addons/pterodactyl/fragcity-manager.sh
+Icon=utilities-terminal
+Terminal=false
+Categories=System;Utility;
+StartupNotify=false
