@@ -137,7 +137,7 @@ printf '%s\n' "$first_output" | grep -E 'Target server UUID|Using published payl
 grep -Fq "Target server UUID: $TEST_SERVER_UUID." <<< "$first_output"
 grep -Fq "Using published payload revision $commit." <<< "$first_output"
 grep -Fq "Sync completed successfully." <<< "$first_output"
-grep -Fq "BotAI/ and CS2UpdateMonitor/ were not copied or pruned." <<< "$first_output"
+grep -Fq "BotAI/ and CS2UpdateMonitor/ plugin directories were not copied or pruned." <<< "$first_output"
 grep -Fq "plugins/disabled/ was synced from the published payload and remains under disabled/." <<< "$first_output"
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt" ]]
@@ -158,14 +158,14 @@ for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmana
     [[ -d "$GAME_ROOT/addons/$name" ]]
 done
 
-# Protected user-owned paths/configs must survive; disabled/ must mirror the payload.
+# User-owned plugin directories remain untouched; configs/cfg mirror the repository.
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI/fragcity-test-keep.txt")" == "protect-botai" ]]
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt" ]]
 [[ -f "$disabled_target" ]]
 [[ "$(sha256sum -- "$disabled_sample" | awk '{print $1}')" == "$(sha256sum -- "$disabled_target" | awk '{print $1}')" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
-[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-keep.json")" == "protect-css-config" ]]
-[[ "$(cat "$GAME_ROOT/cfg/fragcity-test-keep.cfg")" == "protect-game-config" ]]
+[[ ! -e "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json" ]]
+[[ ! -e "$GAME_ROOT/cfg/fragcity-test-stale.cfg" ]]
 
 # A stale file is removed from a managed tree only after verified payload copies.
 printf 'stale\n' > "$GAME_ROOT/addons/counterstrikesharp/source/fragcity-sync-test-stale.tmp"
