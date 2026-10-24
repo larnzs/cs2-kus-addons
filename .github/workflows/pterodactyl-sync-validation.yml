@@ -31,6 +31,27 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y rsync php-cli
 
+      - name: Validate FragCity Egg startup hook
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("pterodactyl/fragcity-kitsunelab-cs2-go-egg.json")
+          egg = json.loads(path.read_text())
+          startup = egg.get("startup", "")
+          prefix = "bash /home/container/egg/fragcity-payload/sync-addon-payload-container.sh && "
+          if not startup.startswith(prefix):
+              raise SystemExit("FragCity Egg startup must run the payload synchronizer before CS2.")
+          if startup.count("sync-addon-payload-container.sh") != 1:
+              raise SystemExit("FragCity Egg startup must contain exactly one sync hook.")
+          if "&& ./game/cs2.sh {{CUSTOM_PARAMS}}" not in startup:
+              raise SystemExit("The original K4ryuu CS2 launch command was not preserved.")
+          print("PASS: Egg startup runs one FragCity sync hook before the original CS2 command.")
+          PY
+
       - name: Validate shell syntax
         shell: bash
         run: |
