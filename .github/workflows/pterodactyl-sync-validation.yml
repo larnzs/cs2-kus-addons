@@ -46,6 +46,25 @@ jobs:
         run: |
           set -euo pipefail
           php -l pterodactyl/provision-addon-servers.php
+
+          # The post-start verification embeds a Bash preflight as a PHP nowdoc.
+          # Extract and syntax-check that code too; PHP lint alone cannot parse it.
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+
+          source = Path("pterodactyl/provision-addon-servers.php").read_text()
+          marker = "$preflight = <<<'BASH'\n"
+          if source.count(marker) != 1:
+              raise SystemExit("Expected exactly one embedded Bash preflight nowdoc.")
+          start = source.index(marker) + len(marker)
+          end = source.index("\nBASH;", start)
+          target = Path(os.environ["RUNNER_TEMP"]) / "fragcity-provisioner-preflight.sh"
+          target.write_text(source[start:end] + "\n")
+          print(f"Extracted embedded preflight to {target}")
+          PY
+          bash -n "$RUNNER_TEMP/fragcity-provisioner-preflight.sh"
+
           php pterodactyl/provision-addon-servers.php --help > "$RUNNER_TEMP/fragcity-provisioner-help.txt"
           grep -Fq -- '--initialize-baseline' "$RUNNER_TEMP/fragcity-provisioner-help.txt"
           grep -Fq -- '--server <server-uuid>' "$RUNNER_TEMP/fragcity-provisioner-help.txt"
