@@ -70,7 +70,8 @@ printf 'protect-update-monitor\n' > "$GAME_ROOT/addons/counterstrikesharp/plugin
 printf 'stale-config-marker\n' > "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json"
 printf 'stale-cfg-marker\n' > "$GAME_ROOT/cfg/fragcity-test-stale.cfg"
 # Simulate the marker created by the provisioner for a newly created server.
-printf 'fragcity-config-seed-v1\nserver_uuid=%s\nmode=pending\n' "$TEST_SERVER_UUID" > "$TEST_ROOT/.fragcity-config-seed-v1.pending"
+printf 'fragcity-config-seed-v1\nserver_uuid=%s\nmode=pending\n' "$TEST_SERVER_UUID" > "$TEST_ROOT/.fragcity-config-seed-v1.state"
+chmod 0666 "$TEST_ROOT/.fragcity-config-seed-v1.state"
 
 assert_tree_mirror() {
     local source_dir="$1" target_dir="$2" label="$3"
@@ -179,8 +180,8 @@ grep -Fq "Sync completed successfully." <<< "$first_output"
 grep -Fq "BotAI/ and CS2UpdateMonitor/ plugin directories were not copied or pruned." <<< "$first_output"
 grep -Fq "plugins/disabled/ was synced from the published payload and remains under disabled/." <<< "$first_output"
 grep -Fq "First-install config seed completed successfully" <<< "$first_output"
-[[ -f "$TEST_ROOT/.fragcity-config-seed-v1.done" && ! -L "$TEST_ROOT/.fragcity-config-seed-v1.done" ]]
-[[ ! -e "$TEST_ROOT/.fragcity-config-seed-v1.pending" ]]
+[[ -f "$TEST_ROOT/.fragcity-config-seed-v1.state" && ! -L "$TEST_ROOT/.fragcity-config-seed-v1.state" ]]
+grep -Fxq "mode=completed" "$TEST_ROOT/.fragcity-config-seed-v1.state"
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt" ]]
 [[ -e "$disabled_target" && ! -L "$disabled_target" ]]
