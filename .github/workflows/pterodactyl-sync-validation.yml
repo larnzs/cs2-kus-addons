@@ -84,7 +84,10 @@ jobs:
           commit="$(tr -d '\r\n' < "$FRAGCITY_PAYLOAD_MOUNT/CURRENT_COMMIT")"
           disabled_tree="$FRAGCITY_PAYLOAD_MOUNT/revisions/$commit/game/csgo/addons/counterstrikesharp/plugins/disabled"
           test -n "$(find "$disabled_tree" -type f -print -quit)"
-          # Simulate a previously published but incomplete revision in the temporary CI mount.
+          # Simulate a previously published but incomplete read-only revision in the temporary CI mount.
+          # First make the disabled subtree and its parent writable so the fixture can remove it.
+          chmod u+w -- "$(dirname -- "$disabled_tree")"
+          chmod -R u+w -- "$disabled_tree"
           rm -rf -- "$disabled_tree"
           bash pterodactyl/sync-addon-payload-host.sh
           test -n "$(find "$disabled_tree" -type f -print -quit)"
