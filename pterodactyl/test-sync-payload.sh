@@ -261,8 +261,26 @@ for stock_file in user_keys_default.vcfg gamemode_competitive.cfg machine_convar
     }
 done
 grep -Fq "First-install config seed not active" <<< "$second_output"
+grep -Fxq "mode=completed" "$TEST_ROOT/.fragcity-config-seed-v1.state"
 
-# Symlinked parent directories and destination files must fail closed.
+# Simulate an existing server from before this feature: no seed state means
+# preserve every established config while still syncing the addon/plugin payload.
+rm -- "$TEST_ROOT/.fragcity-config-seed-v1.state"
+legacy_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
+grep -Fq "No first-install marker found; treating this as an existing server" <<< "$legacy_output"
+[[ ! -e "$TEST_ROOT/.fragcity-config-seed-v1.state" ]]
+[[ "$(cat "$configs_sample_target")" == "customer-customized-config" ]]
+[[ "$(cat "$cfg_sample_target")" == "customer-customized-cfg" ]]
+[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json")" == "customer-added-after-seed" ]]
+for name in "${CONFIG_FILE_NAMES[@]}"; do
+    [[ "$(cat "$GAME_ROOT/$name")" == "customer-customized-$name" ]] || {
+        echo "FAIL: legacy server config was overwritten: $name"
+        exit 1
+    }
+done
+
+# Config symlinks are ignored after the initial seed/for legacy volumes; plugin payload synchronization must continue.
+
 cfg_nested_target="$GAME_ROOT/cfg/MatchZy"
 cfg_nested_backup="$TEST_ROOT/fragcity-test-MatchZy-backup"
 if [[ -d "$CFG_SOURCE/MatchZy" && -f "$CFG_SOURCE/MatchZy/config.cfg" ]]; then
