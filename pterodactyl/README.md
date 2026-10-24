@@ -10,7 +10,7 @@ This integration connects the existing “Update CS2 Addons” GitHub Actions wo
 4. provision-addon-servers.php --watch checks the Panel database every minute. After the initial safety baseline, it processes only newly created servers that match the Mount's single eligible Egg and Node and have finished installation.
 5. For each eligible new server, the provisioner validates the UUID and exact host volume, prepares the empty mount target under that server's own volume, attaches the Mount to that server through the installed Panel's Laravel models, and prefixes only that server's stored startup command with the sync script.
 6. If a Docker container already exists and is stopped, the provisioner verifies its exact name and /home/container volume mapping, then runs docker rm <container-id> without -v so the next Panel start creates a fresh container with the Mount. It never removes the server's volume. A running container is not changed.
-7. At the next normal start, K4ryuu's runtime update work runs first; the FragCity startup prefix then executes sync-addon-payload-container.sh before CS2 launches. The container script requires the runtime-provided P_SERVER_UUID, validates it as a UUID and logs the target identity before changing any game files. It copies and SHA-256 verifies only the managed addon payload into that same server's /home/container/game/csgo/ tree. If the UUID is missing or malformed, synchronization fails closed before creating or updating managed game paths.
+7. At the next normal start, K4ryuu's runtime update work runs first; the FragCity startup prefix then executes sync-addon-payload-container.sh before CS2 launches. The container script requires the runtime-provided P_SERVER_UUID, validates it as a UUID and logs the target identity before changing any game files. It copies and SHA-256 verifies the managed addon payload into that same server's /home/container/game/csgo/ tree, including the complete CounterStrikeSharp configs/ tree, the complete cfg/ tree, and five top-level CS2 config/list files. If the UUID is missing or malformed, synchronization fails closed before creating or updating managed game paths.
 
 The host's volume path contains each server UUID, for example /var/lib/pterodactyl/volumes/<server-uuid>. Inside that container, /home/container is already bound to that exact volume. The container sync script therefore writes to /home/container/game/csgo/ and does not hardcode any host volume UUID.
 
@@ -42,6 +42,13 @@ The immutable snapshot includes only these allowlisted paths:
 - game/csgo/addons/counterstrikesharp/plugins/, including disabled/ but excluding top-level BotAI/ and CS2UpdateMonitor/
 - game/csgo/addons/counterstrikesharp/shared/
 - game/csgo/addons/counterstrikesharp/gamedata/
+- game/csgo/addons/counterstrikesharp/configs/ (the entire tree)
+- game/csgo/cfg/ (the entire tree)
+- game/csgo/gamemodes_server.txt
+- game/csgo/mapcycle.txt
+- game/csgo/mapcyclecustom.txt
+- game/csgo/subscribed_collection_ids.txt
+- game/csgo/subscribed_file_ids.txt
 - game/csgo/addons/MovementUnlocker/
 - game/csgo/addons/serverlistplayersfix_mm/
 - game/csgo/addons/surf/
@@ -49,7 +56,11 @@ The immutable snapshot includes only these allowlisted paths:
 - game/csgo/addons/multiaddonmanager/
 - game/csgo/addons/metamod/serverlistplayersfix_mm.vdf
 
-The repository itself, .git, update scripts, updater credentials, game/csgo/cfg/, CounterStrikeSharp configs/, BotAI/, CS2UpdateMonitor/, and Egg-managed Metamod/CounterStrikeSharp runtime files are not staged or deployed. The `plugins/disabled/` tree is staged and synchronized like the other managed CounterStrikeSharp plugin files, but remains under `disabled/`; the payload script never moves disabled plugins into the active `plugins/` root. CS2UpdateMonitor is intentionally excluded even though the source repository currently keeps an updater-managed copy at the top level of `plugins/`; it must not be installed as an active plugin by this Pterodactyl payload. If a local copy already exists under a server's `plugins/CS2UpdateMonitor/`, the container synchronizer leaves it untouched rather than deleting or moving it. Managed payload paths must not contain symlinks. The container script copies files into the existing game tree; it never replaces the complete game directory.
+The repository checkout itself, `.git`, update scripts, updater credentials, the active plugin directories `BotAI/` and `CS2UpdateMonitor/`, and Egg-managed Metamod/CounterStrikeSharp runtime files are not staged or deployed. The `plugins/disabled/` tree is staged and synchronized like other managed CounterStrikeSharp plugin files, but remains under `disabled/`; disabled plugins are never promoted into the active `plugins/` root. A local plugin directory named `BotAI/` or `CS2UpdateMonitor/` is left untouched rather than copied or pruned.
+
+The full `game/csgo/addons/counterstrikesharp/configs/` tree and full `game/csgo/cfg/` tree are now managed and mirrored from the repository, together with `gamemodes_server.txt`, `mapcycle.txt`, `mapcyclecustom.txt`, `subscribed_collection_ids.txt` and `subscribed_file_ids.txt` at the top level of `game/csgo/`. These paths are authoritative repository payloads: local edits and extra files inside these two trees are replaced or removed during sync. Make lasting changes in Git and let the next published revision distribute them. The sync never replaces the whole `game/csgo/` directory.
+
+Managed payload paths must not contain symlinks. The publisher validates the source trees and stages them into an immutable, read-only snapshot; the container synchronizer hashes each deployed file and performs stale-file cleanup only after all desired files have passed SHA-256 verification.
 
 ## Host repository access
 
@@ -263,4 +274,4 @@ Troubleshooting guardrails:
 
 ## Validation scope
 
-The GitHub Actions workflow validates Bash/PHP syntax and CLI safety and runs the publisher/container synchronizer against a temporary directory tree. It covers incomplete-revision recovery, the `plugins/disabled/` payload, SHA-256 file sync, idempotency, safe stale-file cleanup and preservation of excluded paths. It does not connect to the live Panel database, Docker daemon or real game-server volume. Live verification on the dedicated test server is required before enabling automation.
+The GitHub Actions workflow validates Bash/PHP syntax and CLI safety and runs the publisher/container synchronizer against a temporary directory tree. It covers incomplete-revision recovery (including failure without losing the previous revision), the `plugins/disabled/` payload, exact SHA-256 mirrors for CounterStrikeSharp configs and `cfg/`, the five top-level CS2 config/list files, idempotency, safe stale-file cleanup and preservation of excluded plugin paths. It does not connect to the live Panel database, Docker daemon or real game-server volume. Live verification on the dedicated test server is required before enabling automation.
