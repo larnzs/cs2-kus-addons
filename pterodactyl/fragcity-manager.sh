@@ -527,109 +527,7 @@ refresh_main_mount_status() {
   MAIN_MOUNT_STATUS_CACHE_AT="$now"
   result="$(timeout 18 php "$REPO_ROOT/pterodactyl/server-mount-status.php" 2>&1)"
   rc=$?
-  if [[ "$rc" -eq 0 && "$result" == META  printf '%b╔══════════════════════════════════════════════════════════════════════════════╗%b\n' "$B" "$Z"
-  printf '%b║%b  %bFRAGCITY CONTROL CENTER%b  %b/ LIVE HOST MONITORING%b                         %b║%b\n' "$B" "$Z" "$G" "$Z" "$C" "$Z" "$B" "$Z"
-  printf '%b╚══════════════════════════════════════════════════════════════════════════════╝%b\n' "$B" "$Z"
-  printf '  %bAuto-update: ON%b — checks for updated manager every 2 seconds\n' "$G" "$Z"
-
-  render_main_status
-
-  printf '\n%b[ SERVICE DETAIL PAGES ]%b\n' "$C" "$Z"
-  printf '  1 Docker   2 Wings   3 CS2Node   4 PHP-FPM   5 Nginx   6 Panel   7 MariaDB   8 Redis\n'
-  printf '  9 All services   H Host resources   F FragCity automation\n'
-  printf '\n%b[ MANAGEMENT ]%b\n' "$C" "$Z"
-  printf '  U Update payload   I First install / reinstall   P Provision once\n'
-  printf '  T Toggle payload timer   N Toggle provisioner timer   L Recent logs   W Follow logs   0 Exit\n\nChoose an option: '
-
-  if ! IFS= read -r -t 2 CHOICE; then reload_if_updated; continue; fi
-  reload_if_updated
-  case "$CHOICE" in
-    1) screen_docker ;;
-    2) screen_wings ;;
-    3) screen_cs2node ;;
-    4) screen_php ;;
-    5) screen_nginx ;;
-    6) screen_panel ;;
-    7) screen_mariadb ;;
-    8) screen_redis ;;
-    9) screen_all ;;
-    H|h) screen_host ;;
-    F|f) screen_fragcity ;;
-    U|u) runservice fragcity-addon-payload-sync.service 'Update from GitHub and publish latest payload/dashboard' ;;
-    I|i) installation_wizard ;;
-    P|p)
-      printf '\nProvisioning may attach the Mount and change Startup for eligible stopped servers.\nType YES to run one pass: '
-      read -r ans
-      if [[ "$ans" == YES ]]; then runservice fragcity-addon-provision.service 'Manual provisioning pass'; else echo 'Cancelled.'; sleep 1; fi
-      ;;
-    T|t) toggle fragcity-addon-payload-sync.timer 'Payload auto-sync timer' ;;
-    N|n) printf '\nOFF pauses future automatic provisioning; existing Mount assignments remain intact.\n'; toggle fragcity-addon-provision.timer 'New-server provisioner timer' ;;
-    L|l) recentlogs ;;
-    W|w) followlogs ;;
-    0) echo 'FragCity Control Center closed.'; exit 0 ;;
-    *) printf '%bInvalid option.%b\n' "$R" "$Z"; sleep 1 ;;
-  esac
-  reload_if_updated
-done
-\t'OK  printf '%b╔══════════════════════════════════════════════════════════════════════════════╗%b\n' "$B" "$Z"
-  printf '%b║%b  %bFRAGCITY CONTROL CENTER%b  %b/ LIVE HOST MONITORING%b                         %b║%b\n' "$B" "$Z" "$G" "$Z" "$C" "$Z" "$B" "$Z"
-  printf '%b╚══════════════════════════════════════════════════════════════════════════════╝%b\n' "$B" "$Z"
-  printf '  %bAuto-update: ON%b — checks for updated manager every 2 seconds\n' "$G" "$Z"
-
-  printf '\n%b[ CORE SERVICES — EACH OPTION HAS ITS OWN DETAILS PAGE ]%b\n' "$C" "$Z"
-  printf '  %b1%b  Docker Engine & containers\n' "$G" "$Z"
-  printf '  %b2%b  Pterodactyl Wings\n' "$G" "$Z"
-  printf '  %b3%b  CS2Node / shared game files\n' "$G" "$Z"
-  printf '  %b4%b  PHP CLI / PHP-FPM\n' "$G" "$Z"
-  printf '  %b5%b  Nginx / HTTP listeners\n' "$G" "$Z"
-  printf '  %b6%b  Pterodactyl Panel / queue worker\n' "$G" "$Z"
-  printf '  %b7%b  MariaDB\n' "$G" "$Z"
-  printf '  %b8%b  Redis\n' "$G" "$Z"
-  printf '\n%b[ OVERVIEW ]%b\n' "$C" "$Z"
-  printf '  %b9%b  All services summary\n' "$G" "$Z"
-  printf '  %bH%b  Host resources (RAM / disk / network)\n' "$G" "$Z"
-  printf '  %bF%b  FragCity automation / timers / payload\n' "$G" "$Z"
-  printf '\n%b[ MANAGEMENT ]%b\n' "$C" "$Z"
-  printf '  %bU%b  Update from GitHub + publish payload/dashboard\n' "$G" "$Z"
-  printf '  %bI%b  Full first install / reinstall / repair\n' "$Y" "$Z"
-  printf '  %bP%b  Run provisioner once (confirmation required)\n' "$G" "$Z"
-  printf '  %bT%b  Toggle payload auto-sync timer ON/OFF\n' "$Y" "$Z"
-  printf '  %bN%b  Toggle new-server provisioner timer ON/OFF\n' "$Y" "$Z"
-  printf '  %bL%b  Recent FragCity logs\n' "$G" "$Z"
-  printf '  %bW%b  Follow live FragCity logs\n' "$G" "$Z"
-  printf '  %b0%b  Exit\n\nChoose an option: '
-
-  if ! IFS= read -r -t 2 CHOICE; then reload_if_updated; continue; fi
-  reload_if_updated
-  case "$CHOICE" in
-    1) screen_docker ;;
-    2) screen_wings ;;
-    3) screen_cs2node ;;
-    4) screen_php ;;
-    5) screen_nginx ;;
-    6) screen_panel ;;
-    7) screen_mariadb ;;
-    8) screen_redis ;;
-    9) screen_all ;;
-    H|h) screen_host ;;
-    F|f) screen_fragcity ;;
-    U|u) runservice fragcity-addon-payload-sync.service 'Update from GitHub and publish latest payload/dashboard' ;;
-    I|i) installation_wizard ;;
-    P|p)
-      printf '\nProvisioning may attach the Mount and change Startup for eligible stopped servers.\nType YES to run one pass: '
-      read -r ans
-      if [[ "$ans" == YES ]]; then runservice fragcity-addon-provision.service 'Manual provisioning pass'; else echo 'Cancelled.'; sleep 1; fi
-      ;;
-    T|t) toggle fragcity-addon-payload-sync.timer 'Payload auto-sync timer' ;;
-    N|n) printf '\nOFF pauses future automatic provisioning; existing Mount assignments remain intact.\n'; toggle fragcity-addon-provision.timer 'New-server provisioner timer' ;;
-    L|l) recentlogs ;;
-    W|w) followlogs ;;
-    0) echo 'FragCity Control Center closed.'; exit 0 ;;
-    *) printf '%bInvalid option.%b\n' "$R" "$Z"; sleep 1 ;;
-  esac
-  reload_if_updated
-done
-\t'* ]]; then
+  if [[ "$rc" -eq 0 && "$result" == META$'\t'OK$'\t'* ]]; then
     MAIN_MOUNT_STATUS_CACHE="$result"
     MAIN_MOUNT_STATUS_ERROR=''
   else
@@ -651,65 +549,7 @@ render_server_mount_status() {
   fi
 
   while IFS= read -r line; do
-    IFS=  printf '%b╔══════════════════════════════════════════════════════════════════════════════╗%b\n' "$B" "$Z"
-  printf '%b║%b  %bFRAGCITY CONTROL CENTER%b  %b/ LIVE HOST MONITORING%b                         %b║%b\n' "$B" "$Z" "$G" "$Z" "$C" "$Z" "$B" "$Z"
-  printf '%b╚══════════════════════════════════════════════════════════════════════════════╝%b\n' "$B" "$Z"
-  printf '  %bAuto-update: ON%b — checks for updated manager every 2 seconds\n' "$G" "$Z"
-
-  printf '\n%b[ CORE SERVICES — EACH OPTION HAS ITS OWN DETAILS PAGE ]%b\n' "$C" "$Z"
-  printf '  %b1%b  Docker Engine & containers\n' "$G" "$Z"
-  printf '  %b2%b  Pterodactyl Wings\n' "$G" "$Z"
-  printf '  %b3%b  CS2Node / shared game files\n' "$G" "$Z"
-  printf '  %b4%b  PHP CLI / PHP-FPM\n' "$G" "$Z"
-  printf '  %b5%b  Nginx / HTTP listeners\n' "$G" "$Z"
-  printf '  %b6%b  Pterodactyl Panel / queue worker\n' "$G" "$Z"
-  printf '  %b7%b  MariaDB\n' "$G" "$Z"
-  printf '  %b8%b  Redis\n' "$G" "$Z"
-  printf '\n%b[ OVERVIEW ]%b\n' "$C" "$Z"
-  printf '  %b9%b  All services summary\n' "$G" "$Z"
-  printf '  %bH%b  Host resources (RAM / disk / network)\n' "$G" "$Z"
-  printf '  %bF%b  FragCity automation / timers / payload\n' "$G" "$Z"
-  printf '\n%b[ MANAGEMENT ]%b\n' "$C" "$Z"
-  printf '  %bU%b  Update from GitHub + publish payload/dashboard\n' "$G" "$Z"
-  printf '  %bI%b  Full first install / reinstall / repair\n' "$Y" "$Z"
-  printf '  %bP%b  Run provisioner once (confirmation required)\n' "$G" "$Z"
-  printf '  %bT%b  Toggle payload auto-sync timer ON/OFF\n' "$Y" "$Z"
-  printf '  %bN%b  Toggle new-server provisioner timer ON/OFF\n' "$Y" "$Z"
-  printf '  %bL%b  Recent FragCity logs\n' "$G" "$Z"
-  printf '  %bW%b  Follow live FragCity logs\n' "$G" "$Z"
-  printf '  %b0%b  Exit\n\nChoose an option: '
-
-  if ! IFS= read -r -t 2 CHOICE; then reload_if_updated; continue; fi
-  reload_if_updated
-  case "$CHOICE" in
-    1) screen_docker ;;
-    2) screen_wings ;;
-    3) screen_cs2node ;;
-    4) screen_php ;;
-    5) screen_nginx ;;
-    6) screen_panel ;;
-    7) screen_mariadb ;;
-    8) screen_redis ;;
-    9) screen_all ;;
-    H|h) screen_host ;;
-    F|f) screen_fragcity ;;
-    U|u) runservice fragcity-addon-payload-sync.service 'Update from GitHub and publish latest payload/dashboard' ;;
-    I|i) installation_wizard ;;
-    P|p)
-      printf '\nProvisioning may attach the Mount and change Startup for eligible stopped servers.\nType YES to run one pass: '
-      read -r ans
-      if [[ "$ans" == YES ]]; then runservice fragcity-addon-provision.service 'Manual provisioning pass'; else echo 'Cancelled.'; sleep 1; fi
-      ;;
-    T|t) toggle fragcity-addon-payload-sync.timer 'Payload auto-sync timer' ;;
-    N|n) printf '\nOFF pauses future automatic provisioning; existing Mount assignments remain intact.\n'; toggle fragcity-addon-provision.timer 'New-server provisioner timer' ;;
-    L|l) recentlogs ;;
-    W|w) followlogs ;;
-    0) echo 'FragCity Control Center closed.'; exit 0 ;;
-    *) printf '%bInvalid option.%b\n' "$R" "$Z"; sleep 1 ;;
-  esac
-  reload_if_updated
-done
-\t' read -r kind f1 f2 f3 f4 f5 f6 f7 f8 f9 <<< "$line"
+    IFS=$'\t' read -r kind f1 f2 f3 f4 f5 f6 f7 f8 f9 <<< "$line"
     case "$kind" in
       META)
         printf '  Mount ID: %s | source: %s | target: %s\n' "$f2" "$f3" "$f4"
@@ -723,13 +563,13 @@ done
         status_badge "$f7"; printf '  '
         status_badge "$f8"; printf '\n'
         if [[ "$f4" == ERROR ]]; then
-          printf '    %bDocker inspect failed for this UUID; Container Mount is UNKNOWN.%b\n' "$Y" "$Z"
+          printf '    %bDocker inspect failed for this UUID; Docker Mount is UNKNOWN.%b\n' "$Y" "$Z"
         fi
         ;;
       SUMMARY)
         printf '  Eligible: %s | Panel Mount ON: ' "$f1"; status_badge "$f2"
         printf ' OFF: '; status_badge "$f3"
-        printf ' | Container Mount ON: '; status_badge "$f4"
+        printf ' | Docker Mount ON: '; status_badge "$f4"
         printf ' OFF: '; status_badge "$f5"
         printf ' Pending (no container): '; status_badge "$f6"
         printf ' Unknown: '; status_badge "$f7"
@@ -752,6 +592,7 @@ render_main_status() {
   render_server_mount_status
 }
 
+
 while true; do
   clear 2>/dev/null || true
   printf '%b╔══════════════════════════════════════════════════════════════════════════════╗%b\n' "$B" "$Z"
@@ -759,28 +600,14 @@ while true; do
   printf '%b╚══════════════════════════════════════════════════════════════════════════════╝%b\n' "$B" "$Z"
   printf '  %bAuto-update: ON%b — checks for updated manager every 2 seconds\n' "$G" "$Z"
 
-  printf '\n%b[ CORE SERVICES — EACH OPTION HAS ITS OWN DETAILS PAGE ]%b\n' "$C" "$Z"
-  printf '  %b1%b  Docker Engine & containers\n' "$G" "$Z"
-  printf '  %b2%b  Pterodactyl Wings\n' "$G" "$Z"
-  printf '  %b3%b  CS2Node / shared game files\n' "$G" "$Z"
-  printf '  %b4%b  PHP CLI / PHP-FPM\n' "$G" "$Z"
-  printf '  %b5%b  Nginx / HTTP listeners\n' "$G" "$Z"
-  printf '  %b6%b  Pterodactyl Panel / queue worker\n' "$G" "$Z"
-  printf '  %b7%b  MariaDB\n' "$G" "$Z"
-  printf '  %b8%b  Redis\n' "$G" "$Z"
-  printf '\n%b[ OVERVIEW ]%b\n' "$C" "$Z"
-  printf '  %b9%b  All services summary\n' "$G" "$Z"
-  printf '  %bH%b  Host resources (RAM / disk / network)\n' "$G" "$Z"
-  printf '  %bF%b  FragCity automation / timers / payload\n' "$G" "$Z"
+  render_main_status
+
+  printf '\n%b[ SERVICE DETAIL PAGES ]%b\n' "$C" "$Z"
+  printf '  1 Docker   2 Wings   3 CS2Node   4 PHP-FPM   5 Nginx   6 Panel   7 MariaDB   8 Redis\n'
+  printf '  9 All services   H Host resources   F FragCity automation\n'
   printf '\n%b[ MANAGEMENT ]%b\n' "$C" "$Z"
-  printf '  %bU%b  Update from GitHub + publish payload/dashboard\n' "$G" "$Z"
-  printf '  %bI%b  Full first install / reinstall / repair\n' "$Y" "$Z"
-  printf '  %bP%b  Run provisioner once (confirmation required)\n' "$G" "$Z"
-  printf '  %bT%b  Toggle payload auto-sync timer ON/OFF\n' "$Y" "$Z"
-  printf '  %bN%b  Toggle new-server provisioner timer ON/OFF\n' "$Y" "$Z"
-  printf '  %bL%b  Recent FragCity logs\n' "$G" "$Z"
-  printf '  %bW%b  Follow live FragCity logs\n' "$G" "$Z"
-  printf '  %b0%b  Exit\n\nChoose an option: '
+  printf '  U Update payload   I First install / reinstall   P Provision once\n'
+  printf '  T Toggle payload timer   N Toggle provisioner timer   L Recent logs   W Follow logs   0 Exit\n\nChoose an option: '
 
   if ! IFS= read -r -t 2 CHOICE; then reload_if_updated; continue; fi
   reload_if_updated
