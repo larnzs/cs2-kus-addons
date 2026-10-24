@@ -514,6 +514,53 @@ function serverStartupPrefix(string $mountTarget): string
 }
 
 /**
+ * Mark only newly provisioned volumes for their one-time config seed.
+ * Existing completed/legacy markers are never replaced, because they protect
+ * established server settings from being reset by a provisioning retry.
+ */
+function prepareConfigSeedMarker(string $volumePath, string $uuid, int $mountId, string $payloadCommit): void
+{
+    $pending = $volumePath . '/.fragcity-config-seed-v1.pending';
+    $done = $volumePath . '/.fragcity-config-seed-v1.done';
+    $legacy = $volumePath . '/.fragcity-config-seed-v1.legacy';
+
+    foreach ([$pending, $done, $legacy] as $path) {
+        if (is_link($path)) {
+            fail('Config-seed state path is a symlink: ' . $path);
+        }
+        if (file_exists($path) && !is_file($path)) {
+            fail('Config-seed state path is not a regular file: ' . $path);
+        }
+    }
+
+    if (is_file($done) || is_file($legacy)) {
+        logLine('Existing config-seed state found for ' . $uuid . '; preserving all current cfg/configs/txt files.');
+        return;
+    }
+
+    if (is_file($pending)) {
+        $lines = file($pending, FILE_IGNORE_NEW_LINES);
+        if ($lines === false
+            || !in_array('fragcity-config-seed-v1', $lines, true)
+            || !in_array('server_uuid=' . $uuid, $lines, true)) {
+            fail('Pending config-seed marker does not match server UUID ' . $uuid . '.');
+        }
+        logLine('One-time config seed already pending for ' . $uuid . '.');
+        return;
+    }
+
+    $contents = "fragcity-config-seed-v1\n"
+        . 'server_uuid=' . $uuid . "\n"
+        . "mode=pending\n"
+        . 'mount_id=' . $mountId . "\n"
+        . 'payload_commit=' . $payloadCommit . "\n"
+        . 'created_at_utc=' . gmdate('c') . "\n";
+
+    writeAtomically($pending, $contents, 0644);
+    logLine('Created first-install config-seed marker for ' . $uuid . '; cfg/configs/txt files will be installed once on its next start.');
+}
+
+/**
  * Process exactly one server. Returns false when it is not ready or is currently
  * running, leaving it unmarked so a later watcher pass can retry.
  */
@@ -580,6 +627,8 @@ function provisionOne(
     } else {
         logLine('No existing Docker container needs recreation; Wings will create it with the Mount on next start.');
     }
+
+    prepareConfigSeedMarker($volumePath, $uuid, (int) $mount->id, $payloadCommit);
 
     $markerPath = processedMarkerPath($stateRoot, $uuid);
     if (is_link($markerPath)) {
