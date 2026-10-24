@@ -273,12 +273,10 @@ render_dashboard() {
     marker='CHECK'
   fi
 
-  printf '%b╭%s╮%b\n' "$C_BLUE" "$(printf '%*s' "$width" '' | tr ' ' '─')" "$C_RESET"
-  printf '%b│%b %bFRAGCITY%b  /  %bLIVE NODE MONITOR%b%*s%b│%b\n' \
-    "$C_BLUE" "$C_RESET" "$C_WHITE" "$C_RESET" "$C_CYAN" "$C_RESET" 3 '' "$C_BLUE" "$C_RESET"
-  printf '%b│%b NODE %-20.20s  ·  %s  ·  refresh %ss  ·  UI %s%*s%b│%b\n' \
-    "$C_BLUE" "$C_RESET" "$hostname_label" "$timestamp" "$REFRESH_SECONDS" "$UI_VERSION" 2 '' "$C_BLUE" "$C_RESET"
-  printf '%b╰%s╯%b\n' "$C_BLUE" "$(printf '%*s' "$width" '' | tr ' ' '─')" "$C_RESET"
+  draw_rule "$width"
+  printf '%bFRAGCITY%b  /  %bLIVE NODE MONITOR%b\n' "$C_WHITE" "$C_RESET" "$C_CYAN" "$C_RESET"
+  printf '  NODE %-20.20s  ·  %s  ·  refresh %ss  ·  UI %s\n' "$hostname_label" "$timestamp" "$REFRESH_SECONDS" "$UI_VERSION"
+  draw_rule "$width"
 
   section_title "HOST HEALTH"
   printf '  CPU load %-23s  cores %s\n' "$load" "$cores"
