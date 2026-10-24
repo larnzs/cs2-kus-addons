@@ -49,6 +49,13 @@ jobs:
           grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/fragcity-manager.sh
           grep -Fq 'enable --now' pterodactyl/fragcity-manager.sh
           grep -Fq 'disable --now' pterodactyl/fragcity-manager.sh
+          grep -Fq 'read -r -t 60' pterodactyl/fragcity-manager.sh
+          grep -Fq 'R Refresh status now' pterodactyl/fragcity-manager.sh
+          grep -Fq 'if [[ "$CURRENT_HOME" != "$HOME_RENDERED" ]]' pterodactyl/fragcity-manager.sh
+          if grep -Fq 'read -r -t 2' pterodactyl/fragcity-manager.sh; then
+            echo "Manager must not poll/repaint every two seconds."
+            exit 1
+          fi
           grep -Fq 'installation_wizard()' pterodactyl/fragcity-manager.sh
           grep -Fq 'I First install / reinstall' pterodactyl/fragcity-manager.sh
           grep -Fq "FRAGCITY_LAUNCH_DASHBOARD=0" pterodactyl/fragcity-manager.sh
