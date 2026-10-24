@@ -143,7 +143,7 @@ With the test server running, run the read-only verifier:
 php pterodactyl/provision-addon-servers.php --verify-server "$TEST_UUID"
 ```
 
-The verifier checks the Panel relation, UUID/volume mapping, running Docker container identity, Mount source/target/read-only flag, `P_SERVER_UUID`, startup prefix, published marker and required runtime commands. It also hashes each file in the published `plugins/disabled/` tree against the corresponding file in this server's volume. It does not change server files, startup settings, Mount relations or containers.
+The verifier checks the Panel relation, UUID/volume mapping, running Docker container identity, Mount source/target/read-only flag, `P_SERVER_UUID`, startup prefix, published marker and required runtime commands. It compares every published `plugins/disabled/` file by SHA-256 and exact file count; it also verifies exact file/hash mirrors and file counts for the entire `addons/counterstrikesharp/configs/` tree and `game/csgo/cfg/`, plus SHA-256 matches for all five top-level files: `gamemodes_server.txt`, `mapcycle.txt`, `mapcyclecustom.txt`, `subscribed_collection_ids.txt` and `subscribed_file_ids.txt`. It does not change server files, startup settings, Mount relations or containers.
 
 If the test server was already provisioned earlier, do not run `--server` again; the processed marker intentionally makes repeated provisioning a no-op. Publish the updated payload, start/restart that test server normally so the newly managed `configs/`, `cfg/` and five top-level files are synchronized, and run `--verify-server` again. A verification from before these new paths were added is not sufficient for enabling automation. Proceed to baseline installation only after this post-change verification passes.
 
