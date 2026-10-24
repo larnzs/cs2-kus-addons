@@ -131,9 +131,9 @@ jobs:
           fi
           chmod 755 "$blocked_source"
 
-          test "$(tr -d '\\r\\n' < "$FRAGCITY_PAYLOAD_MOUNT/CURRENT_COMMIT")" = "$commit"
+          test "$(tr -d '\r\n' < "$FRAGCITY_PAYLOAD_MOUNT/CURRENT_COMMIT")" = "$commit"
           test -d "$FRAGCITY_PAYLOAD_MOUNT/revisions/$commit"
-          test "$(tr -d '\\r\\n' < "$FRAGCITY_PAYLOAD_MOUNT/revisions/$commit/.source-commit")" = "$commit"
+          test "$(tr -d '\r\n' < "$FRAGCITY_PAYLOAD_MOUNT/CURRENT_COMMIT")" = "$commit"
           test ! -e "$disabled_tree"
 
           # Restore the incomplete revision successfully; later tests run on a valid payload.
