@@ -240,7 +240,10 @@ else
     PLUGIN_INVENTORY="$STAGING/.fragcity-plugin-inventory-v1.list"
     find "$STAGING_CSS/plugins" -mindepth 1 -maxdepth 1 -type d -printf '%f\\n' | LC_ALL=C sort > "$PLUGIN_INVENTORY"
     grep -Fxq 'disabled' "$PLUGIN_INVENTORY" || die "Staged plugin inventory is missing the reserved disabled/ directory."
-    if grep -Eq '^(BotAI|CS2UpdateMonitor)
+    if grep -Fxq 'BotAI' "$PLUGIN_INVENTORY" || grep -Fxq 'CS2UpdateMonitor' "$PLUGIN_INVENTORY"; then
+        die "Staged plugin inventory must exclude separately managed BotAI/ and CS2UpdateMonitor/ directories."
+    fi
+    validate_revision "$STAGING" || die "Staged revision failed required-file validation."
 
     # Immutable for containers, but readable/traversable by the non-root game user.
     chmod -R a-w "$STAGING"
