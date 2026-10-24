@@ -3,21 +3,17 @@
 # the running window detects the changed checksum and execs the latest version.
 set -o pipefail
 
-PAYLOAD_ROOT="$FRAGCITY_PAYLOAD_SOURCE"
-STATE_ROOT="$FRAGCITY_PROVISIONER_STATE"
-REPO_ROOT="$FRAGCITY_REPO_ROOT"
-REFRESH_SECONDS="$FRAGCITY_STATUS_REFRESH_SECONDS"
-[[ -n "$PAYLOAD_ROOT" ]] || PAYLOAD_ROOT="/var/lib/pterodactyl/mounts/fragcity-addon-payload"
-[[ -n "$STATE_ROOT" ]] || STATE_ROOT="/var/lib/pterodactyl/fragcity-addon-provisioner"
-[[ -n "$REPO_ROOT" ]] || REPO_ROOT="/opt/fragcity/cs2-kus-addons"
-[[ -n "$REFRESH_SECONDS" ]] || REFRESH_SECONDS=5
+PAYLOAD_ROOT="${FRAGCITY_PAYLOAD_SOURCE:-/var/lib/pterodactyl/mounts/fragcity-addon-payload}"
+STATE_ROOT="${FRAGCITY_PROVISIONER_STATE:-/var/lib/pterodactyl/fragcity-addon-provisioner}"
+REPO_ROOT="${FRAGCITY_REPO_ROOT:-/opt/fragcity/cs2-kus-addons}"
+REFRESH_SECONDS="${FRAGCITY_STATUS_REFRESH_SECONDS:-5}"
 UI_VERSION="2.0-live"
 
 [[ "$REFRESH_SECONDS" =~ ^[1-9][0-9]*$ ]] || REFRESH_SECONDS=5
 SELF_PATH="$(readlink -f -- "$0" 2>/dev/null || printf '%s' "$0")"
 STARTUP_SHA="$(sha256sum -- "$SELF_PATH" 2>/dev/null | awk '{print $1}')"
 
-if [[ -t 1 && -z "$NO_COLOR" && "$TERM" != "dumb" ]]; then
+if [[ -t 1 && -z "${NO_COLOR:-}" && "${TERM:-dumb}" != "dumb" ]]; then
   C_RESET=$'\033[0m'
   C_BOLD=$'\033[1m'
   C_DIM=$'\033[2m'
