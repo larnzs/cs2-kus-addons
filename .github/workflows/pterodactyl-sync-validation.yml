@@ -108,6 +108,8 @@ jobs:
           chmod u+w -- "$(dirname -- "$disabled_tree")"
           chmod -R u+w -- "$disabled_tree"
           rm -rf -- "$disabled_tree"
+          # Rebuild the incomplete revision before asserting that recovery works.
+          bash pterodactyl/sync-addon-payload-host.sh
           # The host publisher may fast-forward while running, so always resolve
           # the current published commit after each call before addressing its revision.
           commit="$(tr -d '\r\n' < "$FRAGCITY_PAYLOAD_MOUNT/CURRENT_COMMIT")"
