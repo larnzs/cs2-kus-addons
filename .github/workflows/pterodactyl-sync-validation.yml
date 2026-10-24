@@ -44,7 +44,8 @@ jobs:
             pterodactyl/fragcity-manager.sh
 
           grep -Fq 'publish_status_dashboard' pterodactyl/sync-addon-payload-host.sh
-          grep -Fq 'CONFIG_SEED_PENDING' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'CONFIG_SEED_STATE' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'mode=completed' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'First-install config seed completed successfully' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'First-install config seed not active' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'prepareConfigSeedMarker' pterodactyl/provision-addon-servers.php
