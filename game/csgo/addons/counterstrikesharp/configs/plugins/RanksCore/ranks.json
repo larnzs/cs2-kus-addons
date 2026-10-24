@@ -65,7 +65,7 @@
     "Host": "127.0.0.1",
     "Database": "ranks_plugin",
     "User": "root",
-    "Password": "Atrisayeafsorde824@",
+    "Password": "",
     "Port": 3306
   }
 }

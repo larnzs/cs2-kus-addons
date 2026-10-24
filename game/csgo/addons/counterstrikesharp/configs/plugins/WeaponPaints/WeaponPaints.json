@@ -5,7 +5,7 @@
   "DatabaseHost": "localhost",
   "DatabasePort": 3306,
   "DatabaseUser": "root",
-  "DatabasePassword": "Atrisayeafsorde824@",
+  "DatabasePassword": "",
   "DatabaseName": "weaponpaints_plugin",
   "CmdRefreshCooldownSeconds": 3,
   "Website": "cs.fragcity.ir/weaponpaints.php",

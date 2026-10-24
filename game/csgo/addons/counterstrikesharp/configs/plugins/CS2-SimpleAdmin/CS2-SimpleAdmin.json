@@ -7,7 +7,7 @@
     "DatabaseHost": "127.0.0.1",
     "DatabasePort": 3306,
     "DatabaseUser": "root",
-    "DatabasePassword": "Atrisayeafsorde824@",
+    "DatabasePassword": "",
     "DatabaseName": "simpleadmin_plugin",
     "DatabaseSSlMode": "preferred"
   },
