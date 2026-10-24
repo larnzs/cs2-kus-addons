@@ -87,7 +87,7 @@ else
     log "No first-install marker found; treating this as an existing server and preserving all cfg/configs/txt files."
 fi
 
-for command_name in sha256sum find cp mkdir rm awk flock tr chmod dirname grep; do
+for command_name in sha256sum find cp mkdir rm awk flock tr chmod dirname grep date; do
     command -v "$command_name" >/dev/null 2>&1 || die "$command_name is required."
 done
 
