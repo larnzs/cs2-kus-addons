@@ -128,8 +128,15 @@ PLUGIN_INVENTORY="$PAYLOAD_ROOT/.fragcity-plugin-inventory-v1.list"
 declare -A DESIRED_PLUGIN_DIRS=()
 while IFS= read -r plugin_name || [[ -n "$plugin_name" ]]; do
     [[ "$plugin_name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die "Unsafe plugin name in published inventory: $plugin_name"
-    [[ "$plugin_name" != "BotAI" && "$plugin_name" != "CS2UpdateMonitor" ]] || die "Protected plugin directory must not appear in managed inventory: $plugin_name"
     [[ -z "${DESIRED_PLUGIN_DIRS[$plugin_name]+present}" ]] || die "Duplicate plugin entry in published inventory: $plugin_name"
+    case "$plugin_name" in
+        BotAI|CS2UpdateMonitor)
+            # These directories are not copied from this payload, but are still
+            # authoritative members while their source folders exist in GitHub.
+            DESIRED_PLUGIN_DIRS["$plugin_name"]=1
+            continue
+            ;;
+    esac
     [[ -d "$CSS_SOURCE/plugins/$plugin_name" && ! -L "$CSS_SOURCE/plugins/$plugin_name" ]] || die "Inventory plugin directory is missing or unsafe in the published revision: $plugin_name"
     DESIRED_PLUGIN_DIRS["$plugin_name"]=1
 done < "$PLUGIN_INVENTORY"
@@ -432,7 +439,7 @@ RETIRE_ROOT="$SERVER_ROOT/.fragcity-retired-plugins"
 while IFS= read -r -d '' plugin_path; do
     plugin_name="${plugin_path##*/}"
     case "$plugin_name" in
-        BotAI|CS2UpdateMonitor|disabled) continue ;;
+        disabled) continue ;;
     esac
     [[ -d "$plugin_path" ]] || continue
     [[ -z "${DESIRED_PLUGIN_DIRS[$plugin_name]+present}" ]] || continue
@@ -534,7 +541,7 @@ fi
 
 log "Sync completed successfully."
 log "Files copied: $COPIED; already matching SHA-256: $UNCHANGED; verified: $VERIFIED; stale files removed: $DELETED."
-log "BotAI/ and CS2UpdateMonitor/ plugin directories were not copied or pruned."
+log "BotAI/ and CS2UpdateMonitor/ were not copied from this payload; inventory reconciliation quarantines either directory if its GitHub source folder is removed."
 log "plugins/disabled/ was synced from the published payload and remains under disabled/."
 if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
     log "CounterStrikeSharp configs/, listed cfg/ files, and five top-level CS2 config/list files were installed as first-install defaults."
