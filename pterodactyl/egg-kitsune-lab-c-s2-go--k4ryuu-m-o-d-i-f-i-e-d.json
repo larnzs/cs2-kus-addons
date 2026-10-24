@@ -2,7 +2,7 @@
     "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - PTERODACTYL.IO",
     "meta": {
         "version": "PTDL_v2",
-        "update_url": "https:\/\/raw.githubusercontent.com\/K4ryuu\/CS2-Egg-Go\/main\/pterodactyl\/kitsunelab-cs2-go-egg.json"
+        "update_url": "https://raw.githubusercontent.com/K4ryuu/CS2-Egg-Go/main/pterodactyl/kitsunelab-cs2-go-egg.json"
     },
     "exported_at": "2026-10-24T22:06:30+03:30",
     "name": "KitsuneLab CS2 Go @ K4ryuu MODIFIED",
@@ -10,11 +10,11 @@
     "description": "CS2 servers for Pterodactyl and Pelican with no shell in the image: one static Go binary boots the server, and an optional node daemon shares the game files, filters bot floods and caches workshop content. The successor of the bash KitsuneLab CS2 egg.",
     "features": [],
     "docker_images": {
-        "KitsuneLab CS2 Go - Stable": "ghcr.io\/k4ryuu\/cs2-egg-go:stable",
-        "KitsuneLab CS2 Go - Beta": "ghcr.io\/k4ryuu\/cs2-egg-go:beta"
+        "KitsuneLab CS2 Go - Stable": "ghcr.io/k4ryuu/cs2-egg-go:stable",
+        "KitsuneLab CS2 Go - Beta": "ghcr.io/k4ryuu/cs2-egg-go:beta"
     },
     "file_denylist": [],
-    "startup": ".\/game\/cs2.sh {{CUSTOM_PARAMS}} -tickrate {{TICKRATE}} -dedicated +ip 0.0.0.0 -port {{SERVER_PORT}} +map {{SRCDS_MAP}} +mapgroup {{MAPGROUP}} -maxplayers {{SRCDS_MAXPLAYERS}} +sv_setsteamaccount {{STEAM_ACC}} +game_type {{GAME_TYPE}} +game_mode {{GAME_MODE}} -authkey {{AUTHKEY}} +sv_password {{PASSWORD}} +host_workshop_collection {{WORKSHOP}}",
+    "startup": "bash /home/container/egg/fragcity-payload/sync-addon-payload-container.sh && ./game/cs2.sh {{CUSTOM_PARAMS}} -tickrate {{TICKRATE}} -dedicated +ip 0.0.0.0 -port {{SERVER_PORT}} +map {{SRCDS_MAP}} +mapgroup {{MAPGROUP}} -maxplayers {{SRCDS_MAXPLAYERS}} +sv_setsteamaccount {{STEAM_ACC}} +game_type {{GAME_TYPE}} +game_mode {{GAME_MODE}} -authkey {{AUTHKEY}} +sv_password {{PASSWORD}} +host_workshop_collection {{WORKSHOP}}",
     "config": {
         "files": "{}",
         "startup": "{\r\n    \"done\": \"Source2Init OK\"\r\n}",
@@ -23,8 +23,8 @@
     },
     "scripts": {
         "installation": {
-            "script": "#!\/bin\/bash\n# Dummy install script - actual installation happens on first startup\nexit 0",
-            "container": "ghcr.io\/pterodactyl\/installers:debian",
+            "script": "#!/bin/bash\n# Dummy install script - actual installation happens on first startup\nexit 0",
+            "container": "ghcr.io/pterodactyl/installers:debian",
             "entrypoint": "bash"
         }
     },
@@ -81,7 +81,7 @@
         },
         {
             "name": "Game Server Login Token (GSLT)",
-            "description": "The Steam Game Server Login Token (GSLT) used to publicly list your server. Optional, but recommended for increased visibility and access to additional features. Learn more: https:\/\/steamcommunity.com\/dev\/managegameservers",
+            "description": "The Steam Game Server Login Token (GSLT) used to publicly list your server. Optional, but recommended for increased visibility and access to additional features. Learn more: https://steamcommunity.com/dev/managegameservers",
             "env_variable": "STEAM_ACC",
             "default_value": "",
             "user_viewable": true,
@@ -161,7 +161,7 @@
         },
         {
             "name": "Allow Prerelease Updates",
-            "description": "Allow downloading prerelease\/beta versions of frameworks (CSS, SwiftlyS2, ModSharp) from GitHub. Warning: Prereleases may be unstable.",
+            "description": "Allow downloading prerelease/beta versions of frameworks (CSS, SwiftlyS2, ModSharp) from GitHub. Warning: Prereleases may be unstable.",
             "env_variable": "PRERELEASE",
             "default_value": "0",
             "user_viewable": true,
@@ -181,7 +181,7 @@
         },
         {
             "name": "Console Filter",
-            "description": "Filter unwanted console messages. Configure filter patterns in \/egg\/configs\/console-filter.json",
+            "description": "Filter unwanted console messages. Configure filter patterns in /egg/configs/console-filter.json",
             "env_variable": "ENABLE_FILTER",
             "default_value": "0",
             "user_viewable": true,
@@ -191,7 +191,7 @@
         },
         {
             "name": "Bot Guard",
-            "description": "Behaviour-based connection defense against advertising\/console-spam bots. Detects clients that never finish signon yet act or persist, and temporarily blocks them. Starts in dry-run (log only); tune and enable blocking in \/egg\/configs\/guard.json.",
+            "description": "Behaviour-based connection defense against advertising/console-spam bots. Detects clients that never finish signon yet act or persist, and temporarily blocks them. Starts in dry-run (log only); tune and enable blocking in /egg/configs/guard.json.",
             "env_variable": "ENABLE_GUARD",
             "default_value": "1",
             "user_viewable": true,
@@ -251,7 +251,7 @@
         },
         {
             "name": "Auto Cleanup",
-            "description": "Automatically cleans up old logs, demos, and backup files. Configure cleanup intervals in \/egg\/configs\/cleanup.json",
+            "description": "Automatically cleans up old logs, demos, and backup files. Configure cleanup intervals in /egg/configs/cleanup.json",
             "env_variable": "CLEANUP_ENABLED",
             "default_value": "0",
             "user_viewable": true,
@@ -271,7 +271,7 @@
         },
         {
             "name": "GDB Remote Debug Port",
-            "description": "GDB remote debugging port for IDA. Specify port number (e.g., 27130) and allocate it in network settings. Connect: IDA \u2192 Debugger \u2192 Remote GDB debugger. Performance impact: ~5-10%. Leave empty to disable. Development only!",
+            "description": "GDB remote debugging port for IDA. Specify port number (e.g., 27130) and allocate it in network settings. Connect: IDA → Debugger → Remote GDB debugger. Performance impact: ~5-10%. Leave empty to disable. Development only!",
             "env_variable": "GDB_DEBUG_PORT",
             "default_value": "",
             "user_viewable": false,
