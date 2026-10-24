@@ -54,6 +54,11 @@ jobs:
           grep -Fq 'customer-customized-config' pterodactyl/test-sync-payload.sh
           grep -Fq 'customer-added-after-seed' pterodactyl/test-sync-payload.sh
           grep -Fq 'MANAGED_MANIFEST' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq '.fragcity-plugin-inventory-v1.list' pterodactyl/sync-addon-payload-host.sh
+          grep -Fq 'DESIRED_PLUGIN_DIRS' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'Quarantined stale plugin directory missing from current GitHub inventory' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'RemovedFromGitHubPlugin' pterodactyl/test-sync-payload.sh
+          grep -Fq 'fragcity-retired-plugins' pterodactyl/test-sync-payload.sh
           grep -Fq 'is_protected_plugin_runtime_path' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'No prior managed-payload manifest' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'Removing stale previously-managed payload file' pterodactyl/sync-addon-payload-container.sh
