@@ -37,6 +37,8 @@ Use the exclusion only while the baseline file does not yet exist. An existing b
 
 The folder also contains a click-to-open XFCE launcher, FragCity-Control-Center.desktop, and its interactive manager, fragcity-manager.sh. This is the Linux equivalent of opening a small .exe-style utility: the launcher opens one terminal window and the manager keeps its menu in that same window. A .so is a shared library format, not the right format for this task.
 
+The current menu has a separate details page for each major host component: Docker and its containers; Wings and its configuration; CS2Node and shared game files; PHP CLI/PHP-FPM; Nginx and HTTP listeners/config validation; the Pterodactyl Panel and queue worker; MariaDB; and Redis. Each page shows the relevant systemd state, ON/OFF status, runtime/version or configuration checks, listeners or container/process details where relevant, and recent logs. There is also an all-services summary and a host resource page for RAM, storage, kernel and network interfaces.
+
 The control center can:
 - Toggle the payload auto-sync timer ON/OFF and persist that choice across reboots.
 - Toggle the new-server provisioner timer ON/OFF. Turning it off pauses future automatic provisioning; it does not detach Mounts already assigned to servers.
