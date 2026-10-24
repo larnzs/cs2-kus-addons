@@ -149,6 +149,16 @@ validate_revision() {
     # Re-running this publisher will safely rebuild that same commit revision.
     [[ -d "$root/game/csgo/addons/counterstrikesharp/plugins/disabled" && ! -L "$root/game/csgo/addons/counterstrikesharp/plugins/disabled" ]] || return 1
     [[ -n "$(find "$root/game/csgo/addons/counterstrikesharp/plugins/disabled" -type f -print -quit)" ]] || return 1
+    local plugin_inventory="$root/.fragcity-plugin-inventory-v1.list"
+    local plugin_name
+    [[ -f "$plugin_inventory" && ! -L "$plugin_inventory" ]] || return 1
+    grep -Fxq 'disabled' "$plugin_inventory" || return 1
+    while IFS= read -r plugin_name || [[ -n "$plugin_name" ]]; do
+        [[ "$plugin_name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || return 1
+        [[ "$plugin_name" != "BotAI" && "$plugin_name" != "CS2UpdateMonitor" ]] || return 1
+        [[ -d "$root/game/csgo/addons/counterstrikesharp/plugins/$plugin_name" && ! -L "$root/game/csgo/addons/counterstrikesharp/plugins/$plugin_name" ]] || return 1
+    done < "$plugin_inventory"
+    [[ "$(sort -u "$plugin_inventory" | wc -l)" -eq "$(wc -l < "$plugin_inventory")" ]] || return 1
     # Do not publish CS2UpdateMonitor as an active plugin on new servers.
     [[ ! -e "$root/game/csgo/addons/counterstrikesharp/plugins/CS2UpdateMonitor" ]] || return 1
     [[ -d "$root/game/csgo/addons/counterstrikesharp/shared" ]] || return 1
@@ -221,6 +231,138 @@ else
     install -m 0444 "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf" \
         "$STAGING_ADDONS/metamod/serverlistplayersfix_mm.vdf"
     printf '%s\n' "$SOURCE_COMMIT" > "$STAGING/.source-commit"
+    # Publish an authoritative inventory of plugin directories actually
+    # staged from this GitHub commit. The container uses it on every server start
+    # to retire directories removed from the repository, including on legacy
+    # volumes that do not yet have a previous managed-file manifest.
+    PLUGIN_INVENTORY="$STAGING/.fragcity-plugin-inventory-v1.list"
+    find "$STAGING_CSS/plugins" -mindepth 1 -maxdepth 1 -type d -printf '%f\\n' | LC_ALL=C sort > "$PLUGIN_INVENTORY"
+    grep -Fxq 'disabled' "$PLUGIN_INVENTORY" || die "Staged plugin inventory is missing the reserved disabled/ directory."
+    if grep -Eq '^(BotAI|CS2UpdateMonitor)
+
+    # Immutable for containers, but readable/traversable by the non-root game user.
+    chmod -R a-w "$STAGING"
+    find "$STAGING" -type d -exec chmod a+rx {} +
+    find "$STAGING" -type f -exec chmod a+r {} +
+    revision_permissions_ok "$STAGING" || die "Staged revision is not readable by container users."
+
+    # Swap under the exclusive payload lock. Keep the old revision under a hidden
+    # backup name until the complete replacement is in place, so a failed mv can
+    # roll the old directory back before the lock is released.
+    BACKUP_REVISION=""
+    if [[ -e "$FINAL_REVISION" || -L "$FINAL_REVISION" ]]; then
+        [[ "$FINAL_REVISION" == "$REVISION_ROOT/$SOURCE_COMMIT" ]] || die "Refusing to replace unexpected revision path: $FINAL_REVISION"
+        BACKUP_REVISION="$REVISION_ROOT/.invalid-$SOURCE_COMMIT-$$"
+        [[ ! -e "$BACKUP_REVISION" && ! -L "$BACKUP_REVISION" ]] || die "Recovery backup path already exists: $BACKUP_REVISION"
+        mv -- "$FINAL_REVISION" "$BACKUP_REVISION" || die "Could not move invalid revision to recovery backup: $FINAL_REVISION"
+    fi
+
+    if ! mv -- "$STAGING" "$FINAL_REVISION"; then
+        if [[ -n "$BACKUP_REVISION" && ( -e "$BACKUP_REVISION" || -L "$BACKUP_REVISION" ) ]]; then
+            mv -- "$BACKUP_REVISION" "$FINAL_REVISION" || die "Could not publish staging or restore the previous revision; manual recovery required."
+            BACKUP_REVISION=""
+        fi
+        die "Could not publish validated staging snapshot: $FINAL_REVISION"
+    fi
+    STAGING=""
+
+    if [[ -n "$BACKUP_REVISION" && ( -e "$BACKUP_REVISION" || -L "$BACKUP_REVISION" ) ]]; then
+        if [[ -L "$BACKUP_REVISION" ]]; then
+            rm -f -- "$BACKUP_REVISION" || die "Could not remove invalid revision symlink backup: $BACKUP_REVISION"
+        else
+            chmod -R u+w -- "$BACKUP_REVISION" || die "Could not make invalid revision backup removable: $BACKUP_REVISION"
+            rm -rf -- "$BACKUP_REVISION" || die "Could not remove invalid revision backup: $BACKUP_REVISION"
+        fi
+    fi
+
+    trap - EXIT
+    log "Staged a new immutable revision."
+fi
+
+# We hold the exclusive payload lock from revision validation/staging through
+# atomic publication and pruning. Container syncs hold a shared lock throughout copy.
+SCRIPT_TEMP="$MOUNT_ROOT/.sync-addon-container.tmp.$$"
+install -m 0555 "$REPO_ROOT/pterodactyl/sync-addon-payload-container.sh" "$SCRIPT_TEMP"
+mv -f -- "$SCRIPT_TEMP" "$MOUNT_ROOT/sync-addon-payload-container.sh"
+
+POINTER_TEMP="$MOUNT_ROOT/.CURRENT_COMMIT.tmp.$$"
+printf '%s\n' "$SOURCE_COMMIT" > "$POINTER_TEMP"
+chmod 0444 "$POINTER_TEMP"
+mv -f -- "$POINTER_TEMP" "$MOUNT_ROOT/CURRENT_COMMIT"
+touch "$FINAL_REVISION"
+log "Published CURRENT_COMMIT=$SOURCE_COMMIT"
+
+# Keep the current revision plus the newest historical revisions. Container syncs
+# hold a shared .sync.lock, so pruning waits until active syncs finish.
+[[ "$KEEP_REVISIONS" =~ ^[1-9][0-9]*$ ]] || die "FRAGCITY_KEEP_REVISIONS must be a positive integer."
+kept=1
+while IFS=' ' read -r _mtime revision_name; do
+    [[ -n "$revision_name" && "$revision_name" != "$SOURCE_COMMIT" ]] || continue
+    if (( kept < KEEP_REVISIONS )); then
+        kept=$((kept + 1))
+    else
+        log "Pruning old staged revision: $revision_name"
+        rm -rf -- "$REVISION_ROOT/$revision_name"
+    fi
+done < <(find "$REVISION_ROOT" -mindepth 1 -maxdepth 1 -type d -name '[0-9a-f]*' -printf '%T@ %f\n' | sort -rn)
+
+log "Payload staging finished successfully."
+# Keep the XFCE operator dashboard current from the same branch as the payload.
+# This affects only the root-owned host dashboard, never files inside game volumes.
+# The dashboard itself detects atomic replacement and reloads in an already-open window.
+publish_status_dashboard() {
+    [[ "$(id -u)" -eq 0 ]] || return 0
+
+    local dashboard_source="$REPO_ROOT/pterodactyl/systemd/fragcity-status-dashboard.sh"
+    local dashboard_target="/usr/local/libexec/fragcity-status-dashboard.sh"
+    local temporary
+
+    if [[ ! -f "$dashboard_source" || -L "$dashboard_source" ]]; then
+        log "WARNING: dashboard source is missing or unsafe; payload publishing remains successful."
+        return 0
+    fi
+    if ! bash -n "$dashboard_source"; then
+        log "WARNING: dashboard shell syntax check failed; installed dashboard was left unchanged."
+        return 0
+    fi
+    if [[ -L "/usr/local/libexec" || -L "$dashboard_target" ]]; then
+        log "WARNING: refusing dashboard deployment through a symlink; installed dashboard was left unchanged."
+        return 0
+    fi
+    if ! install -d -o root -g root -m 0755 /usr/local/libexec; then
+        log "WARNING: could not prepare /usr/local/libexec; payload publishing remains successful."
+        return 0
+    fi
+
+    temporary="$(mktemp /usr/local/libexec/.fragcity-status-dashboard.sh.XXXXXX)" || {
+        log "WARNING: could not create an atomic dashboard update file."
+        return 0
+    }
+    if ! install -o root -g root -m 0755 -- "$dashboard_source" "$temporary"; then
+        rm -f -- "$temporary"
+        log "WARNING: could not stage the new dashboard; installed dashboard was left unchanged."
+        return 0
+    fi
+
+    if [[ -f "$dashboard_target" ]] && cmp -s -- "$temporary" "$dashboard_target"; then
+        rm -f -- "$temporary"
+        return 0
+    fi
+
+    if mv -f -- "$temporary" "$dashboard_target"; then
+        log "Updated live status dashboard. Any open dashboard window will reload the new UI automatically."
+    else
+        rm -f -- "$temporary"
+        log "WARNING: could not publish the dashboard update; installed dashboard was left unchanged."
+    fi
+}
+
+publish_status_dashboard
+
+ "$PLUGIN_INVENTORY"; then
+        die "Staged plugin inventory must exclude separately managed BotAI/ and CS2UpdateMonitor/ directories."
+    fi
+
     validate_revision "$STAGING" || die "Staged revision failed required-file validation."
 
     # Immutable for containers, but readable/traversable by the non-root game user.
