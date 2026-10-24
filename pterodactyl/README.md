@@ -14,6 +14,23 @@ This integration connects the existing “Update CS2 Addons” GitHub Actions wo
 
 The host's volume path contains each server UUID, for example /var/lib/pterodactyl/volumes/<server-uuid>. Inside that container, /home/container is already bound to that exact volume. The container sync script therefore writes to /home/container/game/csgo/ and does not hardcode any host volume UUID.
 
+## Visible XFCE status window and one-time automated bootstrap
+
+The system services are intentionally headless: systemd cannot safely create an interactive GUI window from a recurring oneshot service. The installer therefore installs a read-only dashboard script and an XFCE autostart entry. The terminal window opens once when an XFCE desktop session logs in, refreshes every five seconds, and shows timer/service state, the latest readable journal entries, the payload commit, baseline count and processed-server count. It does not spawn a new window on every timer run.
+
+For the first automated setup, if a specific server has already been created and should be handled by the watcher, pass its UUID as the one-time baseline exclusion. All other currently eligible servers are recorded in the baseline and remain untouched. The excluded UUID must genuinely match the configured Mount's Egg and Node; otherwise baseline initialization fails without creating the baseline.
+
+Example for a deliberately selected new/test server:
+
+```bash
+cd /opt/fragcity/cs2-kus-addons || exit 1
+FRAGCITY_BASELINE_EXCLUDE_UUID='7d859327-c028-4bf6-9071-c048ce795a95' \
+FRAGCITY_ENABLE_TIMERS=1 \
+bash pterodactyl/install-host-services.sh
+```
+
+Use the exclusion only while the baseline file does not yet exist. An existing baseline is never overwritten, and an exclusion is refused if a baseline already exists. With `FRAGCITY_ENABLE_TIMERS=1`, the installer first runs the payload publisher, enables both timers, then triggers one immediate watcher pass. A server that is still installing or has a running container is deferred and retried by the provisioner timer. The dashboard is installed under `/usr/local/libexec/fragcity-status-dashboard.sh`; the XFCE autostart entry is `/etc/xdg/autostart/fragcity-systemd-status.desktop`. If XFCE is already logged in, the new window appears at the next graphical login; the dashboard can also be launched from an existing XFCE terminal.
+
 ## What remains a one-time Panel setup
 
 Pterodactyl 1.x has no documented public API for attaching a Mount definition to an individual server. For Panel 1.15.x, the provisioner uses the installed Panel's Laravel models to attach it. Recheck this internal model integration before upgrading Panel.
