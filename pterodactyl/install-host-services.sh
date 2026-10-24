@@ -74,7 +74,18 @@ if command -v xfce4-terminal >/dev/null 2>&1; then
   install -d -o root -g root -m 0755 /etc/xdg/autostart
   install -m 0644 "$REPO_ROOT/pterodactyl/systemd/fragcity-systemd-status.desktop" \
     /etc/xdg/autostart/fragcity-systemd-status.desktop
-  log "Installed the XFCE status-window autostart entry; it opens at the next graphical login."
+  log "Installed the XFCE status-window autostart entry."
+
+  if [[ -n "${DISPLAY:-}" && -n "${XDG_RUNTIME_DIR:-}" ]]; then
+    nohup xfce4-terminal \
+      --title=FragCity-Systemd-Status \
+      --hold \
+      --command=/usr/local/libexec/fragcity-status-dashboard.sh \
+      >/dev/null 2>&1 &
+    log "Requested an immediate dashboard window in the active graphical session."
+  else
+    log "No active graphical session detected; the dashboard opens automatically at the next XFCE login."
+  fi
 else
   log "xfce4-terminal was not found; the dashboard was installed but the automatic XFCE window was skipped."
 fi
