@@ -83,6 +83,11 @@ CSS_SOURCE="$ADDONS_SOURCE/counterstrikesharp"
 [[ -n "$(find "$CSS_SOURCE/plugins/disabled" -type f -print -quit)" ]] || die "No files found under managed source folder: $CSS_SOURCE/plugins/disabled"
 [[ -d "$CSS_SOURCE/shared" ]] || die "Missing source folder: $CSS_SOURCE/shared"
 [[ -d "$CSS_SOURCE/gamedata" ]] || die "Missing source folder: $CSS_SOURCE/gamedata"
+[[ -d "$CSS_SOURCE/configs" ]] || die "Missing source folder: $CSS_SOURCE/configs"
+[[ -d "$GAME_SOURCE/cfg" ]] || die "Missing source folder: $GAME_SOURCE/cfg"
+for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
+    [[ -f "$GAME_SOURCE/$name" && ! -L "$GAME_SOURCE/$name" ]] || die "Missing required CS2 config file: $GAME_SOURCE/$name"
+done
 [[ -f "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf" ]] || die "Missing VDF: $ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf"
 for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmanager; do
     [[ -d "$ADDONS_SOURCE/$name" ]] || die "Missing addon source directory: $ADDONS_SOURCE/$name"
@@ -96,6 +101,7 @@ reject_symlinks() {
 }
 for source_path in \
     "$CSS_SOURCE/source" "$CSS_SOURCE/shared" "$CSS_SOURCE/gamedata" \
+    "$CSS_SOURCE/configs" "$GAME_SOURCE/cfg" \
     "$ADDONS_SOURCE/MovementUnlocker" "$ADDONS_SOURCE/serverlistplayersfix_mm" \
     "$ADDONS_SOURCE/surf" "$ADDONS_SOURCE/scripts" "$ADDONS_SOURCE/multiaddonmanager"; do
     reject_symlinks "$source_path"
@@ -108,6 +114,9 @@ done < <(
            -o -path "$CSS_SOURCE/plugins/CS2UpdateMonitor" \) -prune \
         -o -type l -print0
 )
+for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
+    [[ ! -L "$GAME_SOURCE/$name" ]] || die "Managed CS2 config file must not be a symlink: $GAME_SOURCE/$name"
+done
 [[ ! -L "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf" ]] || die "Managed VDF must not be a symlink."
 
 mkdir -p -- "$MOUNT_ROOT"
@@ -142,6 +151,13 @@ validate_revision() {
     [[ ! -e "$root/game/csgo/addons/counterstrikesharp/plugins/CS2UpdateMonitor" ]] || return 1
     [[ -d "$root/game/csgo/addons/counterstrikesharp/shared" ]] || return 1
     [[ -d "$root/game/csgo/addons/counterstrikesharp/gamedata" ]] || return 1
+    [[ -d "$root/game/csgo/addons/counterstrikesharp/configs" && ! -L "$root/game/csgo/addons/counterstrikesharp/configs" ]] || return 1
+    [[ -n "$(find "$root/game/csgo/addons/counterstrikesharp/configs" -type f -print -quit)" ]] || return 1
+    [[ -d "$root/game/csgo/cfg" && ! -L "$root/game/csgo/cfg" ]] || return 1
+    [[ -n "$(find "$root/game/csgo/cfg" -type f -print -quit)" ]] || return 1
+    for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
+        [[ -f "$root/game/csgo/$name" && ! -L "$root/game/csgo/$name" ]] || return 1
+    done
     [[ -f "$root/game/csgo/addons/metamod/serverlistplayersfix_mm.vdf" ]] || return 1
     local name
     for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmanager; do
@@ -191,6 +207,11 @@ else
         -- "$CSS_SOURCE/plugins/" "$STAGING_CSS/plugins/"
     copy_tree "$CSS_SOURCE/shared" "$STAGING_CSS/shared"
     copy_tree "$CSS_SOURCE/gamedata" "$STAGING_CSS/gamedata"
+    copy_tree "$CSS_SOURCE/configs" "$STAGING_CSS/configs"
+    copy_tree "$GAME_SOURCE/cfg" "$STAGING_GAME/cfg"
+    for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
+        install -m 0644 "$GAME_SOURCE/$name" "$STAGING_GAME/$name"
+    done
     for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmanager; do
         copy_tree "$ADDONS_SOURCE/$name" "$STAGING_ADDONS/$name"
     done
