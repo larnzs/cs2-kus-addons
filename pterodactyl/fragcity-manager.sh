@@ -105,75 +105,75 @@ installation_wizard() {
   local mode timers exclude ans rc baseline
   baseline="/var/lib/pterodactyl/fragcity-addon-provisioner/baseline-uuids.txt"
   heading "FULL INSTALL / REINSTALL"
-  printf '\\n%bThis wizard installs or repairs the FragCity host automation files.%b\\n' "$C" "$Z"
-  printf '  It does NOT delete Docker volumes, game-server data, Mount assignments, or the baseline.\\n'
+  printf '\n%bThis wizard installs or repairs the FragCity host automation files.%b\n' "$C" "$Z"
+  printf '  It does NOT delete Docker volumes, game-server data, Mount assignments, or the baseline.\n'
   if [[ -f "$baseline" && ! -L "$baseline" ]]; then
-    printf '  Existing baseline: %bPRESENT — it will be preserved%b\\n' "$G" "$Z"
+    printf '  Existing baseline: %bPRESENT — it will be preserved%b\n' "$G" "$Z"
   elif [[ -e "$baseline" || -L "$baseline" ]]; then
-    printf '  Baseline path: %bINVALID TYPE / SYMLINK — installer will refuse%b\\n' "$R" "$Z"
+    printf '  Baseline path: %bINVALID TYPE / SYMLINK — installer will refuse%b\n' "$R" "$Z"
   else
-    printf '  Existing baseline: %bMISSING — installer may create the initial baseline%b\\n' "$Y" "$Z"
+    printf '  Existing baseline: %bMISSING — installer may create the initial baseline%b\n' "$Y" "$Z"
   fi
-  printf '\\n%bSelect mode%b\\n' "$M" "$Z"
-  printf '  %b1%b  FULL FIRST INSTALL — install units/dashboard and choose timer policy\\n' "$G" "$Z"
-  printf '  %b2%b  REINSTALL / REPAIR — replace installed unit/script files; preserve current timer settings\\n' "$Y" "$Z"
-  printf '  %b0%b  Cancel\\n\\nMode: ' "$D" "$Z"
+  printf '\n%bSelect mode%b\n' "$M" "$Z"
+  printf '  %b1%b  FULL FIRST INSTALL — install units/dashboard and choose timer policy\n' "$G" "$Z"
+  printf '  %b2%b  REINSTALL / REPAIR — replace installed unit/script files; preserve current timer settings\n' "$Y" "$Z"
+  printf '  %b0%b  Cancel\n\nMode: ' "$D" "$Z"
   read -r mode
   exclude=''
   case "$mode" in
     1)
       if [[ ! -e "$baseline" && ! -L "$baseline" ]]; then
-        printf '\\nOptional: enter one eligible server UUID to exclude from the initial baseline.\\n'
+        printf '\nOptional: enter one eligible server UUID to exclude from the initial baseline.\n'
         printf 'Leave empty to baseline every currently eligible server: '
         read -r exclude
         if [[ -n "$exclude" && ! "$exclude" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
-          printf '%bInvalid UUID format; cancelled.%b\\n' "$R" "$Z"; pause; return
+          printf '%bInvalid UUID format; cancelled.%b\n' "$R" "$Z"; pause; return
         fi
       fi
-      printf '\\nTimer policy for the full install:\\n'
-      printf '  %b1%b  Turn both automation timers ON (persistent across reboot)\\n' "$G" "$Z"
-      printf '  %b2%b  Install files but do not enable timers\\n\\nChoice: ' "$G" "$Z"
+      printf '\nTimer policy for the full install:\n'
+      printf '  %b1%b  Turn both automation timers ON (persistent across reboot)\n' "$G" "$Z"
+      printf '  %b2%b  Install files but do not enable timers\n\nChoice: ' "$G" "$Z"
       read -r timers
       case "$timers" in
         1) timers=1 ;;
         2) timers=0 ;;
-        *) printf '%bInvalid choice; cancelled.%b\\n' "$R" "$Z"; pause; return ;;
+        *) printf '%bInvalid choice; cancelled.%b\n' "$R" "$Z"; pause; return ;;
       esac
       confirm='INSTALL'
       ;;
     2)
       timers=0
-      printf '\\nReinstall keeps each timer in its current enabled/disabled state.\\n'
-      printf 'It preserves the existing baseline and does not remove Mounts or server data.\\n'
+      printf '\nReinstall keeps each timer in its current enabled/disabled state.\n'
+      printf 'It preserves the existing baseline and does not remove Mounts or server data.\n'
       confirm='REINSTALL'
       ;;
     0|'') return ;;
-    *) printf '%bInvalid mode.%b\\n' "$R" "$Z"; pause; return ;;
+    *) printf '%bInvalid mode.%b\n' "$R" "$Z"; pause; return ;;
   esac
-  printf '\\n%bThis operation will overwrite the four FragCity systemd unit files and refresh the host dashboard/autostart files.%b\\n' "$Y" "$Z"
-  printf 'For a full install with timers ON, a provisioning pass may modify eligible stopped servers.\\n'
+  printf '\n%bThis operation will overwrite the four FragCity systemd unit files and refresh the host dashboard/autostart files.%b\n' "$Y" "$Z"
+  printf 'For a full install with timers ON, a provisioning pass may modify eligible stopped servers.\n'
   printf 'Type %b%s%b to continue, or anything else to cancel: ' "$Y" "$confirm" "$Z"
   read -r ans
   if [[ "$ans" != "$confirm" ]]; then echo 'Cancelled; no changes made.'; pause; return; fi
 
-  printf '\\n%bRunning installer...%b\\n' "$C" "$Z"
+  printf '\n%bRunning installer...%b\n' "$C" "$Z"
   rc=0
   if [[ -n "$exclude" ]]; then
-    FRAGCITY_BASELINE_EXCLUDE_UUID="$exclude" FRAGCITY_ENABLE_TIMERS="$timers" FRAGCITY_LAUNCH_DASHBOARD=0 \\
+    FRAGCITY_BASELINE_EXCLUDE_UUID="$exclude" FRAGCITY_ENABLE_TIMERS="$timers" FRAGCITY_LAUNCH_DASHBOARD=0 \
       bash "$REPO_ROOT/pterodactyl/install-host-services.sh" || rc=$?
   else
-    FRAGCITY_ENABLE_TIMERS="$timers" FRAGCITY_LAUNCH_DASHBOARD=0 \\
+    FRAGCITY_ENABLE_TIMERS="$timers" FRAGCITY_LAUNCH_DASHBOARD=0 \
       bash "$REPO_ROOT/pterodactyl/install-host-services.sh" || rc=$?
   fi
   if [[ "$rc" -eq 0 ]]; then
-    printf '\\n%bInstaller completed successfully.%b\\n' "$G" "$Z"
+    printf '\n%bInstaller completed successfully.%b\n' "$G" "$Z"
   else
-    printf '\\n%bInstaller failed with exit status %s. Check the output above and the service journals.%b\\n' "$R" "$rc" "$Z"
+    printf '\n%bInstaller failed with exit status %s. Check the output above and the service journals.%b\n' "$R" "$rc" "$Z"
   fi
-  printf '\\n%bTimer state after installer%b\\n' "$M" "$Z"
+  printf '\n%bTimer state after installer%b\n' "$M" "$Z"
   timerrow "Payload auto-sync" fragcity-addon-payload-sync.timer
   timerrow "New-server provisioner" fragcity-addon-provision.timer
-  printf '\\n%bRecent installer-related logs%b\\n' "$M" "$Z"
+  printf '\n%bRecent installer-related logs%b\n' "$M" "$Z"
   journalctl -u fragcity-addon-payload-sync.service -u fragcity-addon-provision.service -n 20 --no-pager -o short-iso 2>&1
   pause
 }
