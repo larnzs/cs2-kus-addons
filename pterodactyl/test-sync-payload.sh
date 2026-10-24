@@ -189,7 +189,7 @@ printf '%s\n' "$first_output" | grep -E 'Target server UUID|Using published payl
 grep -Fq "Target server UUID: $TEST_SERVER_UUID." <<< "$first_output"
 grep -Fq "Using published payload revision $commit." <<< "$first_output"
 grep -Fq "Sync completed successfully." <<< "$first_output"
-grep -Fq "BotAI/ and CS2UpdateMonitor/ plugin directories were not copied or pruned." <<< "$first_output"
+grep -Fq "BotAI/ and CS2UpdateMonitor/ were not copied from this payload; inventory reconciliation quarantines either directory if its GitHub source folder is removed." <<< "$first_output"
 grep -Fq "plugins/disabled/ was synced from the published payload and remains under disabled/." <<< "$first_output"
 grep -Fq "First-install config seed completed successfully" <<< "$first_output"
 [[ -f "$TEST_ROOT/.fragcity-config-seed-v1.state" && ! -L "$TEST_ROOT/.fragcity-config-seed-v1.state" ]]
