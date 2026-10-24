@@ -43,6 +43,16 @@ case "/$MOUNT_ROOT/" in *"/../"*) die "FRAGCITY_PAYLOAD_MOUNT must not contain '
 current_branch="$(git -C "$REPO_ROOT" symbolic-ref --quiet --short HEAD)" || die "Repository is on a detached HEAD."
 [[ "$current_branch" == "$BRANCH" ]] || die "Expected branch '$BRANCH', got '$current_branch'."
 
+# Record the publisher script version before the fetch. If the fast-forward updates
+# this script itself, the running Bash process still contains the old version. It
+# must release the checkout lock and restart before publishing any payload.
+SCRIPT_PATH="$SCRIPT_DIR/$(basename -- "$0")"
+case "$SCRIPT_PATH" in
+    "$REPO_ROOT"/*) SCRIPT_RELATIVE_PATH="${SCRIPT_PATH#"$REPO_ROOT"/}" ;;
+    *) die "Publisher script must be inside the repository checkout: $SCRIPT_PATH" ;;
+esac
+INITIAL_SCRIPT_BLOB="$(git -C "$REPO_ROOT" rev-parse "HEAD:$SCRIPT_RELATIVE_PATH")"     || die "Could not identify the checked-out publisher script."
+
 # Serialize fetches/staging from this checkout. Never discard local edits.
 exec 8> "$REPO_ROOT/.git/fragcity-payload-stage.lock"
 flock -x 8
@@ -52,6 +62,15 @@ git -C "$REPO_ROOT" fetch --quiet origin "$BRANCH" || die "git fetch failed. Che
 git -C "$REPO_ROOT" merge --ff-only --quiet FETCH_HEAD || die "Could not fast-forward to origin/$BRANCH; resolve the checkout manually."
 [[ "$(git -C "$REPO_ROOT" rev-parse HEAD)" == "$(git -C "$REPO_ROOT" rev-parse FETCH_HEAD)" ]] || die "Local checkout differs from the fetched remote commit."
 [[ -z "$(git -C "$REPO_ROOT" status --porcelain)" ]] || die "Checkout became dirty during staging."
+
+UPDATED_SCRIPT_BLOB="$(git -C "$REPO_ROOT" rev-parse "HEAD:$SCRIPT_RELATIVE_PATH")"     || die "Could not identify the updated publisher script."
+if [[ "$UPDATED_SCRIPT_BLOB" != "$INITIAL_SCRIPT_BLOB" ]]; then
+    log "Publisher script changed during fast-forward; restarting with the updated checkout before staging."
+    flock -u 8
+    exec 8>&-
+    exec bash "$SCRIPT_PATH" "$@"
+fi
+
 SOURCE_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 log "Source commit: $SOURCE_COMMIT"
 
