@@ -684,6 +684,8 @@ payload_disabled="$revision/game/csgo/addons/counterstrikesharp/plugins/disabled
 target_disabled="/home/container/game/csgo/addons/counterstrikesharp/plugins/disabled"
 test -d "$payload_disabled" && test ! -L "$payload_disabled"
 test -d "$target_disabled" && test ! -L "$target_disabled"
+test -z "$(find "$payload_disabled" -type l -print -quit)"
+test -z "$(find "$target_disabled" -type l -print -quit)"
 verified_disabled_files=0
 while IFS= read -r -d '' payload_file; do
     relative_file="${payload_file#"$payload_disabled"/}"
@@ -697,8 +699,17 @@ while IFS= read -r -d '' payload_file; do
     fi
     verified_disabled_files=$((verified_disabled_files + 1))
 done < <(find "$payload_disabled" -type f -print0)
+target_disabled_files=0
+while IFS= read -r -d '' target_file; do
+    target_disabled_files=$((target_disabled_files + 1))
+done < <(find "$target_disabled" -type f -print0)
 test "$verified_disabled_files" -gt 0
-printf 'PASS: verified %d disabled-plugin file(s) against this server volume.\n' "$verified_disabled_files"
+test "$target_disabled_files" -eq "$verified_disabled_files" || {
+    printf 'Disabled plugin file count mismatch: payload=%d, volume=%d\n' \
+        "$verified_disabled_files" "$target_disabled_files" >&2
+    exit 23
+}
+printf 'PASS: verified all %d disabled-plugin file(s) and exact file count against this server volume.\n' "$verified_disabled_files"
 bash -n "$base/sync-addon-payload-container.sh"
 printf 'PASS: required commands available; read-only payload revision %s is valid.\n' "$commit"
 BASH;
