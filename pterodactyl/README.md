@@ -32,6 +32,22 @@ bash pterodactyl/install-host-services.sh
 
 Use the exclusion only while the baseline file does not yet exist. An existing baseline is never overwritten, and an exclusion is refused if a baseline already exists. With `FRAGCITY_ENABLE_TIMERS=1`, the installer first runs the payload publisher, enables both timers, then triggers one immediate watcher pass. A server that is still installing or has a running container is deferred and retried by the provisioner timer. The dashboard is installed under `/usr/local/libexec/fragcity-status-dashboard.sh`; the XFCE autostart entry is `/etc/xdg/autostart/fragcity-systemd-status.desktop`. If XFCE is already logged in, the new window appears at the next graphical login; the dashboard can also be launched from an existing XFCE terminal.
 
+
+### Clickable terminal control center (no separate dashboard window required)
+
+The folder also contains a click-to-open XFCE launcher, FragCity-Control-Center.desktop, and its interactive manager, fragcity-manager.sh. This is the Linux equivalent of opening a small .exe-style utility: the launcher opens one terminal window and the manager keeps its menu in that same window. A .so is a shared library format, not the right format for this task.
+
+The control center can:
+- Toggle the payload auto-sync timer ON/OFF and persist that choice across reboots.
+- Toggle the new-server provisioner timer ON/OFF. Turning it off pauses future automatic provisioning; it does not detach Mounts already assigned to servers.
+- Run a payload refresh now, including fetching the newest branch and updating the host-side dashboard.
+- Trigger one provisioning pass (requires typing YES because it may modify eligible stopped servers).
+- Open the live dashboard in the same terminal, show recent logs, follow both services' logs, and show the next scheduled runs.
+
+The manager requests root privileges with sudo when launched as a normal desktop user. To open it from Thunar/File Manager, allow launching the .desktop file once if XFCE asks or displays it as a text file, then double-click FragCity-Control-Center.desktop. The launcher expects this checkout path: /opt/fragcity/cs2-kus-addons.
+
+The control center checks its own script for a newer version while waiting at the menu. When the payload-sync service fast-forwards this checkout, the open manager reloads the updated menu without needing to close and reopen the terminal. The manager's live update and the dashboard updater change only host-side control scripts; they do not change existing game-server volumes by themselves.
+
 ## What remains a one-time Panel setup
 
 Pterodactyl 1.x has no documented public API for attaching a Mount definition to an individual server. For Panel 1.15.x, the provisioner uses the installed Panel's Laravel models to attach it. Recheck this internal model integration before upgrading Panel.
