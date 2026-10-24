@@ -50,6 +50,12 @@ jobs:
           grep -Fq 'enable --now' pterodactyl/fragcity-manager.sh
           grep -Fq 'disable --now' pterodactyl/fragcity-manager.sh
           grep -Fq 'Exec=xfce4-terminal' pterodactyl/FragCity-Control-Center.desktop
+          for screen in screen_docker screen_wings screen_cs2node screen_php screen_nginx screen_panel screen_mariadb screen_redis screen_all screen_host; do
+            grep -Fq "$screen()" pterodactyl/fragcity-manager.sh
+          done
+          grep -Fq 'Docker Engine & containers' pterodactyl/fragcity-manager.sh
+          grep -Fq 'Pterodactyl Wings' pterodactyl/fragcity-manager.sh
+          grep -Fq 'PHP CLI / PHP-FPM' pterodactyl/fragcity-manager.sh
 
       - name: Validate PHP provisioner syntax and safe CLI argument handling
         shell: bash
