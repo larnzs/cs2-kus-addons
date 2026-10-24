@@ -108,38 +108,45 @@ jobs:
           chmod u+w -- "$(dirname -- "$disabled_tree")"
           chmod -R u+w -- "$disabled_tree"
           rm -rf -- "$disabled_tree"
-          bash pterodactyl/sync-addon-payload-host.sh
-          test -n "$(find "$disabled_tree" -type f -print -quit)"
-
-          # Failure-path regression: make this revision incomplete again, then make a
-          # required source directory unreadable so staging fails after it has begun.
-          # The publisher must keep CURRENT_COMMIT and the existing revision directory.
+          # The host publisher may fast-forward while running, so always resolve
+          # the current published commit after each call before addressing its revision.
           commit="$(tr -d '\r\n' < "$FRAGCITY_PAYLOAD_MOUNT/CURRENT_COMMIT")"
           disabled_tree="$FRAGCITY_PAYLOAD_MOUNT/revisions/$commit/game/csgo/addons/counterstrikesharp/plugins/disabled"
+          test -n "$(find "$disabled_tree" -type f -print -quit)"
+
+          # Failure-path regression: remove disabled/ from the current immutable revision,
+          # then inject an rsync failure during rebuild. The source checkout stays clean,
+          # the staging directory gets created, and the incomplete published revision must
+          # remain present until a later successful publisher invocation repairs it.
           chmod u+w -- "$(dirname -- "$disabled_tree")"
           chmod -R u+w -- "$disabled_tree"
           rm -rf -- "$disabled_tree"
 
-          # Remove read permission from a tracked binary. Git does not track read bits,
-          # so the checkout remains clean, but rsync must fail when it reaches this file.
-          blocked_source="game/csgo/addons/multiaddonmanager/bin/multiaddonmanager.so"
-          chmod 000 "$blocked_source"
-          if bash pterodactyl/sync-addon-payload-host.sh; then
-            chmod 644 "$blocked_source"
-            echo "ERROR: publisher unexpectedly succeeded with an unreadable required source file."
+          fail_bin="$(mktemp -d "$RUNNER_TEMP/fragcity-fail-bin.XXXXXX")"
+          cat > "$fail_bin/rsync" <<'RSYNC'
+          #!/usr/bin/env bash
+          echo "Injected rsync failure for rollback safety test." >&2
+          exit 97
+          RSYNC
+          chmod 0755 "$fail_bin/rsync"
+          if PATH="$fail_bin:$PATH" bash pterodactyl/sync-addon-payload-host.sh; then
+            rm -rf -- "$fail_bin"
+            echo "ERROR: publisher unexpectedly succeeded despite injected staging failure."
             exit 1
           else
-            echo "Expected staging failure received; checking previous published revision was not removed."
+            echo "Expected staging failure received; checking the previous revision was not removed."
           fi
-          chmod 644 "$blocked_source"
+          rm -rf -- "$fail_bin"
 
           test "$(tr -d '\r\n' < "$FRAGCITY_PAYLOAD_MOUNT/CURRENT_COMMIT")" = "$commit"
           test -d "$FRAGCITY_PAYLOAD_MOUNT/revisions/$commit"
           test "$(tr -d '\r\n' < "$FRAGCITY_PAYLOAD_MOUNT/revisions/$commit/.source-commit")" = "$commit"
           test ! -e "$disabled_tree"
 
-          # Restore the incomplete revision successfully; later tests run on a valid payload.
+          # Restore the incomplete revision successfully, then refresh all pointers.
           bash pterodactyl/sync-addon-payload-host.sh
+          commit="$(tr -d '\r\n' < "$FRAGCITY_PAYLOAD_MOUNT/CURRENT_COMMIT")"
+          disabled_tree="$FRAGCITY_PAYLOAD_MOUNT/revisions/$commit/game/csgo/addons/counterstrikesharp/plugins/disabled"
           test -n "$(find "$disabled_tree" -type f -print -quit)"
 
       - name: Test container sync, idempotency, stale-file cleanup, and exclusions
