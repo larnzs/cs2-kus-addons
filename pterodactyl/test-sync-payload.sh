@@ -39,6 +39,21 @@ disabled_sample="$(find "$DISABLED_SOURCE" -type f -print -quit)"
 disabled_relative="${disabled_sample#"$DISABLED_SOURCE"/}"
 disabled_target="$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/$disabled_relative"
 
+CONFIGS_SOURCE="$revision_root/game/csgo/addons/counterstrikesharp/configs"
+CFG_SOURCE="$revision_root/game/csgo/cfg"
+[[ -d "$CONFIGS_SOURCE" && -n "$(find "$CONFIGS_SOURCE" -type f -print -quit)" ]]
+[[ -d "$CFG_SOURCE" && -n "$(find "$CFG_SOURCE" -type f -print -quit)" ]]
+configs_sample="$(find "$CONFIGS_SOURCE" -type f -print -quit)"
+cfg_sample="$(find "$CFG_SOURCE" -type f -print -quit)"
+configs_sample_relative="${configs_sample#"$CONFIGS_SOURCE"/}"
+cfg_sample_relative="${cfg_sample#"$CFG_SOURCE"/}"
+configs_sample_target="$GAME_ROOT/addons/counterstrikesharp/configs/$configs_sample_relative"
+cfg_sample_target="$GAME_ROOT/cfg/$cfg_sample_relative"
+CONFIG_FILE_NAMES=(gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt)
+for name in "${CONFIG_FILE_NAMES[@]}"; do
+    [[ -f "$revision_root/game/csgo/$name" ]] || { echo "FAIL: missing payload file $name"; exit 1; }
+done
+
 mkdir -p \
     "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI" \
     "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled" \
@@ -48,8 +63,65 @@ mkdir -p \
 printf 'protect-botai\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI/fragcity-test-keep.txt"
 printf 'stale-disabled-marker\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt"
 printf 'protect-update-monitor\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt"
-printf 'protect-css-config\n' > "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-keep.json"
-printf 'protect-game-config\n' > "$GAME_ROOT/cfg/fragcity-test-keep.cfg"
+printf 'stale-config-marker\n' > "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json"
+printf 'stale-cfg-marker\n' > "$GAME_ROOT/cfg/fragcity-test-stale.cfg"
+
+assert_tree_mirror() {
+    local source_dir="$1" target_dir="$2" label="$3"
+    local source_file relative_file target_file source_hash target_hash source_count target_count
+    [[ -d "$source_dir" && -d "$target_dir" ]] || {
+        echo "FAIL: $label source or target directory missing."
+        return 1
+    }
+    [[ -z "$(find "$source_dir" -type l -print -quit)" ]] || {
+        echo "FAIL: symlink exists in $label source tree."
+        return 1
+    }
+    [[ -z "$(find "$target_dir" -type l -print -quit)" ]] || {
+        echo "FAIL: symlink exists in $label target tree."
+        return 1
+    }
+    source_count="$(find "$source_dir" -type f | wc -l)"
+    target_count="$(find "$target_dir" -type f | wc -l)"
+    [[ "$source_count" -eq "$target_count" ]] || {
+        echo "FAIL: $label file count mismatch: source=$source_count target=$target_count"
+        return 1
+    }
+    while IFS= read -r -d '' source_file; do
+        relative_file="${source_file#"$source_dir"/}"
+        target_file="$target_dir/$relative_file"
+        [[ -f "$target_file" && ! -L "$target_file" ]] || {
+            echo "FAIL: $label file missing or unsafe: $relative_file"
+            return 1
+        }
+        source_hash="$(sha256sum -- "$source_file" | awk '{print $1}')"
+        target_hash="$(sha256sum -- "$target_file" | awk '{print $1}')"
+        [[ "$source_hash" == "$target_hash" ]] || {
+            echo "FAIL: $label SHA-256 mismatch: $relative_file"
+            return 1
+        }
+    done < <(find "$source_dir" -type f -print0)
+    echo "PASS: $label exactly mirrors $source_count file(s)."
+}
+
+assert_top_level_config_files() {
+    local name source_file target_file source_hash target_hash
+    for name in "${CONFIG_FILE_NAMES[@]}"; do
+        source_file="$revision_root/game/csgo/$name"
+        target_file="$GAME_ROOT/$name"
+        [[ -f "$target_file" && ! -L "$target_file" ]] || {
+            echo "FAIL: top-level CS2 config file missing or unsafe: $name"
+            return 1
+        }
+        source_hash="$(sha256sum -- "$source_file" | awk '{print $1}')"
+        target_hash="$(sha256sum -- "$target_file" | awk '{print $1}')"
+        [[ "$source_hash" == "$target_hash" ]] || {
+            echo "FAIL: top-level CS2 config file SHA-256 mismatch: $name"
+            return 1
+        }
+    done
+    echo "PASS: all five top-level CS2 config/list files match."
+}
 
 # A missing server UUID must fail closed before writing into any game directory.
 set +e
@@ -69,8 +141,13 @@ grep -Fq "BotAI/ and CS2UpdateMonitor/ were not copied or pruned." <<< "$first_o
 grep -Fq "plugins/disabled/ was synced from the published payload and remains under disabled/." <<< "$first_output"
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt" ]]
-[[ -f "$disabled_target" ]]
+[[ -e "$disabled_target" && ! -L "$disabled_target" ]]
 [[ "$(sha256sum -- "$disabled_sample" | awk '{print $1}')" == "$(sha256sum -- "$disabled_target" | awk '{print $1}')" ]]
+[[ ! -e "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json" ]]
+[[ ! -e "$GAME_ROOT/cfg/fragcity-test-stale.cfg" ]]
+assert_tree_mirror "$CONFIGS_SOURCE" "$GAME_ROOT/addons/counterstrikesharp/configs" "CounterStrikeSharp configs"
+assert_tree_mirror "$CFG_SOURCE" "$GAME_ROOT/cfg" "game/csgo/cfg"
+assert_top_level_config_files
 
 # Every allowlisted payload must be installed; no private repo metadata is staged.
 [[ -d "$GAME_ROOT/addons/counterstrikesharp/source" ]]
@@ -107,10 +184,13 @@ grep -Eq 'Files copied: 0; already matching SHA-256: [0-9]+; verified: [0-9]+; s
 
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI/fragcity-test-keep.txt")" == "protect-botai" ]]
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt" ]]
-[[ -f "$disabled_target" ]]
+[[ -e "$disabled_target" && ! -L "$disabled_target" ]]
 [[ "$(sha256sum -- "$disabled_sample" | awk '{print $1}')" == "$(sha256sum -- "$disabled_target" | awk '{print $1}')" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
-[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-keep.json")" == "protect-css-config" ]]
-[[ "$(cat "$GAME_ROOT/cfg/fragcity-test-keep.cfg")" == "protect-game-config" ]]
+[[ ! -e "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json" ]]
+[[ ! -e "$GAME_ROOT/cfg/fragcity-test-stale.cfg" ]]
+assert_tree_mirror "$CONFIGS_SOURCE" "$GAME_ROOT/addons/counterstrikesharp/configs" "CounterStrikeSharp configs after second sync"
+assert_tree_mirror "$CFG_SOURCE" "$GAME_ROOT/cfg" "game/csgo/cfg after second sync"
+assert_top_level_config_files
 
-echo "PASS: staging metadata, hash sync, disabled-plugin deployment, idempotency, safe stale cleanup, and protected-path exclusions."
+echo "PASS: publisher sync, complete configs/cfg mirrors, five CS2 config/list files, disabled-plugin deployment, idempotency, safe stale cleanup, and protected-plugin exclusions."
