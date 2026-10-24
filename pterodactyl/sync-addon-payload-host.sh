@@ -161,22 +161,18 @@ revision_permissions_ok() {
 if [[ -d "$FINAL_REVISION" ]] && validate_revision "$FINAL_REVISION" && revision_permissions_ok "$FINAL_REVISION"; then
     log "Revision is already staged and passes the required-file checks."
 else
-    # Published revisions are intentionally read-only. Before discarding an invalid
-    # revision, restore owner-write on its directories/files so rm can safely remove
-    # the tree even when this script runs as the non-root CI owner of the temp mount.
-    # The revision name is derived from the validated 40-character Git commit SHA.
-    if [[ -e "$FINAL_REVISION" || -L "$FINAL_REVISION" ]]; then
-        [[ "$FINAL_REVISION" == "$REVISION_ROOT/$SOURCE_COMMIT" ]] || die "Refusing to remove unexpected revision path: $FINAL_REVISION"
-        if [[ -L "$FINAL_REVISION" ]]; then
-            rm -f -- "$FINAL_REVISION" || die "Could not remove invalid revision symlink: $FINAL_REVISION"
-        else
-            [[ -d "$FINAL_REVISION" ]] || die "Invalid revision path exists but is not a directory: $FINAL_REVISION"
-            chmod -R u+w -- "$FINAL_REVISION" || die "Could not make invalid revision removable: $FINAL_REVISION"
-            rm -rf -- "$FINAL_REVISION" || die "Could not remove incomplete revision: $FINAL_REVISION"
-        fi
-    fi
+    # Build and validate a complete replacement before touching the existing revision.
+    # If copying or validation fails, CURRENT_COMMIT must not lose its prior directory.
     STAGING="$(mktemp -d "$REVISION_ROOT/.staging.XXXXXX")"
-    trap 'if [[ -n "${STAGING:-}" && -d "$STAGING" ]]; then rm -rf -- "$STAGING"; fi' EXIT
+    cleanup_staging() {
+        if [[ -n "${STAGING:-}" && -d "$STAGING" ]]; then
+            # The staged tree becomes read-only before publication, so restore owner-write
+            # on this unpublished temporary tree before cleaning it up on an error.
+            chmod -R u+w -- "$STAGING" 2>/dev/null || true
+            rm -rf -- "$STAGING" 2>/dev/null || true
+        fi
+    }
+    trap cleanup_staging EXIT
     STAGING_GAME="$STAGING/game/csgo"
     STAGING_ADDONS="$STAGING_GAME/addons"
     STAGING_CSS="$STAGING_ADDONS/counterstrikesharp"
@@ -204,16 +200,41 @@ else
     printf '%s\n' "$SOURCE_COMMIT" > "$STAGING/.source-commit"
     validate_revision "$STAGING" || die "Staged revision failed required-file validation."
 
-    # Publish an immutable snapshot, but keep it readable/traversable by the
-    # unprivileged Pterodactyl container user. mktemp creates STAGING as 0700,
-    # so chmod -R a-w alone would leave the revision root at 0500 and hide the
-    # marker from the game container.
+    # Immutable for containers, but readable/traversable by the non-root game user.
     chmod -R a-w "$STAGING"
     find "$STAGING" -type d -exec chmod a+rx {} +
     find "$STAGING" -type f -exec chmod a+r {} +
     revision_permissions_ok "$STAGING" || die "Staged revision is not readable by container users."
-    mv -- "$STAGING" "$FINAL_REVISION"
+
+    # Swap under the exclusive payload lock. Keep the old revision under a hidden
+    # backup name until the complete replacement is in place, so a failed mv can
+    # roll the old directory back before the lock is released.
+    BACKUP_REVISION=""
+    if [[ -e "$FINAL_REVISION" || -L "$FINAL_REVISION" ]]; then
+        [[ "$FINAL_REVISION" == "$REVISION_ROOT/$SOURCE_COMMIT" ]] || die "Refusing to replace unexpected revision path: $FINAL_REVISION"
+        BACKUP_REVISION="$REVISION_ROOT/.invalid-$SOURCE_COMMIT-$$"
+        [[ ! -e "$BACKUP_REVISION" && ! -L "$BACKUP_REVISION" ]] || die "Recovery backup path already exists: $BACKUP_REVISION"
+        mv -- "$FINAL_REVISION" "$BACKUP_REVISION" || die "Could not move invalid revision to recovery backup: $FINAL_REVISION"
+    fi
+
+    if ! mv -- "$STAGING" "$FINAL_REVISION"; then
+        if [[ -n "$BACKUP_REVISION" && ( -e "$BACKUP_REVISION" || -L "$BACKUP_REVISION" ) ]]; then
+            mv -- "$BACKUP_REVISION" "$FINAL_REVISION" || die "Could not publish staging or restore the previous revision; manual recovery required."
+            BACKUP_REVISION=""
+        fi
+        die "Could not publish validated staging snapshot: $FINAL_REVISION"
+    fi
     STAGING=""
+
+    if [[ -n "$BACKUP_REVISION" && ( -e "$BACKUP_REVISION" || -L "$BACKUP_REVISION" ) ]]; then
+        if [[ -L "$BACKUP_REVISION" ]]; then
+            rm -f -- "$BACKUP_REVISION" || die "Could not remove invalid revision symlink backup: $BACKUP_REVISION"
+        else
+            chmod -R u+w -- "$BACKUP_REVISION" || die "Could not make invalid revision backup removable: $BACKUP_REVISION"
+            rm -rf -- "$BACKUP_REVISION" || die "Could not remove invalid revision backup: $BACKUP_REVISION"
+        fi
+    fi
+
     trap - EXIT
     log "Staged a new immutable revision."
 fi
