@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Install FragCity's host-side Pterodactyl publisher/provisioner units.
 #
-# This is deliberately a setup-only command: it installs systemd unit files and
-# takes a one-time baseline of servers already eligible for the FragCity Mount.
-# It does NOT enable timers, attach a Mount, alter startup commands, remove Docker
-# containers, or modify server volumes. Test one new server explicitly first.
+# By default this installs units and records a one-time baseline without enabling
+# timers. For a controlled first setup, FRAGCITY_ENABLE_TIMERS=1 opts into both
+# timers; FRAGCITY_BASELINE_EXCLUDE_UUID may exclude one explicitly selected new
+# eligible server from the first baseline. Existing baselines are never replaced.
 
 set -Eeuo pipefail
 
@@ -12,13 +12,6 @@ log() { printf '[fragcity-install] %s\n' "$*"; }
 die() { printf '[fragcity-install] ERROR: %s\n' "$*" >&2; exit 1; }
 
 [[ "$(id -u)" -eq 0 ]] || die "Run this installer as root."
-[[ "$ENABLE_TIMERS" == "0" || "$ENABLE_TIMERS" == "1" ]] || die "FRAGCITY_ENABLE_TIMERS must be 0 or 1."
-if [[ -n "$BASELINE_EXCLUDE_UUID" ]]; then
-  [[ "$BASELINE_EXCLUDE_UUID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] \
-    || die "FRAGCITY_BASELINE_EXCLUDE_UUID must be a canonical lowercase UUID."
-  [[ ! -e "$BASELINE" && ! -L "$BASELINE" ]] \
-    || die "A baseline already exists; an exclusion cannot be applied to it. Existing baseline was preserved."
-fi
 REPO_ROOT="$(cd -- "$(dirname -- "$0")/.." && pwd)"
 EXPECTED_REPO_ROOT="/opt/fragcity/cs2-kus-addons"
 PANEL_ROOT="${FRAGCITY_PANEL_ROOT:-/var/www/pterodactyl}"
@@ -27,6 +20,14 @@ STATE_ROOT="${FRAGCITY_PROVISIONER_STATE:-/var/lib/pterodactyl/fragcity-addon-pr
 BASELINE="$STATE_ROOT/baseline-uuids.txt"
 BASELINE_EXCLUDE_UUID="${FRAGCITY_BASELINE_EXCLUDE_UUID:-}"
 ENABLE_TIMERS="${FRAGCITY_ENABLE_TIMERS:-0}"
+
+[[ "$ENABLE_TIMERS" == "0" || "$ENABLE_TIMERS" == "1" ]] || die "FRAGCITY_ENABLE_TIMERS must be 0 or 1."
+if [[ -n "$BASELINE_EXCLUDE_UUID" ]]; then
+  [[ "$BASELINE_EXCLUDE_UUID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] \
+    || die "FRAGCITY_BASELINE_EXCLUDE_UUID must be a canonical lowercase UUID."
+  [[ ! -e "$BASELINE" && ! -L "$BASELINE" ]] \
+    || die "A baseline already exists; an exclusion cannot be applied to it. Existing baseline was preserved."
+fi
 
 [[ "$REPO_ROOT" == "$EXPECTED_REPO_ROOT" ]] || die "Expected repository at $EXPECTED_REPO_ROOT, found $REPO_ROOT."
 [[ -d "$REPO_ROOT/.git" ]] || die "Repository is not a normal Git checkout."
