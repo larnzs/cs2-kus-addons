@@ -20,13 +20,14 @@
 # directory; this script never promotes disabled plugins into the active plugins root.
 #   Egg-managed Metamod/CounterStrikeSharp runtime directories
 #
-# Managed configuration paths:
-#   addons/counterstrikesharp/configs/ is an authoritative FragCity-managed mirror.
-#   Files listed under the repository's cfg/ tree are copied/updated by exact path,
-#   but cfg/ is NOT a mirror: unrelated Valve/game-owned files must be preserved.
-#   In particular, stock gamemode_*.cfg, machine_convars_default.vcfg,
-#   user_keys_default.vcfg and user_keys_dev_default.vcfg are never stale-pruned.
-#   The five top-level CS2 config/list files are explicitly managed.
+# Configs are one-time first-install seed files, not update-managed files:
+#   Only a newly provisioned volume carrying .fragcity-config-seed-v1.pending
+#   receives the repository CounterStrikeSharp configs/, listed custom cfg/ files,
+#   and five top-level CS2 config/list files. On success, a per-volume done marker
+#   is committed. Existing/legacy volumes without a pending marker are marked as
+#   legacy and their configs are never overwritten or pruned by later starts.
+# Plugin/source/shared/gamedata and allowlisted addon payloads continue to sync
+# every normal server start with SHA-256 validation and stale managed-file cleanup.
 
 set -Eeuo pipefail
 
@@ -55,7 +56,55 @@ validate_absolute_path "FRAGCITY_GAME_ROOT" "$GAME_ROOT"
 [[ "$SERVER_UUID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] \
     || die "P_SERVER_UUID is missing or invalid; refusing to sync without a verified server identity."
 
-for command_name in sha256sum find cp mkdir rm awk flock tr chmod dirname; do
+case "$GAME_ROOT" in
+    */game/csgo) SERVER_ROOT="${GAME_ROOT%/game/csgo}" ;;
+    *) die "FRAGCITY_GAME_ROOT must end in /game/csgo so the server volume root can be identified safely." ;;
+esac
+[[ -d "$SERVER_ROOT" && ! -L "$SERVER_ROOT" ]] || die "Server volume root is missing or unsafe: $SERVER_ROOT"
+
+CONFIG_SEED_PENDING="$SERVER_ROOT/.fragcity-config-seed-v1.pending"
+CONFIG_SEED_DONE="$SERVER_ROOT/.fragcity-config-seed-v1.done"
+CONFIG_SEED_LEGACY="$SERVER_ROOT/.fragcity-config-seed-v1.legacy"
+CONFIG_SEED_ACTIVE=0
+
+for marker_path in "$CONFIG_SEED_PENDING" "$CONFIG_SEED_DONE" "$CONFIG_SEED_LEGACY"; do
+    [[ ! -L "$marker_path" ]] || die "Config seed marker must not be a symlink: $marker_path"
+    [[ ! -e "$marker_path" || -f "$marker_path" ]] || die "Config seed marker must be a regular file: $marker_path"
+done
+
+if [[ -f "$CONFIG_SEED_DONE" ]]; then
+    grep -Fxq 'fragcity-config-seed-v1' "$CONFIG_SEED_DONE" \
+        && grep -Fxq "server_uuid=$SERVER_UUID" "$CONFIG_SEED_DONE" \
+        || die "Completed config-seed marker does not match this server UUID."
+    log "First-install config seed already completed; all cfg/configs/txt files will be preserved."
+elif [[ -f "$CONFIG_SEED_LEGACY" ]]; then
+    grep -Fxq 'fragcity-config-seed-v1' "$CONFIG_SEED_LEGACY" \
+        && grep -Fxq "server_uuid=$SERVER_UUID" "$CONFIG_SEED_LEGACY" \
+        || die "Legacy config-preservation marker does not match this server UUID."
+    log "Legacy server detected; preserving all existing cfg/configs/txt files."
+elif [[ -f "$CONFIG_SEED_PENDING" ]]; then
+    grep -Fxq 'fragcity-config-seed-v1' "$CONFIG_SEED_PENDING" \
+        && grep -Fxq "server_uuid=$SERVER_UUID" "$CONFIG_SEED_PENDING" \
+        || die "Pending first-install config marker does not match this server UUID."
+    CONFIG_SEED_ACTIVE=1
+    log "New-server first-install config seed is pending; config files will be installed once."
+else
+    # Existing servers provisioned before this feature have no pending marker.
+    # Record that they are legacy so the new seed is never accidentally applied
+    # to a customer's established settings on a later restart.
+    legacy_tmp="$SERVER_ROOT/.fragcity-config-seed-v1.legacy.tmp.$"
+    [[ ! -e "$legacy_tmp" && ! -L "$legacy_tmp" ]] || die "Legacy marker temp path already exists."
+    printf 'fragcity-config-seed-v1\nserver_uuid=%s\nmode=preserve-existing\n' "$SERVER_UUID" > "$legacy_tmp"
+    chmod 0644 "$legacy_tmp"
+    if [[ ! -e "$CONFIG_SEED_PENDING" && ! -e "$CONFIG_SEED_DONE" && ! -e "$CONFIG_SEED_LEGACY" ]]; then
+        mv -- "$legacy_tmp" "$CONFIG_SEED_LEGACY"
+    else
+        rm -f -- "$legacy_tmp"
+    fi
+    log "No first-install marker found; treating this as an existing server and preserving all cfg/configs/txt files."
+fi
+
+for command_name in sha256sum find cp mkdir rm awk flock tr chmod dirname grep mv; do
     command -v "$command_name" >/dev/null 2>&1 || die "$command_name is required."
 done
 
@@ -127,32 +176,40 @@ done
 [[ ! -L "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf" ]] || die "Managed VDF must not be a symlink."
 
 CSS_TARGET="$GAME_ROOT/addons/counterstrikesharp"
-MANAGED_FILES=(
+CONFIG_FILES=(
     "gamemodes_server.txt"
     "mapcycle.txt"
     "mapcyclecustom.txt"
     "subscribed_collection_ids.txt"
     "subscribed_file_ids.txt"
 )
+CONFIG_ROOT="$CSS_TARGET/configs"
 MANAGED_ROOTS=(
     "$CSS_TARGET/source"
     "$CSS_TARGET/plugins"
     "$CSS_TARGET/shared"
     "$CSS_TARGET/gamedata"
-    "$CSS_TARGET/configs"
     "$GAME_ROOT/addons/MovementUnlocker"
     "$GAME_ROOT/addons/serverlistplayersfix_mm"
     "$GAME_ROOT/addons/surf"
     "$GAME_ROOT/addons/scripts"
     "$GAME_ROOT/addons/multiaddonmanager"
 )
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    # These are included in managed paths only during a brand-new server's seed.
+    # On subsequent starts they are omitted from both copy and stale cleanup.
+    MANAGED_ROOTS+=("$CONFIG_ROOT")
+fi
 
 for target_path in "$GAME_ROOT" "$GAME_ROOT/addons" "$CSS_TARGET" "${MANAGED_ROOTS[@]}" "$GAME_ROOT/addons/metamod"; do
     [[ ! -L "$target_path" ]] || die "Managed target path is a symlink: $target_path"
 done
-for relative_file in "${MANAGED_FILES[@]}"; do
-    [[ ! -L "$GAME_ROOT/$relative_file" ]] || die "Managed target file is a symlink: $GAME_ROOT/$relative_file"
-done
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    [[ ! -L "$CONFIG_ROOT" && ! -L "$GAME_ROOT/cfg" ]] || die "First-install config target path is a symlink."
+    for relative_file in "${CONFIG_FILES[@]}"; do
+        [[ ! -L "$GAME_ROOT/$relative_file" ]] || die "First-install config target file is a symlink: $GAME_ROOT/$relative_file"
+    done
+fi
 
 # Reject symlinks inside managed targets rather than risk following a redirected path.
 for managed_root in "${MANAGED_ROOTS[@]}"; do
@@ -231,11 +288,13 @@ add_tree "$CSS_SOURCE/source" "addons/counterstrikesharp/source"
 add_tree "$CSS_SOURCE/plugins" "addons/counterstrikesharp/plugins" 1
 add_tree "$CSS_SOURCE/shared" "addons/counterstrikesharp/shared"
 add_tree "$CSS_SOURCE/gamedata" "addons/counterstrikesharp/gamedata"
-add_tree "$CSS_SOURCE/configs" "addons/counterstrikesharp/configs"
-add_tree "$GAME_SOURCE/cfg" "cfg"
-for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
-    add_file "$name" "$GAME_SOURCE/$name"
-done
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    add_tree "$CSS_SOURCE/configs" "addons/counterstrikesharp/configs"
+    add_tree "$GAME_SOURCE/cfg" "cfg"
+    for name in "${CONFIG_FILES[@]}"; do
+        add_file "$name" "$GAME_SOURCE/$name"
+    done
+fi
 for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmanager; do
     add_tree "$ADDONS_SOURCE/$name" "addons/$name"
 done
@@ -304,15 +363,17 @@ for managed_root in "${MANAGED_ROOTS[@]}"; do
     done < <(find "$managed_root" -type f -print0)
 done
 
-for relative_path in "${MANAGED_FILES[@]}"; do
-    target_path="$GAME_ROOT/$relative_path"
-    [[ ! -L "$target_path" ]] || die "Managed target file is a symlink: $target_path"
-    if [[ -e "$target_path" && -z "${DESIRED_SOURCE[$relative_path]+present}" ]]; then
-        log "Removing stale managed file: $relative_path"
-        rm -f -- "$target_path"
-        DELETED=$((DELETED + 1))
-    fi
-done
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    for relative_path in "${CONFIG_FILES[@]}"; do
+        target_path="$GAME_ROOT/$relative_path"
+        [[ ! -L "$target_path" ]] || die "First-install config target file is a symlink: $target_path"
+        if [[ -e "$target_path" && -z "${DESIRED_SOURCE[$relative_path]+present}" ]]; then
+            log "Removing stale first-install config file: $relative_path"
+            rm -f -- "$target_path"
+            DELETED=$((DELETED + 1))
+        fi
+    done
+fi
 
 for managed_root in "${MANAGED_ROOTS[@]}"; do
     if [[ "$managed_root" == "$CSS_TARGET/plugins" ]]; then
@@ -324,11 +385,26 @@ for managed_root in "${MANAGED_ROOTS[@]}"; do
     fi
 done
 
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    done_tmp="$SERVER_ROOT/.fragcity-config-seed-v1.done.tmp.$"
+    [[ ! -e "$done_tmp" && ! -L "$done_tmp" ]] || die "Config-seed completion temp path already exists."
+    printf 'fragcity-config-seed-v1\nserver_uuid=%s\nmode=completed\nsource_commit=%s\n' "$SERVER_UUID" "$SOURCE_COMMIT" > "$done_tmp"
+    chmod 0644 "$done_tmp"
+    [[ ! -L "$CONFIG_SEED_DONE" && ! -e "$CONFIG_SEED_DONE" ]] || die "Config-seed completion marker already exists or is unsafe."
+    mv -- "$done_tmp" "$CONFIG_SEED_DONE"
+    rm -f -- "$CONFIG_SEED_PENDING"
+    log "First-install config seed completed successfully; future starts will never overwrite or prune cfg/configs/txt files."
+else
+    log "First-install config seed not active; all existing cfg/configs/txt settings were preserved."
+fi
+
 log "Sync completed successfully."
 log "Files copied: $COPIED; already matching SHA-256: $UNCHANGED; verified: $VERIFIED; stale files removed: $DELETED."
 log "BotAI/ and CS2UpdateMonitor/ plugin directories were not copied or pruned."
 log "plugins/disabled/ was synced from the published payload and remains under disabled/."
-log "CounterStrikeSharp configs/ was mirrored from the repository."
-log "Repository-listed custom cfg/ files were updated by exact path; unrelated game-owned cfg files were preserved and cfg/ was not stale-pruned."
-log "The five top-level CS2 config/list files were synced from the repository."
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    log "CounterStrikeSharp configs/, listed cfg/ files, and five top-level CS2 config/list files were installed as first-install defaults."
+else
+    log "CounterStrikeSharp configs/, cfg/, and five top-level CS2 config/list files were not copied or stale-pruned."
+fi
 log "Egg-managed Metamod/CounterStrikeSharp runtime files were not touched."
