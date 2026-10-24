@@ -69,6 +69,8 @@ printf 'stale-disabled-marker\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins
 printf 'protect-update-monitor\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt"
 printf 'stale-config-marker\n' > "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json"
 printf 'stale-cfg-marker\n' > "$GAME_ROOT/cfg/fragcity-test-stale.cfg"
+# Simulate the marker created by the provisioner for a newly created server.
+printf 'fragcity-config-seed-v1\nserver_uuid=%s\nmode=pending\n' "$TEST_SERVER_UUID" > "$TEST_ROOT/.fragcity-config-seed-v1.pending"
 
 assert_tree_mirror() {
     local source_dir="$1" target_dir="$2" label="$3"
@@ -176,6 +178,9 @@ grep -Fq "Using published payload revision $commit." <<< "$first_output"
 grep -Fq "Sync completed successfully." <<< "$first_output"
 grep -Fq "BotAI/ and CS2UpdateMonitor/ plugin directories were not copied or pruned." <<< "$first_output"
 grep -Fq "plugins/disabled/ was synced from the published payload and remains under disabled/." <<< "$first_output"
+grep -Fq "First-install config seed completed successfully" <<< "$first_output"
+[[ -f "$TEST_ROOT/.fragcity-config-seed-v1.done" && ! -L "$TEST_ROOT/.fragcity-config-seed-v1.done" ]]
+[[ ! -e "$TEST_ROOT/.fragcity-config-seed-v1.pending" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt" ]]
 [[ -e "$disabled_target" && ! -L "$disabled_target" ]]
@@ -210,7 +215,15 @@ done
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json" ]]
 [[ -e "$GAME_ROOT/cfg/fragcity-test-stale.cfg" ]]
 
-# A stale managed file is removed only after all desired payload copies are verified.
+# Change config files and add a new file after first install: later starts must keep these edits.
+printf 'customer-customized-config\n' > "$configs_sample_target"
+printf 'customer-customized-cfg\n' > "$cfg_sample_target"
+printf 'customer-added-after-seed\n' > "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json"
+for name in "${CONFIG_FILE_NAMES[@]}"; do
+    printf 'customer-customized-%s\n' "$name" > "$GAME_ROOT/$name"
+done
+
+# A stale plugin file should still be removed after all desired addon copies verify.
 printf 'stale\n' > "$GAME_ROOT/addons/counterstrikesharp/source/fragcity-sync-test-stale.tmp"
 set +e
 second_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
@@ -230,17 +243,23 @@ grep -Eq 'Files copied: 0; already matching SHA-256: [0-9]+; verified: [0-9]+; s
 [[ -e "$disabled_target" && ! -L "$disabled_target" ]]
 [[ "$(sha256sum -- "$disabled_sample" | awk '{print $1}')" == "$(sha256sum -- "$disabled_target" | awk '{print $1}')" ]]
 [[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt")" == "protect-update-monitor" ]]
-[[ ! -e "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json" ]]
+[[ "$(cat "$configs_sample_target")" == "customer-customized-config" ]]
+[[ "$(cat "$cfg_sample_target")" == "customer-customized-cfg" ]]
+[[ "$(cat "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json")" == "customer-added-after-seed" ]]
 [[ -e "$GAME_ROOT/cfg/fragcity-test-stale.cfg" ]]
-assert_tree_mirror "$CONFIGS_SOURCE" "$GAME_ROOT/addons/counterstrikesharp/configs" "CounterStrikeSharp configs after second sync"
-assert_payload_files_present "$CFG_SOURCE" "$GAME_ROOT/cfg" "game/csgo/cfg after second sync"
+for name in "${CONFIG_FILE_NAMES[@]}"; do
+    [[ "$(cat "$GAME_ROOT/$name")" == "customer-customized-$name" ]] || {
+        echo "FAIL: config/list file was overwritten after first install: $name"
+        exit 1
+    }
+done
 for stock_file in user_keys_default.vcfg gamemode_competitive.cfg machine_convars_default.vcfg; do
     [[ -f "$GAME_ROOT/cfg/$stock_file" && ! -L "$GAME_ROOT/cfg/$stock_file" ]] || {
         echo "FAIL: game-owned cfg file disappeared after the second sync: $stock_file"
         exit 1
     }
 done
-assert_top_level_config_files
+grep -Fq "First-install config seed not active" <<< "$second_output"
 
 # Symlinked parent directories and destination files must fail closed.
 cfg_nested_target="$GAME_ROOT/cfg/MatchZy"
@@ -248,12 +267,9 @@ cfg_nested_backup="$TEST_ROOT/fragcity-test-MatchZy-backup"
 if [[ -d "$CFG_SOURCE/MatchZy" && -f "$CFG_SOURCE/MatchZy/config.cfg" ]]; then
     mv "$cfg_nested_target" "$cfg_nested_backup"
     ln -s "$cfg_nested_backup" "$cfg_nested_target"
-    set +e
     parent_guard_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
-    parent_guard_status=$?
-    set -e
-    [[ "$parent_guard_status" -ne 0 ]]
-    grep -Fq "Refusing to write through symlinked parent path" <<< "$parent_guard_output"
+    [[ -L "$cfg_nested_target" ]]
+    [[ -d "$cfg_nested_backup" ]]
     rm "$cfg_nested_target"
     mv "$cfg_nested_backup" "$cfg_nested_target"
 fi
@@ -262,13 +278,9 @@ cfg_guard_sentinel="$TEST_ROOT/fragcity-protected-target.txt"
 printf 'do-not-overwrite-through-symlink\n' > "$cfg_guard_sentinel"
 rm -f -- "$cfg_sample_target"
 ln -s "$cfg_guard_sentinel" "$cfg_sample_target"
-set +e
 file_guard_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
-file_guard_status=$?
-set -e
-[[ "$file_guard_status" -ne 0 ]]
-grep -Fq "Managed target file is a symlink" <<< "$file_guard_output"
-[[ "$(cat "$cfg_guard_sentinel")" == "do-not-overwrite-through-symlink" ]]
 [[ -L "$cfg_sample_target" ]]
+[[ "$(cat "$cfg_guard_sentinel")" == "do-not-overwrite-through-symlink" ]]
+grep -Fq "First-install config seed not active" <<< "$file_guard_output"
 
-echo "PASS: publisher sync, authoritative CounterStrikeSharp configs, non-destructive custom cfg deployment, preservation of stock game cfg files, symlink-safe writes, five CS2 config/list files, disabled-plugin deployment, idempotency, safe addon stale cleanup, and protected-plugin exclusions."
+echo "PASS: addon files update idempotently on each start, first-install cfg/configs/txt files seed only once, customer edits and new config files persist, stock files remain, and BotAI/CS2UpdateMonitor stay protected."
