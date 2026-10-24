@@ -221,9 +221,24 @@ function validatedPayloadCommit(string $payloadRoot): string
         $revision . '/game/csgo/addons/counterstrikesharp/source',
         $revision . '/game/csgo/addons/counterstrikesharp/shared',
         $revision . '/game/csgo/addons/counterstrikesharp/gamedata',
+        $revision . '/game/csgo/addons/counterstrikesharp/configs',
+        $revision . '/game/csgo/cfg',
     ] as $requiredDirectory) {
         if (is_link($requiredDirectory) || !is_dir($requiredDirectory)) {
             fail('Published revision is incomplete or unsafe: ' . $requiredDirectory);
+        }
+    }
+
+    foreach ([
+        'gamemodes_server.txt',
+        'mapcycle.txt',
+        'mapcyclecustom.txt',
+        'subscribed_collection_ids.txt',
+        'subscribed_file_ids.txt',
+    ] as $requiredConfigFile) {
+        $path = $revision . '/game/csgo/' . $requiredConfigFile;
+        if (is_link($path) || !is_file($path)) {
+            fail('Published revision is missing a required top-level CS2 config file: ' . $path);
         }
     }
 
@@ -710,6 +725,60 @@ test "$target_disabled_files" -eq "$verified_disabled_files" || {
     exit 23
 }
 printf 'PASS: verified all %d disabled-plugin file(s) and exact file count against this server volume.\n' "$verified_disabled_files"
+
+verify_mirror_tree() {
+    local source_dir="$1" target_dir="$2" label="$3"
+    local source_file relative_file target_file source_hash target_hash
+    local verified_count=0 target_count
+    test -d "$source_dir" && test ! -L "$source_dir"
+    test -d "$target_dir" && test ! -L "$target_dir"
+    test -z "$(find "$source_dir" -type l -print -quit)"
+    test -z "$(find "$target_dir" -type l -print -quit)"
+    while IFS= read -r -d '' source_file; do
+        relative_file="${source_file#"$source_dir"/}"
+        target_file="$target_dir/$relative_file"
+        test -f "$target_file" && test ! -L "$target_file"
+        source_hash="$(sha256sum -- "$source_file" | awk '{print $1}')"
+        target_hash="$(sha256sum -- "$target_file" | awk '{print $1}')"
+        test "$source_hash" = "$target_hash" || {
+            printf '%s SHA-256 mismatch: %s\n' "$label" "$relative_file" >&2
+            exit 24
+        }
+        verified_count=$((verified_count + 1))
+    done < <(find "$source_dir" -type f -print0)
+    test "$verified_count" -gt 0
+    mapfile -d '' -t target_files < <(find "$target_dir" -type f -print0)
+    target_count="${#target_files[@]}"
+    test "$target_count" -eq "$verified_count" || {
+        printf '%s file count mismatch: payload=%d volume=%d\n' "$label" "$verified_count" "$target_count" >&2
+        exit 25
+    }
+    printf 'PASS: verified %d %s file(s) and exact file count.\n' "$verified_count" "$label"
+}
+
+verify_mirror_tree \
+    "$revision/game/csgo/addons/counterstrikesharp/configs" \
+    "/home/container/game/csgo/addons/counterstrikesharp/configs" \
+    "CounterStrikeSharp configs"
+verify_mirror_tree \
+    "$revision/game/csgo/cfg" \
+    "/home/container/game/csgo/cfg" \
+    "game/csgo/cfg"
+
+for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
+    source_file="$revision/game/csgo/$name"
+    target_file="/home/container/game/csgo/$name"
+    test -f "$source_file" && test ! -L "$source_file"
+    test -f "$target_file" && test ! -L "$target_file"
+    source_hash="$(sha256sum -- "$source_file" | awk '{print $1}')"
+    target_hash="$(sha256sum -- "$target_file" | awk '{print $1}')"
+    test "$source_hash" = "$target_hash" || {
+        printf 'Top-level CS2 config/list file SHA-256 mismatch: %s\n' "$name" >&2
+        exit 26
+    }
+done
+printf 'PASS: all five top-level CS2 config/list files match the published payload.\n'
+
 bash -n "$base/sync-addon-payload-container.sh"
 printf 'PASS: required commands available; read-only payload revision %s is valid.\n' "$commit"
 BASH;
