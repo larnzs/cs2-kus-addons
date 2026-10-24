@@ -15,8 +15,9 @@
 #
 # These paths are deliberately outside the managed sync scope:
 #   addons/counterstrikesharp/plugins/BotAI/
-#   addons/counterstrikesharp/plugins/disabled/
 #   addons/counterstrikesharp/plugins/CS2UpdateMonitor/
+# The plugins/disabled/ directory is synced from the payload but remains in that
+# directory; this script never promotes disabled plugins into the active plugins root.
 #   cfg/ and CounterStrikeSharp configs
 #   Egg-managed Metamod/CounterStrikeSharp runtime directories
 
@@ -100,7 +101,6 @@ while IFS= read -r -d '' link_path; do
 done < <(
     find "$CSS_SOURCE/plugins" -mindepth 1 \
         \( -path "$CSS_SOURCE/plugins/BotAI" \
-           -o -path "$CSS_SOURCE/plugins/disabled" \
            -o -path "$CSS_SOURCE/plugins/CS2UpdateMonitor" \) -prune \
         -o -type l -print0
 )
@@ -132,7 +132,6 @@ for managed_root in "${MANAGED_ROOTS[@]}"; do
         if [[ "$managed_root" == "$CSS_TARGET/plugins" ]]; then
             find "$managed_root" -mindepth 1 \
                 \( -path "$managed_root/BotAI" \
-                   -o -path "$managed_root/disabled" \
                    -o -path "$managed_root/CS2UpdateMonitor" \) -prune \
                 -o -type l -print0
         else
@@ -154,18 +153,17 @@ add_file() {
 }
 
 add_tree() {
-    local source_dir="$1" target_relative_dir="$2" exclude_botai_disabled="${3:-0}"
+    local source_dir="$1" target_relative_dir="$2" skip_protected_plugin_dirs="${3:-0}"
     local source_file relative_file
     [[ -d "$source_dir" ]] || die "Missing staged source directory: $source_dir"
 
-    if [[ "$exclude_botai_disabled" -eq 1 ]]; then
+    if [[ "$skip_protected_plugin_dirs" -eq 1 ]]; then
         while IFS= read -r -d '' source_file; do
             relative_file="${source_file#"$source_dir"/}"
             add_file "$target_relative_dir/$relative_file" "$source_file"
         done < <(
             find "$source_dir" -mindepth 1 \
                 \( -path "$source_dir/BotAI" \
-                   -o -path "$source_dir/disabled" \
                    -o -path "$source_dir/CS2UpdateMonitor" \) -prune \
                 -o -type f -print0
         )
@@ -239,7 +237,6 @@ for managed_root in "${MANAGED_ROOTS[@]}"; do
         relative_path="${target_path#"$GAME_ROOT"/}"
         case "$relative_path" in
             addons/counterstrikesharp/plugins/BotAI|addons/counterstrikesharp/plugins/BotAI/*|\
-            addons/counterstrikesharp/plugins/disabled|addons/counterstrikesharp/plugins/disabled/*|\
             addons/counterstrikesharp/plugins/CS2UpdateMonitor|addons/counterstrikesharp/plugins/CS2UpdateMonitor/*)
                 continue
                 ;;
@@ -256,7 +253,6 @@ for managed_root in "${MANAGED_ROOTS[@]}"; do
     if [[ "$managed_root" == "$CSS_TARGET/plugins" ]]; then
         find "$managed_root" -mindepth 1 -depth -type d -empty \
             ! -path "$managed_root/BotAI" ! -path "$managed_root/BotAI/*" \
-            ! -path "$managed_root/disabled" ! -path "$managed_root/disabled/*" \
             ! -path "$managed_root/CS2UpdateMonitor" ! -path "$managed_root/CS2UpdateMonitor/*" -delete
     else
         find "$managed_root" -mindepth 1 -depth -type d -empty -delete
@@ -265,5 +261,6 @@ done
 
 log "Sync completed successfully."
 log "Files copied: $COPIED; already matching SHA-256: $UNCHANGED; verified: $VERIFIED; stale files removed: $DELETED."
-log "BotAI/, disabled/, and CS2UpdateMonitor/ were not copied or pruned."
+log "BotAI/ and CS2UpdateMonitor/ were not copied or pruned."
+log "plugins/disabled/ was synced from the published payload and remains under disabled/."
 log "cfg/configs and Egg-managed Metamod/CounterStrikeSharp runtime files were not touched."
