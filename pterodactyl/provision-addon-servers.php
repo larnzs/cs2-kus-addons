@@ -217,6 +217,7 @@ function validatedPayloadCommit(string $payloadRoot): string
 
     foreach ([
         $revision . '/game/csgo/addons/counterstrikesharp/plugins',
+        $revision . '/game/csgo/addons/counterstrikesharp/plugins/disabled',
         $revision . '/game/csgo/addons/counterstrikesharp/source',
         $revision . '/game/csgo/addons/counterstrikesharp/shared',
         $revision . '/game/csgo/addons/counterstrikesharp/gamedata',
@@ -224,6 +225,25 @@ function validatedPayloadCommit(string $payloadRoot): string
         if (is_link($requiredDirectory) || !is_dir($requiredDirectory)) {
             fail('Published revision is incomplete or unsafe: ' . $requiredDirectory);
         }
+    }
+
+    $disabledRoot = $revision . '/game/csgo/addons/counterstrikesharp/plugins/disabled';
+    if (is_link($disabledRoot)) {
+        fail('Published disabled-plugin folder must not be a symlink.');
+    }
+
+    $disabledHasFile = false;
+    $disabledIterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($disabledRoot, FilesystemIterator::SKIP_DOTS)
+    );
+    foreach ($disabledIterator as $entry) {
+        if ($entry->isFile() && !$entry->isLink()) {
+            $disabledHasFile = true;
+            break;
+        }
+    }
+    if (!$disabledHasFile) {
+        fail('Published payload has no files under CounterStrikeSharp plugins/disabled/.');
     }
 
     return $commit;
@@ -659,6 +679,26 @@ test -d "$revision" && test ! -L "$revision"
 test -f "$revision/.source-commit" && test ! -L "$revision/.source-commit"
 marker="$(tr -d '\r\n' < "$revision/.source-commit")"
 test "$marker" = "$commit"
+
+payload_disabled="$revision/game/csgo/addons/counterstrikesharp/plugins/disabled"
+target_disabled="/home/container/game/csgo/addons/counterstrikesharp/plugins/disabled"
+test -d "$payload_disabled" && test ! -L "$payload_disabled"
+test -d "$target_disabled" && test ! -L "$target_disabled"
+verified_disabled_files=0
+while IFS= read -r -d '' payload_file; do
+    relative_file="${payload_file#"$payload_disabled"/}"
+    target_file="$target_disabled/$relative_file"
+    test -f "$target_file" && test ! -L "$target_file"
+    payload_hash="$(sha256sum -- "$payload_file" | awk '{print $1}')"
+    target_hash="$(sha256sum -- "$target_file" | awk '{print $1}')"
+    if [[ "$payload_hash" != "$target_hash" ]]; then
+        printf 'Disabled plugin SHA-256 mismatch: %s\n' "$relative_file" >&2
+        exit 22
+    fi
+    verified_disabled_files=$((verified_disabled_files + 1))
+done < <(find "$payload_disabled" -type f -print0)
+test "$verified_disabled_files" -gt 0
+printf 'PASS: verified %d disabled-plugin file(s) against this server volume.\n' "$verified_disabled_files"
 bash -n "$base/sync-addon-payload-container.sh"
 printf 'PASS: required commands available; read-only payload revision %s is valid.\n' "$commit"
 BASH;
