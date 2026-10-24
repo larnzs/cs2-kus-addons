@@ -53,6 +53,15 @@ jobs:
           grep -Fq 'prepareConfigSeedMarker' pterodactyl/provision-addon-servers.php
           grep -Fq 'customer-customized-config' pterodactyl/test-sync-payload.sh
           grep -Fq 'customer-added-after-seed' pterodactyl/test-sync-payload.sh
+          grep -Fq 'MANAGED_MANIFEST' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'is_protected_plugin_runtime_path' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'No prior managed-payload manifest' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'Removing stale previously-managed payload file' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'fragcity-managed-payload-v1.list' pterodactyl/test-sync-payload.sh
+          grep -Fq 'persistent-player-settings-db' pterodactyl/test-sync-payload.sh
+          grep -Fq 'persistent-admin-bans-db' pterodactyl/test-sync-payload.sh
+          grep -Fq 'persistent-simpleadmin-data' pterodactyl/test-sync-payload.sh
+          grep -Fq 'map data must persist' pterodactyl/test-sync-payload.sh
           grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'paint_switch' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'HOST HEALTH' pterodactyl/systemd/fragcity-status-dashboard.sh
