@@ -37,9 +37,13 @@ reload_if_updated() {
 }
 choice_read() {
   CHOICE=''
-  if ! IFS= read -r -t 2 CHOICE; then reload_if_updated; return 1; fi
-  reload_if_updated
-  return 0
+  while true; do
+    if IFS= read -r -t 2 CHOICE; then
+      reload_if_updated
+      return 0
+    fi
+    reload_if_updated
+  done
 }
 showstatus() {
   clear 2>/dev/null || true
