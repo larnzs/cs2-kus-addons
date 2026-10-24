@@ -38,7 +38,7 @@ reload_if_updated() {
 choice_read() {
   CHOICE=''
   while true; do
-    if IFS= read -r -t 2 CHOICE; then
+    if IFS= read -r -t 60 CHOICE; then
       reload_if_updated
       return 0
     fi
@@ -593,12 +593,11 @@ render_main_status() {
 }
 
 
-while true; do
-  clear 2>/dev/null || true
+render_main_page() {
   printf '%b╔══════════════════════════════════════════════════════════════════════════════╗%b\n' "$B" "$Z"
   printf '%b║%b  %bFRAGCITY CONTROL CENTER%b  %b/ LIVE HOST MONITORING%b                         %b║%b\n' "$B" "$Z" "$G" "$Z" "$C" "$Z" "$B" "$Z"
   printf '%b╚══════════════════════════════════════════════════════════════════════════════╝%b\n' "$B" "$Z"
-  printf '  %bAuto-update: ON%b — checks for updated manager every 2 seconds\n' "$G" "$Z"
+  printf '  %bCode auto-update: ON%b — checks the local manager file every 60 seconds\n' "$G" "$Z"
 
   render_main_status
 
@@ -607,35 +606,75 @@ while true; do
   printf '  9 All services   H Host resources   F FragCity automation\n'
   printf '\n%b[ MANAGEMENT ]%b\n' "$C" "$Z"
   printf '  U Update payload   I First install / reinstall   P Provision once\n'
-  printf '  T Toggle payload timer   N Toggle provisioner timer   L Recent logs   W Follow logs   0 Exit\n\nChoose an option: '
+  printf '  T Toggle payload timer   N Toggle provisioner timer\n'
+  printf '  R Refresh status now   L Recent logs   W Follow logs   0 Exit\n'
+}
 
-  if ! IFS= read -r -t 2 CHOICE; then reload_if_updated; continue; fi
-  reload_if_updated
-  case "$CHOICE" in
-    1) screen_docker ;;
-    2) screen_wings ;;
-    3) screen_cs2node ;;
-    4) screen_php ;;
-    5) screen_nginx ;;
-    6) screen_panel ;;
-    7) screen_mariadb ;;
-    8) screen_redis ;;
-    9) screen_all ;;
-    H|h) screen_host ;;
-    F|f) screen_fragcity ;;
-    U|u) runservice fragcity-addon-payload-sync.service 'Update from GitHub and publish latest payload/dashboard' ;;
-    I|i) installation_wizard ;;
-    P|p)
-      printf '\nProvisioning may attach the Mount and change Startup for eligible stopped servers.\nType YES to run one pass: '
-      read -r ans
-      if [[ "$ans" == YES ]]; then runservice fragcity-addon-provision.service 'Manual provisioning pass'; else echo 'Cancelled.'; sleep 1; fi
-      ;;
-    T|t) toggle fragcity-addon-payload-sync.timer 'Payload auto-sync timer' ;;
-    N|n) printf '\nOFF pauses future automatic provisioning; existing Mount assignments remain intact.\n'; toggle fragcity-addon-provision.timer 'New-server provisioner timer' ;;
-    L|l) recentlogs ;;
-    W|w) followlogs ;;
-    0) echo 'FragCity Control Center closed.'; exit 0 ;;
-    *) printf '%bInvalid option.%b\n' "$R" "$Z"; sleep 1 ;;
-  esac
-  reload_if_updated
+HOME_RENDERED=''
+
+while true; do
+  # Refresh the server inventory in the main shell so its 15-second cache persists.
+  refresh_main_mount_status
+  CURRENT_HOME="$(render_main_page)"
+
+  # Redraw only when visible status/content actually changes. This prevents the
+  # old clear-and-repaint flicker on every two-second input timeout.
+  if [[ "$CURRENT_HOME" != "$HOME_RENDERED" ]]; then
+    clear 2>/dev/null || true
+    printf '%s\n' "$CURRENT_HOME"
+    HOME_RENDERED="$CURRENT_HOME"
+  fi
+
+  CHOICE=''
+  if IFS= read -r -t 60 -p $'\rChoose an option: ' CHOICE; then
+    reload_if_updated
+    case "$CHOICE" in
+      1) screen_docker ;;
+      2) screen_wings ;;
+      3) screen_cs2node ;;
+      4) screen_php ;;
+      5) screen_nginx ;;
+      6) screen_panel ;;
+      7) screen_mariadb ;;
+      8) screen_redis ;;
+      9) screen_all ;;
+      H|h) screen_host ;;
+      F|f) screen_fragcity ;;
+      U|u) runservice fragcity-addon-payload-sync.service 'Update from GitHub and publish latest payload/dashboard' ;;
+      I|i) installation_wizard ;;
+      P|p)
+        printf '\nProvisioning may attach the Mount and change Startup for eligible stopped servers.\nType YES to run one pass: '
+        read -r ans
+        if [[ "$ans" == YES ]]; then
+          runservice fragcity-addon-provision.service 'Manual provisioning pass'
+        else
+          echo 'Cancelled.'
+          sleep 1
+        fi
+        ;;
+      T|t) toggle fragcity-addon-payload-sync.timer 'Payload auto-sync timer' ;;
+      N|n)
+        printf '\nOFF pauses future automatic provisioning; existing Mount assignments remain intact.\n'
+        toggle fragcity-addon-provision.timer 'New-server provisioner timer'
+        ;;
+      R|r)
+        MAIN_MOUNT_STATUS_CACHE_AT=0
+        HOME_RENDERED=''
+        continue
+        ;;
+      L|l) recentlogs ;;
+      W|w) followlogs ;;
+      0) echo 'FragCity Control Center closed.'; exit 0 ;;
+      *) printf '%bInvalid option.%b\n' "$R" "$Z"; sleep 1 ;;
+    esac
+    # Return from any detail/action to the main page. If sync changed this file,
+    # reload_if_updated below will exec the updated version before the next draw.
+    HOME_RENDERED=''
+    reload_if_updated
+  else
+    # Timeout is not a reason to clear/redraw. Check whether a new manager was
+    # published; next iteration redraws only if status text changed.
+    printf '\r\033[K'
+    reload_if_updated
+  fi
 done
