@@ -713,14 +713,15 @@ done
     case "$kind" in
       META)
         printf '  Mount ID: %s | source: %s | target: %s\n' "$f2" "$f3" "$f4"
-        printf '  %-36s %-18s %-7s %-13s %-10s %-8s\n' 'SERVER UUID' 'NAME' 'PANEL' 'DOCKER MOUNT' 'PROCESSED' 'STARTUP'
+        printf '  %-36s %-18s %-7s %-13s %-10s %-8s %-8s\n' 'SERVER UUID' 'NAME' 'PANEL' 'DOCKER MOUNT' 'PROCESSED' 'STARTUP' 'BASELINE'
         ;;
       SERVER)
         printf '  %-36s %-18.18s ' "$f1" "$f2"
         status_badge "$f3"; printf '  '
         status_badge "$f5"; printf '  '
         status_badge "$f6"; printf '  '
-        status_badge "$f7"; printf '\n'
+        status_badge "$f7"; printf '  '
+        status_badge "$f8"; printf '\n'
         if [[ "$f4" == ERROR ]]; then
           printf '    %bDocker inspect failed for this UUID; Container Mount is UNKNOWN.%b\n' "$Y" "$Z"
         fi
@@ -732,6 +733,8 @@ done
         printf ' OFF: '; status_badge "$f5"
         printf ' Pending (no container): '; status_badge "$f6"
         printf ' Unknown: '; status_badge "$f7"
+        printf ' | Processed ON: '; status_badge "$f8"
+        printf ' | Startup ON: '; status_badge "$f9"
         printf '\n'
         ;;
     esac
