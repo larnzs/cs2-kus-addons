@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Host-side FragCity payload publisher.
 #
-# Run on the Debian/Pterodactyl host from a clean checkout of this private repo.
-# The host uses its own read-only GitHub credentials; no credential is passed to
-# a Pterodactyl container and no .git directory or updater scripts are exposed.
+# Run on the Debian/Pterodactyl host from a clean checkout of the repository.
+# Any Git credentials are host-only; no credential, .git directory, or updater
+# script is exposed inside a Pterodactyl game container.
 #
 # It stages a minimal allowlisted payload into immutable revisions and publishes
 # the selected revision by atomically replacing CURRENT_COMMIT. The matching
