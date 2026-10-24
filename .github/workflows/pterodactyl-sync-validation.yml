@@ -48,6 +48,8 @@ jobs:
           grep -Fq 'mode=completed' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'First-install config seed completed successfully' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'First-install config seed not active' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'No first-install marker found; treating this as an existing server' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'mode=completed' pterodactyl/test-sync-payload.sh
           grep -Fq 'prepareConfigSeedMarker' pterodactyl/provision-addon-servers.php
           grep -Fq 'customer-customized-config' pterodactyl/test-sync-payload.sh
           grep -Fq 'customer-added-after-seed' pterodactyl/test-sync-payload.sh
