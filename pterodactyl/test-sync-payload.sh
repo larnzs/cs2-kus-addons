@@ -58,6 +58,7 @@ mkdir -p \
     "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI" \
     "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled" \
     "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor" \
+    "$GAME_ROOT/addons/counterstrikesharp/plugins/RemovedFromGitHubPlugin" \
     "$GAME_ROOT/addons/counterstrikesharp/plugins/PlayerSettings" \
     "$GAME_ROOT/addons/counterstrikesharp/plugins/SimpleAdmin/data" \
     "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/maps" \
@@ -70,6 +71,10 @@ printf 'stock-machine-convars\n' > "$GAME_ROOT/cfg/machine_convars_default.vcfg"
 printf 'protect-botai\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/BotAI/fragcity-test-keep.txt"
 printf 'stale-disabled-marker\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/disabled/fragcity-test-stale.txt"
 printf 'protect-update-monitor\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/CS2UpdateMonitor/fragcity-test-keep.txt"
+# Model a broken plugin left behind on a legacy server after its entire folder
+# was removed from the current GitHub branch. This server has no old manifest.
+printf 'obsolete-broken-plugin-dll\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/RemovedFromGitHubPlugin/RemovedFromGitHubPlugin.dll"
+printf 'keep-for-recovery\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/RemovedFromGitHubPlugin/plugin-data.json"
 printf 'persistent-player-settings-db\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/PlayerSettings/settings.sqlite"
 printf 'persistent-admin-bans-db\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/SimpleAdmin/bans.db"
 printf 'persistent-simpleadmin-data\n' > "$GAME_ROOT/addons/counterstrikesharp/plugins/SimpleAdmin/data/groups.json"
@@ -196,6 +201,17 @@ grep -Fxq "mode=completed" "$TEST_ROOT/.fragcity-config-seed-v1.state"
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json" ]]
 [[ -e "$GAME_ROOT/cfg/fragcity-test-stale.cfg" ]]
 [[ -f "$TEST_ROOT/.fragcity-managed-payload-v1.list" ]]
+[[ -f "$revision_root/.fragcity-plugin-inventory-v1.list" ]]
+grep -Fxq 'disabled' "$revision_root/.fragcity-plugin-inventory-v1.list"
+! grep -Fxq 'BotAI' "$revision_root/.fragcity-plugin-inventory-v1.list"
+! grep -Fxq 'CS2UpdateMonitor' "$revision_root/.fragcity-plugin-inventory-v1.list"
+# Directory reconciliation must work on the first sync without a prior manifest.
+[[ ! -e "$GAME_ROOT/addons/counterstrikesharp/plugins/RemovedFromGitHubPlugin" ]]
+retired_plugin="$(find "$TEST_ROOT/.fragcity-retired-plugins" -mindepth 2 -maxdepth 2 -type d -name 'RemovedFromGitHubPlugin' -print -quit)"
+[[ -n "$retired_plugin" ]]
+[[ "$(cat "$retired_plugin/RemovedFromGitHubPlugin.dll")" == "obsolete-broken-plugin-dll" ]]
+[[ "$(cat "$retired_plugin/plugin-data.json")" == "keep-for-recovery" ]]
+grep -Fq "Quarantined stale plugin directory missing from current GitHub inventory: RemovedFromGitHubPlugin" <<< "$first_output"
 ! grep -Fq 'PlayerSettings/settings.sqlite' "$TEST_ROOT/.fragcity-managed-payload-v1.list"
 ! grep -Fq 'SimpleAdmin/bans.db' "$TEST_ROOT/.fragcity-managed-payload-v1.list"
 ! grep -Fq 'SimpleAdmin/data/groups.json' "$TEST_ROOT/.fragcity-managed-payload-v1.list"
