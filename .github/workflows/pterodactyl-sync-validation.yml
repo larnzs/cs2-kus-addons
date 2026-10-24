@@ -39,7 +39,8 @@ jobs:
             pterodactyl/sync-addon-payload-host.sh \
             pterodactyl/sync-addon-payload-container.sh \
             pterodactyl/test-sync-payload.sh \
-            pterodactyl/install-host-services.sh
+            pterodactyl/install-host-services.sh \
+            pterodactyl/systemd/fragcity-status-dashboard.sh
 
       - name: Validate PHP provisioner syntax and safe CLI argument handling
         shell: bash
@@ -67,6 +68,7 @@ jobs:
 
           php pterodactyl/provision-addon-servers.php --help > "$RUNNER_TEMP/fragcity-provisioner-help.txt"
           grep -Fq -- '--initialize-baseline' "$RUNNER_TEMP/fragcity-provisioner-help.txt"
+          grep -Fq -- '--exclude <server-uuid>' "$RUNNER_TEMP/fragcity-provisioner-help.txt"
           grep -Fq -- '--server <server-uuid>' "$RUNNER_TEMP/fragcity-provisioner-help.txt"
           grep -Fq -- '--verify-server <server-uuid>' "$RUNNER_TEMP/fragcity-provisioner-help.txt"
 
@@ -75,10 +77,12 @@ jobs:
           server_status=$?
           php pterodactyl/provision-addon-servers.php --verify-server not-a-uuid > "$RUNNER_TEMP/fragcity-invalid-verify-uuid.txt" 2>&1
           verify_status=$?
+          php pterodactyl/provision-addon-servers.php --initialize-baseline --exclude not-a-uuid > "$RUNNER_TEMP/fragcity-invalid-baseline-exclude.txt" 2>&1
+          baseline_exclude_status=$?
           set -e
-          if [[ "$server_status" -ne 2 || "$verify_status" -ne 2 ]]; then
-            cat "$RUNNER_TEMP/fragcity-invalid-uuid.txt" "$RUNNER_TEMP/fragcity-invalid-verify-uuid.txt"
-            echo "Expected invalid UUID arguments for --server and --verify-server to be rejected with exit code 2."
+          if [[ "$server_status" -ne 2 || "$verify_status" -ne 2 || "$baseline_exclude_status" -ne 2 ]]; then
+            cat "$RUNNER_TEMP/fragcity-invalid-uuid.txt" "$RUNNER_TEMP/fragcity-invalid-verify-uuid.txt" "$RUNNER_TEMP/fragcity-invalid-baseline-exclude.txt"
+            echo "Expected invalid UUID arguments for server, verify-server and baseline exclusion to be rejected with exit code 2."
             exit 1
           fi
 
