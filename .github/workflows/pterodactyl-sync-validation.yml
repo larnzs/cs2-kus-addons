@@ -120,16 +120,18 @@ jobs:
           chmod -R u+w -- "$disabled_tree"
           rm -rf -- "$disabled_tree"
 
-          blocked_source="game/csgo/addons/multiaddonmanager"
+          # Remove read permission from a tracked binary. Git does not track read bits,
+          # so the checkout remains clean, but rsync must fail when it reaches this file.
+          blocked_source="game/csgo/addons/multiaddonmanager/bin/multiaddonmanager.so"
           chmod 000 "$blocked_source"
           if bash pterodactyl/sync-addon-payload-host.sh; then
-            chmod 755 "$blocked_source"
-            echo "ERROR: publisher unexpectedly succeeded with an unreadable required source."
+            chmod 644 "$blocked_source"
+            echo "ERROR: publisher unexpectedly succeeded with an unreadable required source file."
             exit 1
           else
             echo "Expected staging failure received; checking previous published revision was not removed."
           fi
-          chmod 755 "$blocked_source"
+          chmod 644 "$blocked_source"
 
           test "$(tr -d '\r\n' < "$FRAGCITY_PAYLOAD_MOUNT/CURRENT_COMMIT")" = "$commit"
           test -d "$FRAGCITY_PAYLOAD_MOUNT/revisions/$commit"
