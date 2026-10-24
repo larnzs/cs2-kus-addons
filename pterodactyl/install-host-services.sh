@@ -20,8 +20,10 @@ STATE_ROOT="${FRAGCITY_PROVISIONER_STATE:-/var/lib/pterodactyl/fragcity-addon-pr
 BASELINE="$STATE_ROOT/baseline-uuids.txt"
 BASELINE_EXCLUDE_UUID="${FRAGCITY_BASELINE_EXCLUDE_UUID:-}"
 ENABLE_TIMERS="${FRAGCITY_ENABLE_TIMERS:-0}"
+LAUNCH_DASHBOARD="${FRAGCITY_LAUNCH_DASHBOARD:-1}"
 
 [[ "$ENABLE_TIMERS" == "0" || "$ENABLE_TIMERS" == "1" ]] || die "FRAGCITY_ENABLE_TIMERS must be 0 or 1."
+[[ "$LAUNCH_DASHBOARD" == "0" || "$LAUNCH_DASHBOARD" == "1" ]] || die "FRAGCITY_LAUNCH_DASHBOARD must be 0 or 1."
 if [[ -n "$BASELINE_EXCLUDE_UUID" ]]; then
   [[ "$BASELINE_EXCLUDE_UUID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] \
     || die "FRAGCITY_BASELINE_EXCLUDE_UUID must be a canonical lowercase UUID."
@@ -76,7 +78,9 @@ if command -v xfce4-terminal >/dev/null 2>&1; then
     /etc/xdg/autostart/fragcity-systemd-status.desktop
   log "Installed the XFCE status-window autostart entry."
 
-  if [[ -n "${DISPLAY:-}" && -n "${XDG_RUNTIME_DIR:-}" ]]; then
+  if [[ "$LAUNCH_DASHBOARD" == "0" ]]; then
+    log "Skipped opening an extra dashboard window by request; XFCE autostart remains installed."
+  elif [[ -n "${DISPLAY:-}" && -n "${XDG_RUNTIME_DIR:-}" ]]; then
     nohup xfce4-terminal \
       --title=FragCity-Systemd-Status \
       --hold \
