@@ -242,7 +242,7 @@ else
     # to retire directories removed from the repository, including on legacy
     # volumes that do not yet have a previous managed-file manifest.
     PLUGIN_INVENTORY="$STAGING/.fragcity-plugin-inventory-v1.list"
-    find "$CSS_SOURCE/plugins" -mindepth 1 -maxdepth 1 -type d -printf '%f\\n' | LC_ALL=C sort > "$PLUGIN_INVENTORY"
+    find "$CSS_SOURCE/plugins" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | LC_ALL=C sort > "$PLUGIN_INVENTORY"
     grep -Fxq 'disabled' "$PLUGIN_INVENTORY" || die "GitHub plugin inventory is missing the reserved disabled/ directory."
     validate_revision "$STAGING" || die "Staged revision failed required-file validation."
 
