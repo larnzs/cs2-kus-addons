@@ -39,7 +39,7 @@ Keep the Mount eligible for exactly one Egg and one Node. The provisioner delibe
 The immutable snapshot includes only these allowlisted paths:
 
 - game/csgo/addons/counterstrikesharp/source/
-- game/csgo/addons/counterstrikesharp/plugins/, excluding top-level BotAI/, disabled/, and CS2UpdateMonitor/
+- game/csgo/addons/counterstrikesharp/plugins/, including disabled/ but excluding top-level BotAI/ and CS2UpdateMonitor/
 - game/csgo/addons/counterstrikesharp/shared/
 - game/csgo/addons/counterstrikesharp/gamedata/
 - game/csgo/addons/MovementUnlocker/
@@ -49,7 +49,7 @@ The immutable snapshot includes only these allowlisted paths:
 - game/csgo/addons/multiaddonmanager/
 - game/csgo/addons/metamod/serverlistplayersfix_mm.vdf
 
-The repository itself, .git, update scripts, updater credentials, game/csgo/cfg/, CounterStrikeSharp configs/, BotAI/, disabled/, CS2UpdateMonitor/, and Egg-managed Metamod/CounterStrikeSharp runtime files are not staged or deployed. CS2UpdateMonitor is intentionally excluded even though the source repository currently keeps an updater-managed copy at the top level of `plugins/`; it must not be installed as an active plugin by this Pterodactyl payload. If a local copy already exists under a server's `plugins/CS2UpdateMonitor/`, the container synchronizer leaves it untouched rather than deleting or moving it. Managed payload paths must not contain symlinks. The container script copies files into the existing game tree; it never replaces the complete game directory.
+The repository itself, .git, update scripts, updater credentials, game/csgo/cfg/, CounterStrikeSharp configs/, BotAI/, CS2UpdateMonitor/, and Egg-managed Metamod/CounterStrikeSharp runtime files are not staged or deployed. The `plugins/disabled/` tree is staged and synchronized like the other managed CounterStrikeSharp plugin files, but remains under `disabled/`; the payload script never moves disabled plugins into the active `plugins/` root. CS2UpdateMonitor is intentionally excluded even though the source repository currently keeps an updater-managed copy at the top level of `plugins/`; it must not be installed as an active plugin by this Pterodactyl payload. If a local copy already exists under a server's `plugins/CS2UpdateMonitor/`, the container synchronizer leaves it untouched rather than deleting or moving it. Managed payload paths must not contain symlinks. The container script copies files into the existing game tree; it never replaces the complete game directory.
 
 ## Host repository access
 
