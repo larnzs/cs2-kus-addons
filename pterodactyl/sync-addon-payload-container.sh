@@ -272,7 +272,32 @@ assert_no_symlink_parent_components() {
 # and must not be deleted (for example PlayerSettings/settings.sqlite or bans.db).
 is_payload_managed_path() {
     local path="$1"
-    [[ -n "$path" && "$path" != /* && "$path" != *
+    [[ -n "$path" && "$path" != /* && "$path" != *".."* && "$path" != *"//"* ]] || return 1
+    case "$path" in
+        addons/counterstrikesharp/source/*|\
+        addons/counterstrikesharp/plugins/*|\
+        addons/counterstrikesharp/shared/*|\
+        addons/counterstrikesharp/gamedata/*|\
+        addons/MovementUnlocker/*|\
+        addons/serverlistplayersfix_mm/*|\
+        addons/surf/*|\
+        addons/scripts/*|\
+        addons/multiaddonmanager/*|\
+        addons/metamod/serverlistplayersfix_mm.vdf)
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+    case "$path" in
+        addons/counterstrikesharp/plugins/BotAI|addons/counterstrikesharp/plugins/BotAI/*|\
+        addons/counterstrikesharp/plugins/CS2UpdateMonitor|addons/counterstrikesharp/plugins/CS2UpdateMonitor/*)
+            return 1
+            ;;
+    esac
+    return 0
+}
+
 log "Target server UUID: $SERVER_UUID."
 log "Using published payload revision $SOURCE_COMMIT."
 log "Building the desired-file list from the immutable snapshot."
