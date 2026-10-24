@@ -149,7 +149,7 @@ assert_tree_mirror "$CONFIGS_SOURCE" "$GAME_ROOT/addons/counterstrikesharp/confi
 assert_tree_mirror "$CFG_SOURCE" "$GAME_ROOT/cfg" "game/csgo/cfg"
 assert_top_level_config_files
 
-# Every allowlisted payload must be installed; no private repo metadata is staged.
+# Every allowlisted payload must be installed; no Git metadata is staged.
 [[ -d "$GAME_ROOT/addons/counterstrikesharp/source" ]]
 [[ -d "$GAME_ROOT/addons/counterstrikesharp/shared" ]]
 [[ -d "$GAME_ROOT/addons/counterstrikesharp/gamedata" ]]
@@ -167,7 +167,7 @@ done
 [[ ! -e "$GAME_ROOT/addons/counterstrikesharp/configs/fragcity-test-stale.json" ]]
 [[ ! -e "$GAME_ROOT/cfg/fragcity-test-stale.cfg" ]]
 
-# A stale file is removed from a managed tree only after verified payload copies.
+# A stale managed file is removed only after all desired payload copies are verified.
 printf 'stale\n' > "$GAME_ROOT/addons/counterstrikesharp/source/fragcity-sync-test-stale.tmp"
 set +e
 second_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
