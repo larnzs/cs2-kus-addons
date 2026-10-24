@@ -713,7 +713,7 @@ done
     case "$kind" in
       META)
         printf '  Mount ID: %s | source: %s | target: %s\n' "$f2" "$f3" "$f4"
-        printf '  %-36s %-18s %-7s %-13s %-10s %-8s\n' 'SERVER UUID' 'NAME' 'PANEL' 'CONTAINER' 'PROCESSED' 'STARTUP'
+        printf '  %-36s %-18s %-7s %-13s %-10s %-8s\n' 'SERVER UUID' 'NAME' 'PANEL' 'DOCKER MOUNT' 'PROCESSED' 'STARTUP'
         ;;
       SERVER)
         printf '  %-36s %-18.18s ' "$f1" "$f2"
