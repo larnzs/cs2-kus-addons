@@ -637,106 +637,7 @@ screen_deleted_uuid_history() {
   local line kind f1 f2 found=0 baseline_count=0 marker_count=0
   while IFS= read -r line; do
     [[ -n "$line" ]] || continue
-    IFS=  printf '\n%b[ HOST SERVICES — ACTIVE / ENABLED AT BOOT ]%b\n' "$C" "$Z"
-  main_service_pair Docker docker.service Wings wings.service
-  main_service_pair PHP-FPM php8.3-fpm.service Nginx nginx.service
-  main_service_pair 'Pterodactyl queue' pteroq.service MariaDB mariadb.service
-  main_service_pair Redis redis-server.service 'Payload timer' fragcity-addon-payload-sync.timer
-  main_service_single 'Provisioner timer' fragcity-addon-provision.timer
-  main_cs2node_status
-  render_server_mount_status
-}
-
-
-render_main_page() {
-  printf '%b╔══════════════════════════════════════════════════════════════════════════════╗%b\n' "$B" "$Z"
-  printf '%b║%b  %bFRAGCITY CONTROL CENTER%b  %b/ LIVE HOST MONITORING%b                         %b║%b\n' "$B" "$Z" "$G" "$Z" "$C" "$Z" "$B" "$Z"
-  printf '%b╚══════════════════════════════════════════════════════════════════════════════╝%b\n' "$B" "$Z"
-  printf '  %bCode auto-update: ON%b — checks the local manager file every 60 seconds\n' "$G" "$Z"
-
-  render_main_status
-
-  printf '\n%b[ SERVICE DETAIL PAGES ]%b\n' "$C" "$Z"
-  printf '  1 Docker   2 Wings   3 CS2Node   4 PHP-FPM   5 Nginx   6 Panel   7 MariaDB   8 Redis\n'
-  printf '  9 All services   H Host resources   F FragCity automation\n'
-  printf '\n%b[ MANAGEMENT ]%b\n' "$C" "$Z"
-  printf '  U Update payload   I First install / reinstall   P Provision once\n'
-  printf '  M Manage install marks   D Deleted UUID history\n'
-  printf '  T Toggle payload timer   N Toggle provisioner timer\n'
-  printf '  R Refresh status now   L Recent logs   W Follow logs   0 Exit\n'
-}
-
-HOME_RENDERED=''
-
-while true; do
-  # Refresh the server inventory in the main shell so its 15-second cache persists.
-  refresh_main_mount_status
-  CURRENT_HOME="$(render_main_page)"
-
-  # Redraw only when visible status/content actually changes. This prevents the
-  # old clear-and-repaint flicker on every two-second input timeout.
-  if [[ "$CURRENT_HOME" != "$HOME_RENDERED" ]]; then
-    clear 2>/dev/null || true
-    printf '%s\n' "$CURRENT_HOME"
-    HOME_RENDERED="$CURRENT_HOME"
-  fi
-
-  CHOICE=''
-  if IFS= read -r -t 60 -p $'\rChoose an option: ' CHOICE; then
-    reload_if_updated
-    case "$CHOICE" in
-      1) screen_docker ;;
-      2) screen_wings ;;
-      3) screen_cs2node ;;
-      4) screen_php ;;
-      5) screen_nginx ;;
-      6) screen_panel ;;
-      7) screen_mariadb ;;
-      8) screen_redis ;;
-      9) screen_all ;;
-      H|h) screen_host ;;
-      F|f) screen_fragcity ;;
-      U|u) runservice fragcity-addon-payload-sync.service 'Update from GitHub and publish latest payload/dashboard' ;;
-      I|i) installation_wizard ;;
-      M|m) manage_install_marks ;;
-      D|d) screen_deleted_uuid_history ;;
-      P|p)
-        printf '\nProvisioning may attach the Mount and change Startup for eligible stopped servers.\nType YES to run one pass: '
-        read -r ans
-        if [[ "$ans" == YES ]]; then
-          runservice fragcity-addon-provision.service 'Manual provisioning pass'
-        else
-          echo 'Cancelled.'
-          sleep 1
-        fi
-        ;;
-      T|t) toggle fragcity-addon-payload-sync.timer 'Payload auto-sync timer' ;;
-      N|n)
-        printf '\nOFF pauses future automatic provisioning; existing Mount assignments remain intact.\n'
-        toggle fragcity-addon-provision.timer 'New-server provisioner timer'
-        ;;
-      R|r)
-        MAIN_MOUNT_STATUS_CACHE_AT=0
-        HOME_RENDERED=''
-        continue
-        ;;
-      L|l) recentlogs ;;
-      W|w) followlogs ;;
-      0) echo 'FragCity Control Center closed.'; exit 0 ;;
-      *) printf '%bInvalid option.%b\n' "$R" "$Z"; sleep 1 ;;
-    esac
-    # Return from any detail/action to the main page. If sync changed this file,
-    # reload_if_updated below will exec the updated version before the next draw.
-    HOME_RENDERED=''
-    reload_if_updated
-  else
-    # Timeout is not a reason to clear/redraw. Check whether a new manager was
-    # published; next iteration redraws only if status text changed.
-    printf '\r\033[K'
-    reload_if_updated
-  fi
-done
-\t' read -r kind f1 f2 _ <<< "$line"
+    IFS=$'\t' read -r kind f1 f2 _ <<< "$line"
     case "$kind" in
       STALE_BASELINE)
         if (( baseline_count == 0 )); then
@@ -788,103 +689,7 @@ manage_install_marks() {
     count=0
     while IFS= read -r line; do
       [[ -n "$line" ]] || continue
-      IFS=  printf '\n%b[ HOST SERVICES — ACTIVE / ENABLED AT BOOT ]%b\n' "$C" "$Z"
-  main_service_pair Docker docker.service Wings wings.service
-  main_service_pair PHP-FPM php8.3-fpm.service Nginx nginx.service
-  main_service_pair 'Pterodactyl queue' pteroq.service MariaDB mariadb.service
-  main_service_pair Redis redis-server.service 'Payload timer' fragcity-addon-payload-sync.timer
-  main_service_single 'Provisioner timer' fragcity-addon-provision.timer
-  main_cs2node_status
-  render_server_mount_status
-}
-
-
-render_main_page() {
-  printf '%b╔══════════════════════════════════════════════════════════════════════════════╗%b\n' "$B" "$Z"
-  printf '%b║%b  %bFRAGCITY CONTROL CENTER%b  %b/ LIVE HOST MONITORING%b                         %b║%b\n' "$B" "$Z" "$G" "$Z" "$C" "$Z" "$B" "$Z"
-  printf '%b╚══════════════════════════════════════════════════════════════════════════════╝%b\n' "$B" "$Z"
-  printf '  %bCode auto-update: ON%b — checks the local manager file every 60 seconds\n' "$G" "$Z"
-
-  render_main_status
-
-  printf '\n%b[ SERVICE DETAIL PAGES ]%b\n' "$C" "$Z"
-  printf '  1 Docker   2 Wings   3 CS2Node   4 PHP-FPM   5 Nginx   6 Panel   7 MariaDB   8 Redis\n'
-  printf '  9 All services   H Host resources   F FragCity automation\n'
-  printf '\n%b[ MANAGEMENT ]%b\n' "$C" "$Z"
-  printf '  U Update payload   I First install / reinstall   P Provision once\n'
-  printf '  T Toggle payload timer   N Toggle provisioner timer\n'
-  printf '  R Refresh status now   L Recent logs   W Follow logs   0 Exit\n'
-}
-
-HOME_RENDERED=''
-
-while true; do
-  # Refresh the server inventory in the main shell so its 15-second cache persists.
-  refresh_main_mount_status
-  CURRENT_HOME="$(render_main_page)"
-
-  # Redraw only when visible status/content actually changes. This prevents the
-  # old clear-and-repaint flicker on every two-second input timeout.
-  if [[ "$CURRENT_HOME" != "$HOME_RENDERED" ]]; then
-    clear 2>/dev/null || true
-    printf '%s\n' "$CURRENT_HOME"
-    HOME_RENDERED="$CURRENT_HOME"
-  fi
-
-  CHOICE=''
-  if IFS= read -r -t 60 -p $'\rChoose an option: ' CHOICE; then
-    reload_if_updated
-    case "$CHOICE" in
-      1) screen_docker ;;
-      2) screen_wings ;;
-      3) screen_cs2node ;;
-      4) screen_php ;;
-      5) screen_nginx ;;
-      6) screen_panel ;;
-      7) screen_mariadb ;;
-      8) screen_redis ;;
-      9) screen_all ;;
-      H|h) screen_host ;;
-      F|f) screen_fragcity ;;
-      U|u) runservice fragcity-addon-payload-sync.service 'Update from GitHub and publish latest payload/dashboard' ;;
-      I|i) installation_wizard ;;
-      P|p)
-        printf '\nProvisioning may attach the Mount and change Startup for eligible stopped servers.\nType YES to run one pass: '
-        read -r ans
-        if [[ "$ans" == YES ]]; then
-          runservice fragcity-addon-provision.service 'Manual provisioning pass'
-        else
-          echo 'Cancelled.'
-          sleep 1
-        fi
-        ;;
-      T|t) toggle fragcity-addon-payload-sync.timer 'Payload auto-sync timer' ;;
-      N|n)
-        printf '\nOFF pauses future automatic provisioning; existing Mount assignments remain intact.\n'
-        toggle fragcity-addon-provision.timer 'New-server provisioner timer'
-        ;;
-      R|r)
-        MAIN_MOUNT_STATUS_CACHE_AT=0
-        HOME_RENDERED=''
-        continue
-        ;;
-      L|l) recentlogs ;;
-      W|w) followlogs ;;
-      0) echo 'FragCity Control Center closed.'; exit 0 ;;
-      *) printf '%bInvalid option.%b\n' "$R" "$Z"; sleep 1 ;;
-    esac
-    # Return from any detail/action to the main page. If sync changed this file,
-    # reload_if_updated below will exec the updated version before the next draw.
-    HOME_RENDERED=''
-    reload_if_updated
-  else
-    # Timeout is not a reason to clear/redraw. Check whether a new manager was
-    # published; next iteration redraws only if status text changed.
-    printf '\r\033[K'
-    reload_if_updated
-  fi
-done
-\t' read -r kind f1 f2 f3 f4 f5 f6 f7 f8 f9 _ <<< "$line"
+      IFS=$'\t' read -r kind f1 f2 f3 f4 f5 f6 f7 f8 f9 _ <<< "$line"
       [[ "$kind" == SERVER ]] || continue
       if [[ ! "$f1" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
         continue
@@ -983,7 +788,7 @@ done
               printf '%bState updated: first-install config seeding is marked complete.%b\n' "$G" "$Z"
               MAIN_MOUNT_STATUS_CACHE_AT=0
             else
-              printf '%bState was not changed (exit %s).%b\n' "$R" "$rc" "$Z"
+              printf '%bState was not changed (exit %s).%b\n' "$R" "$Z" "$rc"
             fi
             pause
             break
@@ -1023,6 +828,7 @@ render_main_page() {
   printf '  9 All services   H Host resources   F FragCity automation\n'
   printf '\n%b[ MANAGEMENT ]%b\n' "$C" "$Z"
   printf '  U Update payload   I First install / reinstall   P Provision once\n'
+  printf '  M Manage install marks   D Deleted UUID history\n'
   printf '  T Toggle payload timer   N Toggle provisioner timer\n'
   printf '  R Refresh status now   L Recent logs   W Follow logs   0 Exit\n'
 }
@@ -1059,6 +865,8 @@ while true; do
       F|f) screen_fragcity ;;
       U|u) runservice fragcity-addon-payload-sync.service 'Update from GitHub and publish latest payload/dashboard' ;;
       I|i) installation_wizard ;;
+      M|m) manage_install_marks ;;
+      D|d) screen_deleted_uuid_history ;;
       P|p)
         printf '\nProvisioning may attach the Mount and change Startup for eligible stopped servers.\nType YES to run one pass: '
         read -r ans
