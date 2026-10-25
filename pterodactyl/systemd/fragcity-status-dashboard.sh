@@ -13,7 +13,7 @@ MOUNT_REFRESH_SECONDS="$(printenv FRAGCITY_STATUS_MOUNT_REFRESH_SECONDS 2>/dev/n
 [[ -n "$REPO_ROOT" ]] || REPO_ROOT="/opt/fragcity/cs2-kus-addons"
 [[ "$REFRESH_SECONDS" =~ ^[1-9][0-9]*$ ]] || REFRESH_SECONDS=5
 [[ "$MOUNT_REFRESH_SECONDS" =~ ^[5-9]$|^[1-9][0-9]+$ ]] || MOUNT_REFRESH_SECONDS=5
-UI_VERSION="6.0-live-uuid-inventory"
+UI_VERSION="6.1-monitor-health-and-node-scope"
 SELF_PATH="$(readlink -f -- "$0" 2>/dev/null || printf '%s' "$0")"
 
 if [[ "$(id -u)" -ne 0 ]]; then
@@ -24,6 +24,14 @@ if [[ "$(id -u)" -ne 0 ]]; then
   printf 'Launch it from an interactive terminal with sudo.\n'
   exit 1
 fi
+
+MONITOR_MODEL_PATH="$REPO_ROOT/pterodactyl/fragcity-monitor-model.sh"
+if [[ ! -r "$MONITOR_MODEL_PATH" ]]; then
+  printf 'FragCity monitor model is missing: %s\n' "$MONITOR_MODEL_PATH" >&2
+  exit 1
+fi
+# Shared pure classifier; this file only reads and displays status.
+source "$MONITOR_MODEL_PATH"
 
 TERM_VALUE="$(printenv TERM 2>/dev/null || printf 'dumb')"
 NO_COLOR_VALUE="$(printenv NO_COLOR 2>/dev/null || true)"
@@ -59,6 +67,7 @@ MOUNT_NEW_UNREGISTERED=0
 MOUNT_ACTIVE_COUNT=0
 MOUNT_INACTIVE_COUNT=0
 MOUNT_ATTENTION_TOTAL=0
+MOUNT_CRITICAL_SERVER_COUNT=0
 MOUNT_EXTRA_ACTIVE=0
 MOUNT_EXTRA_INACTIVE=0
 MOUNT_EXTRA_ATTENTION=0
@@ -178,6 +187,7 @@ mount_inventory_parse() {
   MOUNT_PROCESSED=0; MOUNT_STARTUP=0
   MOUNT_SEED_PENDING=0; MOUNT_SEED_MISSING=0; MOUNT_SEED_BAD=0; MOUNT_NEW_UNREGISTERED=0
   MOUNT_ACTIVE_COUNT=0; MOUNT_INACTIVE_COUNT=0; MOUNT_ATTENTION_TOTAL=0
+  MOUNT_CRITICAL_SERVER_COUNT=0
   MOUNT_EXTRA_ACTIVE=0; MOUNT_EXTRA_INACTIVE=0; MOUNT_EXTRA_ATTENTION=0
   MOUNT_SERVER_COUNT=0; MOUNT_CURRENT_PANEL=0
   MOUNT_ORPHAN_COUNT=0; MOUNT_STALE_BASELINE_COUNT=0; MOUNT_STALE_MARKER_COUNT=0
@@ -195,35 +205,32 @@ mount_inventory_parse() {
       SERVER)
         MOUNT_SERVER_COUNT=$((MOUNT_SERVER_COUNT + 1))
         name="$(printf '%s' "$f2" | tr -cd '[:print:]' | cut -c1-54)"
-        state="$f4"; seed_state="$f9"; reason='OK'
+        state="$f4"; seed_state="$f9"
 
-        if [[ "$seed_state" == PENDING ]]; then
-          reason='FIRST-SEED-PENDING'
-          MOUNT_SEED_PENDING=$((MOUNT_SEED_PENDING + 1))
-        elif [[ "$seed_state" == MISSING && "$f8" == OFF ]]; then
-          reason='FIRST-SEED-MISSING'
+        # Counters are independent of the primary displayed health reason.
+        # This prevents the seed classifier from hiding a genuinely missing
+        # container or under-counting a new UUID with no processed marker.
+        [[ "$seed_state" == PENDING ]] && MOUNT_SEED_PENDING=$((MOUNT_SEED_PENDING + 1))
+        if [[ "$seed_state" == MISSING && "$f8" != ON ]]; then
           MOUNT_SEED_MISSING=$((MOUNT_SEED_MISSING + 1))
-        elif [[ "$seed_state" == BAD || "$seed_state" == UNSAFE ]]; then
-          reason='FIRST-SEED-ERROR'
+        fi
+        if [[ "$seed_state" == BAD || "$seed_state" == UNSAFE ]]; then
           MOUNT_SEED_BAD=$((MOUNT_SEED_BAD + 1))
-        elif [[ "$f8" == OFF && "$f6" == OFF ]]; then
+        fi
+        if fragcity_is_new_unregistered "$f8" "$f6"; then
           MOUNT_NEW_UNREGISTERED=$((MOUNT_NEW_UNREGISTERED + 1))
-          reason='NEW-NOT-REGISTERED'
-        elif [[ "$state" == ABSENT || "$f5" == PENDING ]]; then
+        fi
+        if [[ "$state" == ABSENT || "$f5" == PENDING ]]; then
           MOUNT_CONTAINER_MISSING=$((MOUNT_CONTAINER_MISSING + 1))
-          reason='CONTAINER-ABSENT'
-        elif [[ "$state" == ERROR || "$f5" == UNKNOWN ]]; then
-          reason='DOCKER-STATE-UNKNOWN'
-        elif [[ "$f3" != ON ]]; then
-          reason='PANEL-MOUNT-OFF'
-        elif [[ "$f5" != ON ]]; then
-          reason='DOCKER-MOUNT-OFF'
-        elif [[ "$f6" == ON && ( "$f3" != ON || "$f5" != ON || "$f7" != ON ) ]]; then
-          reason='PROVISIONING-DRIFT'
         fi
 
+        reason="$(fragcity_classify_server "$f3" "$state" "$f5" "$f6" "$f7" "$f8" "$seed_state")"
+        severity="$(fragcity_server_severity "$reason")"
         if [[ "$reason" != OK ]]; then
           MOUNT_ATTENTION_TOTAL=$((MOUNT_ATTENTION_TOTAL + 1))
+        fi
+        if [[ "$severity" == CRITICAL ]]; then
+          MOUNT_CRITICAL_SERVER_COUNT=$((MOUNT_CRITICAL_SERVER_COUNT + 1))
         fi
 
         if [[ "$f5" == ON && "$state" == RUNNING ]]; then
@@ -238,13 +245,13 @@ mount_inventory_parse() {
           "$f1" "$name" "$state" "$f3" "$f5" "$f6" "$f7" "$f8" "$seed_state" "$reason")"$'\n\n'
         ;;
       ORPHAN_CONTAINER)
-        MOUNT_ORPHAN_ROWS+="$(printf '  UUID      %s  |  CONTAINER STATE %s\n' "$f1" "$f2")"$'\n'
+        MOUNT_ORPHAN_ROWS+="$(printf '  UUID      %s  |  CONTAINER STATE %s  |  REASON %s\n' "$f1" "$f2" "$f3")"$'\n'
         ;;
       STALE_BASELINE)
-        MOUNT_STALE_BASELINE_ROWS+="$(printf '  %s  (in baseline, absent from current Panel UUID inventory)\n' "$f1")"$'\n'
+        MOUNT_STALE_BASELINE_ROWS+="$(printf '  %s  (historical baseline; reason %s)\n' "$f1" "$f2")"$'\n'
         ;;
       STALE_MARKER)
-        MOUNT_STALE_MARKER_ROWS+="$(printf '  %s  (processed marker, absent from current Panel UUID inventory)\n' "$f1")"$'\n'
+        MOUNT_STALE_MARKER_ROWS+="$(printf '  %s  (historical processed marker; reason %s)\n' "$f1" "$f2")"$'\n'
         ;;
       DOCKER_SCAN)
         MOUNT_DOCKER_SCAN="$f1"
@@ -273,7 +280,7 @@ render_mount_section() {
   printf '  Panel UUIDs total: %s  |  Eligible for this Mount: %s  |  Mounted + running: %s  |  Mounted + stopped: %s\n' \
     "$MOUNT_CURRENT_PANEL" "$MOUNT_ELIGIBLE" "$MOUNT_ACTIVE_COUNT" "$MOUNT_INACTIVE_COUNT"
   printf '  Panel Mount ON/OFF: %s/%s  |  Docker Mount ON/OFF: %s/%s  |  no container: %s  |  unknown: %s\n' \
-    "$MOUNT_PANEL_ON" "$MOUNT_PANEL_OFF" "$MOUNT_DOCKER_ON" "$MOUNT_DOCKER_OFF" "$MOUNT_PENDING" "$MOUNT_UNKNOWN"
+    "$MOUNT_PANEL_ON" "$MOUNT_PANEL_OFF" "$MOUNT_DOCKER_ON" "$MOUNT_DOCKER_OFF" "$MOUNT_CONTAINER_MISSING" "$MOUNT_UNKNOWN"
   printf '  First seed: pending=%s missing=%s invalid=%s new/unregistered=%s attention=%s\n' \
     "$MOUNT_SEED_PENDING" "$MOUNT_SEED_MISSING" "$MOUNT_SEED_BAD" "$MOUNT_NEW_UNREGISTERED" "$MOUNT_ATTENTION_TOTAL"
   printf '  Mount #%s  |  baseline registry: %s  |  Docker scan: ' "$MOUNT_ID" "$MOUNT_REGISTRY"
@@ -353,11 +360,14 @@ render_dashboard() {
   if (( MOUNT_SEED_PENDING + MOUNT_SEED_MISSING + MOUNT_SEED_BAD + MOUNT_NEW_UNREGISTERED > 0 )); then
     warning_groups=$((warning_groups + 1))
   fi
+  if (( MOUNT_ATTENTION_TOTAL > 0 )); then
+    warning_groups=$((warning_groups + 1))
+  fi
   if [[ "$MOUNT_ORPHAN_COUNT" =~ ^[1-9][0-9]*$ ]]; then
     warning_groups=$((warning_groups + 1))
   fi
-  if (( critical_checks > 0 )); then posture=CRITICAL
-  elif (( warning_groups > 0 )); then posture=ATTENTION
+  if (( critical_checks > 0 || MOUNT_CRITICAL_SERVER_COUNT > 0 )); then posture=CRITICAL
+  elif (( warning_groups > 0 || MOUNT_ATTENTION_TOTAL > 0 )); then posture=ATTENTION
   else posture=HEALTHY
   fi
 
