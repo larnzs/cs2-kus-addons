@@ -479,7 +479,7 @@ MAIN_MOUNT_STATUS_CACHE_AT=0
 
 status_badge() {
   case "$1" in
-    ON|active|enabled|enabled-runtime|linked|linked-runtime|alias)
+    ON|OK|READY|MATCH|HEALTHY|active|enabled|enabled-runtime|linked|linked-runtime|alias)
       printf '%bON%b' "$G" "$Z" ;;
     OFF|inactive|disabled|dead|not-found|failed)
       printf '%bOFF%b' "$R" "$Z" ;;
@@ -578,13 +578,13 @@ render_server_mount_status() {
         fi
         ;;
       ORPHAN_CONTAINER)
-        printf '  %bORPHAN DOCKER CONTAINER%b — UUID %s | state %s | no matching Panel server\n' "$Y" "$f1" "$f2" "$Z"
+        printf '  %bORPHAN DOCKER CONTAINER%b — UUID %s | state %s | no matching Panel server\n' "$Y" "$Z" "$f1" "$f2"
         ;;
       STALE_BASELINE)
-        printf '  %bSTALE BASELINE UUID%b — %s (historical only; not in the current Panel inventory)\n' "$Y" "$f1" "$Z"
+        printf '  %bSTALE BASELINE UUID%b — %s (historical only; not in the current Panel inventory)\n' "$Y" "$Z" "$f1"
         ;;
       STALE_MARKER)
-        printf '  %bSTALE PROCESSED MARKER%b — %s (historical only; not in the current Panel inventory)\n' "$Y" "$f1" "$Z"
+        printf '  %bSTALE PROCESSED MARKER%b — %s (historical only; not in the current Panel inventory)\n' "$Y" "$Z" "$f1"
         ;;
       DOCKER_SCAN)
         docker_scan="$f1"
