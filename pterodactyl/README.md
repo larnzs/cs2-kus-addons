@@ -332,7 +332,7 @@ Troubleshooting guardrails:
 
 ## Live server monitoring and UUID reconciliation
 
-The read-only status dashboard and Control Center render a separate block for every server that currently exists in the Panel database and matches the configured Egg/Node scope. Each block shows the full UUID and separately labels Panel Mount assignment, actual Docker container state, verified Docker Mount, processed marker, startup hook, baseline membership, and first-install seed state. The Mount inventory refreshes every five seconds by default, independently of the faster screen refresh.
+The read-only status dashboard and Control Center render a separate block for every server that currently exists in the Panel database and matches the configured Egg/Node scope. Each block shows the full UUID and separately labels Panel Mount assignment, actual Docker container state, verified Docker Mount, processed marker, startup hook, baseline membership, and first-install seed state. The Mount inventory refreshes every five seconds by default, independently of the screen refresh interval.
 
 The status probe also reports UUID-named Docker containers that no longer map to any Panel server, plus baseline UUIDs and processed markers that refer to servers no longer in the Panel database. These are shown in separate **orphan** and **historical/stale** sections, never mixed into the current server list. Baseline and marker files are not automatically deleted, and the monitor does not stop containers or remove volumes. If Docker inventory cannot be read, the monitor says the orphan count is unknown rather than claiming zero.
 
