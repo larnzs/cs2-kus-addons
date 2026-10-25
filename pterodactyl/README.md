@@ -133,14 +133,24 @@ Verify that the active commit marker and complete game-file inventory agree:
 M="/var/lib/pterodactyl/mounts/fragcity-addon-payload"
 C="$(tr -d '\r\n' < "$M/CURRENT_COMMIT")" || exit 1
 REV="$M/revisions/$C"
-D="$REV/game/csgo/addons/counterstrikesharp/plugins/disabled"
+GAME="$REV/game"
+INVENTORY="$REV/.fragcity-game-files-v1.list"
+D="$GAME/csgo/addons/counterstrikesharp/plugins/disabled"
 
 echo "Published commit: $C"
 test "$(tr -d '\r\n' < "$REV/.source-commit")" = "$C" || exit 1
+test -d "$GAME" && test -f "$INVENTORY" || exit 1
+SOURCE_FILES="$(find "$GAME" -type f | wc -l)"
+INVENTORY_FILES="$(wc -l < "$INVENTORY")"
+test "$SOURCE_FILES" -gt 0 && test "$SOURCE_FILES" -eq "$INVENTORY_FILES" || exit 1
+while IFS= read -r RELATIVE_PATH; do
+    case "/$RELATIVE_PATH/" in *"/../"*) exit 1 ;; esac
+    test -f "$GAME/$RELATIVE_PATH" || exit 1
+done < "$INVENTORY"
 test -d "$D" || exit 1
 test -n "$(find "$D" -type f -print -quit)" || exit 1
-stat -c '%A (%a) %n' "$REV"
-printf 'Files in disabled/: '
+printf 'Complete game/ files: %s; inventory entries: %s\n' "$SOURCE_FILES" "$INVENTORY_FILES"
+printf 'Files in plugins/disabled/: '
 find "$D" -type f | wc -l
 ```
 
