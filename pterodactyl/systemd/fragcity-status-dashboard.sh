@@ -12,8 +12,8 @@ MOUNT_REFRESH_SECONDS="$(printenv FRAGCITY_STATUS_MOUNT_REFRESH_SECONDS 2>/dev/n
 [[ -n "$STATE_ROOT" ]] || STATE_ROOT="/var/lib/pterodactyl/fragcity-addon-provisioner"
 [[ -n "$REPO_ROOT" ]] || REPO_ROOT="/opt/fragcity/cs2-kus-addons"
 [[ "$REFRESH_SECONDS" =~ ^[1-9][0-9]*$ ]] || REFRESH_SECONDS=5
-[[ "$MOUNT_REFRESH_SECONDS" =~ ^[5-9][0-9]*$|^[1-9][0-9]+$ ]] || MOUNT_REFRESH_SECONDS=15
-UI_VERSION="5.0-structured-ops"
+[[ "$MOUNT_REFRESH_SECONDS" =~ ^[5-9]$|^[1-9][0-9]+$ ]] || MOUNT_REFRESH_SECONDS=5
+UI_VERSION="6.0-live-uuid-inventory"
 SELF_PATH="$(readlink -f -- "$0" 2>/dev/null || printf '%s' "$0")"
 
 if [[ "$(id -u)" -ne 0 ]]; then
@@ -62,9 +62,17 @@ MOUNT_ATTENTION_TOTAL=0
 MOUNT_EXTRA_ACTIVE=0
 MOUNT_EXTRA_INACTIVE=0
 MOUNT_EXTRA_ATTENTION=0
-MOUNT_ACTIVE_ROWS=''
-MOUNT_INACTIVE_ROWS=''
-MOUNT_ATTENTION_ROWS=''
+MOUNT_SERVER_COUNT=0
+MOUNT_CURRENT_PANEL=0
+MOUNT_ORPHAN_COUNT=0
+MOUNT_STALE_BASELINE_COUNT=0
+MOUNT_STALE_MARKER_COUNT=0
+MOUNT_CONTAINER_MISSING=0
+MOUNT_DOCKER_SCAN='UNKNOWN'
+MOUNT_SERVER_ROWS=''
+MOUNT_ORPHAN_ROWS=''
+MOUNT_STALE_BASELINE_ROWS=''
+MOUNT_STALE_MARKER_ROWS=''
 
 paint_switch() {
   case "$1" in
@@ -147,8 +155,8 @@ draw_rule() {
 section_title() { printf '\n%b▸ %s%b\n' "$C_CYAN" "$1" "$C_RESET"; }
 
 mount_inventory_parse() {
-  local now kind f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12
-  local state uuid_short row name seed_state reason rc
+  local now kind f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16
+  local state name seed_state reason rc row
   now="$(date +%s)"
   if (( MOUNT_LAST_REFRESH > 0 && now - MOUNT_LAST_REFRESH < MOUNT_REFRESH_SECONDS )); then return; fi
   MOUNT_LAST_REFRESH="$now"
@@ -171,59 +179,78 @@ mount_inventory_parse() {
   MOUNT_SEED_PENDING=0; MOUNT_SEED_MISSING=0; MOUNT_SEED_BAD=0; MOUNT_NEW_UNREGISTERED=0
   MOUNT_ACTIVE_COUNT=0; MOUNT_INACTIVE_COUNT=0; MOUNT_ATTENTION_TOTAL=0
   MOUNT_EXTRA_ACTIVE=0; MOUNT_EXTRA_INACTIVE=0; MOUNT_EXTRA_ATTENTION=0
-  MOUNT_ACTIVE_ROWS=''; MOUNT_INACTIVE_ROWS=''; MOUNT_ATTENTION_ROWS=''
+  MOUNT_SERVER_COUNT=0; MOUNT_CURRENT_PANEL=0
+  MOUNT_ORPHAN_COUNT=0; MOUNT_STALE_BASELINE_COUNT=0; MOUNT_STALE_MARKER_COUNT=0
+  MOUNT_CONTAINER_MISSING=0; MOUNT_DOCKER_SCAN='UNKNOWN'
+  MOUNT_SERVER_ROWS=''; MOUNT_ORPHAN_ROWS=''; MOUNT_STALE_BASELINE_ROWS=''; MOUNT_STALE_MARKER_ROWS=''
   [[ -n "$MOUNT_STATUS_OUTPUT" ]] || return
 
   while IFS= read -r row; do
     [[ -n "$row" ]] || continue
-    IFS=$'\t' read -r kind f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 <<< "$row"
+    IFS=$'\t' read -r kind f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 <<< "$row"
     case "$kind" in
       META)
         MOUNT_ID="$f2"; MOUNT_TARGET="$f4"; MOUNT_REGISTRY="$f5"
         ;;
       SERVER)
-        uuid_short="$(printf '%s' "$f1" | cut -c1-8)"
-        name="$(printf '%s' "$f2" | tr -cd '[:print:]' | cut -c1-20)"
-        state="$f4"; seed_state="$f9"; reason=''
+        MOUNT_SERVER_COUNT=$((MOUNT_SERVER_COUNT + 1))
+        name="$(printf '%s' "$f2" | tr -cd '[:print:]' | cut -c1-54)"
+        state="$f4"; seed_state="$f9"; reason='OK'
 
         if [[ "$seed_state" == PENDING ]]; then
-          reason='SEED-PENDING'
+          reason='FIRST-SEED-PENDING'
+          MOUNT_SEED_PENDING=$((MOUNT_SEED_PENDING + 1))
         elif [[ "$seed_state" == MISSING && "$f8" == OFF ]]; then
-          reason='SEED-MISSING'
+          reason='FIRST-SEED-MISSING'
+          MOUNT_SEED_MISSING=$((MOUNT_SEED_MISSING + 1))
         elif [[ "$seed_state" == BAD || "$seed_state" == UNSAFE ]]; then
-          reason='SEED-ERROR'
+          reason='FIRST-SEED-ERROR'
+          MOUNT_SEED_BAD=$((MOUNT_SEED_BAD + 1))
         elif [[ "$f8" == OFF && "$f6" == OFF ]]; then
           MOUNT_NEW_UNREGISTERED=$((MOUNT_NEW_UNREGISTERED + 1))
           reason='NEW-NOT-REGISTERED'
+        elif [[ "$state" == ABSENT || "$f5" == PENDING ]]; then
+          MOUNT_CONTAINER_MISSING=$((MOUNT_CONTAINER_MISSING + 1))
+          reason='CONTAINER-ABSENT'
+        elif [[ "$state" == ERROR || "$f5" == UNKNOWN ]]; then
+          reason='DOCKER-STATE-UNKNOWN'
+        elif [[ "$f3" != ON ]]; then
+          reason='PANEL-MOUNT-OFF'
+        elif [[ "$f5" != ON ]]; then
+          reason='DOCKER-MOUNT-OFF'
         elif [[ "$f6" == ON && ( "$f3" != ON || "$f5" != ON || "$f7" != ON ) ]]; then
           reason='PROVISIONING-DRIFT'
         fi
 
-        if [[ -n "$reason" ]]; then
+        if [[ "$reason" != OK ]]; then
           MOUNT_ATTENTION_TOTAL=$((MOUNT_ATTENTION_TOTAL + 1))
-          if (( MOUNT_ATTENTION_TOTAL <= 8 )); then
-            MOUNT_ATTENTION_ROWS+="$(printf '  %-8s %-20s %-22s %-5s %-5s %-5s %-5s %-7s %s' \
-              "$uuid_short" "$name" "$reason" "$f3" "$f5" "$f6" "$f7" "$f8" "$seed_state")"$'\n'
-          fi
+        fi
+        if [[ "$f8" == OFF && "$f6" == OFF ]]; then
+          MOUNT_NEW_UNREGISTERED=$((MOUNT_NEW_UNREGISTERED + 0))
         fi
 
         if [[ "$f5" == ON && "$state" == RUNNING ]]; then
           MOUNT_ACTIVE_COUNT=$((MOUNT_ACTIVE_COUNT + 1))
-          if (( MOUNT_ACTIVE_COUNT <= 8 )); then
-            MOUNT_ACTIVE_ROWS+="$(printf '  %-8s %-20s %-9s %-5s %-5s %-5s %-5s %-5s %-9s' \
-              "$uuid_short" "$name" "$state" "$f3" "$f5" "$f6" "$f7" "$f8" "$seed_state")"$'\n'
-          else
-            MOUNT_EXTRA_ACTIVE=$((MOUNT_EXTRA_ACTIVE + 1))
-          fi
         elif [[ "$f5" == ON ]]; then
           MOUNT_INACTIVE_COUNT=$((MOUNT_INACTIVE_COUNT + 1))
-          if (( MOUNT_INACTIVE_COUNT <= 5 )); then
-            MOUNT_INACTIVE_ROWS+="$(printf '  %-8s %-20s %-9s %-5s %-5s %-5s %-5s %-9s' \
-              "$uuid_short" "$name" "$state" "$f3" "$f6" "$f7" "$f8" "$seed_state")"$'\n'
-          else
-            MOUNT_EXTRA_INACTIVE=$((MOUNT_EXTRA_INACTIVE + 1))
-          fi
         fi
+
+        # One server per block, full UUID on its own line: no wrapped columns or
+        # ambiguous ON/OFF fields when the terminal is narrower than the old table.
+        MOUNT_SERVER_ROWS+="$(printf '  UUID      %s\n    NAME      %s\n    CONTAINER %s  |  PANEL MOUNT %s  |  DOCKER MOUNT %s\n    PROCESSED %s  |  STARTUP HOOK %s  |  BASELINE %s  |  FIRST SEED %s\n    HEALTH    %s\n\n' \
+          "$f1" "$name" "$state" "$f3" "$f5" "$f6" "$f7" "$f8" "$seed_state" "$reason")"
+        ;;
+      ORPHAN_CONTAINER)
+        MOUNT_ORPHAN_ROWS+="$(printf '  UUID      %s  |  CONTAINER STATE %s\n' "$f1" "$f2")"$'\n'
+        ;;
+      STALE_BASELINE)
+        MOUNT_STALE_BASELINE_ROWS+="$(printf '  %s  (in baseline, absent from current Panel UUID inventory)\n' "$f1")"
+        ;;
+      STALE_MARKER)
+        MOUNT_STALE_MARKER_ROWS+="$(printf '  %s  (processed marker, absent from current Panel UUID inventory)\n' "$f1")"
+        ;;
+      DOCKER_SCAN)
+        MOUNT_DOCKER_SCAN="$f1"
         ;;
       SUMMARY)
         MOUNT_ELIGIBLE="$f1"; MOUNT_PANEL_ON="$f2"; MOUNT_PANEL_OFF="$f3"
@@ -231,49 +258,57 @@ mount_inventory_parse() {
         MOUNT_PENDING="$f6"; MOUNT_UNKNOWN="$f7"
         MOUNT_PROCESSED="$f8"; MOUNT_STARTUP="$f9"
         MOUNT_SEED_PENDING="$f10"; MOUNT_SEED_MISSING="$f11"; MOUNT_SEED_BAD="$f12"
+        MOUNT_CURRENT_PANEL="$f13"; MOUNT_ORPHAN_COUNT="$f14"
+        MOUNT_STALE_BASELINE_COUNT="$f15"; MOUNT_STALE_MARKER_COUNT="$f16"
         ;;
     esac
   done <<< "$MOUNT_STATUS_OUTPUT"
 }
 
 render_mount_section() {
-  section_title "ACTIVE MOUNTED SERVERS  ·  VERIFIED DOCKER STATE"
+  section_title "CURRENT ELIGIBLE SERVER INVENTORY  ·  LIVE PANEL UUIDS"
   if [[ -z "$MOUNT_STATUS_OUTPUT" ]]; then
     printf '  STATUS: '; paint_switch CRITICAL; printf '  %s\n' "$MOUNT_STATUS_ERROR"
-    printf '  Inventory validates Panel assignment and actual Docker source / target / read-only flags.\n'
+    printf '  Inventory could not be read; no cached/old UUID list is presented as current.\n'
     return
   fi
 
-  printf '  Eligible %d  |  Panel Mount %d  |  Docker Mount %d  |  Active %d  |  Pending %d  |  Unknown %d\n' \
-    "$MOUNT_ELIGIBLE" "$MOUNT_PANEL_ON" "$MOUNT_DOCKER_ON" "$MOUNT_ACTIVE_COUNT" "$MOUNT_PENDING" "$MOUNT_UNKNOWN"
-  printf '  FIRST SEED  pending=%s  missing=%s  invalid=%s  new/unregistered=%s\n' \
-    "$MOUNT_SEED_PENDING" "$MOUNT_SEED_MISSING" "$MOUNT_SEED_BAD" "$MOUNT_NEW_UNREGISTERED"
-  printf '  Mount #%s  |  baseline registry %s  |  read-only target: %s\n' "$MOUNT_ID" "$MOUNT_REGISTRY" "$MOUNT_TARGET"
+  printf '  Panel UUIDs total: %s  |  Eligible for this Mount: %s  |  Mounted + running: %s  |  Mounted + stopped: %s\n' \
+    "$MOUNT_CURRENT_PANEL" "$MOUNT_ELIGIBLE" "$MOUNT_ACTIVE_COUNT" "$MOUNT_INACTIVE_COUNT"
+  printf '  Panel Mount ON/OFF: %s/%s  |  Docker Mount ON/OFF: %s/%s  |  no container: %s  |  unknown: %s\n' \
+    "$MOUNT_PANEL_ON" "$MOUNT_PANEL_OFF" "$MOUNT_DOCKER_ON" "$MOUNT_DOCKER_OFF" "$MOUNT_PENDING" "$MOUNT_UNKNOWN"
+  printf '  First seed: pending=%s missing=%s invalid=%s new/unregistered=%s attention=%s\n' \
+    "$MOUNT_SEED_PENDING" "$MOUNT_SEED_MISSING" "$MOUNT_SEED_BAD" "$MOUNT_NEW_UNREGISTERED" "$MOUNT_ATTENTION_TOTAL"
+  printf '  Mount #%s  |  baseline registry: %s  |  Docker scan: ' "$MOUNT_ID" "$MOUNT_REGISTRY"
+  paint_switch "$MOUNT_DOCKER_SCAN"; printf '  |  target: %s\n' "$MOUNT_TARGET"
 
-  printf '\n  %-8s %-20s %-9s %-5s %-5s %-5s %-5s %-5s %-9s\n' \
-    'UUID' 'SERVER' 'CONTAINER' 'PANEL' 'MOUNT' 'PROC' 'HOOK' 'BASE' 'SEED'
-  printf '  %s\n' '--------------------------------------------------------------------------------------------------'
-  if [[ -n "$MOUNT_ACTIVE_ROWS" ]]; then
-    printf '%s' "$MOUNT_ACTIVE_ROWS"
-    (( MOUNT_EXTRA_ACTIVE == 0 )) || printf '  … plus %d additional active mounted server(s)\n' "$MOUNT_EXTRA_ACTIVE"
+  if [[ -n "$MOUNT_SERVER_ROWS" ]]; then
+    printf '\n%s' "$MOUNT_SERVER_ROWS"
   else
-    printf '  No running container currently has the verified FragCity payload Mount.\n'
+    printf '  No servers currently match the configured FragCity Egg and Node.\n'
   fi
 
-  if (( MOUNT_INACTIVE_COUNT > 0 )); then
-    printf '\n  %bMOUNTED BUT NOT RUNNING%b\n' "$C_YELLOW" "$C_RESET"
-    printf '  %-8s %-20s %-9s %-5s %-5s %-5s %-5s %-9s\n' \
-      'UUID' 'SERVER' 'CONTAINER' 'PANEL' 'PROC' 'HOOK' 'BASE' 'SEED'
-    printf '%s' "$MOUNT_INACTIVE_ROWS"
-    (( MOUNT_EXTRA_INACTIVE == 0 )) || printf '  … plus %d additional stopped mounted server(s)\n' "$MOUNT_EXTRA_INACTIVE"
+  section_title "ORPHAN DOCKER CONTAINERS  ·  UUID NOT FOUND IN PANEL"
+  if [[ "$MOUNT_DOCKER_SCAN" != OK ]]; then
+    printf '  STATUS: '; paint_switch ERROR
+    printf '  Docker inventory scan failed; orphan count is unknown.\n'
+  elif [[ -n "$MOUNT_ORPHAN_ROWS" ]]; then
+    printf '%s' "$MOUNT_ORPHAN_ROWS"
+  else
+    printf '  None. Every UUID-named Docker container maps to a current Panel server.\n'
   fi
 
-  if (( MOUNT_ATTENTION_TOTAL > 0 )); then
-    printf '\n  %bFIRST-INSTALL / PROVISIONING ATTENTION%b\n' "$C_YELLOW" "$C_RESET"
-    printf '  %-8s %-20s %-22s %-5s %-5s %-5s %-5s %-7s %s\n' \
-      'UUID' 'SERVER' 'REASON' 'PANEL' 'MOUNT' 'PROC' 'HOOK' 'BASE' 'SEED'
-    printf '%s' "$MOUNT_ATTENTION_ROWS"
-    (( MOUNT_EXTRA_ATTENTION == 0 )) || printf '  … plus %d additional server(s) need attention\n' "$((MOUNT_ATTENTION_TOTAL - 8))"
+  section_title "STALE UUID HISTORY  ·  NOT PART OF THE CURRENT SERVER LIST"
+  printf '  Baseline UUIDs absent from Panel: %s  |  Processed markers absent from Panel: %s\n' \
+    "$MOUNT_STALE_BASELINE_COUNT" "$MOUNT_STALE_MARKER_COUNT"
+  if [[ -n "$MOUNT_STALE_BASELINE_ROWS" ]]; then
+    printf '  Historical baseline entries:\n%s' "$MOUNT_STALE_BASELINE_ROWS"
+  fi
+  if [[ -n "$MOUNT_STALE_MARKER_ROWS" ]]; then
+    printf '  Historical processed markers:\n%s' "$MOUNT_STALE_MARKER_ROWS"
+  fi
+  if [[ -z "$MOUNT_STALE_BASELINE_ROWS" && -z "$MOUNT_STALE_MARKER_ROWS" ]]; then
+    printf '  No stale UUID records detected.\n'
   fi
 }
 
@@ -315,9 +350,13 @@ render_dashboard() {
     [[ "$service_state" == active ]] || critical_checks=$((critical_checks + 1))
   done
   [[ -z "$MOUNT_STATUS_ERROR" ]] || critical_checks=$((critical_checks + 1))
+  [[ "$MOUNT_DOCKER_SCAN" == OK ]] || critical_checks=$((critical_checks + 1))
   [[ "$marker" == MATCH ]] || warning_groups=$((warning_groups + 1))
   [[ "$MOUNT_REGISTRY" == READY ]] || warning_groups=$((warning_groups + 1))
   if (( MOUNT_SEED_PENDING + MOUNT_SEED_MISSING + MOUNT_SEED_BAD + MOUNT_NEW_UNREGISTERED > 0 )); then
+    warning_groups=$((warning_groups + 1))
+  fi
+  if [[ "$MOUNT_ORPHAN_COUNT" =~ ^[1-9][0-9]*$ ]]; then
     warning_groups=$((warning_groups + 1))
   fi
   if (( critical_checks > 0 )); then posture=CRITICAL
@@ -378,7 +417,9 @@ render_dashboard() {
   else
     processed_count=0
   fi
-  printf '  Baseline UUIDs %s  |  Processed markers %s\n' "$baseline_count" "$processed_count"
+  printf '  Historical baseline entries %s  |  Processed markers on disk %s\n' "$baseline_count" "$processed_count"
+  printf '  Current Panel UUIDs %s  |  baseline UUIDs absent from Panel %s  |  processed markers absent from Panel %s\n' \
+    "$MOUNT_CURRENT_PANEL" "$MOUNT_STALE_BASELINE_COUNT" "$MOUNT_STALE_MARKER_COUNT"
   printf '  Payload sync   next %-16s  last %-16s  result %s\n' \
     "$(timer_time fragcity-addon-payload-sync.timer NextElapseUSecRealtime)" \
     "$(timer_time fragcity-addon-payload-sync.timer LastTriggerUSec)" \
