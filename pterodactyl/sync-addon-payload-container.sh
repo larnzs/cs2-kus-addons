@@ -3,11 +3,13 @@
 #
 # The immutable host snapshot contains every tracked file under repository game/.
 # A newly provisioned volume with mode=pending receives the complete tree, including
-# configs, on its first startup. Later starts keep syncing non-config payload files while
-# preserving each server's own configs. Legacy volumes without a seed marker are treated
-# as existing servers: their config paths are not overwritten or stale-pruned.
+# configs, on its first startup. Later starts sync non-config payloads but protect exactly
+# csgo/cfg/, CounterStrikeSharp configs/, and five top-level CS2 config/list files.
+# If the state marker is absent, FRAGCITY_BASELINE_SHA256 distinguishes known legacy UUIDs
+# from new UUIDs. New UUIDs wait for host registration; CS2 is not launched before the
+# provisioner creates a matching pending marker. Known legacy configs remain untouched.
 # Files found only in the upstream CS2 installation remain intact. Stale cleanup may
-# remove only previously managed, non-config files that disappeared from the repository.
+# remove only previously managed non-config files that disappeared from the repository.
 set -Eeuo pipefail
 
 PAYLOAD_BASE="${FRAGCITY_PAYLOAD_BASE:-/home/container/egg/fragcity-payload}"
