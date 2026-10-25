@@ -57,6 +57,7 @@ MOUNT_STATUS_OUTPUT=''
 MOUNT_STATUS_ERROR=''
 MOUNT_LAST_REFRESH=0
 MOUNT_ID='?'
+MOUNT_REGISTRY='?'
 MOUNT_SOURCE="$PAYLOAD_ROOT"
 MOUNT_TARGET='/home/container/egg/fragcity-payload'
 MOUNT_ELIGIBLE=0
@@ -193,6 +194,7 @@ mount_inventory_parse() {
   fi
 
   MOUNT_ID='?'
+MOUNT_REGISTRY='?'
   MOUNT_SOURCE="$PAYLOAD_ROOT"
   MOUNT_TARGET='/home/container/egg/fragcity-payload'
   MOUNT_ELIGIBLE=0; MOUNT_PANEL_ON=0; MOUNT_PANEL_OFF=0
@@ -208,7 +210,7 @@ mount_inventory_parse() {
     IFS=$'\t' read -r kind f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 <<< "$row"
     case "$kind" in
       META)
-        MOUNT_ID="$f2"; MOUNT_SOURCE="$f3"; MOUNT_TARGET="$f4"
+        MOUNT_ID="$f2"; MOUNT_SOURCE="$f3"; MOUNT_TARGET="$f4"; MOUNT_REGISTRY="$f5"
         ;;
       SERVER)
         uuid_short="$(printf '%s' "$f1" | cut -c1-8)"
@@ -338,6 +340,14 @@ render_dashboard() {
   printf '  Watch timer: next %-16s last %-16s\n' \
     "$(timer_time fragcity-addon-provision.timer NextElapseUSecRealtime)" \
     "$(timer_time fragcity-addon-provision.timer LastTriggerUSec)"
+  printf '  Baseline hash registry: '
+  case "$MOUNT_REGISTRY" in
+    READY) paint_switch ON ;;
+    MISSING|NO-BASELINE) paint_switch MISS ;;
+    STALE|INVALID|UNSAFE) paint_switch FAIL ;;
+    *) paint_switch CHECK ;;
+  esac
+  printf ' (%s)\n' "$MOUNT_REGISTRY"
   local baseline_count processed_count last_sync last_provision
   if [[ -r "$STATE_ROOT/baseline-uuids.txt" ]]; then
     baseline_count="$(grep -Ec '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' "$STATE_ROOT/baseline-uuids.txt" 2>/dev/null || true)"
