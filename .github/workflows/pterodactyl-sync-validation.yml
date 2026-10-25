@@ -70,17 +70,23 @@ jobs:
           grep -Fq 'publish_status_dashboard' pterodactyl/sync-addon-payload-host.sh
           grep -Fq 'copy_tree "$REPO_GAME_ROOT" "$STAGING_GAME"' pterodactyl/sync-addon-payload-host.sh
           grep -Fq '.fragcity-game-files-v1.list' pterodactyl/sync-addon-payload-host.sh
-          grep -Fq 'Synchronizing every tracked file from repository game/' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'Loaded the complete repository game/ inventory:' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'is_customer_config_path()' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'Preserving stale customer config file after first install' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'First-install seed is pending' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'GAME_SOURCE="$PAYLOAD_ROOT/game"' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'MANAGED_MANIFEST' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'Removing stale previously-managed payload file' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'No prior managed-payload manifest' pterodactyl/sync-addon-payload-container.sh
-          grep -Fq 'every tracked file under repository game/' pterodactyl/test-sync-payload.sh
+          grep -Fq 'first install deploys the full game/ tree' pterodactyl/test-sync-payload.sh
+          grep -Fq 'customer-customized-config' pterodactyl/test-sync-payload.sh
+          grep -Fq 'stale_config_rel' pterodactyl/test-sync-payload.sh
           grep -Fq 'plugins/disabled' pterodactyl/test-sync-payload.sh
           grep -Fq 'CS2UpdateMonitor' pterodactyl/test-sync-payload.sh
           grep -Fq 'BotAI' pterodactyl/test-sync-payload.sh
           grep -Fq '.fragcity-game-files-v1.list' pterodactyl/provision-addon-servers.php
-          grep -Fq 'verified all %d tracked file(s) from the complete repository game/' pterodactyl/provision-addon-servers.php
+          grep -Fq 'verified %d update-managed non-config file(s)' pterodactyl/provision-addon-servers.php
+          grep -Fq 'is_customer_config_path()' pterodactyl/provision-addon-servers.php
           grep -Fq 'prepareConfigSeedMarker' pterodactyl/provision-addon-servers.php
           grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/systemd/fragcity-status-dashboard.sh          grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'paint_switch' pterodactyl/systemd/fragcity-status-dashboard.sh
