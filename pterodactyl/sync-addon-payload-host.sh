@@ -5,10 +5,10 @@
 # Any Git credentials are host-only; no credential, .git directory, or updater
 # script is exposed inside a Pterodactyl game container.
 #
-# It stages a minimal allowlisted payload into immutable revisions and publishes
+# It stages every tracked file under game/ into immutable revisions and publishes
 # the selected revision by atomically replacing CURRENT_COMMIT. The matching
-# container-side synchronizer uses SHA-256, preserves the active BotAI/ and
-# CS2UpdateMonitor/ plugin directories plus Egg-managed runtimes, and manages
+# container-side synchronizer SHA-256 verifies every repository game file, including
+# BotAI/, CS2UpdateMonitor/, plugins/disabled/ and bundled runtime payloads.
 # plugins/disabled/, CounterStrikeSharp configs/, cfg/, and five top-level CS2 files.
 #
 # Environment overrides:
