@@ -87,16 +87,49 @@ set -e
 grep -Fq "P_SERVER_UUID is missing or invalid" <<< "$missing_uuid_output"
 [[ ! -d "$GAME_ROOT/csgo" ]]
 
-# Simulate the pending first-sync marker created by the host provisioner.
+# Simulate the real startup race: the UUID is not in the baseline registry and the
+# server state marker arrives only after the container-side sync has begun waiting.
+: > "$PAYLOAD_BASE/FRAGCITY_BASELINE_SHA256"
+first_log="$TEST_ROOT/first-sync.log"
+first_status="$TEST_ROOT/first-sync.status"
+(
+    set +e
+    P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" > "$first_log" 2>&1
+    rc=$?
+    printf '%s\n' "$rc" > "$first_status"
+    exit "$rc"
+) &
+sync_pid=$!
+
+wait_seen=0
+for attempt in {1..50}; do
+    if grep -Fq "waiting up to 90 seconds for the host provisioner" "$first_log" 2>/dev/null; then
+        wait_seen=1
+        break
+    fi
+    sleep 0.1
+done
+if [[ "$wait_seen" -ne 1 ]]; then
+    wait "$sync_pid" || true
+    cat "$first_log" 2>/dev/null || true
+    echo "FAIL: new UUID did not wait for host Provisioner registration."
+    exit 1
+fi
+
 printf 'fragcity-config-seed-v1\nserver_uuid=%s\nmode=pending\n' "$TEST_SERVER_UUID" > "$TEST_ROOT/.fragcity-config-seed-v1.state"
 chmod 0666 "$TEST_ROOT/.fragcity-config-seed-v1.state"
-
-first_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
-printf '%s\n' "$first_output" | grep -E 'Target server UUID|Using published payload revision|every tracked file|Sync completed successfully|Files copied:|ERROR'
+if ! wait "$sync_pid"; then
+    cat "$first_log"
+    echo "FAIL: sync did not continue after the host Provisioner registered the new server."
+    exit 1
+fi
+first_output="$(cat "$first_log")"
+grep -E 'Target server UUID|Using published payload revision|baseline|first-install config seeding|Sync completed successfully|Files copied:|ERROR' <<< "$first_output"
 grep -Fq "Target server UUID: $TEST_SERVER_UUID." <<< "$first_output"
 grep -Fq "Using published payload revision $commit." <<< "$first_output"
 grep -Fq "Loaded the complete repository game/ inventory: $expected_count files; config seeding is controlled by the per-server first-install state." <<< "$first_output"
-grep -Fq "First-install seed is pending; the complete repository game/ tree will be deployed, including configs." <<< "$first_output"
+grep -Fq "Server UUID is not in the baseline; waiting up to 90 seconds for the host provisioner to register first-install state." <<< "$first_output"
+grep -Fq "Host provisioner registered this new server; first-install config seeding is active." <<< "$first_output"
 grep -Fq "Sync completed successfully." <<< "$first_output"
 grep -Fq "First-install full game/ deployment and config seed completed" <<< "$first_output"
 grep -Fxq "mode=completed" "$TEST_ROOT/.fragcity-config-seed-v1.state"
@@ -105,7 +138,7 @@ grep -Fxq "upstream-engine-file" "$GAME_ROOT/fragcity-test-engine-file.dat"
 
 # The first-install manifest records every payload file and every file is verified.
 test "$(grep -vc '^#' "$TEST_ROOT/.fragcity-managed-payload-v1.list")" -eq "$expected_count"
-grep -Eq "verified: $expected_count; configs preserved: 0; stale managed files removed: 0\." <<< "$first_output"
+grep -Eq "verified: $expected_count; configs preserved: 0; stale managed files removed: 0\\." <<< "$first_output"
 # Spot-check the files from each subtree that older publishers/synchronizers omitted.
 for relative in \
     csgo/addons/counterstrikesharp/plugins/disabled \
@@ -114,7 +147,7 @@ for relative in \
     csgo/addons/windows; do
     sample="$(find "$SOURCE_GAME/$relative" -type f -print -quit)"
     [[ -n "$sample" ]]
-    rel="${sample#"$SOURCE_GAME"/}"
+    rel="\${sample#"$SOURCE_GAME"/}"
     [[ -f "$GAME_ROOT/$rel" && ! -L "$GAME_ROOT/$rel" ]]
     [[ "$(sha256sum -- "$sample" | awk '{print $1}')" == "$(sha256sum -- "$GAME_ROOT/$rel" | awk '{print $1}')" ]]
 done
@@ -153,16 +186,17 @@ grep -Fq "Preserving stale customer config file after first install: $stale_conf
 grep -Eq "Files copied: 1; already matching SHA-256: $((nonconfig_source_count - 1)); verified: $nonconfig_source_count; configs preserved: $config_source_count; stale managed files removed: 1\." <<< "$second_output"
 grep -Fxq "upstream-engine-file" "$GAME_ROOT/fragcity-test-engine-file.dat"
 
-# Legacy volumes without a seed marker preserve configs but keep syncing non-config files.
+# Legacy volumes without a seed marker are recognized through the baseline hash registry.
 rm -- "$TEST_ROOT/.fragcity-config-seed-v1.state"
+printf '%s\n' "$TEST_SERVER_UUID" | sha256sum | awk '{print $1}' > "$PAYLOAD_BASE/FRAGCITY_BASELINE_SHA256"
 printf 'legacy-mismatch\n' > "$GAME_ROOT/$relative"
 legacy_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
-grep -Fq "No first-install marker found; treating this as an existing server and preserving customer config paths." <<< "$legacy_output"
+grep -Fq "Server UUID belongs to the one-time baseline; treating this as an existing/legacy volume and preserving customer config paths." <<< "$legacy_output"
 grep -Fq "Sync completed successfully." <<< "$legacy_output"
 [[ ! -e "$TEST_ROOT/.fragcity-config-seed-v1.state" ]]
 [[ "$(cat "$GAME_ROOT/$config_sample_rel")" == "customer-customized-config" ]]
 [[ "$(cat "$GAME_ROOT/$stale_config_rel")" == "customer-added-after-seed" ]]
 [[ "$(sha256sum -- "$sample" | awk '{print $1}')" == "$(sha256sum -- "$GAME_ROOT/$relative" | awk '{print $1}')" ]]
-grep -Eq "configs preserved: $config_source_count; stale managed files removed: 0\." <<< "$legacy_output"
+grep -Eq "configs preserved: $config_source_count; stale managed files removed: 0\\." <<< "$legacy_output"
 
-echo "PASS: first install deploys the full game/ tree including configs and disabled plugins; later starts refresh non-config files without overwriting or deleting customer configs; legacy volumes preserve configs; unknown engine files persist; stale non-config files are removed."
+echo "PASS: first-start sync waits for a new UUID to be registered, then seeds exact config paths; later starts preserve customer configs; baseline legacy servers keep configs and sync non-config payload files; disabled plugins deploy; unknown engine files persist; stale non-config files are removed."
