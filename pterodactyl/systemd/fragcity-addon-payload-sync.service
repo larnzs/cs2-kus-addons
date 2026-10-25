@@ -16,6 +16,9 @@ ExecStart=/usr/bin/bash /opt/fragcity/cs2-kus-addons/pterodactyl/sync-addon-payl
 TimeoutStartSec=10min
 UMask=0022
 ProtectSystem=full
+# The publisher atomically updates only the dedicated live dashboard directory.
+# The installer creates this directory before enabling/running the publisher.
+ReadWritePaths=/usr/local/libexec
 NoNewPrivileges=true
 
 [Install]
