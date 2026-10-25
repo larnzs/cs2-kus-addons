@@ -225,11 +225,64 @@ try {
         }
     }
 
+    // Keep the live Panel UUID inventory separate from the immutable first-install baseline.
+    // A UUID absent from Panel must not remain in the current server list just because its
+    // baseline row or provisioner marker still exists on disk.
+    $allPanelUuidSet = [];
+    foreach (Server::query()->pluck('uuid')->all() as $panelUuid) {
+        $panelUuid = (string) $panelUuid;
+        if (!validUuid($panelUuid)) {
+            statusFail('Panel returned an invalid server UUID while reconciling the live inventory.');
+        }
+        $allPanelUuidSet[$panelUuid] = true;
+    }
+
     $assignedIds = array_fill_keys(
         $mount->servers()->pluck('servers.id')->map(static fn ($id) => (int) $id)->values()->all(),
         true
     );
     $servers = Server::query()->whereIn('egg_id', $eggIds)->whereIn('node_id', $nodeIds)->orderBy('created_at')->get();
+
+    // Detect UUID-named Docker containers whose server no longer exists in the Panel.
+    // This is observational only: the monitor never removes a container or volume.
+    $orphanContainers = [];
+    $dockerScanStatus = 'OK';
+    try {
+        $dockerRows = runReadOnlyCommand(['docker', 'ps', '-a', '--format', '{{.Names}}|{{.State}}'], 10);
+        foreach (preg_split('/\R/', $dockerRows) ?: [] as $dockerRow) {
+            if ($dockerRow === '') {
+                continue;
+            }
+            $parts = explode('|', $dockerRow, 2);
+            $containerName = trim($parts[0] ?? '');
+            $containerState = strtoupper(trim($parts[1] ?? 'UNKNOWN'));
+            if (validUuid($containerName) && !isset($allPanelUuidSet[$containerName])) {
+                $orphanContainers[$containerName] = $containerState;
+            }
+        }
+    } catch (Throwable $exception) {
+        $dockerScanStatus = 'ERROR';
+    }
+
+    $staleBaselineUuids = [];
+    foreach (array_keys($baseline) as $baselineUuid) {
+        if (!isset($allPanelUuidSet[$baselineUuid])) {
+            $staleBaselineUuids[] = $baselineUuid;
+        }
+    }
+
+    // Processed markers are historical state, not live servers. Report markers whose
+    // UUID vanished from Panel instead of presenting them as current server rows.
+    $staleProcessedUuids = [];
+    $processedRoot = $stateRoot . '/processed';
+    if (!is_link($processedRoot) && is_dir($processedRoot)) {
+        foreach (glob($processedRoot . '/*.json') ?: [] as $markerPath) {
+            $markerUuid = basename($markerPath, '.json');
+            if (validUuid($markerUuid) && !isset($allPanelUuidSet[$markerUuid])) {
+                $staleProcessedUuids[$markerUuid] = true;
+            }
+        }
+    }
 
     $counts = [
         'eligible' => $servers->count(),
@@ -294,11 +347,22 @@ try {
             $counts['seed_bad']++;
         }
 
-        $name = trim(preg_replace('/[\t\r\n]+/', ' ', (string) $server->name) ?? '');
+        $name = trim(preg_replace('/[\x00-\x1F\x7F]+/', ' ', (string) $server->name) ?? '');
         echo implode("\t", [
             'SERVER', $uuid, $name, $panelMount, $containerState, $dockerMount,
             $processed, $startup, $inBaseline, $seedState,
         ]) . PHP_EOL;
+    }
+
+    echo "DOCKER_SCAN\t" . $dockerScanStatus . PHP_EOL;
+    foreach ($orphanContainers as $orphanUuid => $containerState) {
+        echo implode("\t", ['ORPHAN_CONTAINER', $orphanUuid, $containerState]) . PHP_EOL;
+    }
+    foreach ($staleBaselineUuids as $staleUuid) {
+        echo implode("\t", ['STALE_BASELINE', $staleUuid]) . PHP_EOL;
+    }
+    foreach (array_keys($staleProcessedUuids) as $staleUuid) {
+        echo implode("\t", ['STALE_MARKER', $staleUuid]) . PHP_EOL;
     }
 
     echo implode("\t", [
@@ -315,6 +379,10 @@ try {
         (string) $counts['seed_pending'],
         (string) $counts['seed_missing'],
         (string) $counts['seed_bad'],
+        (string) count($allPanelUuidSet),
+        $dockerScanStatus === 'OK' ? (string) count($orphanContainers) : 'UNKNOWN',
+        (string) count($staleBaselineUuids),
+        (string) count($staleProcessedUuids),
     ]) . PHP_EOL;
     exit(0);
 } catch (Throwable $exception) {
