@@ -567,7 +567,7 @@ render_server_mount_status() {
         if [[ "$f4" == ERROR ]]; then
           printf '    %bDocker inspect failed for this UUID; Docker Mount is UNKNOWN.%b\n' "$Y" "$Z"
         fi
-        if [[ "$f8" == OFF && "$f6" != ON ]]; then
+        if [[ "$f8" == OFF && "$f6" == OFF ]]; then
           printf '    %bNEW / NOT REGISTERED:%b this UUID is outside the baseline and has no processed marker.\n' "$Y" "$Z"
         elif [[ "$f9" == MISSING || "$f9" == PENDING || "$f9" == BAD || "$f9" == UNSAFE ]]; then
           printf '    %bFIRST-INSTALL STATE:%b %s — check the provisioner journal.\n' "$Y" "$Z" "$f9"
