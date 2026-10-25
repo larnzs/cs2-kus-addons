@@ -225,9 +225,6 @@ mount_inventory_parse() {
         if [[ "$reason" != OK ]]; then
           MOUNT_ATTENTION_TOTAL=$((MOUNT_ATTENTION_TOTAL + 1))
         fi
-        if [[ "$f8" == OFF && "$f6" == OFF ]]; then
-          MOUNT_NEW_UNREGISTERED=$((MOUNT_NEW_UNREGISTERED + 0))
-        fi
 
         if [[ "$f5" == ON && "$state" == RUNNING ]]; then
           MOUNT_ACTIVE_COUNT=$((MOUNT_ACTIVE_COUNT + 1))
