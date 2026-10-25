@@ -2,11 +2,12 @@
 # Full-tree FragCity game payload synchronizer for the custom K4ryuu/Pterodactyl Egg.
 #
 # The immutable host snapshot contains every tracked file under repository game/.
-# Every file is copied/hash-verified into the same relative path below /home/container/game.
-# There are no plugin, disabled/, config, platform, runtime, or addon exclusions.
-# Files present in the repository overwrite the same destination path on each start.
-# Files present only in the upstream CS2 installation and absent from repository game/
-# are retained. A prior manifest permits removal only of paths FragCity previously deployed.
+# A newly provisioned volume with mode=pending receives the complete tree, including
+# configs, on its first startup. Later starts keep syncing non-config payload files while
+# preserving each server's own configs. Legacy volumes without a seed marker are treated
+# as existing servers: their config paths are not overwritten or stale-pruned.
+# Files found only in the upstream CS2 installation remain intact. Stale cleanup may
+# remove only previously managed, non-config files that disappeared from the repository.
 set -Eeuo pipefail
 
 PAYLOAD_BASE="${FRAGCITY_PAYLOAD_BASE:-/home/container/egg/fragcity-payload}"
@@ -31,6 +32,21 @@ validate_relative_path() {
     for component in "${parts[@]}"; do
         [[ -n "$component" && "$component" != "." && "$component" != ".." ]] || return 1
     done
+}
+
+# These paths hold customer-specific server settings. They are populated from the
+# repository only during the one-time first-install seed; later starts never replace
+# or remove them, even if a later payload revision changes or removes its defaults.
+is_customer_config_path() {
+    local path="$1"
+    case "$path" in
+        */configs/*|*/config/*|*/cfg/*|*.cfg|\
+        csgo/gamemodes_server.txt|csgo/mapcycle.txt|csgo/mapcyclecustom.txt|\
+        csgo/subscribed_collection_ids.txt|csgo/subscribed_file_ids.txt)
+            return 0
+            ;;
+    esac
+    return 1
 }
 
 validate_absolute_path "FRAGCITY_PAYLOAD_BASE" "$PAYLOAD_BASE"
@@ -61,6 +77,27 @@ MANAGED_MANIFEST="$SERVER_ROOT/.fragcity-managed-payload-v1.list"
 for command_name in sha256sum find cp mkdir rm awk flock tr chmod dirname grep date sort mv wc; do
     command -v "$command_name" >/dev/null 2>&1 || die "$command_name is required."
 done
+
+CONFIG_SEED_ACTIVE=0
+if [[ -f "$INITIAL_STATE" ]]; then
+    grep -Fxq 'fragcity-config-seed-v1' "$INITIAL_STATE" \
+        && grep -Fxq "server_uuid=$SERVER_UUID" "$INITIAL_STATE" \
+        || die "Initial-sync state does not match this server UUID."
+    # A completed state file contains both the pending line and the appended
+    # completed line, so prefer completed when both are present.
+    if grep -Fxq 'mode=completed' "$INITIAL_STATE"; then
+        log "First-install config seed is complete; customer config paths will be preserved."
+    elif grep -Fxq 'mode=pending' "$INITIAL_STATE"; then
+        [[ -w "$INITIAL_STATE" ]] || die "Pending config-seed state is not writable; refusing to seed configs without recording completion."
+        CONFIG_SEED_ACTIVE=1
+        log "First-install seed is pending; the complete repository game/ tree will be deployed, including configs."
+    else
+        die "Initial-sync state has no recognized pending/completed mode."
+    fi
+else
+    log "No first-install marker found; treating this as an existing server and preserving customer config paths."
+fi
+
 [[ -d "$PAYLOAD_BASE" && ! -L "$PAYLOAD_BASE" ]] || die "Payload mount is missing or is a symlink: $PAYLOAD_BASE"
 [[ -f "$PAYLOAD_BASE/.sync.lock" && ! -L "$PAYLOAD_BASE/.sync.lock" ]] || die "Host payload lock file is missing."
 [[ -f "$PAYLOAD_BASE/CURRENT_COMMIT" && ! -L "$PAYLOAD_BASE/CURRENT_COMMIT" ]] || die "No published payload snapshot is available (CURRENT_COMMIT missing)."
@@ -148,11 +185,17 @@ assert_no_symlink_parent_components() {
 COPIED=0
 UNCHANGED=0
 VERIFIED=0
+CONFIGS_PRESERVED=0
 log "Target server UUID: $SERVER_UUID."
 log "Using published payload revision $SOURCE_COMMIT."
-log "Synchronizing every tracked file from repository game/ with no exclusions: $EXPECTED_SOURCE_COUNT files."
+log "Loaded the complete repository game/ inventory: $EXPECTED_SOURCE_COUNT files; config seeding is controlled by the per-server first-install state."
 
 for relative_path in "${!DESIRED_SOURCE[@]}"; do
+    if [[ "$CONFIG_SEED_ACTIVE" -ne 1 ]] && is_customer_config_path "$relative_path"; then
+        CONFIGS_PRESERVED=$((CONFIGS_PRESERVED + 1))
+        [[ "$VERBOSE" != "1" ]] || log "Preserving customer config file without overwrite: $relative_path"
+        continue
+    fi
     source_path="${DESIRED_SOURCE[$relative_path]}"
     expected_hash="${DESIRED_HASH[$relative_path]}"
     target_path="$GAME_ROOT/$relative_path"
@@ -193,6 +236,10 @@ DELETED=0
 if [[ "$MANIFEST_PRESENT" -eq 1 ]]; then
     for relative_path in "${!PREVIOUS_MANAGED[@]}"; do
         [[ -n "${DESIRED_SOURCE[$relative_path]+present}" ]] && continue
+        if [[ "$CONFIG_SEED_ACTIVE" -ne 1 ]] && is_customer_config_path "$relative_path"; then
+            log "Preserving stale customer config file after first install: $relative_path"
+            continue
+        fi
         target_path="$GAME_ROOT/$relative_path"
         assert_no_symlink_parent_components "$target_path"
         [[ ! -L "$target_path" ]] || die "Previously managed payload target is a symlink: $target_path"
@@ -216,23 +263,17 @@ manifest_tmp="$MANAGED_MANIFEST.tmp.$BASHPID"
 chmod 0644 "$manifest_tmp" || die "Could not set managed-payload manifest permissions."
 mv -f -- "$manifest_tmp" "$MANAGED_MANIFEST" || die "Could not publish managed-payload manifest atomically."
 
-if [[ -f "$INITIAL_STATE" ]]; then
-    grep -Fxq 'fragcity-config-seed-v1' "$INITIAL_STATE" \
-        && grep -Fxq "server_uuid=$SERVER_UUID" "$INITIAL_STATE" \
-        || die "Initial-sync state does not match this server UUID."
-    if grep -Fxq 'mode=pending' "$INITIAL_STATE"; then
-        printf 'mode=completed\nsource_commit=%s\ncompleted_at_utc=%s\n' "$SOURCE_COMMIT" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$INITIAL_STATE" \
-            || die "Could not record first full-game sync completion."
-        log "Initial full game/ payload sync completed; later starts will keep syncing every repository file."
-    elif grep -Fxq 'mode=completed' "$INITIAL_STATE"; then
-        log "Initial full game/ sync marker is complete; every repository file is still checked on this start."
-    else
-        die "Initial-sync state has no recognized pending/completed mode."
-    fi
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    printf 'mode=completed\nsource_commit=%s\ncompleted_at_utc=%s\n' "$SOURCE_COMMIT" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$INITIAL_STATE" \
+        || die "Could not record first-install completion; refusing to report a successful sync."
+    log "First-install full game/ deployment and config seed completed; future starts will preserve customer config paths."
+elif [[ -f "$INITIAL_STATE" ]]; then
+    log "First-install config seed is not active; existing server config paths were preserved."
 else
-    log "No first-install marker found; full game/ payload is still synchronized on every start."
+    log "No first-install marker found; legacy server config paths were preserved."
 fi
 
 log "Sync completed successfully."
-log "Files copied: $COPIED; already matching SHA-256: $UNCHANGED; verified: $VERIFIED; stale managed files removed: $DELETED."
-log "No game/ subtrees were excluded: plugins/disabled, BotAI, CS2UpdateMonitor, configs, cfg and bundled runtime files are included."
+log "Files copied: $COPIED; already matching SHA-256: $UNCHANGED; verified: $VERIFIED; configs preserved: $CONFIGS_PRESERVED; stale managed files removed: $DELETED."
+log "All repository game/ files are in the source inventory; after first install only non-config payload files are updated."
+log "plugins/disabled/ and all other non-config subtrees are synchronized from the published payload."
