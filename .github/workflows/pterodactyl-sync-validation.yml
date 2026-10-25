@@ -74,6 +74,9 @@ jobs:
           grep -Fq 'is_customer_config_path()' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'Preserving stale customer config file after first install' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'First-install seed is pending' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'FRAGCITY_BASELINE_SHA256' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'waiting up to 90 seconds for the host provisioner' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'csgo/cfg/*|csgo/addons/counterstrikesharp/configs/*' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'GAME_SOURCE="$PAYLOAD_ROOT/game"' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'MANAGED_MANIFEST' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'Removing stale previously-managed payload file' pterodactyl/sync-addon-payload-container.sh
@@ -81,6 +84,9 @@ jobs:
           grep -Fq 'first install deploys the full game/ tree' pterodactyl/test-sync-payload.sh
           grep -Fq 'customer-customized-config' pterodactyl/test-sync-payload.sh
           grep -Fq 'stale_config_rel' pterodactyl/test-sync-payload.sh
+          grep -Fq 'new UUID did not wait for host Provisioner registration' pterodactyl/test-sync-payload.sh
+          grep -Fq 'expect_config_path no csgo/addons/otherplugin/extra.cfg' pterodactyl/test-sync-payload.sh
+          grep -Fq 'FRAGCITY_BASELINE_SHA256' pterodactyl/test-sync-payload.sh
           grep -Fq 'plugins/disabled' pterodactyl/test-sync-payload.sh
           grep -Fq 'CS2UpdateMonitor' pterodactyl/test-sync-payload.sh
           grep -Fq 'BotAI' pterodactyl/test-sync-payload.sh
@@ -88,6 +94,18 @@ jobs:
           grep -Fq 'verified %d update-managed non-config file(s)' pterodactyl/provision-addon-servers.php
           grep -Fq 'is_customer_config_path()' pterodactyl/provision-addon-servers.php
           grep -Fq 'prepareConfigSeedMarker' pterodactyl/provision-addon-servers.php
+          grep -Fq 'assertRunningPayloadMount(' pterodactyl/provision-addon-servers.php
+          grep -Fq 'Recovered first-start race' pterodactyl/provision-addon-servers.php
+          grep -Fq 'Registration mismatch for ' pterodactyl/provision-addon-servers.php
+          grep -Fq 'publishBaselineHashRegistry' pterodactyl/provision-addon-servers.php
+          grep -Fq -- '--publish-baseline-registry' pterodactyl/provision-addon-servers.php
+          grep -Fq 'baselineRegistryStatus(' pterodactyl/server-mount-status.php
+          grep -Fq 'initialSeedState(' pterodactyl/server-mount-status.php
+          grep -Fq 'MOUNT_SEED_PENDING' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'Baseline hash registry:' pterodactyl/fragcity-manager.sh
+          grep -Fq 'FIRST SEED' pterodactyl/fragcity-manager.sh
+          grep -Fq 'publish_baseline_hash_registry()' pterodactyl/sync-addon-payload-host.sh
+          grep -Fq -- '--publish-baseline-registry' pterodactyl/install-host-services.sh
           grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'paint_switch' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'HOST HEALTH' pterodactyl/systemd/fragcity-status-dashboard.sh
@@ -150,6 +168,7 @@ jobs:
 
           php pterodactyl/provision-addon-servers.php --help > "$RUNNER_TEMP/fragcity-provisioner-help.txt"
           grep -Fq -- '--initialize-baseline' "$RUNNER_TEMP/fragcity-provisioner-help.txt"
+          grep -Fq -- '--publish-baseline-registry' "$RUNNER_TEMP/fragcity-provisioner-help.txt"
           grep -Fq -- '--exclude <server-uuid>' "$RUNNER_TEMP/fragcity-provisioner-help.txt"
           grep -Fq -- '--server <server-uuid>' "$RUNNER_TEMP/fragcity-provisioner-help.txt"
           grep -Fq -- '--verify-server <server-uuid>' "$RUNNER_TEMP/fragcity-provisioner-help.txt"
