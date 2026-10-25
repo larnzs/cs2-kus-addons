@@ -183,6 +183,7 @@ jobs:
           set -euo pipefail
           php -l pterodactyl/provision-addon-servers.php
           php -l pterodactyl/server-mount-status.php
+          grep -Fq 'function validUuid(string $uuid): bool' pterodactyl/server-mount-status.php
 
           # The post-start verification embeds a Bash preflight as a PHP nowdoc.
           # Extract and syntax-check that code too; PHP lint alone cannot parse it.
