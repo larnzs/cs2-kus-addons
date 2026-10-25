@@ -10,6 +10,13 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exec sudo -E /bin/bash "$SELF_PATH" "$@"
 fi
 
+MONITOR_MODEL_PATH="$REPO_ROOT/pterodactyl/fragcity-monitor-model.sh"
+if [[ ! -r "$MONITOR_MODEL_PATH" ]]; then
+  printf 'FragCity monitor model is missing: %s\n' "$MONITOR_MODEL_PATH" >&2
+  exit 1
+fi
+source "$MONITOR_MODEL_PATH"
+
 R='' G='' Y='' C='' B='' M='' D=''
 if [[ -t 1 && -z "$NO_COLOR" && "$TERM" != dumb ]]; then
   R=$'\033[1;31m'; G=$'\033[1;32m'; Y=$'\033[1;33m'
@@ -539,7 +546,7 @@ refresh_main_mount_status() {
 
 render_server_mount_status() {
   local line kind f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16
-  local docker_scan='UNKNOWN'
+  local docker_scan='UNKNOWN' reason severity
   refresh_main_mount_status
   printf '\n%b[ CURRENT ELIGIBLE SERVER INVENTORY — LIVE PANEL UUIDs ]%b\n' "$C" "$Z"
   if [[ -z "$MAIN_MOUNT_STATUS_CACHE" ]]; then
@@ -567,24 +574,24 @@ render_server_mount_status() {
         printf '  | Startup hook: '; status_badge "$f7"; printf '\n'
         printf '  Baseline: '; status_badge "$f8"
         printf '  | First-install seed: '; status_badge "$f9"; printf '\n'
-        if [[ "$f4" == ABSENT || "$f5" == PENDING ]]; then
-          printf '  %bATTENTION: Panel has this UUID, but Docker has no matching container yet.%b\n' "$Y" "$Z"
-        elif [[ "$f4" == ERROR || "$f5" == UNKNOWN ]]; then
-          printf '  %bATTENTION: Docker state could not be verified for this UUID.%b\n' "$Y" "$Z"
-        elif [[ "$f3" != ON || "$f5" != ON || "$f7" != ON ]]; then
-          printf '  %bATTENTION: Mount assignment / Docker mount / startup hook need review.%b\n' "$Y" "$Z"
-        elif [[ "$f9" == PENDING || "$f9" == MISSING || "$f9" == BAD || "$f9" == UNSAFE ]]; then
-          printf '  %bATTENTION: First-install state requires review: %s%b\n' "$Y" "$f9" "$Z"
+        reason="$(fragcity_classify_server "$f3" "$f4" "$f5" "$f6" "$f7" "$f8" "$f9")"
+        severity="$(fragcity_server_severity "$reason")"
+        if [[ "$reason" == OK ]]; then
+          printf '  HEALTH: %bOK%b\n' "$G" "$Z"
+        elif [[ "$severity" == CRITICAL ]]; then
+          printf '  HEALTH: %bCRITICAL — %s%b\n' "$R" "$reason" "$Z"
+        else
+          printf '  HEALTH: %bATTENTION — %s%b\n' "$Y" "$reason" "$Z"
         fi
         ;;
       ORPHAN_CONTAINER)
-        printf '  %bORPHAN DOCKER CONTAINER%b — UUID %s | state %s | no matching Panel server\n' "$Y" "$Z" "$f1" "$f2"
+        printf '  %bORPHAN DOCKER CONTAINER%b — UUID %s | state %s | reason %s\n' "$Y" "$Z" "$f1" "$f2" "$f3"
         ;;
       STALE_BASELINE)
-        printf '  %bSTALE BASELINE UUID%b — %s (historical only; not in the current Panel inventory)\n' "$Y" "$Z" "$f1"
+        printf '  %bSTALE BASELINE UUID%b — %s (historical; reason %s)\n' "$Y" "$Z" "$f1" "$f2"
         ;;
       STALE_MARKER)
-        printf '  %bSTALE PROCESSED MARKER%b — %s (historical only; not in the current Panel inventory)\n' "$Y" "$Z" "$f1"
+        printf '  %bSTALE PROCESSED MARKER%b — %s (historical; reason %s)\n' "$Y" "$Z" "$f1" "$f2"
         ;;
       DOCKER_SCAN)
         docker_scan="$f1"
@@ -604,8 +611,8 @@ render_server_mount_status() {
         printf ' | seed missing (new): '; status_badge "$f11"
         printf ' | seed invalid: '; status_badge "$f12"; printf '\n'
         printf '  Orphan Docker containers: '; status_badge "$f14"
-        printf ' | Baseline UUIDs absent from Panel: '; status_badge "$f15"
-        printf ' | Processed markers absent from Panel: '; status_badge "$f16"; printf '\n'
+        printf ' | Baseline UUIDs stale for this Mount: '; status_badge "$f15"
+        printf ' | Processed markers stale for this Mount: '; status_badge "$f16"; printf '\n'
         printf '  Docker inventory scan: '; status_badge "$docker_scan"; printf '\n'
         ;;
     esac
