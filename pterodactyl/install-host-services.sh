@@ -109,6 +109,9 @@ else
   fi
 fi
 
+log "Publishing the privacy-preserving baseline UUID hash registry for container-side first-install detection."
+php "$REPO_ROOT/pterodactyl/provision-addon-servers.php" --publish-baseline-registry
+
 if [[ "$ENABLE_TIMERS" == "1" ]]; then
   log "Refreshing and validating the published payload before enabling timers."
   systemctl start fragcity-addon-payload-sync.service
