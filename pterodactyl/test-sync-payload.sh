@@ -85,7 +85,7 @@ grep -Fxq "upstream-engine-file" "$GAME_ROOT/fragcity-test-engine-file.dat"
 
 # The first-install manifest records every payload file and every file is verified.
 test "$(grep -vc '^#' "$TEST_ROOT/.fragcity-managed-payload-v1.list")" -eq "$expected_count"
-grep -Eq "verified: $expected_count; configs preserved: 0; stale managed files removed: 0\\." <<< "$first_output"
+grep -Eq "verified: $expected_count; configs preserved: 0; stale managed files removed: 0\." <<< "$first_output"
 # Spot-check the files from each subtree that older publishers/synchronizers omitted.
 for relative in \
     csgo/addons/counterstrikesharp/plugins/disabled \
@@ -130,7 +130,7 @@ grep -Fq "Preserving stale customer config file after first install: $stale_conf
 [[ "$(cat "$GAME_ROOT/$config_sample_rel")" == "customer-customized-config" ]]
 [[ "$(cat "$GAME_ROOT/$stale_config_rel")" == "customer-added-after-seed" ]]
 [[ "$(sha256sum -- "$sample" | awk '{print $1}')" == "$(sha256sum -- "$GAME_ROOT/$relative" | awk '{print $1}')" ]]
-grep -Eq "Files copied: 1; already matching SHA-256: $((nonconfig_source_count - 1)); verified: $nonconfig_source_count; configs preserved: $config_source_count; stale managed files removed: 1\\." <<< "$second_output"
+grep -Eq "Files copied: 1; already matching SHA-256: $((nonconfig_source_count - 1)); verified: $nonconfig_source_count; configs preserved: $config_source_count; stale managed files removed: 1\." <<< "$second_output"
 grep -Fxq "upstream-engine-file" "$GAME_ROOT/fragcity-test-engine-file.dat"
 
 # Legacy volumes without a seed marker preserve configs but keep syncing non-config files.
@@ -143,6 +143,6 @@ grep -Fq "Sync completed successfully." <<< "$legacy_output"
 [[ "$(cat "$GAME_ROOT/$config_sample_rel")" == "customer-customized-config" ]]
 [[ "$(cat "$GAME_ROOT/$stale_config_rel")" == "customer-added-after-seed" ]]
 [[ "$(sha256sum -- "$sample" | awk '{print $1}')" == "$(sha256sum -- "$GAME_ROOT/$relative" | awk '{print $1}')" ]]
-grep -Eq "configs preserved: $config_source_count; stale managed files removed: 0\\." <<< "$legacy_output"
+grep -Eq "configs preserved: $config_source_count; stale managed files removed: 0\." <<< "$legacy_output"
 
 echo "PASS: first install deploys the full game/ tree including configs and disabled plugins; later starts refresh non-config files without overwriting or deleting customer configs; legacy volumes preserve configs; unknown engine files persist; stale non-config files are removed."
