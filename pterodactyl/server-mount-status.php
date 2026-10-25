@@ -348,6 +348,9 @@ try {
         }
 
         $name = trim(preg_replace('/[\x00-\x1F\x7F]+/', ' ', (string) $server->name) ?? '');
+        if ($name === '') {
+            $name = '(unnamed server)';
+        }
         echo implode("\t", [
             'SERVER', $uuid, $name, $panelMount, $containerState, $dockerMount,
             $processed, $startup, $inBaseline, $seedState,
