@@ -122,21 +122,27 @@ jobs:
           grep -Fq -- '--publish-baseline-registry' pterodactyl/provision-addon-servers.php
           grep -Fq 'baselineRegistryStatus(' pterodactyl/server-mount-status.php
           grep -Fq 'initialSeedState(' pterodactyl/server-mount-status.php
+          grep -Fq 'ORPHAN_CONTAINER' pterodactyl/server-mount-status.php
+          grep -Fq 'STALE_BASELINE' pterodactyl/server-mount-status.php
+          grep -Fq 'STALE_MARKER' pterodactyl/server-mount-status.php
+          grep -Fq "docker', 'ps', '-a'" pterodactyl/server-mount-status.php
           grep -Fq 'MOUNT_SEED_PENDING' pterodactyl/systemd/fragcity-status-dashboard.sh
-          grep -Fq 'Baseline hash registry:' pterodactyl/fragcity-manager.sh
-          grep -Fq 'FIRST SEED' pterodactyl/fragcity-manager.sh
+          grep -Fq 'baseline registry:' pterodactyl/fragcity-manager.sh
+          grep -Fq 'First-install seed:' pterodactyl/fragcity-manager.sh
           grep -Fq 'publish_baseline_hash_registry()' pterodactyl/sync-addon-payload-host.sh
           grep -Fq -- '--publish-baseline-registry' pterodactyl/install-host-services.sh
           grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'paint_switch' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'HOST HEALTH' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'SYSTEM POSTURE' pterodactyl/systemd/fragcity-status-dashboard.sh
-          grep -Fq 'MOUNTED BUT NOT RUNNING' pterodactyl/systemd/fragcity-status-dashboard.sh
-          grep -Fq 'MOUNT_ATTENTION_ROWS+=' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'CURRENT ELIGIBLE SERVER INVENTORY' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'ORPHAN DOCKER CONTAINERS' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'STALE UUID HISTORY' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'MOUNT_SERVER_ROWS+=' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'MOUNT_REFRESH_SECONDS=5' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'NODE OPERATIONS CONSOLE' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'show_service_row' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'SERVICE HEALTH' pterodactyl/systemd/fragcity-status-dashboard.sh
-          grep -Fq 'ACTIVE MOUNTED SERVERS' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'server-mount-status.php' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'NETWORK SNAPSHOT' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'LATEST AUTOMATION EVENTS' pterodactyl/systemd/fragcity-status-dashboard.sh
@@ -164,7 +170,11 @@ jobs:
           grep -Fq 'PHP CLI / PHP-FPM' pterodactyl/fragcity-manager.sh
           grep -Fq 'server-mount-status.php' pterodactyl/fragcity-manager.sh
           grep -Fq 'render_main_status' pterodactyl/fragcity-manager.sh
-          grep -Fq 'ELIGIBLE SERVER UUIDs / FRAGCITY MOUNT STATUS' pterodactyl/fragcity-manager.sh
+          grep -Fq 'CURRENT ELIGIBLE SERVER INVENTORY — LIVE PANEL UUIDs' pterodactyl/fragcity-manager.sh
+          grep -Fq 'ORPHAN DOCKER CONTAINER' pterodactyl/fragcity-manager.sh
+          grep -Fq 'STALE BASELINE UUID' pterodactyl/fragcity-manager.sh
+          grep -Fq 'STALE PROCESSED MARKER' pterodactyl/fragcity-manager.sh
+          grep -Fq 'MAIN_MOUNT_STATUS_CACHE_AT < 5' pterodactyl/fragcity-manager.sh
           grep -Fq 'HOST SERVICES — ACTIVE / ENABLED AT BOOT' pterodactyl/fragcity-manager.sh
 
       - name: Validate PHP provisioner syntax and safe CLI argument handling
