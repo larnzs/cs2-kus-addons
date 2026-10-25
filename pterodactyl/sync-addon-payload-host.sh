@@ -193,7 +193,7 @@ else
             --exclude='/csgo/addons/metamod/metaplugins.ini' \
             -- "$source/" "$destination/"
     }
-    # Publish every tracked file under repository game/, with no path exclusions.
+    # Publish the deployable game/ tree after the exact Egg-runtime exclusions.
     copy_tree "$REPO_GAME_ROOT" "$STAGING_GAME"
     printf '%s\n' "$SOURCE_COMMIT" > "$STAGING/.source-commit"
     GAME_INVENTORY="$STAGING/.fragcity-game-files-v1.list"

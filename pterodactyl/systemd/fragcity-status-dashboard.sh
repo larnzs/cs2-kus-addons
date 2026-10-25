@@ -300,12 +300,12 @@ render_dashboard() {
   cores="$(nproc 2>/dev/null || printf '?')"
   uptime_value="$(uptime -p 2>/dev/null | sed 's/^up //')"
   source_commit="$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD 2>/dev/null || printf 'unavailable')"
-  payload_commit_full="$(tr -d '\\r\\n' < "$PAYLOAD_ROOT/CURRENT_COMMIT" 2>/dev/null)"
+  payload_commit_full="$(tr -d '\r\n' < "$PAYLOAD_ROOT/CURRENT_COMMIT" 2>/dev/null)"
   [[ "$payload_commit_full" =~ ^[0-9a-f]{40}$ ]] || payload_commit_full='MISSING'
   payload_commit_short="${payload_commit_full:0:12}"
   if [[ "$payload_commit_full" =~ ^[0-9a-f]{40}$ ]] &&
      [[ -r "$PAYLOAD_ROOT/revisions/$payload_commit_full/.source-commit" ]] &&
-     [[ "$(tr -d '\\r\\n' < "$PAYLOAD_ROOT/revisions/$payload_commit_full/.source-commit" 2>/dev/null)" == "$payload_commit_full" ]]; then
+     [[ "$(tr -d '\r\n' < "$PAYLOAD_ROOT/revisions/$payload_commit_full/.source-commit" 2>/dev/null)" == "$payload_commit_full" ]]; then
     marker='MATCH'
   else
     marker='CHECK'
@@ -374,7 +374,7 @@ render_dashboard() {
   render_mount_section
 
   section_title "NETWORK SNAPSHOT"
-  printf '  IPv4      %s\n' "$(ip -o -4 addr show scope global 2>/dev/null | awk '{gsub(/\\/.*/, "", $4); printf "%s=%s ", $2, $4}' | cut -c1-74)"
+  printf '  IPv4      %s\n' "$(ip -o -4 addr show scope global 2>/dev/null | awk '{gsub(/\/.*/, "", $4); printf "%s=%s ", $2, $4}' | cut -c1-74)"
   game_ports="$(ss -H -lun 2>/dev/null | awk '{print $5}' | grep -E ':(29[0-9]{3})$' | head -n 4 | paste -sd ', ' -)"
   web_ports="$(ss -H -ltn 2>/dev/null | awk '{print $4}' | grep -E ':(80|443)$' | paste -sd ', ' -)"
   [[ -n "$game_ports" ]] || game_ports='none detected in UDP 29xxx range'

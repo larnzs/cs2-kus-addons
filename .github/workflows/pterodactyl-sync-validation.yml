@@ -78,7 +78,7 @@ jobs:
           grep -Fq -- "--exclude='/csgo/addons/metamod/metaplugins.ini'" pterodactyl/sync-addon-payload-host.sh
           grep -Fq 'Required first-install seed file is missing' pterodactyl/sync-addon-payload-host.sh
           grep -Fq '.fragcity-game-files-v1.list' pterodactyl/sync-addon-payload-host.sh
-          grep -Fq 'Loaded the complete repository game/ inventory:' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'Loaded the complete deployable game/ inventory:' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'is_customer_config_path()' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'is_runtime_excluded_path()' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'Leaving K4ryuu-managed runtime path untouched' pterodactyl/sync-addon-payload-container.sh
@@ -92,7 +92,7 @@ jobs:
           grep -Fq 'MANAGED_MANIFEST' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'Removing stale previously-managed payload file' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'No prior managed-payload manifest' pterodactyl/sync-addon-payload-container.sh
-          grep -Fq 'first-start sync waits for a new UUID to be registered' pterodactyl/test-sync-payload.sh
+          grep -Fq 'new UUID waits for Provisioner' pterodactyl/test-sync-payload.sh
           grep -Fq 'customer-customized-config' pterodactyl/test-sync-payload.sh
           grep -Fq 'stale_config_rel' pterodactyl/test-sync-payload.sh
           grep -Fq 'new UUID did not wait for host Provisioner registration' pterodactyl/test-sync-payload.sh
