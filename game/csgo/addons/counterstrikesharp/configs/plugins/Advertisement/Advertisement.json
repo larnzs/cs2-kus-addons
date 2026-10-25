@@ -7,43 +7,23 @@
   },
   "Ads": [
     {
-      "Interval": 30,
+      "Interval": 60,
       "Messages": [
         {
           "Chat": "{WHITE}Shoma mitunid ba estefade az command haye {GREEN}!skins !gloves !knife !music !agents {WHITE}skin morede alaqe khodetuno entekhab konid."
         },
         {
           "Chat": "{YELLOW} Ba estefade az {RED}!rtv {YELLOW}vote map ya vote mode bedid va bi tavajohi nakonid!"
-        }
-      ]
-    },
-    {
-      "Interval": 40,
-      "Messages": [
+        },
         {
           "Center": "{GREEN} FragCity.ir"
-        }
-      ]
-    },
-    {
-      "Interval": 50,
-      "Messages": [
+        },
         {
           "Chat": "{WHITE}IP : {GREEN}{IP}:{PORT}  | {YELLOW}{map_name} | {WHITE}Players: {YELLOW}{PLAYERS}/{MAXPLAYERS}"
-        }
-      ]
-    },
-    {
-      "Interval": 60,
-      "Messages": [
+        },
         {
           "Chat": "Time : {GREEN}{TIME} | {WHITE}Date: {GREEN}{DATE}"
-        }
-      ]
-    },
-    {
-      "Interval": 70,
-      "Messages": [
+        },
         {
           "Chat": "{LIME}Baraye entekhab skin mitunid az link {YELLOW}fragcity.ir/weaponpaints.php {LIME}estefade konid."
         }
