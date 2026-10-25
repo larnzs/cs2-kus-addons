@@ -239,12 +239,16 @@ publish_baseline_hash_registry() {
     if [[ -L "$STATE_ROOT" || ( -e "$STATE_ROOT" && ! -d "$STATE_ROOT" ) ]]; then
         die "Provisioner state root is unsafe while publishing the baseline registry: $STATE_ROOT"
     fi
+    [[ ! -L "$registry" && ( ! -e "$registry" || -f "$registry" ) ]] || die "Baseline hash registry path is unsafe: $registry"
     if [[ ! -e "$baseline" ]]; then
+        if [[ -f "$registry" ]]; then
+            rm -f -- "$registry"
+            log "Removed stale baseline hash registry because the one-time baseline is missing."
+        fi
         log "Baseline is not initialized yet; baseline hash registry will be created by the Provisioner when it records the baseline."
         return 0
     fi
     [[ -f "$baseline" && ! -L "$baseline" ]] || die "Provisioner baseline is not a regular file: $baseline"
-    [[ ! -L "$registry" && ( ! -e "$registry" || -f "$registry" ) ]] || die "Baseline hash registry path is unsafe: $registry"
 
     temporary="$MOUNT_ROOT/.FRAGCITY_BASELINE_SHA256.tmp.$"
     [[ ! -e "$temporary" && ! -L "$temporary" ]] || die "Baseline registry temporary path already exists: $temporary"
