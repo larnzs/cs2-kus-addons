@@ -21,6 +21,7 @@ umask 022
 
 BRANCH="${FRAGCITY_GIT_BRANCH:-integration/kus-monorepo}"
 MOUNT_ROOT="${FRAGCITY_PAYLOAD_MOUNT:-/var/lib/pterodactyl/mounts/fragcity-addon-payload}"
+STATE_ROOT="${FRAGCITY_PROVISIONER_STATE:-/var/lib/pterodactyl/fragcity-addon-provisioner}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 KEEP_REVISIONS="${FRAGCITY_KEEP_REVISIONS:-5}"
@@ -226,6 +227,44 @@ chmod 0444 "$POINTER_TEMP"
 mv -f -- "$POINTER_TEMP" "$MOUNT_ROOT/CURRENT_COMMIT"
 touch "$FINAL_REVISION"
 log "Published CURRENT_COMMIT=$SOURCE_COMMIT"
+
+# Publish one-way hashes for the one-time baseline. This allows the container to
+# identify whether its own UUID existed at baseline time without exposing other raw
+# server UUIDs through the shared read-only Mount.
+publish_baseline_hash_registry() {
+    local baseline="$STATE_ROOT/baseline-uuids.txt"
+    local registry="$MOUNT_ROOT/FRAGCITY_BASELINE_SHA256"
+    local temporary uuid digest count unique_count
+
+    if [[ -L "$STATE_ROOT" || ( -e "$STATE_ROOT" && ! -d "$STATE_ROOT" ) ]]; then
+        die "Provisioner state root is unsafe while publishing the baseline registry: $STATE_ROOT"
+    fi
+    if [[ ! -e "$baseline" ]]; then
+        log "Baseline is not initialized yet; baseline hash registry will be created by the Provisioner when it records the baseline."
+        return 0
+    fi
+    [[ -f "$baseline" && ! -L "$baseline" ]] || die "Provisioner baseline is not a regular file: $baseline"
+    [[ ! -L "$registry" && ( ! -e "$registry" || -f "$registry" ) ]] || die "Baseline hash registry path is unsafe: $registry"
+
+    temporary="$MOUNT_ROOT/.FRAGCITY_BASELINE_SHA256.tmp.$"
+    [[ ! -e "$temporary" && ! -L "$temporary" ]] || die "Baseline registry temporary path already exists: $temporary"
+    : > "$temporary"
+    while IFS= read -r uuid || [[ -n "$uuid" ]]; do
+        [[ "$uuid" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] \
+            || { rm -f -- "$temporary"; die "Invalid UUID in baseline while publishing its hash registry."; }
+        digest="$(printf '%s' "$uuid" | sha256sum | awk '{print $1}')"
+        printf '%s\n' "$digest" >> "$temporary"
+    done < "$baseline"
+
+    sort -o "$temporary" "$temporary"
+    count="$(wc -l < "$temporary")"
+    unique_count="$(sort -u "$temporary" | wc -l)"
+    [[ "$count" -eq "$unique_count" ]] || { rm -f -- "$temporary"; die "Baseline contains duplicate UUIDs; refusing to publish its hash registry."; }
+    chmod 0444 "$temporary"
+    mv -f -- "$temporary" "$registry"
+    log "Published baseline hash registry with $count UUID digest(s)."
+}
+publish_baseline_hash_registry
 
 # Keep the current revision plus the newest historical revisions. Container syncs
 # hold a shared .sync.lock, so pruning waits until active syncs finish.
