@@ -260,9 +260,17 @@ log "Loaded the complete deployable game/ inventory: $EXPECTED_SOURCE_COUNT file
 
 for relative_path in "${!DESIRED_SOURCE[@]}"; do
     if [[ "$CONFIG_SEED_ACTIVE" -ne 1 ]] && is_customer_config_path "$relative_path"; then
-        CONFIGS_PRESERVED=$((CONFIGS_PRESERVED + 1))
-        [[ "$VERBOSE" != "1" ]] || log "Preserving customer config file without overwrite: $relative_path"
-        continue
+        target_path="$GAME_ROOT/$relative_path"
+        # Workshop setup requires both subscribed-ID files. Existing contents remain
+        # customer-owned, but a missing file is repaired via create-if-absent.
+        if { [[ "$relative_path" == "csgo/subscribed_collection_ids.txt" ]] || [[ "$relative_path" == "csgo/subscribed_file_ids.txt" ]]; } \
+            && [[ ! -e "$target_path" ]]; then
+            log "Seeding missing subscribed-ID file without overwriting existing customer data: $relative_path"
+        else
+            CONFIGS_PRESERVED=$((CONFIGS_PRESERVED + 1))
+            [[ "$VERBOSE" != "1" ]] || log "Preserving customer config file without overwrite: $relative_path"
+            continue
+        fi
     fi
     source_path="${DESIRED_SOURCE[$relative_path]}"
     expected_hash="${DESIRED_HASH[$relative_path]}"
@@ -310,6 +318,14 @@ if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
     done
     log "Verified both subscribed_*_ids.txt seed files on the first install."
 fi
+
+# Required Workshop list files must remain present after any sync. On completed or
+# legacy volumes, the loop above recreates only a missing file and preserves existing data.
+for required_seed_path in csgo/subscribed_collection_ids.txt csgo/subscribed_file_ids.txt; do
+    target_path="$GAME_ROOT/$required_seed_path"
+    [[ -f "$target_path" && ! -L "$target_path" ]] \
+        || die "Required subscribed-ID file is missing or unsafe after sync: $target_path"
+done
 
 # Only previously managed files that are now absent from the deployable inventory can be
 # deleted. Runtime paths owned by K4ryuu are never deleted, including from old manifests.
