@@ -703,8 +703,17 @@ function provisionOne(
         prepareConfigSeedMarker($volumePath, $uuid, (int) $mount->id, $payloadCommit);
 
         $markerPath = processedMarkerPath($stateRoot, $uuid);
-        if (is_link($markerPath) || file_exists($markerPath)) {
-            fail('Provisioned marker already exists or is unsafe while adopting running server ' . $uuid . '.');
+        if (is_link($markerPath)) {
+            fail('Provisioned marker is a symlink while adopting running server ' . $uuid . '.');
+        }
+        if (file_exists($markerPath)) {
+            if (!is_file($markerPath)) {
+                fail('Provisioned marker path is not a regular file while adopting running server ' . $uuid . '.');
+            }
+            $priorMarker = json_decode((string) file_get_contents($markerPath), true);
+            if (!is_array($priorMarker) || ($priorMarker['server_uuid'] ?? null) !== $uuid) {
+                fail('Existing provisioned marker is invalid or belongs to another server: ' . $uuid . '.');
+            }
         }
 
         $marker = [
@@ -1102,11 +1111,30 @@ function main(array $argv): int
 
         foreach ($servers as $server) {
             $uuid = (string) $server->uuid;
-            if (isset($baseline[$uuid]) || is_file(processedMarkerPath($config['stateRoot'], $uuid))) {
+            if (isset($baseline[$uuid])) {
                 continue;
             }
 
             try {
+                $markerPath = processedMarkerPath($config['stateRoot'], $uuid);
+                if (is_link($markerPath)) {
+                    fail('Provisioned marker is a symlink for non-baseline server ' . $uuid . '.');
+                }
+                if (file_exists($markerPath) && !is_file($markerPath)) {
+                    fail('Provisioned marker path is not a regular file for server ' . $uuid . '.');
+                }
+
+                $seedStatePath = rtrim($config['volumeRoot'], '/') . '/' . $uuid . '/.fragcity-config-seed-v1.state';
+                if (is_link($seedStatePath)) {
+                    fail('Initial-sync state is a symlink for server ' . $uuid . '.');
+                }
+                if (is_file($markerPath) && is_file($seedStatePath)) {
+                    continue;
+                }
+                if (is_file($markerPath)) {
+                    logLine('Registration mismatch for ' . $uuid . ': processed marker exists but initial-sync state is missing; attempting safe repair.');
+                }
+
                 if (provisionOne(
                     $server, $mount, $config['volumeRoot'], $config['payloadRoot'],
                     $config['mountTarget'], $config['stateRoot'], $payloadCommit
@@ -1151,9 +1179,19 @@ function main(array $argv): int
     if (is_link($markerPath)) {
         fail('Provisioned marker is a symlink: ' . $markerPath);
     }
-    if (is_file($markerPath)) {
-        logLine('Server ' . $serverUuid . ' is already marked provisioned; no changes were made.');
+    if (file_exists($markerPath) && !is_file($markerPath)) {
+        fail('Provisioned marker path is not a regular file: ' . $markerPath);
+    }
+    $seedStatePath = rtrim($config['volumeRoot'], '/') . '/' . $serverUuid . '/.fragcity-config-seed-v1.state';
+    if (is_link($seedStatePath)) {
+        fail('Initial-sync state is a symlink: ' . $seedStatePath);
+    }
+    if (is_file($markerPath) && is_file($seedStatePath)) {
+        logLine('Server ' . $serverUuid . ' is already marked provisioned and has its first-install state; no changes were made.');
         return 0;
+    }
+    if (is_file($markerPath)) {
+        logLine('Registration mismatch for ' . $serverUuid . ': processed marker exists but initial-sync state is missing; attempting safe repair.');
     }
 
     $success = provisionOne(
