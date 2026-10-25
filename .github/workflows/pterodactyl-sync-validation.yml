@@ -132,7 +132,7 @@ jobs:
           grep -Fq 'HOST HEALTH' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'SYSTEM POSTURE' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'MOUNTED BUT NOT RUNNING' pterodactyl/systemd/fragcity-status-dashboard.sh
-          grep -Fq "MOUNT_ATTENTION_ROWS+=" pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'MOUNT_ATTENTION_ROWS+=' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'NODE OPERATIONS CONSOLE' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'show_service_row' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'SERVICE HEALTH' pterodactyl/systemd/fragcity-status-dashboard.sh
