@@ -147,7 +147,7 @@ for relative in \
     csgo/addons/windows; do
     sample="$(find "$SOURCE_GAME/$relative" -type f -print -quit)"
     [[ -n "$sample" ]]
-    rel="\${sample#"$SOURCE_GAME"/}"
+    rel="${sample#"$SOURCE_GAME"/}"
     [[ -f "$GAME_ROOT/$rel" && ! -L "$GAME_ROOT/$rel" ]]
     [[ "$(sha256sum -- "$sample" | awk '{print $1}')" == "$(sha256sum -- "$GAME_ROOT/$rel" | awk '{print $1}')" ]]
 done
@@ -156,7 +156,7 @@ done
 sample=""
 relative=""
 while IFS= read -r candidate; do
-    candidate_rel="\${candidate#"$SOURCE_GAME"/}"
+    candidate_rel="${candidate#"$SOURCE_GAME"/}"
     if ! is_test_config_path "$candidate_rel"; then
         sample="$candidate"
         relative="$candidate_rel"
