@@ -250,7 +250,7 @@ publish_baseline_hash_registry() {
     fi
     [[ -f "$baseline" && ! -L "$baseline" ]] || die "Provisioner baseline is not a regular file: $baseline"
 
-    temporary="$MOUNT_ROOT/.FRAGCITY_BASELINE_SHA256.tmp.$"
+    temporary="$MOUNT_ROOT/.FRAGCITY_BASELINE_SHA256.tmp.$BASHPID"
     [[ ! -e "$temporary" && ! -L "$temporary" ]] || die "Baseline registry temporary path already exists: $temporary"
     : > "$temporary"
     while IFS= read -r uuid || [[ -n "$uuid" ]]; do
