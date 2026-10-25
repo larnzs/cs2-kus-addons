@@ -806,8 +806,8 @@ while IFS= read -r relative_file || [[ -n "$relative_file" ]]; do
     }
     payload_file="$payload_game/$relative_file"
     target_file="$target_game/$relative_file"
-    test -f "$payload_file" && test ! -L "$payload_file"
-    test -f "$target_file" && test ! -L "$target_file"
+    test ! -L "$payload_file" && test -f "$payload_file"
+    test ! -L "$target_file" && test -f "$target_file"
     IFS='/' read -r -a path_parts <<< "$relative_file"
     parent="$target_game"
     for ((index = 0; index < ${#path_parts[@]} - 1; index++)); do
