@@ -330,6 +330,12 @@ Troubleshooting guardrails:
 - If an automatic provisioning pass fails, inspect `journalctl` first. The processed marker and baseline are safety barriers; do not remove them casually to force a retry.
 - Upgrades to Pterodactyl Panel may change internal Laravel model behavior. Re-run the controlled test and verification before relying on this integration after a Panel upgrade.
 
+## Live server monitoring and UUID reconciliation
+
+The read-only status dashboard and Control Center render a separate block for every server that currently exists in the Panel database and matches the configured Egg/Node scope. Each block shows the full UUID and separately labels Panel Mount assignment, actual Docker container state, verified Docker Mount, processed marker, startup hook, baseline membership, and first-install seed state. The Mount inventory refreshes every five seconds by default, independently of the faster screen refresh.
+
+The status probe also reports UUID-named Docker containers that no longer map to any Panel server, plus baseline UUIDs and processed markers that refer to servers no longer in the Panel database. These are shown in separate **orphan** and **historical/stale** sections, never mixed into the current server list. Baseline and marker files are not automatically deleted, and the monitor does not stop containers or remove volumes. If Docker inventory cannot be read, the monitor says the orphan count is unknown rather than claiming zero.
+
 ## Validation scope
 
 The GitHub Actions workflow validates Bash/PHP syntax and CLI safety and runs the publisher/container synchronizer against a temporary volume. It covers filtered inventory creation and validation, all seven exact K4ryuu runtime exclusions, seeding and later preservation of both subscribed-ID files, preservation of Egg-owned runtime fixtures, recovery of an incomplete revision, deployment of `plugins/disabled/` and all other non-excluded subtrees, per-file SHA-256 verification, idempotency, safe legacy-manifest migration, preservation of untracked CS2 engine files, and stale cleanup restricted to previously managed non-excluded paths. It does not connect to the live Panel database, Docker daemon or a real game-server volume.
