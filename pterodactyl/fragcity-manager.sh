@@ -592,11 +592,8 @@ render_server_mount_status() {
       ORPHAN_CONTAINER)
         printf '  %bORPHAN DOCKER CONTAINER%b — UUID %s | state %s | reason %s\n' "$Y" "$Z" "$f1" "$f2" "$f3"
         ;;
-      STALE_BASELINE)
-        printf '  %bSTALE BASELINE UUID%b — %s (historical; reason %s)\n' "$Y" "$Z" "$f1" "$f2"
-        ;;
-      STALE_MARKER)
-        printf '  %bSTALE PROCESSED MARKER%b — %s (historical; reason %s)\n' "$Y" "$Z" "$f1" "$f2"
+      STALE_BASELINE|STALE_MARKER)
+        # Historical UUID details are shown only in the dedicated D menu.
         ;;
       DOCKER_SCAN)
         docker_scan="$f1"
@@ -623,6 +620,383 @@ render_server_mount_status() {
     esac
   done <<< "$MAIN_MOUNT_STATUS_CACHE"
 }
+
+
+screen_deleted_uuid_history() {
+  MAIN_MOUNT_STATUS_CACHE_AT=0
+  refresh_main_mount_status
+  heading "DELETED / STALE UUID HISTORY"
+  printf '\nThis page contains historical Baseline and processed-marker UUIDs, not the live server inventory.\n'
+  if [[ -z "$MAIN_MOUNT_STATUS_CACHE" ]]; then
+    printf '\n%bHistory is unavailable because the live Panel/Mount query failed.%b\n' "$R" "$Z"
+    printf '  %s\n' "$MAIN_MOUNT_STATUS_ERROR"
+    pause
+    return
+  fi
+
+  local line kind f1 f2 found=0 baseline_count=0 marker_count=0
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    IFS=  printf '\n%b[ HOST SERVICES — ACTIVE / ENABLED AT BOOT ]%b\n' "$C" "$Z"
+  main_service_pair Docker docker.service Wings wings.service
+  main_service_pair PHP-FPM php8.3-fpm.service Nginx nginx.service
+  main_service_pair 'Pterodactyl queue' pteroq.service MariaDB mariadb.service
+  main_service_pair Redis redis-server.service 'Payload timer' fragcity-addon-payload-sync.timer
+  main_service_single 'Provisioner timer' fragcity-addon-provision.timer
+  main_cs2node_status
+  render_server_mount_status
+}
+
+
+render_main_page() {
+  printf '%b╔══════════════════════════════════════════════════════════════════════════════╗%b\n' "$B" "$Z"
+  printf '%b║%b  %bFRAGCITY CONTROL CENTER%b  %b/ LIVE HOST MONITORING%b                         %b║%b\n' "$B" "$Z" "$G" "$Z" "$C" "$Z" "$B" "$Z"
+  printf '%b╚══════════════════════════════════════════════════════════════════════════════╝%b\n' "$B" "$Z"
+  printf '  %bCode auto-update: ON%b — checks the local manager file every 60 seconds\n' "$G" "$Z"
+
+  render_main_status
+
+  printf '\n%b[ SERVICE DETAIL PAGES ]%b\n' "$C" "$Z"
+  printf '  1 Docker   2 Wings   3 CS2Node   4 PHP-FPM   5 Nginx   6 Panel   7 MariaDB   8 Redis\n'
+  printf '  9 All services   H Host resources   F FragCity automation\n'
+  printf '\n%b[ MANAGEMENT ]%b\n' "$C" "$Z"
+  printf '  U Update payload   I First install / reinstall   P Provision once\n'
+  printf '  M Manage install marks   D Deleted UUID history\n'
+  printf '  T Toggle payload timer   N Toggle provisioner timer\n'
+  printf '  R Refresh status now   L Recent logs   W Follow logs   0 Exit\n'
+}
+
+HOME_RENDERED=''
+
+while true; do
+  # Refresh the server inventory in the main shell so its 15-second cache persists.
+  refresh_main_mount_status
+  CURRENT_HOME="$(render_main_page)"
+
+  # Redraw only when visible status/content actually changes. This prevents the
+  # old clear-and-repaint flicker on every two-second input timeout.
+  if [[ "$CURRENT_HOME" != "$HOME_RENDERED" ]]; then
+    clear 2>/dev/null || true
+    printf '%s\n' "$CURRENT_HOME"
+    HOME_RENDERED="$CURRENT_HOME"
+  fi
+
+  CHOICE=''
+  if IFS= read -r -t 60 -p $'\rChoose an option: ' CHOICE; then
+    reload_if_updated
+    case "$CHOICE" in
+      1) screen_docker ;;
+      2) screen_wings ;;
+      3) screen_cs2node ;;
+      4) screen_php ;;
+      5) screen_nginx ;;
+      6) screen_panel ;;
+      7) screen_mariadb ;;
+      8) screen_redis ;;
+      9) screen_all ;;
+      H|h) screen_host ;;
+      F|f) screen_fragcity ;;
+      U|u) runservice fragcity-addon-payload-sync.service 'Update from GitHub and publish latest payload/dashboard' ;;
+      I|i) installation_wizard ;;
+      M|m) manage_install_marks ;;
+      D|d) screen_deleted_uuid_history ;;
+      P|p)
+        printf '\nProvisioning may attach the Mount and change Startup for eligible stopped servers.\nType YES to run one pass: '
+        read -r ans
+        if [[ "$ans" == YES ]]; then
+          runservice fragcity-addon-provision.service 'Manual provisioning pass'
+        else
+          echo 'Cancelled.'
+          sleep 1
+        fi
+        ;;
+      T|t) toggle fragcity-addon-payload-sync.timer 'Payload auto-sync timer' ;;
+      N|n)
+        printf '\nOFF pauses future automatic provisioning; existing Mount assignments remain intact.\n'
+        toggle fragcity-addon-provision.timer 'New-server provisioner timer'
+        ;;
+      R|r)
+        MAIN_MOUNT_STATUS_CACHE_AT=0
+        HOME_RENDERED=''
+        continue
+        ;;
+      L|l) recentlogs ;;
+      W|w) followlogs ;;
+      0) echo 'FragCity Control Center closed.'; exit 0 ;;
+      *) printf '%bInvalid option.%b\n' "$R" "$Z"; sleep 1 ;;
+    esac
+    # Return from any detail/action to the main page. If sync changed this file,
+    # reload_if_updated below will exec the updated version before the next draw.
+    HOME_RENDERED=''
+    reload_if_updated
+  else
+    # Timeout is not a reason to clear/redraw. Check whether a new manager was
+    # published; next iteration redraws only if status text changed.
+    printf '\r\033[K'
+    reload_if_updated
+  fi
+done
+\t' read -r kind f1 f2 _ <<< "$line"
+    case "$kind" in
+      STALE_BASELINE)
+        if (( baseline_count == 0 )); then
+          printf '\n%bSTALE BASELINE UUID HISTORY%b\n' "$M" "$Z"
+        fi
+        baseline_count=$((baseline_count + 1))
+        found=1
+        printf '  %s  | reason: %s\n' "$f1" "$f2"
+        ;;
+      STALE_MARKER)
+        if (( marker_count == 0 )); then
+          printf '\n%bSTALE PROCESSED MARKER HISTORY%b\n' "$M" "$Z"
+        fi
+        marker_count=$((marker_count + 1))
+        found=1
+        printf '  %s  | reason: %s\n' "$f1" "$f2"
+        ;;
+    esac
+  done <<< "$MAIN_MOUNT_STATUS_CACHE"
+
+  if (( found == 0 )); then
+    printf '\nNo stale UUID history entries were detected.\n'
+  else
+    printf '\nEntries shown: Baseline=%s, processed markers=%s\n' "$baseline_count" "$marker_count"
+    printf 'PANEL_UUID_DELETED means the UUID is absent from Panel; SERVER_NOT_ELIGIBLE_FOR_MOUNT means the Panel record still exists but is no longer eligible for this Mount/Egg/Node.\n'
+  fi
+  pause
+}
+
+manage_install_marks() {
+  local line kind f1 f2 f3 f4 f5 f6 f7 f8 f9
+  local selected answer action rc output index uuid name panel_mount container_state docker_mount startup seed
+  local count=0 i
+  local -a ids=() names=() panel_mounts=() container_states=() docker_mounts=() startups=() seeds=()
+
+  while true; do
+    MAIN_MOUNT_STATUS_CACHE_AT=0
+    refresh_main_mount_status
+    heading "MANUAL FIRST-INSTALL MARKS"
+
+    if [[ -z "$MAIN_MOUNT_STATUS_CACHE" ]]; then
+      printf '\n%bCurrent server inventory is unavailable; no state can be changed.%b\n' "$R" "$Z"
+      printf '  %s\n' "$MAIN_MOUNT_STATUS_ERROR"
+      pause
+      return
+    fi
+
+    ids=(); names=(); panel_mounts=(); container_states=(); docker_mounts=(); startups=(); seeds=()
+    count=0
+    while IFS= read -r line; do
+      [[ -n "$line" ]] || continue
+      IFS=  printf '\n%b[ HOST SERVICES — ACTIVE / ENABLED AT BOOT ]%b\n' "$C" "$Z"
+  main_service_pair Docker docker.service Wings wings.service
+  main_service_pair PHP-FPM php8.3-fpm.service Nginx nginx.service
+  main_service_pair 'Pterodactyl queue' pteroq.service MariaDB mariadb.service
+  main_service_pair Redis redis-server.service 'Payload timer' fragcity-addon-payload-sync.timer
+  main_service_single 'Provisioner timer' fragcity-addon-provision.timer
+  main_cs2node_status
+  render_server_mount_status
+}
+
+
+render_main_page() {
+  printf '%b╔══════════════════════════════════════════════════════════════════════════════╗%b\n' "$B" "$Z"
+  printf '%b║%b  %bFRAGCITY CONTROL CENTER%b  %b/ LIVE HOST MONITORING%b                         %b║%b\n' "$B" "$Z" "$G" "$Z" "$C" "$Z" "$B" "$Z"
+  printf '%b╚══════════════════════════════════════════════════════════════════════════════╝%b\n' "$B" "$Z"
+  printf '  %bCode auto-update: ON%b — checks the local manager file every 60 seconds\n' "$G" "$Z"
+
+  render_main_status
+
+  printf '\n%b[ SERVICE DETAIL PAGES ]%b\n' "$C" "$Z"
+  printf '  1 Docker   2 Wings   3 CS2Node   4 PHP-FPM   5 Nginx   6 Panel   7 MariaDB   8 Redis\n'
+  printf '  9 All services   H Host resources   F FragCity automation\n'
+  printf '\n%b[ MANAGEMENT ]%b\n' "$C" "$Z"
+  printf '  U Update payload   I First install / reinstall   P Provision once\n'
+  printf '  T Toggle payload timer   N Toggle provisioner timer\n'
+  printf '  R Refresh status now   L Recent logs   W Follow logs   0 Exit\n'
+}
+
+HOME_RENDERED=''
+
+while true; do
+  # Refresh the server inventory in the main shell so its 15-second cache persists.
+  refresh_main_mount_status
+  CURRENT_HOME="$(render_main_page)"
+
+  # Redraw only when visible status/content actually changes. This prevents the
+  # old clear-and-repaint flicker on every two-second input timeout.
+  if [[ "$CURRENT_HOME" != "$HOME_RENDERED" ]]; then
+    clear 2>/dev/null || true
+    printf '%s\n' "$CURRENT_HOME"
+    HOME_RENDERED="$CURRENT_HOME"
+  fi
+
+  CHOICE=''
+  if IFS= read -r -t 60 -p $'\rChoose an option: ' CHOICE; then
+    reload_if_updated
+    case "$CHOICE" in
+      1) screen_docker ;;
+      2) screen_wings ;;
+      3) screen_cs2node ;;
+      4) screen_php ;;
+      5) screen_nginx ;;
+      6) screen_panel ;;
+      7) screen_mariadb ;;
+      8) screen_redis ;;
+      9) screen_all ;;
+      H|h) screen_host ;;
+      F|f) screen_fragcity ;;
+      U|u) runservice fragcity-addon-payload-sync.service 'Update from GitHub and publish latest payload/dashboard' ;;
+      I|i) installation_wizard ;;
+      P|p)
+        printf '\nProvisioning may attach the Mount and change Startup for eligible stopped servers.\nType YES to run one pass: '
+        read -r ans
+        if [[ "$ans" == YES ]]; then
+          runservice fragcity-addon-provision.service 'Manual provisioning pass'
+        else
+          echo 'Cancelled.'
+          sleep 1
+        fi
+        ;;
+      T|t) toggle fragcity-addon-payload-sync.timer 'Payload auto-sync timer' ;;
+      N|n)
+        printf '\nOFF pauses future automatic provisioning; existing Mount assignments remain intact.\n'
+        toggle fragcity-addon-provision.timer 'New-server provisioner timer'
+        ;;
+      R|r)
+        MAIN_MOUNT_STATUS_CACHE_AT=0
+        HOME_RENDERED=''
+        continue
+        ;;
+      L|l) recentlogs ;;
+      W|w) followlogs ;;
+      0) echo 'FragCity Control Center closed.'; exit 0 ;;
+      *) printf '%bInvalid option.%b\n' "$R" "$Z"; sleep 1 ;;
+    esac
+    # Return from any detail/action to the main page. If sync changed this file,
+    # reload_if_updated below will exec the updated version before the next draw.
+    HOME_RENDERED=''
+    reload_if_updated
+  else
+    # Timeout is not a reason to clear/redraw. Check whether a new manager was
+    # published; next iteration redraws only if status text changed.
+    printf '\r\033[K'
+    reload_if_updated
+  fi
+done
+\t' read -r kind f1 f2 f3 f4 f5 f6 f7 f8 f9 _ <<< "$line"
+      [[ "$kind" == SERVER ]] || continue
+      if [[ ! "$f1" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+        continue
+      fi
+      ids+=("${f1}")
+      names+=("${f2}")
+      panel_mounts+=("${f3}")
+      container_states+=("${f4}")
+      docker_mounts+=("${f5}")
+      startups+=("${f7}")
+      seeds+=("${f9}")
+      count=$((count + 1))
+    done <<< "$MAIN_MOUNT_STATUS_CACHE"
+
+    printf '\nChoose a currently eligible server UUID:\n'
+    if (( count == 0 )); then
+      printf '  No eligible Panel servers were found.\n'
+      pause
+      return
+    fi
+    for ((i=0; i<count; i++)); do
+      printf '  %2d) %-24.24s | seed=%-9s | Panel Mount=%-3s | Docker Mount=%-3s | Startup=%-3s\n' \
+        "$((i + 1))" "${names[$i]}" "${seeds[$i]}" "${panel_mounts[$i]}" "${docker_mounts[$i]}" "${startups[$i]}"
+      printf '      UUID: %s\n' "${ids[$i]}"
+    done
+    printf '\n  0) Return to main monitor\n\nServer number: '
+    read -r selected
+    if [[ "$selected" == 0 || -z "$selected" ]]; then
+      return
+    fi
+    if [[ ! "$selected" =~ ^[0-9]+$ ]]; then
+      printf '%bInvalid selection.%b\n' "$R" "$Z"
+      sleep 1
+      continue
+    fi
+    index=$((10#$selected))
+    if (( index < 1 || index > count )); then
+      printf '%bSelection out of range.%b\n' "$R" "$Z"
+      sleep 1
+      continue
+    fi
+    index=$((index - 1))
+    uuid="${ids[$index]}"
+    name="${names[$index]}"
+    panel_mount="${panel_mounts[$index]}"
+    container_state="${container_states[$index]}"
+    docker_mount="${docker_mounts[$index]}"
+    startup="${startups[$index]}"
+    seed="${seeds[$index]}"
+
+    heading "FIRST-INSTALL STATE — $name"
+    printf '  UUID: %s\n' "$uuid"
+    printf '  Current seed state: %s\n' "$seed"
+    printf '  Container: %s | Panel Mount: %s | Docker Mount: %s | Startup hook: %s\n' \
+      "$container_state" "$panel_mount" "$docker_mount" "$startup"
+    printf '\n'
+    printf '  1) Mark as a new install (mode=pending; seed repository config defaults)\n'
+    printf '  2) Mark as installed (mode=completed; ignore server config seeding)\n'
+    printf '  0) Back to server list\n\nAction: '
+    read -r action
+
+    case "$action" in
+      1)
+        printf '\n%bWARNING%b: on the next startup, FragCity will run the full first-install Payload sync and copy repository config defaults. This can overwrite server-specific files under csgo/cfg/, CounterStrikeSharp configs/, gamemodes_server.txt, mapcycle files and subscribed-ID files.\n' "$Y" "$Z"
+        printf 'This changes only the per-server seed-state file; it does not configure the Mount or Startup hook. The change takes effect on the next startup.\n'
+        printf 'Are you sure? [y/n]: '
+        read -r answer
+        case "$answer" in
+          y|Y)
+            output="$(php "$REPO_ROOT/pterodactyl/provision-addon-servers.php" --set-config-seed "$uuid" pending 2>&1)"
+            rc=$?
+            printf '\n%s\n' "$output"
+            if (( rc == 0 )); then
+              printf '%bState updated: this UUID is marked as a new install.%b\n' "$G" "$Z"
+              MAIN_MOUNT_STATUS_CACHE_AT=0
+            else
+              printf '%bState was not changed (exit %s).%b\n' "$R" "$rc" "$Z"
+            fi
+            pause
+            break
+            ;;
+          *) printf 'Cancelled; no changes made.\n'; sleep 1 ;;
+        esac
+        ;;
+      2)
+        printf '\nThis marks initial config seeding as complete. The next startup will preserve existing server config paths; normal non-config payload syncing still runs.\n'
+        printf 'This changes only the per-server seed-state file; it does not configure the Mount or Startup hook.\n'
+        printf 'Are you sure? [y/n]: '
+        read -r answer
+        case "$answer" in
+          y|Y)
+            output="$(php "$REPO_ROOT/pterodactyl/provision-addon-servers.php" --set-config-seed "$uuid" completed 2>&1)"
+            rc=$?
+            printf '\n%s\n' "$output"
+            if (( rc == 0 )); then
+              printf '%bState updated: first-install config seeding is marked complete.%b\n' "$G" "$Z"
+              MAIN_MOUNT_STATUS_CACHE_AT=0
+            else
+              printf '%bState was not changed (exit %s).%b\n' "$R" "$rc" "$Z"
+            fi
+            pause
+            break
+            ;;
+          *) printf 'Cancelled; no changes made.\n'; sleep 1 ;;
+        esac
+        ;;
+      0|'') continue ;;
+      *) printf '%bInvalid action.%b\n' "$R" "$Z"; sleep 1 ;;
+    esac
+  done
+}
+
 
 render_main_status() {
   printf '\n%b[ HOST SERVICES — ACTIVE / ENABLED AT BOOT ]%b\n' "$C" "$Z"

@@ -13,7 +13,7 @@ MOUNT_REFRESH_SECONDS="$(printenv FRAGCITY_STATUS_MOUNT_REFRESH_SECONDS 2>/dev/n
 [[ -n "$REPO_ROOT" ]] || REPO_ROOT="/opt/fragcity/cs2-kus-addons"
 [[ "$REFRESH_SECONDS" =~ ^[1-9][0-9]*$ ]] || REFRESH_SECONDS=5
 [[ "$MOUNT_REFRESH_SECONDS" =~ ^[5-9]$|^[1-9][0-9]+$ ]] || MOUNT_REFRESH_SECONDS=5
-UI_VERSION="6.1-monitor-health-and-node-scope"
+UI_VERSION="6.2-manual-first-install-and-history-menu"
 SELF_PATH="$(readlink -f -- "$0" 2>/dev/null || printf '%s' "$0")"
 
 if [[ "$(id -u)" -ne 0 ]]; then
@@ -309,12 +309,7 @@ render_mount_section() {
   section_title "STALE UUID HISTORY  ·  NOT PART OF THE CURRENT SERVER LIST"
   printf '  Baseline UUIDs absent from Panel: %s  |  Processed markers absent from Panel: %s\n' \
     "$MOUNT_STALE_BASELINE_COUNT" "$MOUNT_STALE_MARKER_COUNT"
-  if [[ -n "$MOUNT_STALE_BASELINE_ROWS" ]]; then
-    printf '  Historical baseline entries:\n%s' "$MOUNT_STALE_BASELINE_ROWS"
-  fi
-  if [[ -n "$MOUNT_STALE_MARKER_ROWS" ]]; then
-    printf '  Historical processed markers:\n%s' "$MOUNT_STALE_MARKER_ROWS"
-  fi
+  printf '  Detailed UUID list: open FragCity Control Center and choose D — Deleted UUID history.\n'
   if [[ -z "$MOUNT_STALE_BASELINE_ROWS" && -z "$MOUNT_STALE_MARKER_ROWS" ]]; then
     printf '  No stale UUID records detected.\n'
   fi

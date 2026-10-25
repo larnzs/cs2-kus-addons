@@ -51,6 +51,7 @@ Usage:
   php provision-addon-servers.php --publish-baseline-registry
   php provision-addon-servers.php --server <server-uuid>
   php provision-addon-servers.php --verify-server <server-uuid>
+  php provision-addon-servers.php --set-config-seed <server-uuid> <pending|completed>
   php provision-addon-servers.php --watch
   php provision-addon-servers.php --help
 
@@ -59,6 +60,8 @@ Safety model:
   * --watch only processes servers not present in that baseline and not already provisioned.
   * --server is a one-shot test override and requires a Panel name beginning "FragCity Payload Test".
   * --verify-server is read-only with respect to server files, mounts, startup settings, and Docker containers.
+  * --set-config-seed changes only the selected eligible volume's first-install state file.
+  * Setting pending activates a full first-install sync on the next startup and may overwrite customer config paths; completed preserves those paths.
   * Only stopped Docker containers named exactly after the server UUID may be removed.
   * Docker container removal never uses -v; the server volume is preserved.
 
@@ -639,6 +642,107 @@ function prepareConfigSeedMarker(string $volumePath, string $uuid, int $mountId,
 }
 
 /**
+ * Manually set the first-install policy for one currently eligible server.
+ *
+ * This changes only .fragcity-config-seed-v1.state. Baseline UUIDs, processed markers,
+ * Panel Mount relations, Startup commands and Docker containers remain untouched.
+ * "pending" activates the next startup's first full deployment and config seeding;
+ * "completed" skips the one-time seed and preserves customer config paths.
+ */
+function setManualConfigSeedState(
+    Server $server,
+    Mount $mount,
+    string $volumeRoot,
+    string $payloadCommit,
+    string $requestedMode
+): void {
+    if (!in_array($requestedMode, ['pending', 'completed'], true)) {
+        fail('Manual first-install mode must be pending or completed.');
+    }
+    if (!serverIsEligible($server, $mount)) {
+        fail('Server ' . $server->uuid . ' is not currently eligible for the configured FragCity Mount/Egg/Node.');
+    }
+    if (!isServerReady($server) || $server->isSuspended()) {
+        fail('Manual first-install state can only be changed for an installed, runnable server.');
+    }
+
+    $uuid = (string) $server->uuid;
+    $volumePath = serverVolumePath($server, $volumeRoot);
+    $statePath = $volumePath . '/.fragcity-config-seed-v1.state';
+
+    if (is_link($statePath)) {
+        fail('Initial-sync state path is a symlink: ' . $statePath);
+    }
+    if (file_exists($statePath) && !is_file($statePath)) {
+        fail('Initial-sync state path is not a regular file: ' . $statePath);
+    }
+
+    $now = gmdate('c');
+    $createdAt = $now;
+    if (is_file($statePath)) {
+        $lines = file($statePath, FILE_IGNORE_NEW_LINES);
+        if ($lines === false
+            || !in_array('fragcity-config-seed-v1', $lines, true)
+            || !in_array('server_uuid=' . $uuid, $lines, true)) {
+            fail('Existing initial-sync state is malformed or belongs to another UUID; refusing to replace it.');
+        }
+
+        $modeLines = array_values(array_filter(
+            $lines,
+            static fn (string $line): bool => str_starts_with($line, 'mode=')
+        ));
+        if ($modeLines === []) {
+            fail('Existing initial-sync state has no recognized mode; refusing to replace it.');
+        }
+        foreach ($modeLines as $modeLine) {
+            if (!in_array($modeLine, ['mode=pending', 'mode=completed'], true)) {
+                fail('Existing initial-sync state contains an unrecognized mode; refusing to replace it.');
+            }
+        }
+
+        foreach ($lines as $line) {
+            if (str_starts_with($line, 'created_at_utc=')) {
+                $candidate = substr($line, strlen('created_at_utc='));
+                if ($candidate !== '' && preg_match('/^[0-9A-Za-z:+.\-]+$/D', $candidate) === 1) {
+                    $createdAt = $candidate;
+                }
+                break;
+            }
+        }
+    }
+
+    // The container sync script prefers mode=completed if both modes exist.
+    // Rebuild the file so exactly one mode line remains when moving back to pending.
+    $contents = "fragcity-config-seed-v1\n"
+        . 'server_uuid=' . $uuid . "\n"
+        . 'mode=' . $requestedMode . "\n"
+        . 'mount_id=' . (int) $mount->id . "\n"
+        . 'payload_commit=' . $payloadCommit . "\n"
+        . 'created_at_utc=' . $createdAt . "\n"
+        . "manual_override=fragcity-manager\n"
+        . 'manual_override_at_utc=' . $now . "\n";
+
+    if ($requestedMode === 'completed') {
+        $contents .= 'source_commit=' . $payloadCommit . "\n"
+            . 'completed_at_utc=' . $now . "\n";
+    }
+
+    // Keep this marker writable by the container user so pending can later
+    // be converted to completed after the first successful full sync.
+    writeAtomically($statePath, $contents, 0666);
+
+    if ($requestedMode === 'pending') {
+        logLine(
+            'Manually marked ' . $uuid . ' as a new first-install sync. The next startup will deploy the full Payload and seed repository config defaults; existing customer config paths may be overwritten.'
+        );
+    } else {
+        logLine(
+            'Manually marked ' . $uuid . ' as already installed. First-install config seeding is disabled; existing customer config paths will be preserved on startup.'
+        );
+    }
+}
+
+/**
  * Validate a currently running container before adopting a new-server first-start race.
  * This only permits state registration when the live container already has the exact
  * read-only payload mount and matching Wings server UUID; it does not restart it.
@@ -1031,14 +1135,22 @@ function main(array $argv): int
 
     $serverUuid = null;
     $baselineExcludeUuid = null;
-    if (in_array($mode, ['--server', '--verify-server'], true)) {
+    $manualSeedMode = null;
+    if (in_array($mode, ['--server', '--verify-server', '--set-config-seed'], true)) {
         $serverUuid = $argv[2] ?? '';
         if (!validUuid($serverUuid)) {
             fwrite(STDERR, "ERROR: {$mode} requires a canonical lowercase UUID.\n");
             usage();
             return 2;
         }
-        if (isset($argv[3])) {
+        if ($mode === '--set-config-seed') {
+            $manualSeedMode = $argv[3] ?? '';
+            if (!in_array($manualSeedMode, ['pending', 'completed'], true) || isset($argv[4])) {
+                fwrite(STDERR, "ERROR: --set-config-seed requires exactly one mode: pending or completed.\n");
+                usage();
+                return 2;
+            }
+        } elseif (isset($argv[3])) {
             fwrite(STDERR, "ERROR: unexpected extra arguments.\n");
             usage();
             return 2;
@@ -1087,6 +1199,9 @@ function main(array $argv): int
         fail('Could not open provisioner lock file: ' . $lockPath);
     }
     if (!flock($lock, LOCK_EX | LOCK_NB)) {
+        if ($mode === '--set-config-seed') {
+            fail('The provisioner is running another operation; no manual state change was made. Retry after it finishes.');
+        }
         logLine('Another provisioner run is active; this pass will exit without changes.');
         return 0;
     }
@@ -1144,6 +1259,22 @@ function main(array $argv): int
         }
         publishBaselineHashRegistry($baselinePath, $config['payloadRoot']);
         logLine('Baseline hash registry refreshed; no server volumes, Mounts, containers or startup settings were changed.');
+        return 0;
+    }
+
+    if ($mode === '--set-config-seed') {
+        /** @var Server|null $manualServer */
+        $manualServer = Server::query()->where('uuid', $serverUuid)->first();
+        if ($manualServer === null) {
+            fail('No Panel server was found with UUID ' . $serverUuid . '.');
+        }
+        setManualConfigSeedState(
+            $manualServer,
+            $mount,
+            $config['volumeRoot'],
+            $payloadCommit,
+            (string) $manualSeedMode
+        );
         return 0;
     }
 
