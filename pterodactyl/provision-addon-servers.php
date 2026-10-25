@@ -798,7 +798,49 @@ expected_game_files="$(wc -l < "$game_inventory")"
 test "$expected_game_files" -gt 0
 test "$(LC_ALL=C sort -u "$game_inventory" | wc -l)" -eq "$expected_game_files"
 test "$(find "$payload_game" -type f | wc -l)" -eq "$expected_game_files"
+
+# Customer-specific configs are seeded exactly once by the first-start sync. A
+# completed marker means compare only update-managed non-config payload files;
+# legacy volumes without a marker keep their current configs as well.
+seed_state="/home/container/.fragcity-config-seed-v1.state"
+test ! -L "$seed_state" || {
+    printf 'Config-seed state file is a symlink: %s\n' "$seed_state" >&2
+    exit 29
+}
+PRESERVE_CONFIGS=1
+if [[ -f "$seed_state" ]]; then
+    grep -Fxq 'fragcity-config-seed-v1' "$seed_state" \
+        && grep -Fxq "server_uuid=$P_SERVER_UUID" "$seed_state" || {
+        printf 'Config-seed state does not match this server UUID.\n' >&2
+        exit 29
+    }
+    if grep -Fxq 'mode=completed' "$seed_state"; then
+        printf 'PASS: first-install config seed completed; customer config paths will not be compared to repository defaults.\n'
+    elif grep -Fxq 'mode=pending' "$seed_state"; then
+        printf 'First-install config seed is still pending; startup sync did not complete.\n' >&2
+        exit 30
+    else
+        printf 'Config-seed state has no recognized mode.\n' >&2
+        exit 31
+    fi
+else
+    printf 'PASS: legacy volume has no seed marker; its customer config paths are preserved.\n'
+fi
+
+is_customer_config_path() {
+    local path="$1"
+    case "$path" in
+        */configs/*|*/config/*|*/cfg/*|*.cfg|\
+        csgo/gamemodes_server.txt|csgo/mapcycle.txt|csgo/mapcyclecustom.txt|\
+        csgo/subscribed_collection_ids.txt|csgo/subscribed_file_ids.txt)
+            return 0
+            ;;
+    esac
+    return 1
+}
+
 verified_game_files=0
+preserved_config_files=0
 while IFS= read -r relative_file || [[ -n "$relative_file" ]]; do
     [[ -n "$relative_file" && "$relative_file" != /* && "$relative_file" != *".."* && "$relative_file" != *"//"* ]] || {
         printf 'Unsafe full-game inventory path: %s\n' "$relative_file" >&2
@@ -807,6 +849,10 @@ while IFS= read -r relative_file || [[ -n "$relative_file" ]]; do
     payload_file="$payload_game/$relative_file"
     target_file="$target_game/$relative_file"
     test ! -L "$payload_file" && test -f "$payload_file"
+    if [[ "$PRESERVE_CONFIGS" -eq 1 ]] && is_customer_config_path "$relative_file"; then
+        preserved_config_files=$((preserved_config_files + 1))
+        continue
+    fi
     test ! -L "$target_file" && test -f "$target_file"
     IFS='/' read -r -a path_parts <<< "$relative_file"
     parent="$target_game"
@@ -825,29 +871,8 @@ while IFS= read -r relative_file || [[ -n "$relative_file" ]]; do
     fi
     verified_game_files=$((verified_game_files + 1))
 done < "$game_inventory"
-test "$verified_game_files" -eq "$expected_game_files"
-printf 'PASS: verified all %d tracked file(s) from the complete repository game/ tree; no payload path exclusions.\n' "$verified_game_files"
-
-seed_state="/home/container/.fragcity-config-seed-v1.state"
-test ! -L "$seed_state" || {
-    printf 'Config-seed state file is a symlink: %s\n' "$seed_state" >&2
-    exit 29
-}
-if [[ -f "$seed_state" ]]; then
-    grep -Fxq 'fragcity-config-seed-v1' "$seed_state"
-    grep -Fxq "server_uuid=$P_SERVER_UUID" "$seed_state"
-    if grep -Fxq 'mode=completed' "$seed_state"; then
-        printf 'PASS: initial full game/ payload sync completed; every repository file was verified above.\n'
-    elif grep -Fxq 'mode=pending' "$seed_state"; then
-        printf 'Initial full game/ sync state is still pending; startup synchronization did not complete.\n' >&2
-        exit 30
-    else
-        printf 'Initial-sync state has no recognized mode.\n' >&2
-        exit 31
-    fi
-else
-    printf 'PASS: legacy server has no first-sync marker; the complete repository game/ tree was verified above.\n'
-fi
+test "$verified_game_files" -eq "$((expected_game_files - preserved_config_files))"
+printf 'PASS: verified %d update-managed non-config file(s); preserved %d server-specific config file(s) without comparing them to repository defaults.\n' "$verified_game_files" "$preserved_config_files"
 
 bash -n "$base/sync-addon-payload-container.sh"
 printf 'PASS: required commands available; read-only payload revision %s is valid.\n' "$commit"
