@@ -55,3 +55,21 @@ fragcity_server_severity() {
 fragcity_is_new_unregistered() {
   [[ "$1" != ON && "$2" == OFF ]]
 }
+
+# Global posture is a pure decision function so regressions can be tested without
+# running systemd, Docker, or a live Panel database.
+# Arguments: critical_host_checks critical_servers warning_groups server_attention_count
+fragcity_system_posture() {
+  local critical_checks="$1"
+  local critical_servers="$2"
+  local warning_groups="$3"
+  local server_attention="$4"
+
+  if (( critical_checks > 0 || critical_servers > 0 )); then
+    printf 'CRITICAL'
+  elif (( warning_groups > 0 || server_attention > 0 )); then
+    printf 'ATTENTION'
+  else
+    printf 'HEALTHY'
+  fi
+}
