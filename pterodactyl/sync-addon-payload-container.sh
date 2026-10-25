@@ -1,38 +1,16 @@
 #!/usr/bin/env bash
-# Container-side FragCity addon synchronizer for the custom K4ryuu/Pterodactyl Egg.
+# Full-tree FragCity game payload synchronizer for the custom K4ryuu/Pterodactyl Egg.
 #
-# This script runs inside the game container, after K4ryuu updates its runtimes and
-# immediately before the CS2 launch command. The private repository is NOT cloned in
-# the container. The read-only host mount must expose:
-#   CURRENT_COMMIT
-#   .sync.lock
-#   sync-addon-payload-container.sh
-#   revisions/<40-char-commit>/.source-commit
-#   revisions/<40-char-commit>/game/csgo/...
-#
-# The host-side script publishes complete immutable snapshots, then atomically swaps
-# CURRENT_COMMIT. The shared lock prevents old snapshots being pruned during a sync.
-#
-# These paths are deliberately outside the managed sync scope:
-#   addons/counterstrikesharp/plugins/BotAI/
-#   addons/counterstrikesharp/plugins/CS2UpdateMonitor/
-# The plugins/disabled/ directory is synced from the payload but remains in that
-# directory; this script never promotes disabled plugins into the active plugins root.
-#   Egg-managed Metamod/CounterStrikeSharp runtime directories
-#
-# Configs are one-time first-install seed files, not update-managed files:
-#   Only a newly provisioned volume carrying .fragcity-config-seed-v1.pending
-#   receives the repository CounterStrikeSharp configs/, listed custom cfg/ files,
-#   and five top-level CS2 config/list files. On success, a per-volume done marker
-#   is committed. Existing/legacy volumes without a pending marker are marked as
-#   legacy and their configs are never overwritten or pruned by later starts.
-# Plugin/source/shared/gamedata and allowlisted addon payloads continue to sync
-# every normal server start with SHA-256 validation and stale managed-file cleanup.
-
+# The immutable host snapshot contains every tracked file under repository game/.
+# Every file is copied/hash-verified into the same relative path below /home/container/game.
+# There are no plugin, disabled/, config, platform, runtime, or addon exclusions.
+# Files present in the repository overwrite the same destination path on each start.
+# Files present only in the upstream CS2 installation and absent from repository game/
+# are retained. A prior manifest permits removal only of paths FragCity previously deployed.
 set -Eeuo pipefail
 
 PAYLOAD_BASE="${FRAGCITY_PAYLOAD_BASE:-/home/container/egg/fragcity-payload}"
-GAME_ROOT="${FRAGCITY_GAME_ROOT:-/home/container/game/csgo}"
+GAME_ROOT="${FRAGCITY_GAME_ROOT:-/home/container/game}"
 SERVER_UUID="${P_SERVER_UUID:-}"
 VERBOSE="${FRAGCITY_SYNC_VERBOSE:-0}"
 
@@ -42,259 +20,124 @@ die() { printf '[fragcity-payload] ERROR: %s\n' "$*" >&2; exit 1; }
 validate_absolute_path() {
     local label="$1" path="$2"
     [[ "$path" == /* ]] || die "$label must be an absolute path: $path"
-    case "/$path/" in
-        *"/../"*) die "$label must not contain '..': $path" ;;
-    esac
+    case "/$path/" in *"/../"*) die "$label must not contain '..': $path" ;; esac
+}
+validate_relative_path() {
+    local path="$1" component
+    [[ -n "$path" && "$path" != /* && "$path" != *".."* && "$path" != *"//"* \
+        && "$path" != *$'\n'* && "$path" != *$'\r'* ]] || return 1
+    local -a parts=()
+    IFS='/' read -r -a parts <<< "$path"
+    for component in "${parts[@]}"; do
+        [[ -n "$component" && "$component" != "." && "$component" != ".." ]] || return 1
+    done
 }
 
 validate_absolute_path "FRAGCITY_PAYLOAD_BASE" "$PAYLOAD_BASE"
 validate_absolute_path "FRAGCITY_GAME_ROOT" "$GAME_ROOT"
 [[ "$VERBOSE" == "0" || "$VERBOSE" == "1" ]] || die "FRAGCITY_SYNC_VERBOSE must be 0 or 1."
-
-# Wings injects this UUID per server. Do not run the deployment without a
-# trustworthy server identity; the destination is the current server's volume.
 [[ "$SERVER_UUID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] \
     || die "P_SERVER_UUID is missing or invalid; refusing to sync without a verified server identity."
 
 case "$GAME_ROOT" in
-    */game/csgo) SERVER_ROOT="${GAME_ROOT%/game/csgo}" ;;
-    *) die "FRAGCITY_GAME_ROOT must end in /game/csgo so the server volume root can be identified safely." ;;
+    */game) SERVER_ROOT="${GAME_ROOT%/game}" ;;
+    *) die "FRAGCITY_GAME_ROOT must end in /game so the server volume root can be identified safely." ;;
 esac
 [[ -d "$SERVER_ROOT" && ! -L "$SERVER_ROOT" ]] || die "Server volume root is missing or unsafe: $SERVER_ROOT"
+[[ ! -L "$GAME_ROOT" ]] || die "Game root must not be a symlink: $GAME_ROOT"
+if [[ -e "$GAME_ROOT" && ! -d "$GAME_ROOT" ]]; then
+    die "Game root exists but is not a directory: $GAME_ROOT"
+fi
 
-CONFIG_SEED_STATE="$SERVER_ROOT/.fragcity-config-seed-v1.state"
+# Keep the historical state filename so volumes provisioned by older versions remain valid.
+# It now records first full-game synchronization; it no longer gates configuration copying.
+INITIAL_STATE="$SERVER_ROOT/.fragcity-config-seed-v1.state"
 MANAGED_MANIFEST="$SERVER_ROOT/.fragcity-managed-payload-v1.list"
-CONFIG_SEED_ACTIVE=0
 [[ ! -L "$MANAGED_MANIFEST" ]] || die "Managed-payload manifest must not be a symlink: $MANAGED_MANIFEST"
 [[ ! -e "$MANAGED_MANIFEST" || -f "$MANAGED_MANIFEST" ]] || die "Managed-payload manifest must be a regular file: $MANAGED_MANIFEST"
-
-[[ ! -L "$CONFIG_SEED_STATE" ]] || die "Config seed state file must not be a symlink: $CONFIG_SEED_STATE"
-[[ ! -e "$CONFIG_SEED_STATE" || -f "$CONFIG_SEED_STATE" ]] || die "Config seed state path must be a regular file: $CONFIG_SEED_STATE"
-
-if [[ -f "$CONFIG_SEED_STATE" ]]; then
-    grep -Fxq 'fragcity-config-seed-v1' "$CONFIG_SEED_STATE" \
-        && grep -Fxq "server_uuid=$SERVER_UUID" "$CONFIG_SEED_STATE" \
-        || die "Config-seed state does not match this server UUID."
-    if grep -Fxq 'mode=completed' "$CONFIG_SEED_STATE"; then
-        log "First-install config seed already completed; all cfg/configs/txt files will be preserved."
-    elif grep -Fxq 'mode=pending' "$CONFIG_SEED_STATE"; then
-        [[ -w "$CONFIG_SEED_STATE" ]] || die "Pending config-seed state is not writable; refusing to seed configs without being able to record completion."
-        CONFIG_SEED_ACTIVE=1
-        log "New-server first-install config seed is pending; config files will be installed once."
-    else
-        die "Config-seed state has no recognized pending/completed mode."
-    fi
-else
-    # Existing servers from before this feature have no state marker. Do not
-    # initialize a seed marker here: no marker means preserve all customer config.
-    log "No first-install marker found; treating this as an existing server and preserving all cfg/configs/txt files."
-fi
+[[ ! -L "$INITIAL_STATE" ]] || die "Initial-sync state file must not be a symlink: $INITIAL_STATE"
+[[ ! -e "$INITIAL_STATE" || -f "$INITIAL_STATE" ]] || die "Initial-sync state path must be a regular file: $INITIAL_STATE"
 
 for command_name in sha256sum find cp mkdir rm awk flock tr chmod dirname grep date sort mv wc; do
     command -v "$command_name" >/dev/null 2>&1 || die "$command_name is required."
 done
-
 [[ -d "$PAYLOAD_BASE" && ! -L "$PAYLOAD_BASE" ]] || die "Payload mount is missing or is a symlink: $PAYLOAD_BASE"
 [[ -f "$PAYLOAD_BASE/.sync.lock" && ! -L "$PAYLOAD_BASE/.sync.lock" ]] || die "Host payload lock file is missing."
 [[ -f "$PAYLOAD_BASE/CURRENT_COMMIT" && ! -L "$PAYLOAD_BASE/CURRENT_COMMIT" ]] || die "No published payload snapshot is available (CURRENT_COMMIT missing)."
 
-# Hold a shared lock until this sync completes. Host publication/pruning takes the
-# exclusive lock, so the revision selected below remains present and immutable.
+# Hold the shared lock until every source file has been copied and verified.
 exec 9< "$PAYLOAD_BASE/.sync.lock"
 flock -s 9
-
 SOURCE_COMMIT="$(tr -d '\r\n' < "$PAYLOAD_BASE/CURRENT_COMMIT")"
 [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || die "CURRENT_COMMIT is not a full lowercase Git commit SHA."
 PAYLOAD_ROOT="$PAYLOAD_BASE/revisions/$SOURCE_COMMIT"
-
 [[ -d "$PAYLOAD_ROOT" && ! -L "$PAYLOAD_ROOT" ]] || die "Published revision directory is missing: $PAYLOAD_ROOT"
 [[ -f "$PAYLOAD_ROOT/.source-commit" && ! -L "$PAYLOAD_ROOT/.source-commit" ]] || die "Revision marker is missing."
 [[ "$(tr -d '\r\n' < "$PAYLOAD_ROOT/.source-commit")" == "$SOURCE_COMMIT" ]] || die "Revision marker does not match CURRENT_COMMIT."
 
-GAME_SOURCE="$PAYLOAD_ROOT/game/csgo"
-ADDONS_SOURCE="$GAME_SOURCE/addons"
-CSS_SOURCE="$ADDONS_SOURCE/counterstrikesharp"
-
-[[ -d "$CSS_SOURCE/source" ]] || die "Missing staged folder: $CSS_SOURCE/source"
-[[ -d "$CSS_SOURCE/plugins" ]] || die "Missing staged folder: $CSS_SOURCE/plugins"
-[[ -d "$CSS_SOURCE/plugins/disabled" && ! -L "$CSS_SOURCE/plugins/disabled" ]] || die "Missing or unsafe staged folder: $CSS_SOURCE/plugins/disabled"
-[[ -n "$(find "$CSS_SOURCE/plugins/disabled" -type f -print -quit)" ]] || die "No files found under staged folder: $CSS_SOURCE/plugins/disabled"
-
-# The host publisher generates this authoritative list from the plugin folders
-# actually staged from the current GitHub commit. Unlike the file manifest, it
-# also works for legacy volumes that predate FragCity's managed-file tracking.
-PLUGIN_INVENTORY="$PAYLOAD_ROOT/.fragcity-plugin-inventory-v1.list"
-[[ -f "$PLUGIN_INVENTORY" && ! -L "$PLUGIN_INVENTORY" ]] || die "Published plugin inventory is missing or unsafe."
-declare -A DESIRED_PLUGIN_DIRS=()
-while IFS= read -r plugin_name || [[ -n "$plugin_name" ]]; do
-    [[ "$plugin_name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die "Unsafe plugin name in published inventory: $plugin_name"
-    [[ -z "${DESIRED_PLUGIN_DIRS[$plugin_name]+present}" ]] || die "Duplicate plugin entry in published inventory: $plugin_name"
-    case "$plugin_name" in
-        BotAI|CS2UpdateMonitor)
-            # These directories are not copied from this payload, but are still
-            # authoritative members while their source folders exist in GitHub.
-            DESIRED_PLUGIN_DIRS["$plugin_name"]=1
-            continue
-            ;;
-    esac
-    [[ -d "$CSS_SOURCE/plugins/$plugin_name" && ! -L "$CSS_SOURCE/plugins/$plugin_name" ]] || die "Inventory plugin directory is missing or unsafe in the published revision: $plugin_name"
-    DESIRED_PLUGIN_DIRS["$plugin_name"]=1
-done < "$PLUGIN_INVENTORY"
-[[ -n "${DESIRED_PLUGIN_DIRS[disabled]+present}" ]] || die "Published plugin inventory is missing the reserved disabled/ directory."
-[[ "$(sort -u "$PLUGIN_INVENTORY" | wc -l)" -eq "$(wc -l < "$PLUGIN_INVENTORY")" ]] || die "Published plugin inventory is not unique."
-[[ -d "$CSS_SOURCE/shared" ]] || die "Missing staged folder: $CSS_SOURCE/shared"
-[[ -d "$CSS_SOURCE/gamedata" ]] || die "Missing staged folder: $CSS_SOURCE/gamedata"
-[[ -d "$CSS_SOURCE/configs" && ! -L "$CSS_SOURCE/configs" ]] || die "Missing or unsafe staged folder: $CSS_SOURCE/configs"
-[[ -n "$(find "$CSS_SOURCE/configs" -type f -print -quit)" ]] || die "No files found under staged folder: $CSS_SOURCE/configs"
-[[ -d "$GAME_SOURCE/cfg" && ! -L "$GAME_SOURCE/cfg" ]] || die "Missing or unsafe staged folder: $GAME_SOURCE/cfg"
-[[ -n "$(find "$GAME_SOURCE/cfg" -type f -print -quit)" ]] || die "No files found under staged folder: $GAME_SOURCE/cfg"
-for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
-    [[ -f "$GAME_SOURCE/$name" && ! -L "$GAME_SOURCE/$name" ]] || die "Missing or unsafe staged CS2 config file: $GAME_SOURCE/$name"
-done
-[[ -f "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf" ]] || die "Missing staged VDF: $ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf"
-
-for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmanager; do
-    [[ -d "$ADDONS_SOURCE/$name" ]] || die "Missing staged addon directory: $ADDONS_SOURCE/$name"
-done
-
-reject_source_symlinks() {
-    local source_path="$1" link_path
-    while IFS= read -r -d '' link_path; do
-        die "Symlink found in managed payload: $link_path"
-    done < <(find "$source_path" -type l -print0)
-}
-
-for source_path in \
-    "$CSS_SOURCE/source" "$CSS_SOURCE/shared" "$CSS_SOURCE/gamedata" \
-    "$CSS_SOURCE/configs" "$GAME_SOURCE/cfg" \
-    "$ADDONS_SOURCE/MovementUnlocker" "$ADDONS_SOURCE/serverlistplayersfix_mm" \
-    "$ADDONS_SOURCE/surf" "$ADDONS_SOURCE/scripts" "$ADDONS_SOURCE/multiaddonmanager"; do
-    reject_source_symlinks "$source_path"
-done
-while IFS= read -r -d '' link_path; do
-    die "Symlink found in managed CounterStrikeSharp plugin payload: $link_path"
-done < <(
-    find "$CSS_SOURCE/plugins" -mindepth 1 \
-        \( -path "$CSS_SOURCE/plugins/BotAI" \
-           -o -path "$CSS_SOURCE/plugins/CS2UpdateMonitor" \) -prune \
-        -o -type l -print0
-)
-for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
-    [[ ! -L "$GAME_SOURCE/$name" ]] || die "Managed CS2 config file must not be a symlink: $GAME_SOURCE/$name"
-done
-[[ ! -L "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf" ]] || die "Managed VDF must not be a symlink."
-
-CSS_TARGET="$GAME_ROOT/addons/counterstrikesharp"
-CONFIG_FILES=(
-    "gamemodes_server.txt"
-    "mapcycle.txt"
-    "mapcyclecustom.txt"
-    "subscribed_collection_ids.txt"
-    "subscribed_file_ids.txt"
-)
-CONFIG_ROOT="$CSS_TARGET/configs"
-MANAGED_ROOTS=(
-    "$CSS_TARGET/source"
-    "$CSS_TARGET/plugins"
-    "$CSS_TARGET/shared"
-    "$CSS_TARGET/gamedata"
-    "$GAME_ROOT/addons/MovementUnlocker"
-    "$GAME_ROOT/addons/serverlistplayersfix_mm"
-    "$GAME_ROOT/addons/surf"
-    "$GAME_ROOT/addons/scripts"
-    "$GAME_ROOT/addons/multiaddonmanager"
-)
-if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
-    # These are included in managed paths only during a brand-new server's seed.
-    # On subsequent starts they are omitted from both copy and stale cleanup.
-    MANAGED_ROOTS+=("$CONFIG_ROOT")
-fi
-
-for target_path in "$GAME_ROOT" "$GAME_ROOT/addons" "$CSS_TARGET" "${MANAGED_ROOTS[@]}" "$GAME_ROOT/addons/metamod"; do
-    [[ ! -L "$target_path" ]] || die "Managed target path is a symlink: $target_path"
-done
-if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
-    [[ ! -L "$CONFIG_ROOT" && ! -L "$GAME_ROOT/cfg" ]] || die "First-install config target path is a symlink."
-    for relative_file in "${CONFIG_FILES[@]}"; do
-        [[ ! -L "$GAME_ROOT/$relative_file" ]] || die "First-install config target file is a symlink: $GAME_ROOT/$relative_file"
-    done
-fi
-
-# Reject symlinks inside managed targets rather than risk following a redirected path.
-for managed_root in "${MANAGED_ROOTS[@]}"; do
-    [[ -d "$managed_root" ]] || continue
-    if [[ "$managed_root" == "$CSS_TARGET/plugins" ]]; then
-        # Only inspect directories represented by the current authoritative
-        # inventory. Obsolete directories are moved out of the live plugin root
-        # below without walking through their contents.
-        while IFS= read -r -d '' plugin_dir; do
-            plugin_name="${plugin_dir##*/}"
-            case "$plugin_name" in
-                BotAI|CS2UpdateMonitor) continue ;;
-            esac
-            [[ -n "${DESIRED_PLUGIN_DIRS[$plugin_name]+present}" ]] || continue
-            while IFS= read -r -d '' link_path; do
-                die "Symlink found inside managed target plugin tree: $link_path"
-            done < <(find "$plugin_dir" -type l -print0)
-        done < <(find "$managed_root" -mindepth 1 -maxdepth 1 -type d -print0)
-    else
-        while IFS= read -r -d '' link_path; do
-            die "Symlink found inside managed target tree: $link_path"
-        done < <(find "$managed_root" -type l -print0)
-    fi
-done
+GAME_SOURCE="$PAYLOAD_ROOT/game"
+GAME_INVENTORY="$PAYLOAD_ROOT/.fragcity-game-files-v1.list"
+[[ -d "$GAME_SOURCE" && ! -L "$GAME_SOURCE" ]] || die "Published revision is missing the full repository game/ folder."
+[[ -f "$GAME_INVENTORY" && ! -L "$GAME_INVENTORY" ]] || die "Published full-game file inventory is missing."
+[[ -d "$GAME_SOURCE/csgo/addons/counterstrikesharp/plugins/disabled" && ! -L "$GAME_SOURCE/csgo/addons/counterstrikesharp/plugins/disabled" ]] \
+    || die "Published game tree is missing plugins/disabled/."
+[[ -n "$(find "$GAME_SOURCE/csgo/addons/counterstrikesharp/plugins/disabled" -type f -print -quit)" ]] \
+    || die "Published plugins/disabled/ folder contains no files."
+[[ -z "$(find "$GAME_SOURCE" -type l -print -quit)" ]] || die "Symlinks are not allowed anywhere in repository game/."
 
 declare -A DESIRED_SOURCE=()
 declare -A DESIRED_HASH=()
+declare -A PREVIOUS_MANAGED=()
+MANIFEST_PRESENT=0
 
 add_file() {
     local relative_path="$1" source_path="$2" source_hash
-    [[ -f "$source_path" ]] || die "Expected staged payload file does not exist: $source_path"
+    validate_relative_path "$relative_path" || die "Unsafe repository-relative path: $relative_path"
+    [[ -f "$source_path" && ! -L "$source_path" ]] || die "Expected full-tree payload file is missing or unsafe: $source_path"
     source_hash="$(sha256sum -- "$source_path" | awk '{print $1}')"
     [[ -n "$source_hash" ]] || die "Could not calculate SHA-256 for: $source_path"
     DESIRED_SOURCE["$relative_path"]="$source_path"
     DESIRED_HASH["$relative_path"]="$source_hash"
 }
 
-add_tree() {
-    local source_dir="$1" target_relative_dir="$2" skip_protected_plugin_dirs="${3:-0}"
-    local source_file relative_file
-    [[ -d "$source_dir" ]] || die "Missing staged source directory: $source_dir"
+EXPECTED_SOURCE_COUNT="$(wc -l < "$GAME_INVENTORY")"
+[[ "$EXPECTED_SOURCE_COUNT" =~ ^[1-9][0-9]*$ ]] || die "Published full-game inventory is empty or invalid."
+[[ "$(LC_ALL=C sort -u "$GAME_INVENTORY" | wc -l)" -eq "$EXPECTED_SOURCE_COUNT" ]] || die "Published full-game inventory contains duplicate paths."
+grep -q '^csgo/addons/counterstrikesharp/plugins/disabled/' "$GAME_INVENTORY" || die "Full-game inventory omitted plugins/disabled files."
+while IFS= read -r relative_path || [[ -n "$relative_path" ]]; do
+    validate_relative_path "$relative_path" || die "Unsafe path in full-game inventory: $relative_path"
+    add_file "$relative_path" "$GAME_SOURCE/$relative_path"
+done < "$GAME_INVENTORY"
+ACTUAL_SOURCE_COUNT="$(find "$GAME_SOURCE" -type f | wc -l)"
+[[ "$ACTUAL_SOURCE_COUNT" -eq "$EXPECTED_SOURCE_COUNT" ]] || die "Full-game inventory mismatch: inventory=$EXPECTED_SOURCE_COUNT actual=$ACTUAL_SOURCE_COUNT."
 
-    if [[ "$skip_protected_plugin_dirs" -eq 1 ]]; then
-        while IFS= read -r -d '' source_file; do
-            relative_file="${source_file#"$source_dir"/}"
-            if is_protected_plugin_runtime_path "$target_relative_dir/$relative_file"; then
-                # Runtime data must never be sourced from the repository or placed
-                # in the managed manifest even if it is accidentally committed there.
-                continue
-            fi
-            add_file "$target_relative_dir/$relative_file" "$source_file"
-        done < <(
-            find "$source_dir" -mindepth 1 \
-                \( -path "$source_dir/BotAI" \
-                   -o -path "$source_dir/CS2UpdateMonitor" \) -prune \
-                -o -type f -print0
-        )
-    else
-        while IFS= read -r -d '' source_file; do
-            relative_file="${source_file#"$source_dir"/}"
-            add_file "$target_relative_dir/$relative_file" "$source_file"
-        done < <(find "$source_dir" -type f -print0)
-    fi
-}
+# Old v1 manifests used /home/container/game/csgo as their root. Prefix those
+# entries with csgo/ so stale-file cleanup still targets the same legacy paths.
+if [[ -f "$MANAGED_MANIFEST" ]]; then
+    MANIFEST_PRESENT=1
+    while IFS= read -r previous_path || [[ -n "$previous_path" ]]; do
+        [[ -z "$previous_path" || "$previous_path" == "# fragcity-managed-payload-v1" ]] && continue
+        validate_relative_path "$previous_path" || die "Unsafe path in managed-payload manifest: $previous_path"
+        [[ "$previous_path" == csgo/* ]] || previous_path="csgo/$previous_path"
+        PREVIOUS_MANAGED["$previous_path"]=1
+    done < "$MANAGED_MANIFEST"
+fi
+
+# The Egg's game/cs2.sh is outside repository game/ and is not overwritten by this overlay.
+mkdir -p -- "$GAME_ROOT"
+[[ ! -L "$GAME_ROOT" ]] || die "Game root became a symlink: $GAME_ROOT"
 
 assert_no_symlink_parent_components() {
     local target_path="$1" relative_path current_path part component_index
     local -a components=()
-
     case "$target_path" in
         "$GAME_ROOT"/*) relative_path="${target_path#"$GAME_ROOT"/}" ;;
         *) die "Refusing to write outside GAME_ROOT: $target_path" ;;
     esac
-
+    validate_relative_path "$relative_path" || die "Unsafe target-relative path: $relative_path"
     IFS='/' read -r -a components <<< "$relative_path"
     current_path="$GAME_ROOT"
+    [[ ! -L "$current_path" ]] || die "Game root is a symlink: $current_path"
     for ((component_index = 0; component_index < ${#components[@]} - 1; component_index++)); do
         part="${components[$component_index]}"
         current_path="$current_path/$part"
@@ -302,96 +145,13 @@ assert_no_symlink_parent_components() {
     done
 }
 
-
-# Only files actually supplied by this payload may be stale-pruned. Files generated
-# by plugins (SQLite databases, bans, per-map JSON data, etc.) are unmanaged.
-is_protected_plugin_runtime_path() {
-    local path="$1"
-    case "$path" in
-        addons/counterstrikesharp/plugins/PlayerSettings/settings.sqlite|\
-        addons/counterstrikesharp/plugins/SimpleAdmin/bans.db|\
-        addons/counterstrikesharp/plugins/SimpleAdmin/data/*|\
-        addons/counterstrikesharp/plugins/CS2-Poor-MapPropAds/maps/*.json|\
-        addons/counterstrikesharp/plugins/*/*.db|\
-        addons/counterstrikesharp/plugins/*/*.sqlite|\
-        addons/counterstrikesharp/plugins/*/*.sqlite3)
-            return 0
-            ;;
-    esac
-    return 1
-}
-
-is_payload_managed_path() {
-    local path="$1"
-    [[ -n "$path" && "$path" != /* && "$path" != *".."* && "$path" != *"//"* ]] || return 1
-    case "$path" in
-        addons/counterstrikesharp/source/*|\
-        addons/counterstrikesharp/plugins/*|\
-        addons/counterstrikesharp/shared/*|\
-        addons/counterstrikesharp/gamedata/*|\
-        addons/MovementUnlocker/*|\
-        addons/serverlistplayersfix_mm/*|\
-        addons/surf/*|\
-        addons/scripts/*|\
-        addons/multiaddonmanager/*|\
-        addons/metamod/serverlistplayersfix_mm.vdf)
-            ;;
-        *)
-            return 1
-            ;;
-    esac
-    if is_protected_plugin_runtime_path "$path"; then
-        return 1
-    fi
-    case "$path" in
-        addons/counterstrikesharp/plugins/BotAI|addons/counterstrikesharp/plugins/BotAI/*|\
-        addons/counterstrikesharp/plugins/CS2UpdateMonitor|addons/counterstrikesharp/plugins/CS2UpdateMonitor/*)
-            return 1
-            ;;
-    esac
-    return 0
-}
-
-log "Target server UUID: $SERVER_UUID."
-log "Using published payload revision $SOURCE_COMMIT."
-log "Building the desired-file list from the immutable snapshot."
-add_tree "$CSS_SOURCE/source" "addons/counterstrikesharp/source"
-add_tree "$CSS_SOURCE/plugins" "addons/counterstrikesharp/plugins" 1
-add_tree "$CSS_SOURCE/shared" "addons/counterstrikesharp/shared"
-add_tree "$CSS_SOURCE/gamedata" "addons/counterstrikesharp/gamedata"
-if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
-    add_tree "$CSS_SOURCE/configs" "addons/counterstrikesharp/configs"
-    add_tree "$GAME_SOURCE/cfg" "cfg"
-    for name in "${CONFIG_FILES[@]}"; do
-        add_file "$name" "$GAME_SOURCE/$name"
-    done
-fi
-for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmanager; do
-    add_tree "$ADDONS_SOURCE/$name" "addons/$name"
-done
-add_file "addons/metamod/serverlistplayersfix_mm.vdf" "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf"
-
-# Load the previous successful inventory. On the first rollout this manifest does
-# not exist, so skip stale cleanup once rather than delete unknown plugin-generated data.
-declare -A PREVIOUS_MANAGED=()
-MANIFEST_PRESENT=0
-if [[ -f "$MANAGED_MANIFEST" ]]; then
-    MANIFEST_PRESENT=1
-    while IFS= read -r previous_path || [[ -n "$previous_path" ]]; do
-        [[ -z "$previous_path" || "$previous_path" == "# fragcity-managed-payload-v1" ]] && continue
-        is_payload_managed_path "$previous_path" || die "Unsafe path in managed-payload manifest: $previous_path"
-        PREVIOUS_MANAGED["$previous_path"]=1
-    done < "$MANAGED_MANIFEST"
-fi
-
-for managed_root in "${MANAGED_ROOTS[@]}"; do mkdir -p -- "$managed_root"; done
-mkdir -p -- "$GAME_ROOT/addons/metamod"
-
 COPIED=0
 UNCHANGED=0
 VERIFIED=0
+log "Target server UUID: $SERVER_UUID."
+log "Using published payload revision $SOURCE_COMMIT."
+log "Synchronizing every tracked file from repository game/ with no exclusions: $EXPECTED_SOURCE_COUNT files."
 
-# Transfer only missing/changed files. Each changed copy is verified before cleanup.
 for relative_path in "${!DESIRED_SOURCE[@]}"; do
     source_path="${DESIRED_SOURCE[$relative_path]}"
     expected_hash="${DESIRED_HASH[$relative_path]}"
@@ -401,69 +161,34 @@ for relative_path in "${!DESIRED_SOURCE[@]}"; do
 
     actual_hash=""
     if [[ -f "$target_path" ]]; then
-        actual_hash="$(sha256sum -- "$target_path" | awk 'NR == 1 {print $1}')"
+        actual_hash="$(sha256sum -- "$target_path" | awk '{print $1}')"
+    elif [[ -e "$target_path" ]]; then
+        die "Managed target path exists but is not a regular file: $target_path"
     fi
-
     if [[ "$actual_hash" == "$expected_hash" ]]; then
         UNCHANGED=$((UNCHANGED + 1))
         VERIFIED=$((VERIFIED + 1))
         continue
     fi
 
-    if [[ "$VERBOSE" == "1" ]]; then
-        log "Updating $relative_path (missing or SHA-256 differs)."
-    fi
+    [[ "$VERBOSE" != "1" ]] || log "Updating $relative_path (missing or SHA-256 differs)."
     mkdir -p -- "$(dirname -- "$target_path")"
-    # A published snapshot is read-only; deployed files should remain editable by
-    # the server's container user, as in an ordinary Pterodactyl game volume.
+    assert_no_symlink_parent_components "$target_path"
+    [[ ! -L "$target_path" ]] || die "Managed target file became a symlink: $target_path"
     if [[ -e "$target_path" ]]; then
+        [[ -f "$target_path" ]] || die "Managed target path is not a regular file: $target_path"
         chmod u+w -- "$target_path" || die "Could not make managed target writable before copy: $target_path"
     fi
     cp -- "$source_path" "$target_path"
     chmod u+w -- "$target_path" || die "Could not make managed target writable after copy: $target_path"
-
-    actual_hash="$(sha256sum -- "$target_path" | awk 'NR == 1 {print $1}')"
+    actual_hash="$(sha256sum -- "$target_path" | awk '{print $1}')"
     [[ "$actual_hash" == "$expected_hash" ]] || die "SHA-256 verification failed after copy: $relative_path"
     COPIED=$((COPIED + 1))
     VERIFIED=$((VERIFIED + 1))
 done
 
-# Reconcile plugin directories against the current GitHub inventory on every
-# server start. A plugin folder no longer present in the current payload must not
-# remain under CounterStrikeSharp's live plugins/ path, even when this old server
-# has no prior managed-file manifest. Move it outside the runtime tree instead of
-# deleting it outright, preserving its old files/data for recovery.
-RETIRED_PLUGIN_COUNT=0
-RETIRE_BATCH=""
-RETIRE_ROOT="$SERVER_ROOT/.fragcity-retired-plugins"
-while IFS= read -r -d '' plugin_path; do
-    plugin_name="${plugin_path##*/}"
-    case "$plugin_name" in
-        disabled) continue ;;
-    esac
-    [[ -d "$plugin_path" ]] || continue
-    [[ -z "${DESIRED_PLUGIN_DIRS[$plugin_name]+present}" ]] || continue
-    [[ "$plugin_name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die "Refusing to retire plugin directory with an unsafe name: $plugin_name"
-
-    if [[ -z "$RETIRE_BATCH" ]]; then
-        [[ ! -L "$RETIRE_ROOT" ]] || die "Retired-plugin storage must not be a symlink: $RETIRE_ROOT"
-        [[ ! -e "$RETIRE_ROOT" || -d "$RETIRE_ROOT" ]] || die "Retired-plugin storage exists but is not a directory: $RETIRE_ROOT"
-        mkdir -p -- "$RETIRE_ROOT"
-        RETIRE_BATCH="$RETIRE_ROOT/${SOURCE_COMMIT}-$(date -u '+%Y%m%dT%H%M%SZ')-$BASHPID"
-        [[ ! -e "$RETIRE_BATCH" && ! -L "$RETIRE_BATCH" ]] || die "Retired-plugin batch path already exists: $RETIRE_BATCH"
-        mkdir -- "$RETIRE_BATCH"
-    fi
-
-    retired_path="$RETIRE_BATCH/$plugin_name"
-    [[ ! -e "$retired_path" && ! -L "$retired_path" ]] || die "Retired-plugin destination already exists: $retired_path"
-    mv -- "$plugin_path" "$retired_path" || die "Could not move obsolete plugin out of the live plugin root: $plugin_name"
-    RETIRED_PLUGIN_COUNT=$((RETIRED_PLUGIN_COUNT + 1))
-    log "Quarantined stale plugin directory missing from current GitHub inventory: $plugin_name"
-done < <(find "$CSS_TARGET/plugins" -mindepth 1 -maxdepth 1 -print0)
-log "Authoritative plugin inventory checked: ${#DESIRED_PLUGIN_DIRS[@]} entries including disabled/; stale plugin directories quarantined: $RETIRED_PLUGIN_COUNT."
-
-# Delete stale files only when the previous manifest proves FragCity deployed them.
-# Never sweep a plugin directory and assume every unlisted file is disposable.
+# Only previously managed files that are now absent from the complete Git tree can be
+# deleted. Without a prior manifest, unrecognized CS2 engine/runtime files are preserved.
 DELETED=0
 if [[ "$MANIFEST_PRESENT" -eq 1 ]]; then
     for relative_path in "${!PREVIOUS_MANAGED[@]}"; do
@@ -479,73 +204,35 @@ if [[ "$MANIFEST_PRESENT" -eq 1 ]]; then
         fi
     done
 else
-    log "No prior managed-payload manifest; skipping stale-file deletion on this rollout to preserve existing plugin/runtime data."
+    log "No prior managed-payload manifest; skipping stale-file deletion on this rollout to preserve unknown game/runtime files."
 fi
 
-# CSS configs can be cleaned only during the first-install seed.
-if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
-    while IFS= read -r -d '' target_path; do
-        relative_path="${target_path#"$GAME_ROOT"/}"
-        if [[ -z "${DESIRED_SOURCE[$relative_path]+present}" ]]; then
-            assert_no_symlink_parent_components "$target_path"
-            [[ ! -L "$target_path" ]] || die "First-install config target is a symlink: $target_path"
-            log "Removing stale first-install config file: $relative_path"
-            rm -f -- "$target_path"
-            DELETED=$((DELETED + 1))
-        fi
-    done < <(find "$CONFIG_ROOT" -type f -print0)
-fi
-
-if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
-    for relative_path in "${CONFIG_FILES[@]}"; do
-        target_path="$GAME_ROOT/$relative_path"
-        [[ ! -L "$target_path" ]] || die "First-install config target file is a symlink: $target_path"
-        if [[ -e "$target_path" && -z "${DESIRED_SOURCE[$relative_path]+present}" ]]; then
-            log "Removing stale first-install config file: $relative_path"
-            rm -f -- "$target_path"
-            DELETED=$((DELETED + 1))
-        fi
-    done
-fi
-
-for managed_root in "${MANAGED_ROOTS[@]}"; do
-    # Empty plugin directories may contain runtime-created data; keep them.
-    [[ "$managed_root" == "$CSS_TARGET/plugins" ]] && continue
-    find "$managed_root" -mindepth 1 -depth -type d -empty -delete
-done
-
-# Publish the new managed inventory atomically after copies and stale cleanup succeed.
 manifest_tmp="$MANAGED_MANIFEST.tmp.$BASHPID"
 [[ ! -e "$manifest_tmp" && ! -L "$manifest_tmp" ]] || die "Managed-payload manifest temp path already exists."
 {
     printf '# fragcity-managed-payload-v1\n'
-    for relative_path in "${!DESIRED_SOURCE[@]}"; do
-        if is_payload_managed_path "$relative_path"; then
-            printf '%s\n' "$relative_path"
-        fi
-    done
-} | sort -u > "$manifest_tmp" || die "Could not write managed-payload manifest."
+    for relative_path in "${!DESIRED_SOURCE[@]}"; do printf '%s\n' "$relative_path"; done
+} | LC_ALL=C sort -u > "$manifest_tmp" || die "Could not write managed-payload manifest."
 chmod 0644 "$manifest_tmp" || die "Could not set managed-payload manifest permissions."
 mv -f -- "$manifest_tmp" "$MANAGED_MANIFEST" || die "Could not publish managed-payload manifest atomically."
 
-if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
-    # The host provisioner creates this per-volume state file with mode 0666:
-    # the isolated game-container user can record completion even if it cannot
-    # create new entries in the root of the bind-mounted server volume.
-    printf 'mode=completed\nsource_commit=%s\ncompleted_at_utc=%s\n' "$SOURCE_COMMIT" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$CONFIG_SEED_STATE" \
-        || die "Could not record one-time config-seed completion; refusing to report a successful sync."
-    log "First-install config seed completed successfully; future starts will never overwrite or prune cfg/configs/txt files."
+if [[ -f "$INITIAL_STATE" ]]; then
+    grep -Fxq 'fragcity-config-seed-v1' "$INITIAL_STATE" \
+        && grep -Fxq "server_uuid=$SERVER_UUID" "$INITIAL_STATE" \
+        || die "Initial-sync state does not match this server UUID."
+    if grep -Fxq 'mode=pending' "$INITIAL_STATE"; then
+        printf 'mode=completed\nsource_commit=%s\ncompleted_at_utc=%s\n' "$SOURCE_COMMIT" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$INITIAL_STATE" \
+            || die "Could not record first full-game sync completion."
+        log "Initial full game/ payload sync completed; later starts will keep syncing every repository file."
+    elif grep -Fxq 'mode=completed' "$INITIAL_STATE"; then
+        log "Initial full game/ sync marker is complete; every repository file is still checked on this start."
+    else
+        die "Initial-sync state has no recognized pending/completed mode."
+    fi
 else
-    log "First-install config seed not active; all existing cfg/configs/txt settings were preserved."
+    log "No first-install marker found; full game/ payload is still synchronized on every start."
 fi
 
 log "Sync completed successfully."
-log "Files copied: $COPIED; already matching SHA-256: $UNCHANGED; verified: $VERIFIED; stale files removed: $DELETED."
-log "BotAI/ and CS2UpdateMonitor/ were not copied from this payload; inventory reconciliation quarantines either directory if its GitHub source folder is removed."
-log "plugins/disabled/ was synced from the published payload and remains under disabled/."
-if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
-    log "CounterStrikeSharp configs/, listed cfg/ files, and five top-level CS2 config/list files were installed as first-install defaults."
-else
-    log "CounterStrikeSharp configs/, cfg/, and five top-level CS2 config/list files were not copied or stale-pruned."
-fi
-log "Egg-managed Metamod/CounterStrikeSharp runtime files were not touched."
+log "Files copied: $COPIED; already matching SHA-256: $UNCHANGED; verified: $VERIFIED; stale managed files removed: $DELETED."
+log "No game/ subtrees were excluded: plugins/disabled, BotAI, CS2UpdateMonitor, configs, cfg and bundled runtime files are included."
