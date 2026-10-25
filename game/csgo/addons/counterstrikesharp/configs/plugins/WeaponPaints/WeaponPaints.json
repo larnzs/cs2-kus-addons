@@ -2,13 +2,13 @@
 {
   "ConfigVersion": 10,
   "SkinsLanguage": "en",
-  "DatabaseHost": "localhost",
+  "DatabaseHost": "172.18.0.1",
   "DatabasePort": 3306,
-  "DatabaseUser": "root",
-  "DatabasePassword": "",
-  "DatabaseName": "weaponpaints_plugin",
+  "DatabaseUser": "plugins",
+  "DatabasePassword": "Atrisayeafsorde824@",
+  "DatabaseName": "GLOBAL_weaponpaints",
   "CmdRefreshCooldownSeconds": 3,
-  "Website": "cs.fragcity.ir/weaponpaints.php",
+  "Website": "fragcity.ir/weaponpaints.php",
   "Additional": {
     "KnifeEnabled": true,
     "GloveEnabled": true,
@@ -20,9 +20,13 @@
     "CommandKillEnabled": true,
     "CommandKnife": [
       "knife"
+      "knives"
     ],
     "CommandMusic": [
       "music"
+      "musics"
+      "musickit"
+      "kit"
     ],
     "CommandPin": [
       "pin",
@@ -32,9 +36,11 @@
     ],
     "CommandGlove": [
       "gloves"
+      "glove"
     ],
     "CommandAgent": [
       "agents"
+      "agent"
     ],
     "CommandStattrak": [
       "stattrak",
