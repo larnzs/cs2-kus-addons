@@ -86,6 +86,9 @@ function baselineRegistryStatus(string $baselinePath, string $registryPath): str
     if (!is_file($baselinePath)) {
         return 'NO-BASELINE';
     }
+    if (file_exists($registryPath) && !is_file($registryPath)) {
+        return 'INVALID';
+    }
     if (!is_file($registryPath)) {
         return 'MISSING';
     }
