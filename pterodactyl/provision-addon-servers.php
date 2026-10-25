@@ -48,6 +48,7 @@ FragCity Pterodactyl addon provisioner
 
 Usage:
   php provision-addon-servers.php --initialize-baseline [--exclude <server-uuid>]
+  php provision-addon-servers.php --publish-baseline-registry
   php provision-addon-servers.php --server <server-uuid>
   php provision-addon-servers.php --verify-server <server-uuid>
   php provision-addon-servers.php --watch
@@ -162,6 +163,39 @@ function readUuidList(string $path): array
     }
 
     return $uuids;
+}
+
+/**
+ * Publish one-way hashes of the immutable baseline UUID set into the read-only
+ * payload Mount. Containers can classify their own UUID without seeing other
+ * servers' raw UUIDs. A server not in this baseline must be registered before
+ * its first config seed can proceed.
+ */
+function publishBaselineHashRegistry(string $baselinePath, string $payloadRoot): void
+{
+    if (is_link($payloadRoot) || !is_dir($payloadRoot)) {
+        fail('Payload root is missing or unsafe while publishing the baseline registry: ' . $payloadRoot);
+    }
+
+    $uuids = readUuidList($baselinePath);
+    $hashes = [];
+    foreach (array_keys($uuids) as $uuid) {
+        $hashes[] = hash('sha256', $uuid);
+    }
+    sort($hashes, SORT_STRING);
+
+    $path = rtrim($payloadRoot, '/') . '/FRAGCITY_BASELINE_SHA256';
+    if (is_link($path) || (file_exists($path) && !is_file($path))) {
+        fail('Baseline hash registry path is unsafe: ' . $path);
+    }
+    $contents = $hashes === [] ? '' : implode(PHP_EOL, $hashes) . PHP_EOL;
+    if (is_file($path) && (string) file_get_contents($path) === $contents
+        && (fileperms($path) & 0777) === 0444) {
+        return;
+    }
+
+    writeAtomically($path, $contents, 0444);
+    logLine('Published baseline hash registry for ' . count($hashes) . ' pre-existing server(s); raw UUIDs are not exposed to containers.');
 }
 
 function bootPanel(string $panelRoot): void
@@ -1021,7 +1055,7 @@ function main(array $argv): int
             }
             $baselineExcludeUuid = (string) $argv[3];
         }
-    } elseif ($mode !== '--watch' || isset($argv[2])) {
+    } elseif (!in_array($mode, ['--watch', '--publish-baseline-registry'], true) || isset($argv[2])) {
         fwrite(STDERR, "ERROR: invalid arguments.\n");
         usage();
         return 2;
@@ -1095,6 +1129,7 @@ function main(array $argv): int
         $uuids = array_values($eligibleUuids);
         sort($uuids, SORT_STRING);
         writeAtomically($baselinePath, implode(PHP_EOL, $uuids) . ($uuids === [] ? '' : PHP_EOL));
+        publishBaselineHashRegistry($baselinePath, $config['payloadRoot']);
         logLine('Baseline initialized with ' . count($uuids) . ' currently eligible server(s).');
         if ($baselineExcludeUuid !== null) {
             logLine('One explicitly excluded eligible server will be picked up by --watch when it is ready.');
@@ -1103,8 +1138,18 @@ function main(array $argv): int
         return 0;
     }
 
+    if ($mode === '--publish-baseline-registry') {
+        if (is_link($baselinePath) || !is_file($baselinePath)) {
+            fail('A valid one-time baseline is required before publishing its hash registry.');
+        }
+        publishBaselineHashRegistry($baselinePath, $config['payloadRoot']);
+        logLine('Baseline hash registry refreshed; no server volumes, Mounts, containers or startup settings were changed.');
+        return 0;
+    }
+
     if ($mode === '--watch') {
         $baseline = readUuidList($baselinePath);
+        publishBaselineHashRegistry($baselinePath, $config['payloadRoot']);
         $servers = eligibleServers($mount);
         $successes = 0;
         $failures = 0;
