@@ -33,7 +33,7 @@ done
 is_test_config_path() {
     local path="$1"
     case "$path" in
-        */configs/*|*/config/*|*/cfg/*|*.cfg|\
+        csgo/cfg/*|csgo/addons/counterstrikesharp/configs/*|\
         csgo/gamemodes_server.txt|csgo/mapcycle.txt|csgo/mapcyclecustom.txt|\
         csgo/subscribed_collection_ids.txt|csgo/subscribed_file_ids.txt)
             return 0
