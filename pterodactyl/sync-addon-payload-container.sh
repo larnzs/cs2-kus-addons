@@ -201,9 +201,9 @@ add_file() {
 }
 
 EXPECTED_SOURCE_COUNT="$(wc -l < "$GAME_INVENTORY")"
-[[ "$EXPECTED_SOURCE_COUNT" =~ ^[1-9][0-9]*$ ]] || die "Published full-game inventory is empty or invalid."
-[[ "$(LC_ALL=C sort -u "$GAME_INVENTORY" | wc -l)" -eq "$EXPECTED_SOURCE_COUNT" ]] || die "Published full-game inventory contains duplicate paths."
-grep -q '^csgo/addons/counterstrikesharp/plugins/disabled/' "$GAME_INVENTORY" || die "Full-game inventory omitted plugins/disabled files."
+[[ "$EXPECTED_SOURCE_COUNT" =~ ^[1-9][0-9]*$ ]] || die "Published deployable-game inventory is empty or invalid."
+[[ "$(LC_ALL=C sort -u "$GAME_INVENTORY" | awk 'END { print NR + 0 }')" -eq "$EXPECTED_SOURCE_COUNT" ]] || die "Published deployable-game inventory contains duplicate paths."
+grep -q '^csgo/addons/counterstrikesharp/plugins/disabled/' "$GAME_INVENTORY" || die "Deployable inventory omitted plugins/disabled files."
 while IFS= read -r relative_path || [[ -n "$relative_path" ]]; do
     validate_relative_path "$relative_path" || die "Unsafe path in deployable-game inventory: $relative_path"
     is_runtime_excluded_path "$relative_path" && die "Published inventory contains a K4ryuu-managed runtime path that must be excluded: $relative_path"
@@ -214,7 +214,7 @@ for required_seed_path in csgo/subscribed_collection_ids.txt csgo/subscribed_fil
         || die "Required first-install seed file is missing from the published inventory: $required_seed_path"
 done
 ACTUAL_SOURCE_COUNT="$(find "$GAME_SOURCE" -type f | wc -l)"
-[[ "$ACTUAL_SOURCE_COUNT" -eq "$EXPECTED_SOURCE_COUNT" ]] || die "Full-game inventory mismatch: inventory=$EXPECTED_SOURCE_COUNT actual=$ACTUAL_SOURCE_COUNT."
+[[ "$ACTUAL_SOURCE_COUNT" -eq "$EXPECTED_SOURCE_COUNT" ]] || die "Deployable-game inventory mismatch: inventory=$EXPECTED_SOURCE_COUNT actual=$ACTUAL_SOURCE_COUNT."
 
 # Old v1 manifests used /home/container/game/csgo as their root. Prefix those
 # entries with csgo/ so stale-file cleanup still targets the same legacy paths.

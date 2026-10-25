@@ -305,17 +305,17 @@ function validatedPayloadCommit(string $payloadRoot): string
 
     $gameFiles = file($gameInventory, FILE_IGNORE_NEW_LINES);
     if ($gameFiles === false || count($gameFiles) === 0 || count(array_unique($gameFiles)) !== count($gameFiles)) {
-        fail('Published full-game inventory is empty, unreadable or contains duplicate paths.');
+        fail('Published deployable-game inventory is empty, unreadable or contains duplicate paths.');
     }
 
     foreach ($gameFiles as $relativePath) {
         if ($relativePath === '' || str_starts_with($relativePath, '/')
             || str_contains($relativePath, '..') || str_contains($relativePath, '//')) {
-            fail('Published full-game inventory contains an unsafe path.');
+            fail('Published deployable-game inventory contains an unsafe path.');
         }
         $path = $gameRoot . '/' . $relativePath;
         if (is_link($path) || !is_file($path)) {
-            fail('Published full-game inventory references a missing or unsafe file: ' . $relativePath);
+            fail('Published deployable-game inventory references a missing or unsafe file: ' . $relativePath);
         }
     }
 
@@ -925,7 +925,7 @@ test -f "$game_inventory" && test ! -L "$game_inventory"
 test -z "$(find "$payload_game" -type l -print -quit)"
 expected_game_files="$(wc -l < "$game_inventory")"
 test "$expected_game_files" -gt 0
-test "$(LC_ALL=C sort -u "$game_inventory" | wc -l)" -eq "$expected_game_files"
+test "$(LC_ALL=C sort -u "$game_inventory" | awk 'END { print NR + 0 }')" -eq "$expected_game_files"
 test "$(find "$payload_game" -type f | wc -l)" -eq "$expected_game_files"
 
 # Customer-specific configs are seeded exactly once by the first-start sync. A
@@ -972,7 +972,7 @@ verified_game_files=0
 preserved_config_files=0
 while IFS= read -r relative_file || [[ -n "$relative_file" ]]; do
     [[ -n "$relative_file" && "$relative_file" != /* && "$relative_file" != *".."* && "$relative_file" != *"//"* ]] || {
-        printf 'Unsafe full-game inventory path: %s\n' "$relative_file" >&2
+        printf 'Unsafe deployable-game inventory path: %s\n' "$relative_file" >&2
         exit 22
     }
     payload_file="$payload_game/$relative_file"

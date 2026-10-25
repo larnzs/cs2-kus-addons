@@ -144,7 +144,7 @@ validate_revision() {
     done
     expected_count="$(wc -l < "$game_inventory")"
     [[ "$expected_count" =~ ^[1-9][0-9]*$ ]] || return 1
-    [[ "$(LC_ALL=C sort -u "$game_inventory" | wc -l)" -eq "$expected_count" ]] || return 1
+    [[ "$(LC_ALL=C sort -u "$game_inventory" | awk 'END { print NR + 0 }')" -eq "$expected_count" ]] || return 1
     while IFS= read -r relative_path || [[ -n "$relative_path" ]]; do
         [[ -n "$relative_path" && "$relative_path" != /* && "$relative_path" != *".."* && "$relative_path" != *"//"* ]] || return 1
         [[ -f "$root/game/$relative_path" && ! -L "$root/game/$relative_path" ]] || return 1
