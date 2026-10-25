@@ -3,7 +3,6 @@
 set -o pipefail
 REPO_ROOT="/opt/fragcity/cs2-kus-addons"
 SELF_PATH="$(readlink -f -- "$0" 2>/dev/null || printf '%s' "$0")"
-STARTUP_SHA="$(sha256sum -- "$SELF_PATH" 2>/dev/null | awk '{print $1}')"
 
 if [[ "$(id -u)" -ne 0 ]]; then
   command -v sudo >/dev/null 2>&1 || { echo "sudo is required."; read -r -p "Press Enter..."; exit 1; }
@@ -16,6 +15,12 @@ if [[ ! -r "$MONITOR_MODEL_PATH" ]]; then
   exit 1
 fi
 source "$MONITOR_MODEL_PATH"
+
+monitor_code_sha() {
+  { sha256sum -- "$SELF_PATH" 2>/dev/null; sha256sum -- "$MONITOR_MODEL_PATH" 2>/dev/null; } |
+    sha256sum 2>/dev/null | awk '{print $1}'
+}
+STARTUP_SHA="$(monitor_code_sha)"
 
 R='' G='' Y='' C='' B='' M='' D=''
 if [[ -t 1 && -z "$NO_COLOR" && "$TERM" != dumb ]]; then
@@ -34,7 +39,7 @@ timerrow() {
 pause() { printf '\n'; read -r -p 'Press Enter to return to the menu...'; }
 reload_if_updated() {
   local now
-  now="$(sha256sum -- "$SELF_PATH" 2>/dev/null | awk '{print $1}')"
+  now="$(monitor_code_sha)"
   if [[ -n "$now" && "$now" != "$STARTUP_SHA" ]]; then
     clear 2>/dev/null || true
     printf '%bLIVE UPDATE DETECTED%b — loading the new manager...\n' "$G" "$Z"
