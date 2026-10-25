@@ -30,6 +30,30 @@ for relative in \
 done
 [[ -n "$(find "$SOURCE_GAME/csgo/addons/counterstrikesharp/plugins/disabled" -type f -print -quit)" ]]
 
+is_test_config_path() {
+    local path="$1"
+    case "$path" in
+        */configs/*|*/config/*|*/cfg/*|*.cfg|\
+        csgo/gamemodes_server.txt|csgo/mapcycle.txt|csgo/mapcyclecustom.txt|\
+        csgo/subscribed_collection_ids.txt|csgo/subscribed_file_ids.txt)
+            return 0
+            ;;
+    esac
+    return 1
+}
+
+config_sample_rel="csgo/addons/counterstrikesharp/configs/plugins/Advertisement/Advertisement.json"
+[[ -f "$SOURCE_GAME/$config_sample_rel" ]] || { echo "FAIL: expected Advertisement config seed is missing"; exit 1; }
+config_source_count=0
+while IFS= read -r rel || [[ -n "$rel" ]]; do
+    if is_test_config_path "$rel"; then
+        config_source_count=$((config_source_count + 1))
+    fi
+done < "$INVENTORY"
+[[ "$config_source_count" -gt 0 ]]
+nonconfig_source_count=$((expected_count - config_source_count))
+[[ "$nonconfig_source_count" -gt 0 ]]
+
 # CS2 engine files absent from repository game/ must survive the overlay.
 mkdir -p "$GAME_ROOT"
 printf 'upstream-engine-file\n' > "$GAME_ROOT/fragcity-test-engine-file.dat"
@@ -51,15 +75,17 @@ first_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOA
 printf '%s\n' "$first_output" | grep -E 'Target server UUID|Using published payload revision|every tracked file|Sync completed successfully|Files copied:|ERROR'
 grep -Fq "Target server UUID: $TEST_SERVER_UUID." <<< "$first_output"
 grep -Fq "Using published payload revision $commit." <<< "$first_output"
-grep -Fq "Synchronizing every tracked file from repository game/ with no exclusions: $expected_count files." <<< "$first_output"
+grep -Fq "Loaded the complete repository game/ inventory: $expected_count files; config seeding is controlled by the per-server first-install state." <<< "$first_output"
+grep -Fq "First-install seed is pending; the complete repository game/ tree will be deployed, including configs." <<< "$first_output"
 grep -Fq "Sync completed successfully." <<< "$first_output"
-grep -Fq "Initial full game/ payload sync completed" <<< "$first_output"
+grep -Fq "First-install full game/ deployment and config seed completed" <<< "$first_output"
 grep -Fxq "mode=completed" "$TEST_ROOT/.fragcity-config-seed-v1.state"
 grep -Fxq "upstream-engine-file" "$GAME_ROOT/fragcity-test-engine-file.dat"
+[[ "$(sha256sum -- "$SOURCE_GAME/$config_sample_rel" | awk '{print $1}')" == "$(sha256sum -- "$GAME_ROOT/$config_sample_rel" | awk '{print $1}')" ]]
 
-# Verify that every payload file was entered into the manifest and hash-verified.
+# The first-install manifest records every payload file and every file is verified.
 test "$(grep -vc '^#' "$TEST_ROOT/.fragcity-managed-payload-v1.list")" -eq "$expected_count"
-grep -Eq "verified: $expected_count; stale managed files removed: 0\." <<< "$first_output"
+grep -Eq "verified: $expected_count; configs preserved: 0; stale managed files removed: 0\\." <<< "$first_output"
 # Spot-check the files from each subtree that older publishers/synchronizers omitted.
 for relative in \
     csgo/addons/counterstrikesharp/plugins/disabled \
@@ -73,30 +99,50 @@ for relative in \
     [[ "$(sha256sum -- "$sample" | awk '{print $1}')" == "$(sha256sum -- "$GAME_ROOT/$rel" | awk '{print $1}')" ]]
 done
 
-# Change a tracked file and model an old-manifest path removed from Git.
-sample="$(find "$SOURCE_GAME" -type f -print -quit)"
-relative="${sample#"$SOURCE_GAME"/}"
+# On the next start, non-config payload files are refreshed but customer configs are untouched.
+sample=""
+relative=""
+while IFS= read -r candidate; do
+    candidate_rel="\${candidate#"$SOURCE_GAME"/}"
+    if ! is_test_config_path "$candidate_rel"; then
+        sample="$candidate"
+        relative="$candidate_rel"
+        break
+    fi
+done < <(find "$SOURCE_GAME" -type f | LC_ALL=C sort)
+[[ -n "$sample" && -n "$relative" ]]
 printf 'modified-on-container\n' > "$GAME_ROOT/$relative"
+printf 'customer-customized-config\n' > "$GAME_ROOT/$config_sample_rel"
+
 stale_rel="csgo/addons/counterstrikesharp/plugins/LegacyFragCitySyncTest/removed-from-repo.txt"
 mkdir -p "$GAME_ROOT/$(dirname -- "$stale_rel")"
 printf 'stale-managed-file\n' > "$GAME_ROOT/$stale_rel"
-printf '%s\n' "$stale_rel" >> "$TEST_ROOT/.fragcity-managed-payload-v1.list"
+stale_config_rel="csgo/addons/counterstrikesharp/configs/plugins/FragCityLegacySyncTest/removed.json"
+mkdir -p "$GAME_ROOT/$(dirname -- "$stale_config_rel")"
+printf 'customer-added-after-seed\n' > "$GAME_ROOT/$stale_config_rel"
+printf '%s\n%s\n' "$stale_rel" "$stale_config_rel" >> "$TEST_ROOT/.fragcity-managed-payload-v1.list"
 
 second_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
 grep -Fq "Sync completed successfully." <<< "$second_output"
 grep -Fq "Removing stale previously-managed payload file: $stale_rel" <<< "$second_output"
+grep -Fq "Preserving stale customer config file after first install: $stale_config_rel" <<< "$second_output"
 [[ ! -e "$GAME_ROOT/$stale_rel" ]]
+[[ "$(cat "$GAME_ROOT/$config_sample_rel")" == "customer-customized-config" ]]
+[[ "$(cat "$GAME_ROOT/$stale_config_rel")" == "customer-added-after-seed" ]]
 [[ "$(sha256sum -- "$sample" | awk '{print $1}')" == "$(sha256sum -- "$GAME_ROOT/$relative" | awk '{print $1}')" ]]
-grep -Eq "Files copied: 1; already matching SHA-256: $((expected_count - 1)); verified: $expected_count; stale managed files removed: 1\." <<< "$second_output"
+grep -Eq "Files copied: 1; already matching SHA-256: $((nonconfig_source_count - 1)); verified: $nonconfig_source_count; configs preserved: $config_source_count; stale managed files removed: 1\\." <<< "$second_output"
 grep -Fxq "upstream-engine-file" "$GAME_ROOT/fragcity-test-engine-file.dat"
 
-# Legacy volumes without an install marker still receive the complete payload.
+# Legacy volumes without a seed marker preserve configs but keep syncing non-config files.
 rm -- "$TEST_ROOT/.fragcity-config-seed-v1.state"
 printf 'legacy-mismatch\n' > "$GAME_ROOT/$relative"
 legacy_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
-grep -Fq "No first-install marker found; full game/ payload is still synchronized on every start." <<< "$legacy_output"
+grep -Fq "No first-install marker found; treating this as an existing server and preserving customer config paths." <<< "$legacy_output"
 grep -Fq "Sync completed successfully." <<< "$legacy_output"
 [[ ! -e "$TEST_ROOT/.fragcity-config-seed-v1.state" ]]
+[[ "$(cat "$GAME_ROOT/$config_sample_rel")" == "customer-customized-config" ]]
+[[ "$(cat "$GAME_ROOT/$stale_config_rel")" == "customer-added-after-seed" ]]
 [[ "$(sha256sum -- "$sample" | awk '{print $1}')" == "$(sha256sum -- "$GAME_ROOT/$relative" | awk '{print $1}')" ]]
+grep -Eq "configs preserved: $config_source_count; stale managed files removed: 0\\." <<< "$legacy_output"
 
-echo "PASS: every tracked file under repository game/ is copied and hash-verified; disabled and formerly excluded trees deploy; untracked CS2 engine files persist; known stale files are removed; new and legacy volumes both receive full payload sync."
+echo "PASS: first install deploys the full game/ tree including configs and disabled plugins; later starts refresh non-config files without overwriting or deleting customer configs; legacy volumes preserve configs; unknown engine files persist; stale non-config files are removed."
