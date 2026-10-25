@@ -74,11 +74,12 @@ MANAGED_MANIFEST="$SERVER_ROOT/.fragcity-managed-payload-v1.list"
 [[ ! -L "$INITIAL_STATE" ]] || die "Initial-sync state file must not be a symlink: $INITIAL_STATE"
 [[ ! -e "$INITIAL_STATE" || -f "$INITIAL_STATE" ]] || die "Initial-sync state path must be a regular file: $INITIAL_STATE"
 
-for command_name in sha256sum find cp mkdir rm awk flock tr chmod dirname grep date sort mv wc; do
+for command_name in sha256sum find cp mkdir rm awk flock tr chmod dirname grep date sort mv wc sleep; do
     command -v "$command_name" >/dev/null 2>&1 || die "$command_name is required."
 done
 
 CONFIG_SEED_ACTIVE=0
+CONFIG_SEED_STATE_MISSING=0
 if [[ -f "$INITIAL_STATE" ]]; then
     grep -Fxq 'fragcity-config-seed-v1' "$INITIAL_STATE" \
         && grep -Fxq "server_uuid=$SERVER_UUID" "$INITIAL_STATE" \
@@ -95,7 +96,7 @@ if [[ -f "$INITIAL_STATE" ]]; then
         die "Initial-sync state has no recognized pending/completed mode."
     fi
 else
-    log "No first-install marker found; treating this as an existing server and preserving customer config paths."
+    CONFIG_SEED_STATE_MISSING=1
 fi
 
 [[ -d "$PAYLOAD_BASE" && ! -L "$PAYLOAD_BASE" ]] || die "Payload mount is missing or is a symlink: $PAYLOAD_BASE"
@@ -111,6 +112,50 @@ PAYLOAD_ROOT="$PAYLOAD_BASE/revisions/$SOURCE_COMMIT"
 [[ -d "$PAYLOAD_ROOT" && ! -L "$PAYLOAD_ROOT" ]] || die "Published revision directory is missing: $PAYLOAD_ROOT"
 [[ -f "$PAYLOAD_ROOT/.source-commit" && ! -L "$PAYLOAD_ROOT/.source-commit" ]] || die "Revision marker is missing."
 [[ "$(tr -d '\r\n' < "$PAYLOAD_ROOT/.source-commit")" == "$SOURCE_COMMIT" ]] || die "Revision marker does not match CURRENT_COMMIT."
+
+# If there is no per-volume state file yet, classify this UUID against the hashed
+# host baseline. UUIDs present at baseline time are legacy/existing and preserve configs.
+# A UUID absent from that baseline is new: wait for the host provisioner to create the
+# pending marker rather than accidentally launching CS2 without its first-install seed.
+if [[ "$CONFIG_SEED_STATE_MISSING" -eq 1 ]]; then
+    BASELINE_HASHES="$PAYLOAD_BASE/FRAGCITY_BASELINE_SHA256"
+    [[ -f "$BASELINE_HASHES" && ! -L "$BASELINE_HASHES" ]] \
+        || die "First-install state is missing and the baseline hash registry is unavailable; refusing to guess whether this server is new or legacy."
+
+    while IFS= read -r baseline_hash || [[ -n "$baseline_hash" ]]; do
+        [[ "$baseline_hash" =~ ^[0-9a-f]{64}$ ]] \
+            || die "Baseline hash registry contains an invalid SHA-256 entry."
+    done < "$BASELINE_HASHES"
+
+    SERVER_UUID_HASH="$(printf '%s' "$SERVER_UUID" | sha256sum | awk '{print $1}')"
+    if grep -Fxq "$SERVER_UUID_HASH" "$BASELINE_HASHES"; then
+        log "Server UUID belongs to the one-time baseline; treating this as an existing/legacy volume and preserving customer config paths."
+    else
+        log "Server UUID is not in the baseline; waiting up to 90 seconds for the host provisioner to register first-install state."
+        WAIT_ATTEMPT=0
+        while [[ ! -e "$INITIAL_STATE" && ! -L "$INITIAL_STATE" ]] && (( WAIT_ATTEMPT < 45 )); do
+            sleep 2
+            WAIT_ATTEMPT=$((WAIT_ATTEMPT + 1))
+        done
+
+        [[ ! -L "$INITIAL_STATE" ]] || die "Host provisioner created an unsafe symlink for initial-sync state."
+        [[ -f "$INITIAL_STATE" ]] \
+            || die "New server UUID was not registered by the host provisioner within 90 seconds; refusing to launch CS2 without first-install config policy."
+
+        grep -Fxq 'fragcity-config-seed-v1' "$INITIAL_STATE" \
+            && grep -Fxq "server_uuid=$SERVER_UUID" "$INITIAL_STATE" \
+            || die "New-server initial-sync state does not match this server UUID."
+        if grep -Fxq 'mode=pending' "$INITIAL_STATE"; then
+            [[ -w "$INITIAL_STATE" ]] || die "Pending config-seed state is not writable; refusing to seed configs without being able to record completion."
+            CONFIG_SEED_ACTIVE=1
+            log "Host provisioner registered this new server; first-install config seeding is active."
+        elif grep -Fxq 'mode=completed' "$INITIAL_STATE"; then
+            log "Host provisioner reports first-install seeding already completed; customer config paths will be preserved."
+        else
+            die "New-server initial-sync state has no recognized pending/completed mode."
+        fi
+    fi
+fi
 
 GAME_SOURCE="$PAYLOAD_ROOT/game"
 GAME_INVENTORY="$PAYLOAD_ROOT/.fragcity-game-files-v1.list"
