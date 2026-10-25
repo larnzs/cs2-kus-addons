@@ -136,6 +136,9 @@ set -e
 grep -Fq "P_SERVER_UUID is missing or invalid" <<< "$missing_uuid_output"
 [[ ! -d "$GAME_ROOT/csgo" ]]
 
+# Subsequent failures should report the exact assertion/command, not just exit 1.
+trap 'status=$?; printf "FAIL: test-sync-payload.sh line %s (status %s): %s\\n" "$LINENO" "$status" "$BASH_COMMAND" >&2; exit "$status"' ERR
+
 # Seed sentinels in every Egg-owned runtime path. The sync must not overwrite or delete them.
 for rel in \
     csgo/addons/counterstrikesharp/api/runtime-fixture.txt \
@@ -232,6 +235,8 @@ done
 # On the next start, non-config payload files are refreshed but customer configs are untouched.
 sample=""
 relative=""
+candidate_list="$TEST_ROOT/.fragcity-sync-candidates.sorted"
+find "$SOURCE_GAME" -type f -print | LC_ALL=C sort > "$candidate_list"
 while IFS= read -r candidate; do
     candidate_rel="${candidate#"$SOURCE_GAME"/}"
     if ! is_test_config_path "$candidate_rel"; then
@@ -239,7 +244,8 @@ while IFS= read -r candidate; do
         relative="$candidate_rel"
         break
     fi
-done < <(find "$SOURCE_GAME" -type f | LC_ALL=C sort)
+done < "$candidate_list"
+rm -f -- "$candidate_list"
 [[ -n "$sample" && -n "$relative" ]]
 printf 'modified-on-container\n' > "$GAME_ROOT/$relative"
 printf 'customer-customized-config\n' > "$GAME_ROOT/$config_sample_rel"
@@ -288,7 +294,7 @@ grep -Fxq "upstream-engine-file" "$GAME_ROOT/fragcity-test-engine-file.dat"
 
 # Legacy volumes without a seed marker are recognized through the baseline hash registry.
 rm -- "$TEST_ROOT/.fragcity-config-seed-v1.state"
-printf '%s\n' "$TEST_SERVER_UUID" | sha256sum | awk '{print $1}' > "$PAYLOAD_BASE/FRAGCITY_BASELINE_SHA256"
+printf '%s' "$TEST_SERVER_UUID" | sha256sum | awk '{print $1}' > "$PAYLOAD_BASE/FRAGCITY_BASELINE_SHA256"
 printf 'legacy-mismatch\n' > "$GAME_ROOT/$relative"
 legacy_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
 grep -Fq "Server UUID belongs to the one-time baseline; treating this as an existing/legacy volume and preserving customer config paths." <<< "$legacy_output"
