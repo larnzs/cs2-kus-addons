@@ -44,7 +44,11 @@ else
   C_BLUE=''; C_CYAN=''; C_WHITE=''
 fi
 
-STARTUP_SHA="$(sha256sum -- "$SELF_PATH" 2>/dev/null | awk '{print $1}')"
+monitor_code_sha() {
+  { sha256sum -- "$SELF_PATH" 2>/dev/null; sha256sum -- "$MONITOR_MODEL_PATH" 2>/dev/null; } |
+    sha256sum 2>/dev/null | awk '{print $1}'
+}
+STARTUP_SHA="$(monitor_code_sha)"
 MOUNT_STATUS_OUTPUT=''
 MOUNT_STATUS_ERROR=''
 MOUNT_LAST_REFRESH=0
@@ -376,7 +380,8 @@ render_dashboard() {
   printf '  NODE %-20.20s  |  %s  |  refresh %ss / Mount scan %ss  |  UI %s\n' \
     "$node" "$timestamp" "$REFRESH_SECONDS" "$MOUNT_REFRESH_SECONDS" "$UI_VERSION"
   printf '  SYSTEM POSTURE: '; paint_switch "$posture"
-  printf '  | critical checks: %s  | attention groups: %s\n' "$critical_checks" "$warning_groups"
+  printf '  | critical checks: %s  | critical servers: %s  | attention groups: %s\n' \
+    "$critical_checks" "$MOUNT_CRITICAL_SERVER_COUNT" "$warning_groups"
   draw_rule "$width"
 
   section_title "HOST HEALTH  ·  CAPACITY"
@@ -477,7 +482,7 @@ while true; do
   if [[ -t 1 ]]; then printf '\033[J'; fi
   sleep "$REFRESH_SECONDS"
 
-  current_sha="$(sha256sum -- "$SELF_PATH" 2>/dev/null | awk '{print $1}')"
+  current_sha="$(monitor_code_sha)"
   if [[ -n "$current_sha" && "$current_sha" != "$STARTUP_SHA" ]]; then
     printf '\n%bLIVE UPDATE DETECTED%b — loading the refreshed monitor...\n' "$C_GREEN" "$C_RESET"
     sleep 1
