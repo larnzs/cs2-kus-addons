@@ -218,7 +218,7 @@ MOUNT_REGISTRY='?'
         state="$f4"
         seed_state="$f9"
         reason=''
-        if [[ "$f8" == OFF && "$f6" != ON ]]; then
+        if [[ "$f8" == OFF && "$f6" == OFF ]]; then
           MOUNT_NEW_UNREGISTERED=$((MOUNT_NEW_UNREGISTERED + 1))
           reason='NEW-NOT-REGISTERED'
         elif [[ "$seed_state" == PENDING ]]; then
