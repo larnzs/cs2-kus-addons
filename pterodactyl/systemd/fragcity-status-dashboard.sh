@@ -370,10 +370,7 @@ render_dashboard() {
   if [[ "$MOUNT_ORPHAN_COUNT" =~ ^[1-9][0-9]*$ ]]; then
     warning_groups=$((warning_groups + 1))
   fi
-  if (( critical_checks > 0 || MOUNT_CRITICAL_SERVER_COUNT > 0 )); then posture=CRITICAL
-  elif (( warning_groups > 0 || MOUNT_ATTENTION_TOTAL > 0 )); then posture=ATTENTION
-  else posture=HEALTHY
-  fi
+  posture="$(fragcity_system_posture "$critical_checks" "$MOUNT_CRITICAL_SERVER_COUNT" "$warning_groups" "$MOUNT_ATTENTION_TOTAL")"
 
   draw_rule "$width"
   printf '%bFRAGCITY%b  /  %bNODE OPERATIONS CONSOLE%b\n' "$C_WHITE" "$C_RESET" "$C_CYAN" "$C_RESET"
