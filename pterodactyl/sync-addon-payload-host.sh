@@ -78,50 +78,21 @@ fi
 SOURCE_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 log "Source commit: $SOURCE_COMMIT"
 
-GAME_SOURCE="$REPO_ROOT/game/csgo"
-ADDONS_SOURCE="$GAME_SOURCE/addons"
-CSS_SOURCE="$ADDONS_SOURCE/counterstrikesharp"
-[[ -d "$CSS_SOURCE/source" ]] || die "Missing source folder: $CSS_SOURCE/source"
-[[ -d "$CSS_SOURCE/plugins" ]] || die "Missing source folder: $CSS_SOURCE/plugins"
-[[ -d "$CSS_SOURCE/plugins/disabled" ]] || die "Missing source folder: $CSS_SOURCE/plugins/disabled"
-[[ -n "$(find "$CSS_SOURCE/plugins/disabled" -type f -print -quit)" ]] || die "No files found under managed source folder: $CSS_SOURCE/plugins/disabled"
-[[ -d "$CSS_SOURCE/shared" ]] || die "Missing source folder: $CSS_SOURCE/shared"
-[[ -d "$CSS_SOURCE/gamedata" ]] || die "Missing source folder: $CSS_SOURCE/gamedata"
-[[ -d "$CSS_SOURCE/configs" ]] || die "Missing source folder: $CSS_SOURCE/configs"
-[[ -d "$GAME_SOURCE/cfg" ]] || die "Missing source folder: $GAME_SOURCE/cfg"
-for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
-    [[ -f "$GAME_SOURCE/$name" && ! -L "$GAME_SOURCE/$name" ]] || die "Missing required CS2 config file: $GAME_SOURCE/$name"
-done
-[[ -f "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf" ]] || die "Missing VDF: $ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf"
-for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmanager; do
-    [[ -d "$ADDONS_SOURCE/$name" ]] || die "Missing addon source directory: $ADDONS_SOURCE/$name"
-done
+REPO_GAME_ROOT="$REPO_ROOT/game"
+GAME_SOURCE="$REPO_GAME_ROOT/csgo"
+CSS_SOURCE="$GAME_SOURCE/addons/counterstrikesharp"
+[[ -d "$REPO_GAME_ROOT" && ! -L "$REPO_GAME_ROOT" ]] || die "Missing or unsafe repository game/ folder: $REPO_GAME_ROOT"
+[[ -n "$(find "$REPO_GAME_ROOT" -type f -print -quit)" ]] || die "Repository game/ folder contains no files."
+[[ -d "$CSS_SOURCE/plugins/disabled" && ! -L "$CSS_SOURCE/plugins/disabled" ]] || die "Missing or unsafe source folder: $CSS_SOURCE/plugins/disabled"
+[[ -n "$(find "$CSS_SOURCE/plugins/disabled" -type f -print -quit)" ]] || die "No files found under source folder: $CSS_SOURCE/plugins/disabled"
 
 reject_symlinks() {
     local source_path="$1" link_path
     while IFS= read -r -d '' link_path; do
-        die "Symlinks are not supported in the staged allowlist: $link_path"
+        die "Symlinks are not supported anywhere under game/: $link_path"
     done < <(find "$source_path" -type l -print0)
 }
-for source_path in \
-    "$CSS_SOURCE/source" "$CSS_SOURCE/shared" "$CSS_SOURCE/gamedata" \
-    "$CSS_SOURCE/configs" "$GAME_SOURCE/cfg" \
-    "$ADDONS_SOURCE/MovementUnlocker" "$ADDONS_SOURCE/serverlistplayersfix_mm" \
-    "$ADDONS_SOURCE/surf" "$ADDONS_SOURCE/scripts" "$ADDONS_SOURCE/multiaddonmanager"; do
-    reject_symlinks "$source_path"
-done
-while IFS= read -r -d '' link_path; do
-    die "Symlink found in managed plugin source: $link_path"
-done < <(
-    find "$CSS_SOURCE/plugins" -mindepth 1 \
-        \( -path "$CSS_SOURCE/plugins/BotAI" \
-           -o -path "$CSS_SOURCE/plugins/CS2UpdateMonitor" \) -prune \
-        -o -type l -print0
-)
-for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
-    [[ ! -L "$GAME_SOURCE/$name" ]] || die "Managed CS2 config file must not be a symlink: $GAME_SOURCE/$name"
-done
-[[ ! -L "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf" ]] || die "Managed VDF must not be a symlink."
+reject_symlinks "$REPO_GAME_ROOT"
 
 mkdir -p -- "$MOUNT_ROOT"
 [[ ! -L "$MOUNT_ROOT" ]] || die "Payload mount root must not be a symlink."
@@ -140,47 +111,26 @@ exec 9> "$MOUNT_ROOT/.sync.lock"
 flock -x 9
 
 validate_revision() {
-    local root="$1"
+    local root="$1" game_inventory relative_path expected_count actual_count
     [[ -d "$root" && ! -L "$root" ]] || return 1
     [[ -f "$root/.source-commit" && ! -L "$root/.source-commit" ]] || return 1
     [[ "$(tr -d '\r\n' < "$root/.source-commit")" == "$SOURCE_COMMIT" ]] || return 1
-    [[ -d "$root/game/csgo/addons/counterstrikesharp/source" ]] || return 1
-    [[ -d "$root/game/csgo/addons/counterstrikesharp/plugins" ]] || return 1
-    # Treat revisions created by an older publisher (which excluded disabled/)
-    # as invalid even when their commit marker and other required paths are valid.
-    # Re-running this publisher will safely rebuild that same commit revision.
+    [[ -d "$root/game/csgo" && ! -L "$root/game/csgo" ]] || return 1
+    [[ -n "$(find "$root/game" -type f -print -quit)" ]] || return 1
+    [[ -z "$(find "$root/game" -type l -print -quit)" ]] || return 1
     [[ -d "$root/game/csgo/addons/counterstrikesharp/plugins/disabled" && ! -L "$root/game/csgo/addons/counterstrikesharp/plugins/disabled" ]] || return 1
     [[ -n "$(find "$root/game/csgo/addons/counterstrikesharp/plugins/disabled" -type f -print -quit)" ]] || return 1
-    local plugin_inventory="$root/.fragcity-plugin-inventory-v1.list"
-    local plugin_name
-    [[ -f "$plugin_inventory" && ! -L "$plugin_inventory" ]] || return 1
-    grep -Fxq 'disabled' "$plugin_inventory" || return 1
-    while IFS= read -r plugin_name || [[ -n "$plugin_name" ]]; do
-        [[ "$plugin_name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || return 1
-        # BotAI and CS2UpdateMonitor are intentionally not copied by this payload,
-        # but their presence in GitHub still keeps their existing target dirs valid.
-        case "$plugin_name" in
-            BotAI|CS2UpdateMonitor) continue ;;
-        esac
-        [[ -d "$root/game/csgo/addons/counterstrikesharp/plugins/$plugin_name" && ! -L "$root/game/csgo/addons/counterstrikesharp/plugins/$plugin_name" ]] || return 1
-    done < "$plugin_inventory"
-    [[ "$(sort -u "$plugin_inventory" | wc -l)" -eq "$(wc -l < "$plugin_inventory")" ]] || return 1
-    # Do not publish CS2UpdateMonitor as an active plugin on new servers.
-    [[ ! -e "$root/game/csgo/addons/counterstrikesharp/plugins/CS2UpdateMonitor" ]] || return 1
-    [[ -d "$root/game/csgo/addons/counterstrikesharp/shared" ]] || return 1
-    [[ -d "$root/game/csgo/addons/counterstrikesharp/gamedata" ]] || return 1
-    [[ -d "$root/game/csgo/addons/counterstrikesharp/configs" && ! -L "$root/game/csgo/addons/counterstrikesharp/configs" ]] || return 1
-    [[ -n "$(find "$root/game/csgo/addons/counterstrikesharp/configs" -type f -print -quit)" ]] || return 1
-    [[ -d "$root/game/csgo/cfg" && ! -L "$root/game/csgo/cfg" ]] || return 1
-    [[ -n "$(find "$root/game/csgo/cfg" -type f -print -quit)" ]] || return 1
-    for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
-        [[ -f "$root/game/csgo/$name" && ! -L "$root/game/csgo/$name" ]] || return 1
-    done
-    [[ -f "$root/game/csgo/addons/metamod/serverlistplayersfix_mm.vdf" ]] || return 1
-    local name
-    for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmanager; do
-        [[ -d "$root/game/csgo/addons/$name" ]] || return 1
-    done
+    game_inventory="$root/.fragcity-game-files-v1.list"
+    [[ -f "$game_inventory" && ! -L "$game_inventory" ]] || return 1
+    expected_count="$(wc -l < "$game_inventory")"
+    [[ "$expected_count" =~ ^[1-9][0-9]*$ ]] || return 1
+    [[ "$(LC_ALL=C sort -u "$game_inventory" | wc -l)" -eq "$expected_count" ]] || return 1
+    while IFS= read -r relative_path || [[ -n "$relative_path" ]]; do
+        [[ -n "$relative_path" && "$relative_path" != /* && "$relative_path" != *".."* && "$relative_path" != *"//"* ]] || return 1
+        [[ -f "$root/game/$relative_path" && ! -L "$root/game/$relative_path" ]] || return 1
+    done < "$game_inventory"
+    actual_count="$(find "$root/game" -type f | wc -l)"
+    [[ "$actual_count" -eq "$expected_count" ]] || return 1
 }
 
 # A structurally valid revision can still be unusable in a container if its
@@ -207,9 +157,7 @@ else
         fi
     }
     trap cleanup_staging EXIT
-    STAGING_GAME="$STAGING/game/csgo"
-    STAGING_ADDONS="$STAGING_GAME/addons"
-    STAGING_CSS="$STAGING_ADDONS/counterstrikesharp"
+    STAGING_GAME="$STAGING/game"
 
     copy_tree() {
         local source="$1" destination="$2"
@@ -217,34 +165,15 @@ else
         mkdir -p -- "$destination"
         rsync -a --safe-links -- "$source/" "$destination/"
     }
-    copy_tree "$CSS_SOURCE/source" "$STAGING_CSS/source"
-    mkdir -p -- "$STAGING_CSS/plugins"
-    rsync -a --safe-links \
-        --exclude='/BotAI/***' \
-        --exclude='/CS2UpdateMonitor/***' \
-        -- "$CSS_SOURCE/plugins/" "$STAGING_CSS/plugins/"
-    copy_tree "$CSS_SOURCE/shared" "$STAGING_CSS/shared"
-    copy_tree "$CSS_SOURCE/gamedata" "$STAGING_CSS/gamedata"
-    copy_tree "$CSS_SOURCE/configs" "$STAGING_CSS/configs"
-    copy_tree "$GAME_SOURCE/cfg" "$STAGING_GAME/cfg"
-    for name in gamemodes_server.txt mapcycle.txt mapcyclecustom.txt subscribed_collection_ids.txt subscribed_file_ids.txt; do
-        install -m 0644 "$GAME_SOURCE/$name" "$STAGING_GAME/$name"
-    done
-    for name in MovementUnlocker serverlistplayersfix_mm surf scripts multiaddonmanager; do
-        copy_tree "$ADDONS_SOURCE/$name" "$STAGING_ADDONS/$name"
-    done
-    mkdir -p -- "$STAGING_ADDONS/metamod"
-    install -m 0444 "$ADDONS_SOURCE/metamod/serverlistplayersfix_mm.vdf" \
-        "$STAGING_ADDONS/metamod/serverlistplayersfix_mm.vdf"
+    # Publish every tracked file under repository game/, with no path exclusions.
+    copy_tree "$REPO_GAME_ROOT" "$STAGING_GAME"
     printf '%s\n' "$SOURCE_COMMIT" > "$STAGING/.source-commit"
-    # Publish an authoritative inventory of plugin directories actually
-    # staged from this GitHub commit. The container uses it on every server start
-    # to retire directories removed from the repository, including on legacy
-    # volumes that do not yet have a previous managed-file manifest.
-    PLUGIN_INVENTORY="$STAGING/.fragcity-plugin-inventory-v1.list"
-    find "$CSS_SOURCE/plugins" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | LC_ALL=C sort > "$PLUGIN_INVENTORY"
-    grep -Fxq 'disabled' "$PLUGIN_INVENTORY" || die "GitHub plugin inventory is missing the reserved disabled/ directory."
-    validate_revision "$STAGING" || die "Staged revision failed required-file validation."
+    GAME_INVENTORY="$STAGING/.fragcity-game-files-v1.list"
+    find "$REPO_GAME_ROOT" -type f -printf '%P\n' | LC_ALL=C sort > "$GAME_INVENTORY"
+    source_count="$(find "$REPO_GAME_ROOT" -type f | wc -l)"
+    staged_count="$(find "$STAGING_GAME" -type f | wc -l)"
+    [[ "$source_count" -gt 0 && "$source_count" -eq "$staged_count" ]] || die "Full game/ staging file count mismatch: source=$source_count staged=$staged_count"
+    validate_revision "$STAGING" || die "Staged full game/ revision failed validation."
 
     # Immutable for containers, but readable/traversable by the non-root game user.
     chmod -R a-w "$STAGING"
