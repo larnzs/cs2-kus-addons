@@ -558,8 +558,9 @@ function serverStartupPrefix(string $mountTarget): string
 
 /**
  * Record that a newly provisioned volume must complete its first full game/ sync.
- * Keep the legacy state filename/identifier so already provisioned volumes remain readable;
- * this marker no longer gates the copying of configs or other repository game files.
+ * The pending marker gates the one-time copy of customer config defaults: the first
+ * successful startup seeds them, while later starts preserve per-server customization.
+ * Keep the historical filename so existing volumes and the monitoring tool remain compatible.
  */
 function prepareConfigSeedMarker(string $volumePath, string $uuid, int $mountId, string $payloadCommit): void
 {
@@ -915,7 +916,7 @@ fi
 is_customer_config_path() {
     local path="$1"
     case "$path" in
-        */configs/*|*/config/*|*/cfg/*|*.cfg|\
+        csgo/cfg/*|csgo/addons/counterstrikesharp/configs/*|\
         csgo/gamemodes_server.txt|csgo/mapcycle.txt|csgo/mapcyclecustom.txt|\
         csgo/subscribed_collection_ids.txt|csgo/subscribed_file_ids.txt)
             return 0
