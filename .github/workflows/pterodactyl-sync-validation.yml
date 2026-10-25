@@ -96,7 +96,7 @@ jobs:
           grep -Fq 'MANAGED_MANIFEST' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'Removing stale previously-managed payload file' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'No prior managed-payload manifest' pterodactyl/sync-addon-payload-container.sh
-          grep -Fq 'new UUID waits for Provisioner' pterodactyl/test-sync-payload.sh
+          grep -Fq 'new UUID did not wait for host Provisioner registration' pterodactyl/test-sync-payload.sh
           grep -Fq 'customer-customized-config' pterodactyl/test-sync-payload.sh
           grep -Fq 'stale_config_rel' pterodactyl/test-sync-payload.sh
           grep -Fq 'new UUID did not wait for host Provisioner registration' pterodactyl/test-sync-payload.sh
