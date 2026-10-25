@@ -24,7 +24,7 @@ For the live Panel, edit the existing custom FragCity/K4ryuu Egg's Startup comma
 
 **Important:** changing the Egg's Startup template affects newly created servers; a server already created keeps its saved startup command. For an already-created server, the host provisioner must still attach/confirm the Mount and add the prefix to that server record, or the server-specific startup must be updated separately. A manually attached Mount without the prefix only exposes the files; it does not execute the synchronizer. The existing provisioner checks for the exact prefix and will not add it twice.
 
-The host's volume path contains each server UUID, for example /var/lib/pterodactyl/volumes/<server-uuid>. Inside that container, /home/container is already bound to that exact volume. The container sync script therefore writes to /home/container/game/csgo/ and does not hardcode any host volume UUID.
+The host's volume path contains each server UUID, for example /var/lib/pterodactyl/volumes/<server-uuid>. Inside that container, /home/container is already bound to that exact volume. The container sync script writes every repository-relative path beneath /home/container/game/ and does not hardcode any host volume UUID.
 
 ## Visible XFCE status window and one-time automated bootstrap
 
@@ -96,7 +96,7 @@ The publisher snapshot exposes only the full `game/` payload, its inventory/comm
  
 ## Host repository access
 
-The publisher runs on the host and uses the checkout at /opt/fragcity/cs2-kus-addons. Keep it on a clean `integration/kus-monorepo` branch. If the repository is private, configure a host-only read-only GitHub deploy key or Git credential helper that works for root and the systemd service. Never put a token in the remote URL, repository, Egg variables, or container environment. The published Mount exposes only an allowlisted payload snapshot and the container sync script—not the checkout, `.git` directory, or Git credentials. Repository visibility is separate from this mount boundary: a public GitHub repository still exposes its tracked source publicly.
+The publisher runs on the host and uses the checkout at /opt/fragcity/cs2-kus-addons. Keep it on a clean `integration/kus-monorepo` branch. If the repository is private, configure a host-only read-only GitHub deploy key or Git credential helper that works for root and the systemd service. Never put a token in the remote URL, repository, Egg variables, or container environment. The published Mount exposes only the complete `game/` snapshot, its inventory/commit metadata, lock and container sync script—not the checkout, `.git` directory, or Git credentials. Repository visibility is separate from this mount boundary: a public GitHub repository still exposes its tracked source publicly.
 
 The host publisher uses git fetch plus fast-forward-only updates. If GitHub access fails, the checkout is dirty/diverged, or the payload fails validation, the last published snapshot remains available.
 
@@ -121,13 +121,13 @@ fi
 
 test "$(git branch --show-current)" = "integration/kus-monorepo" || exit 1
 
-# Fetch/fast-forward to the current branch and publish the allowlisted snapshot.
+# Fetch/fast-forward to the current branch and publish every tracked game/ file.
 bash pterodactyl/sync-addon-payload-host.sh || exit 1
 ```
 
 The publisher itself performs a fetch and a fast-forward-only update. If that update changes the publisher script, it restarts under the updated script before staging. It refuses a dirty/diverged checkout, and it leaves the last published revision available if publishing fails.
 
-Verify that the active commit marker and disabled-plugin payload agree:
+Verify that the active commit marker and complete game-file inventory agree:
 
 ```bash
 M="/var/lib/pterodactyl/mounts/fragcity-addon-payload"
@@ -153,7 +153,7 @@ php -l pterodactyl/provision-addon-servers.php
 php -l pterodactyl/server-mount-status.php
 ```
 
-CI validates shell syntax, PHP syntax/CLI argument handling, publisher staging, recovery of an incomplete read-only revision, disabled-plugin transfer, idempotency, stale cleanup and protected-path exclusions. CI does **not** connect to the real Panel database or Docker host; the dedicated live test below covers those integration points.
+CI validates shell syntax, PHP syntax/CLI argument handling, complete game-tree publication, inventory correctness, recovery of an incomplete read-only revision, full-tree transfer including disabled plugins, idempotency, per-file SHA-256, and stale cleanup limited to previously managed paths. CI does **not** connect to the real Panel database or Docker host; the dedicated live test below covers those integration points.
 
 ### 2. One-time live test before systemd
 
@@ -168,7 +168,7 @@ php pterodactyl/provision-addon-servers.php --server "$TEST_UUID"
 
 Manual `--server` mode deliberately refuses names that do not begin with `FragCity Payload Test`. The provisioner validates the exact UUID-to-volume mapping, Mount definition, server image and any existing Docker container. If an exact stopped container exists, it removes that container without `-v`; it never removes the server volume. A running container is left alone.
 
-Then start the server from the Panel. Its console must show a valid published revision, `Sync completed successfully`, and the file/hash counts. The payload includes `plugins/disabled/` recursively; disabled plugins stay under that directory and are not promoted into the active plugin directory.
+Then start the server from the Panel. Its console must show a valid published revision, `Sync completed successfully`, and the complete repository `game/` file/hash counts. `plugins/disabled/` is copied exactly as stored in GitHub, but its contents remain under that directory; the synchronizer does not promote disabled plugins into the active plugin directory.
 
 With the test server running, run the read-only verifier:
 
