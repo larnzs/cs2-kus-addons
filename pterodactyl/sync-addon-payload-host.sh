@@ -99,6 +99,21 @@ reject_symlinks() {
 }
 reject_symlinks "$REPO_GAME_ROOT"
 
+# Sole classifier for K4ryuu-owned runtime paths. Never broaden to other folders,
+# file extensions, configs, platform files, or plugins/disabled.
+is_k4ryuu_runtime_path() {
+    local path="$1"
+    case "$path" in
+        csgo/addons/counterstrikesharp/api/*|csgo/addons/counterstrikesharp/bin/*|\
+        csgo/addons/counterstrikesharp/dotnet/*|csgo/addons/counterstrikesharp/lang/*|\
+        csgo/addons/metamod/bin/*|\
+        csgo/addons/metamod/counterstrikesharp.vdf|csgo/addons/metamod/metaplugins.ini)
+            return 0
+            ;;
+    esac
+    return 1
+}
+
 mkdir -p -- "$MOUNT_ROOT"
 [[ ! -L "$MOUNT_ROOT" ]] || die "Payload mount root must not be a symlink."
 REVISION_ROOT="$MOUNT_ROOT/revisions"
@@ -149,6 +164,18 @@ validate_revision() {
         [[ -n "$relative_path" && "$relative_path" != /* && "$relative_path" != *".."* && "$relative_path" != *"//"* ]] || return 1
         [[ -f "$root/game/$relative_path" && ! -L "$root/game/$relative_path" ]] || return 1
     done < "$game_inventory"
+    # A self-consistent staged count is not enough: compare against the source tree
+    # so any accidentally omitted file is detected. Only the seven runtime paths
+    # above may differ; every other file, including plugins/disabled/, must be present.
+    if ! cmp -s "$game_inventory" <(
+        find "$REPO_GAME_ROOT" -type f -printf '%P\n' |
+        while IFS= read -r relative_path || [[ -n "$relative_path" ]]; do
+            if is_k4ryuu_runtime_path "$relative_path"; then continue; fi
+            printf '%s\n' "$relative_path"
+        done | LC_ALL=C sort
+    ); then
+        return 1
+    fi
     actual_count="$(find "$root/game" -type f | wc -l)"
     [[ "$actual_count" -eq "$expected_count" ]] || return 1
 }
