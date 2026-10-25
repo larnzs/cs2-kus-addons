@@ -18,10 +18,18 @@
       ]
     },
     {
+      "Interval": 40,
+      "Messages": [
+        {
+          "Center": "{GREEN} FragCity.ir"
+        }
+      ]
+    },
+    {
       "Interval": 50,
       "Messages": [
         {
-          "Chat": "{WHITE}IP : {GREEN}85.185.40.85:27085 {WHITE}| {YELLOW}{map_name} {WHITE}| {WHITE}Players: {YELLOW}{PLAYERS}/{MAXPLAYERS}"
+          "Chat": "{WHITE}IP : {GREEN}{IP}:{PORT}  | {YELLOW}{map_name} | {WHITE}Players: {YELLOW}{PLAYERS}/{MAXPLAYERS}"
         }
       ]
     },
@@ -37,7 +45,7 @@
       "Interval": 70,
       "Messages": [
         {
-          "Chat": "."
+          "Chat": "{LIME}Baraye entekhab skin mitunid az link {YELLOW}fragcity.ir/weaponpaints.php {LIME}estefade konid."
         }
       ]
     }
@@ -258,5 +266,10 @@
     "workshop/3711703660/Inferno": "VIP Inferno",
     "workshop/3711702027/Anubis": "VIP Anubis",
     "workshop/3575485852/Ancient Night": "VIP Ancient Night"
-  }
+  },
+  "Panel": [
+    "<font color='#ff6600'>FragCity.ir</font>",
+    "Type !changemode baraye didane mode haye server",
+    "Ba !rtv mitonid map avaz konid"
+  ]
 }
