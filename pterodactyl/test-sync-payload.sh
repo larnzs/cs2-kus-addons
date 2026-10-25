@@ -201,7 +201,7 @@ for rel in csgo/subscribed_collection_ids.txt csgo/subscribed_file_ids.txt; do
     [[ -f "$GAME_ROOT/$rel" && ! -L "$GAME_ROOT/$rel" ]]
     [[ "$(sha256sum -- "$SOURCE_GAME/$rel" | awk '{print $1}')" == "$(sha256sum -- "$GAME_ROOT/$rel" | awk '{print $1}')" ]]
 done
-grep -Fq "Verified both subscribed_*_ids.txt seed files on the first install." "$first_output"
+grep -Fq "Verified both subscribed_*_ids.txt seed files on the first install." <<< "$first_output"
 for rel in \
     csgo/addons/counterstrikesharp/api/runtime-fixture.txt \
     csgo/addons/counterstrikesharp/bin/runtime-fixture.txt \
