@@ -305,4 +305,15 @@ grep -Fq "Sync completed successfully." <<< "$legacy_output"
 [[ "$(sha256sum -- "$sample" | awk '{print $1}')" == "$(sha256sum -- "$GAME_ROOT/$relative" | awk '{print $1}')" ]]
 grep -Eq "configs preserved: $config_source_count; stale managed files removed: 0\\." <<< "$legacy_output"
 
-echo "PASS: new UUID waits for Provisioner; both subscribed-ID files are seeded and preserved; only exact K4ryuu runtime paths are excluded and never deleted; other payloads including plugins/disabled deploy intact; customer configs and unknown engine files persist; stale managed non-config files are removed."
+# Workshop list files are required even on completed/legacy volumes. Repair only
+# the missing one and prove the other customized subscribed-ID file stays untouched.
+rm -- "$GAME_ROOT/csgo/subscribed_file_ids.txt"
+repair_output="$(P_SERVER_UUID="$TEST_SERVER_UUID" FRAGCITY_PAYLOAD_BASE="$PAYLOAD_BASE" FRAGCITY_GAME_ROOT="$GAME_ROOT" bash "$SYNC_SCRIPT" 2>&1)"
+grep -Fq "Seeding missing subscribed-ID file without overwriting existing customer data: csgo/subscribed_file_ids.txt" <<< "$repair_output"
+grep -Fq "Sync completed successfully." <<< "$repair_output"
+[[ -f "$GAME_ROOT/csgo/subscribed_file_ids.txt" && ! -L "$GAME_ROOT/csgo/subscribed_file_ids.txt" ]]
+[[ "$(sha256sum -- "$SOURCE_GAME/csgo/subscribed_file_ids.txt" | awk '{print $1}')" == "$(sha256sum -- "$GAME_ROOT/csgo/subscribed_file_ids.txt" | awk '{print $1}')" ]]
+[[ "$(cat "$GAME_ROOT/csgo/subscribed_collection_ids.txt")" == "customer-subscribed-collection-ids" ]]
+[[ ! -e "$TEST_ROOT/.fragcity-config-seed-v1.state" ]]
+
+echo "PASS: subscribed-ID files seed on first install and remain untouched when present; absent required files are safely repaired; only exact K4ryuu runtime paths are excluded; disabled plugins and all other non-excluded payloads deploy intact."
