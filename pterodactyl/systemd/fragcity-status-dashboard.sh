@@ -11,7 +11,7 @@ MOUNT_REFRESH_SECONDS="${FRAGCITY_STATUS_MOUNT_REFRESH_SECONDS:-15}"
 
 [[ "$REFRESH_SECONDS" =~ ^[1-9][0-9]*$ ]] || REFRESH_SECONDS=5
 [[ "$MOUNT_REFRESH_SECONDS" =~ ^[5-9][0-9]*$|^[1-9][0-9]+$ ]] || MOUNT_REFRESH_SECONDS=15
-UI_VERSION="3.0-live-grid"
+UI_VERSION="3.1-first-install-state"
 SELF_PATH="$(readlink -f -- "$0" 2>/dev/null || printf '%s' "$0")"
 
 # This inventory deliberately requires root because it reads Panel's database and
@@ -68,9 +68,15 @@ MOUNT_PENDING=0
 MOUNT_UNKNOWN=0
 MOUNT_PROCESSED=0
 MOUNT_STARTUP=0
+MOUNT_SEED_PENDING=0
+MOUNT_SEED_MISSING=0
+MOUNT_SEED_BAD=0
+MOUNT_NEW_UNREGISTERED=0
 MOUNT_ACTIVE_COUNT=0
 MOUNT_INACTIVE_NAMES=''
 MOUNT_ACTIVE_ROWS=''
+MOUNT_ATTENTION_ROWS=''
+MOUNT_ATTENTION_EXTRA=0
 MOUNT_EXTRA_ACTIVE=0
 
 paint_switch() {
@@ -170,7 +176,7 @@ section_title() {
 }
 
 mount_inventory_parse() {
-  local now kind f1 f2 f3 f4 f5 f6 f7 f8 f9 state uuid_short row name
+  local now kind f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 state uuid_short row name seed_state reason
   now="$(date +%s)"
   if (( MOUNT_LAST_REFRESH > 0 && now - MOUNT_LAST_REFRESH < MOUNT_REFRESH_SECONDS )); then
     return
@@ -191,12 +197,15 @@ mount_inventory_parse() {
   MOUNT_TARGET='/home/container/egg/fragcity-payload'
   MOUNT_ELIGIBLE=0; MOUNT_PANEL_ON=0; MOUNT_PANEL_OFF=0
   MOUNT_DOCKER_ON=0; MOUNT_DOCKER_OFF=0; MOUNT_PENDING=0; MOUNT_UNKNOWN=0
-  MOUNT_PROCESSED=0; MOUNT_STARTUP=0; MOUNT_ACTIVE_COUNT=0
-  MOUNT_INACTIVE_NAMES=''; MOUNT_ACTIVE_ROWS=''; MOUNT_EXTRA_ACTIVE=0
+  MOUNT_PROCESSED=0; MOUNT_STARTUP=0
+  MOUNT_SEED_PENDING=0; MOUNT_SEED_MISSING=0; MOUNT_SEED_BAD=0; MOUNT_NEW_UNREGISTERED=0
+  MOUNT_ACTIVE_COUNT=0
+  MOUNT_INACTIVE_NAMES=''; MOUNT_ACTIVE_ROWS=''; MOUNT_ATTENTION_ROWS=''
+  MOUNT_ATTENTION_EXTRA=0; MOUNT_EXTRA_ACTIVE=0
 
   [[ -n "$MOUNT_STATUS_OUTPUT" ]] || return
   while IFS= read -r row; do
-    IFS=$'\t' read -r kind f1 f2 f3 f4 f5 f6 f7 f8 f9 <<< "$row"
+    IFS=$'\t' read -r kind f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 <<< "$row"
     case "$kind" in
       META)
         MOUNT_ID="$f2"; MOUNT_SOURCE="$f3"; MOUNT_TARGET="$f4"
@@ -205,10 +214,29 @@ mount_inventory_parse() {
         uuid_short="$(printf '%s' "$f1" | cut -c1-8)"
         name="$(printf '%s' "$f2" | tr -cd '[:print:]' | cut -c1-20)"
         state="$f4"
+        seed_state="$f9"
+        reason=''
+        if [[ "$f8" == OFF && "$f6" != ON ]]; then
+          MOUNT_NEW_UNREGISTERED=$((MOUNT_NEW_UNREGISTERED + 1))
+          reason='NEW-NOT-REGISTERED'
+        elif [[ "$seed_state" == PENDING ]]; then
+          reason='SEED-PENDING'
+        elif [[ "$seed_state" == MISSING ]]; then
+          reason='SEED-MISSING'
+        elif [[ "$seed_state" == BAD || "$seed_state" == UNSAFE ]]; then
+          reason='SEED-ERROR'
+        fi
+        if [[ -n "$reason" ]]; then
+          if (( MOUNT_ATTENTION_EXTRA < 5 )); then
+            MOUNT_ATTENTION_ROWS+="$(printf '  %-8s %-20s %-20s base=%-3s proc=%-3s seed=%-8s state=%s\n' "$uuid_short" "$name" "$reason" "$f8" "$f6" "$seed_state" "$state")"
+            MOUNT_ATTENTION_EXTRA=$((MOUNT_ATTENTION_EXTRA + 1))
+          fi
+        fi
+
         if [[ "$f5" == ON && "$state" == RUNNING ]]; then
           MOUNT_ACTIVE_COUNT=$((MOUNT_ACTIVE_COUNT + 1))
           if (( MOUNT_ACTIVE_COUNT <= 5 )); then
-            MOUNT_ACTIVE_ROWS+="$(printf '  %-8s %-20s %-9s %-6s %-7s %-6s %-7s\n' "$uuid_short" "$name" "$state" "$f3" "$f5" "$f6" "$f7")"
+            MOUNT_ACTIVE_ROWS+="$(printf '  %-8s %-20s %-9s %-6s %-7s %-6s %-7s %-6s %-8s\n' "$uuid_short" "$name" "$state" "$f3" "$f5" "$f6" "$f7" "$f8" "$seed_state")"
           else
             MOUNT_EXTRA_ACTIVE=$((MOUNT_EXTRA_ACTIVE + 1))
           fi
@@ -222,6 +250,7 @@ mount_inventory_parse() {
         MOUNT_DOCKER_ON="$f4"; MOUNT_DOCKER_OFF="$f5"
         MOUNT_PENDING="$f6"; MOUNT_UNKNOWN="$f7"
         MOUNT_PROCESSED="$f8"; MOUNT_STARTUP="$f9"
+        MOUNT_SEED_PENDING="$f10"; MOUNT_SEED_MISSING="$f11"; MOUNT_SEED_BAD="$f12"
         ;;
     esac
   done <<< "$MOUNT_STATUS_OUTPUT"
@@ -234,14 +263,24 @@ render_mount_section() {
     printf '  The read-only check validates Panel assignment and Docker source/target/read-only flags.\n'
     return
   fi
-  printf '  Active %b%d%b  │ Mounted %d  │ Eligible %d  │ Panel ON %d  │ Pending %d  │ Unknown %d\n' \
+  printf '  Active %b%d%b  │ Mounted %d  │ Eligible %d  │ Panel ON %d  │ Docker pending %d  │ Unknown %d\n' \
     "$C_GREEN" "$MOUNT_ACTIVE_COUNT" "$C_RESET" "$MOUNT_DOCKER_ON" "$MOUNT_ELIGIBLE" "$MOUNT_PANEL_ON" "$MOUNT_PENDING" "$MOUNT_UNKNOWN"
-  printf '  UUID     SERVER NAME          STATE     PANEL  DOCKER  PROC   STARTUP\n'
+  printf '  First-install: pending=%s  missing(new)=%s  invalid=%s  new/unregistered=%s\n' \
+    "$MOUNT_SEED_PENDING" "$MOUNT_SEED_MISSING" "$MOUNT_SEED_BAD" "$MOUNT_NEW_UNREGISTERED"
+  printf '  UUID     SERVER NAME          STATE     PANEL  DOCKER  PROC   STARTUP BASE   SEED\n'
   if [[ -n "$MOUNT_ACTIVE_ROWS" ]]; then
     printf '%s' "$MOUNT_ACTIVE_ROWS"
     if (( MOUNT_EXTRA_ACTIVE > 0 )); then printf '  ... plus %d more active mounted server(s)\n' "$MOUNT_EXTRA_ACTIVE"; fi
   else
     printf '  %bNo running container currently has the actual FragCity Docker Mount.%b\n' "$C_YELLOW" "$C_RESET"
+  fi
+  if [[ -n "$MOUNT_ATTENTION_ROWS" ]]; then
+    printf '  %bFirst-install / registration attention:%b\n' "$C_YELLOW" "$C_RESET"
+    printf '  UUID     SERVER NAME          REASON               BASE PROC SEED     STATE\n'
+    printf '%s' "$MOUNT_ATTENTION_ROWS"
+    if (( MOUNT_NEW_UNREGISTERED > 5 )); then
+      printf '  ... plus %d more new/unregistered server(s)\n' "$((MOUNT_NEW_UNREGISTERED - 5))"
+    fi
   fi
   if [[ -n "$MOUNT_INACTIVE_NAMES" ]]; then
     printf '  %bMounted but not active:%b %s\n' "$C_YELLOW" "$C_RESET" "$(printf '%s' "$MOUNT_INACTIVE_NAMES" | cut -c1-70)"
