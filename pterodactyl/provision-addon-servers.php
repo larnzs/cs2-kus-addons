@@ -261,6 +261,49 @@ function validatedPayloadCommit(string $payloadRoot): string
         fail('Published payload has no files under CounterStrikeSharp plugins/disabled/.');
     }
 
+    // Validate the complete repository game/ tree against the publisher's inventory.
+    $gameRoot = $revision . '/game';
+    $gameInventory = $revision . '/.fragcity-game-files-v1.list';
+    if (is_link($gameRoot) || !is_dir($gameRoot)
+        || is_link($gameInventory) || !is_file($gameInventory)) {
+        fail('Published revision is missing the complete game/ tree or its file inventory.');
+    }
+
+    $gameFiles = file($gameInventory, FILE_IGNORE_NEW_LINES);
+    if ($gameFiles === false || count($gameFiles) === 0 || count(array_unique($gameFiles)) !== count($gameFiles)) {
+        fail('Published full-game inventory is empty, unreadable or contains duplicate paths.');
+    }
+
+    foreach ($gameFiles as $relativePath) {
+        if ($relativePath === '' || str_starts_with($relativePath, '/')
+            || str_contains($relativePath, '..') || str_contains($relativePath, '//')) {
+            fail('Published full-game inventory contains an unsafe path.');
+        }
+        $path = $gameRoot . '/' . $relativePath;
+        if (is_link($path) || !is_file($path)) {
+            fail('Published full-game inventory references a missing or unsafe file: ' . $relativePath);
+        }
+    }
+
+    $actualGameFileCount = 0;
+    $gameIterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($gameRoot, FilesystemIterator::SKIP_DOTS)
+    );
+    foreach ($gameIterator as $entry) {
+        if ($entry->isLink()) {
+            fail('Published game/ tree contains a symlink: ' . $entry->getPathname());
+        }
+        if ($entry->isFile()) {
+            $actualGameFileCount++;
+        }
+    }
+    if ($actualGameFileCount !== count($gameFiles)) {
+        fail(
+            'Published full-game file count does not match its inventory. Inventory: ' .
+            count($gameFiles) . '; actual: ' . $actualGameFileCount . '.'
+        );
+    }
+
     return $commit;
 }
 
@@ -514,19 +557,19 @@ function serverStartupPrefix(string $mountTarget): string
 }
 
 /**
- * Mark only newly provisioned volumes for their one-time config seed.
- * Existing completed/legacy markers are never replaced, because they protect
- * established server settings from being reset by a provisioning retry.
+ * Record that a newly provisioned volume must complete its first full game/ sync.
+ * Keep the legacy state filename/identifier so already provisioned volumes remain readable;
+ * this marker no longer gates the copying of configs or other repository game files.
  */
 function prepareConfigSeedMarker(string $volumePath, string $uuid, int $mountId, string $payloadCommit): void
 {
     $state = $volumePath . '/.fragcity-config-seed-v1.state';
 
     if (is_link($state)) {
-        fail('Config-seed state path is a symlink: ' . $state);
+        fail('Initial-sync state path is a symlink: ' . $state);
     }
     if (file_exists($state) && !is_file($state)) {
-        fail('Config-seed state path is not a regular file: ' . $state);
+        fail('Initial-sync state path is not a regular file: ' . $state);
     }
 
     if (is_file($state)) {
@@ -534,14 +577,14 @@ function prepareConfigSeedMarker(string $volumePath, string $uuid, int $mountId,
         if ($lines === false
             || !in_array('fragcity-config-seed-v1', $lines, true)
             || !in_array('server_uuid=' . $uuid, $lines, true)) {
-            fail('Config-seed state does not match server UUID ' . $uuid . '.');
+            fail('Initial-sync state does not match server UUID ' . $uuid . '.');
         }
         if (in_array('mode=completed', $lines, true)) {
-            logLine('Config seed already completed for ' . $uuid . '; current cfg/configs/txt files will be preserved.');
+            logLine('Initial full game/ sync is marked complete for ' . $uuid . '; all repository files still sync on every start.');
         } elseif (in_array('mode=pending', $lines, true)) {
-            logLine('One-time config seed already pending for ' . $uuid . '.');
+            logLine('Initial full game/ payload sync is pending for ' . $uuid . '.');
         } else {
-            fail('Config-seed state has no recognized pending/completed mode for ' . $uuid . '.');
+            fail('Initial-sync state has no recognized pending/completed mode for ' . $uuid . '.');
         }
         return;
     }
@@ -557,7 +600,7 @@ function prepareConfigSeedMarker(string $volumePath, string $uuid, int $mountId,
     // volume, so make this isolated per-server state file writable for its own
     // container user. It is not an authority boundary and contains no secrets.
     writeAtomically($state, $contents, 0666);
-    logLine('Created first-install config-seed state for ' . $uuid . '; cfg/configs/txt files will be installed once on its next start.');
+    logLine('Created initial-sync state for ' . $uuid . '; the complete repository game/ tree will be copied and verified on next start.');
 }
 
 /**
@@ -725,7 +768,7 @@ function verifyOne(
 
     $preflight = <<<'BASH'
 set -Eeuo pipefail
-for command_name in bash sha256sum find cp mkdir rm awk flock tr chmod dirname grep mv; do
+for command_name in bash sha256sum find cp mkdir rm awk flock tr chmod dirname grep mv sort wc; do
     command -v "$command_name" >/dev/null 2>&1 || {
         printf 'MISSING required command: %s\n' "$command_name" >&2
         exit 21
@@ -744,86 +787,46 @@ test -f "$revision/.source-commit" && test ! -L "$revision/.source-commit"
 marker="$(tr -d '\r\n' < "$revision/.source-commit")"
 test "$marker" = "$commit"
 
-payload_disabled="$revision/game/csgo/addons/counterstrikesharp/plugins/disabled"
-target_disabled="/home/container/game/csgo/addons/counterstrikesharp/plugins/disabled"
-test -d "$payload_disabled" && test ! -L "$payload_disabled"
-test -d "$target_disabled" && test ! -L "$target_disabled"
-test -z "$(find "$payload_disabled" -type l -print -quit)"
-test -z "$(find "$target_disabled" -type l -print -quit)"
-verified_disabled_files=0
-while IFS= read -r -d '' payload_file; do
-    relative_file="${payload_file#"$payload_disabled"/}"
-    target_file="$target_disabled/$relative_file"
+payload_game="$revision/game"
+target_game="/home/container/game"
+game_inventory="$revision/.fragcity-game-files-v1.list"
+test -d "$payload_game" && test ! -L "$payload_game"
+test -d "$target_game" && test ! -L "$target_game"
+test -f "$game_inventory" && test ! -L "$game_inventory"
+test -z "$(find "$payload_game" -type l -print -quit)"
+expected_game_files="$(wc -l < "$game_inventory")"
+test "$expected_game_files" -gt 0
+test "$(LC_ALL=C sort -u "$game_inventory" | wc -l)" -eq "$expected_game_files"
+test "$(find "$payload_game" -type f | wc -l)" -eq "$expected_game_files"
+verified_game_files=0
+while IFS= read -r relative_file || [[ -n "$relative_file" ]]; do
+    [[ -n "$relative_file" && "$relative_file" != /* && "$relative_file" != *".."* && "$relative_file" != *"//"* ]] || {
+        printf 'Unsafe full-game inventory path: %s\n' "$relative_file" >&2
+        exit 22
+    }
+    payload_file="$payload_game/$relative_file"
+    target_file="$target_game/$relative_file"
+    test -f "$payload_file" && test ! -L "$payload_file"
     test -f "$target_file" && test ! -L "$target_file"
+    IFS='/' read -r -a path_parts <<< "$relative_file"
+    parent="$target_game"
+    for ((index = 0; index < ${#path_parts[@]} - 1; index++)); do
+        parent="$parent/${path_parts[$index]}"
+        if [[ -L "$parent" ]]; then
+            printf 'Target path contains a symlink: %s\n' "$parent" >&2
+            exit 23
+        fi
+    done
     payload_hash="$(sha256sum -- "$payload_file" | awk '{print $1}')"
     target_hash="$(sha256sum -- "$target_file" | awk '{print $1}')"
     if [[ "$payload_hash" != "$target_hash" ]]; then
-        printf 'Disabled plugin SHA-256 mismatch: %s\n' "$relative_file" >&2
-        exit 22
+        printf 'Game payload SHA-256 mismatch: %s\n' "$relative_file" >&2
+        exit 24
     fi
-    verified_disabled_files=$((verified_disabled_files + 1))
-done < <(find "$payload_disabled" -type f -print0)
-target_disabled_files=0
-while IFS= read -r -d '' target_file; do
-    target_disabled_files=$((target_disabled_files + 1))
-done < <(find "$target_disabled" -type f -print0)
-test "$verified_disabled_files" -gt 0
-test "$target_disabled_files" -eq "$verified_disabled_files" || {
-    printf 'Disabled plugin file count mismatch: payload=%d, volume=%d\n' \
-        "$verified_disabled_files" "$target_disabled_files" >&2
-    exit 23
-}
-printf 'PASS: verified all %d disabled-plugin file(s) and exact file count against this server volume.\n' "$verified_disabled_files"
-
-verify_mirror_tree() {
-    local source_dir="$1" target_dir="$2" label="$3" mode="${4:-exact}"
-    local source_file relative_file target_file source_hash target_hash
-    local verified_count=0 target_count current_path part component_index
-    local -a components=()
-    test -d "$source_dir" && test ! -L "$source_dir"
-    test -d "$target_dir" && test ! -L "$target_dir"
-    test -z "$(find "$source_dir" -type l -print -quit)"
-    if [[ "$mode" == "exact" ]]; then
-        test -z "$(find "$target_dir" -type l -print -quit)"
-    elif [[ "$mode" != "subset" ]]; then
-        printf 'Unknown verification mode for %s: %s\n' "$label" "$mode" >&2
-        exit 27
-    fi
-    while IFS= read -r -d '' source_file; do
-        relative_file="${source_file#"$source_dir"/}"
-        target_file="$target_dir/$relative_file"
-        IFS='/' read -r -a components <<< "$relative_file"
-        current_path="$target_dir"
-        for ((component_index = 0; component_index < ${#components[@]} - 1; component_index++)); do
-            part="${components[$component_index]}"
-            current_path="$current_path/$part"
-            if [[ -L "$current_path" ]]; then
-                printf '%s destination parent is a symlink: %s\n' "$label" "$current_path" >&2
-                exit 28
-            fi
-        done
-        test -f "$target_file" && test ! -L "$target_file"
-        source_hash="$(sha256sum -- "$source_file" | awk '{print $1}')"
-        target_hash="$(sha256sum -- "$target_file" | awk '{print $1}')"
-        test "$source_hash" = "$target_hash" || {
-            printf '%s SHA-256 mismatch: %s\n' "$label" "$relative_file" >&2
-            exit 24
-        }
-        verified_count=$((verified_count + 1))
-    done < <(find "$source_dir" -type f -print0)
-    test "$verified_count" -gt 0
-    if [[ "$mode" == "exact" ]]; then
-        mapfile -d '' -t target_files < <(find "$target_dir" -type f -print0)
-        target_count="${#target_files[@]}"
-        test "$target_count" -eq "$verified_count" || {
-            printf '%s file count mismatch: payload=%d volume=%d\n' "$label" "$verified_count" "$target_count" >&2
-            exit 25
-        }
-        printf 'PASS: verified %d %s file(s) and exact file count.\n' "$verified_count" "$label"
-    else
-        printf 'PASS: verified %d %s payload file(s); unrelated game-owned files are allowed and preserved.\n' "$verified_count" "$label"
-    fi
-}
+    verified_game_files=$((verified_game_files + 1))
+done < "$game_inventory"
+test "$verified_game_files" -eq "$expected_game_files"
+printf 'PASS: verified all %d tracked file(s) from the complete repository game/ tree; no payload path exclusions.\n' "$verified_game_files"
 
 seed_state="/home/container/.fragcity-config-seed-v1.state"
 test ! -L "$seed_state" || {
@@ -834,16 +837,16 @@ if [[ -f "$seed_state" ]]; then
     grep -Fxq 'fragcity-config-seed-v1' "$seed_state"
     grep -Fxq "server_uuid=$P_SERVER_UUID" "$seed_state"
     if grep -Fxq 'mode=completed' "$seed_state"; then
-        printf 'PASS: first-install config seed completed. Customer-owned config files are intentionally not compared with repository defaults.\n'
+        printf 'PASS: initial full game/ payload sync completed; every repository file was verified above.\n'
     elif grep -Fxq 'mode=pending' "$seed_state"; then
-        printf 'Config-seed state is still pending; the startup sync did not complete the initial config seed.\n' >&2
+        printf 'Initial full game/ sync state is still pending; startup synchronization did not complete.\n' >&2
         exit 30
     else
-        printf 'Config-seed state has no recognized mode.\n' >&2
+        printf 'Initial-sync state has no recognized mode.\n' >&2
         exit 31
     fi
 else
-    printf 'PASS: legacy server has no first-install seed marker; existing configuration is preserved.\n'
+    printf 'PASS: legacy server has no first-sync marker; the complete repository game/ tree was verified above.\n'
 fi
 
 bash -n "$base/sync-addon-payload-container.sh"
