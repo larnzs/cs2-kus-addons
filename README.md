@@ -65,6 +65,7 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 | [CS2-KillFeedFilter](https://github.com/abnerfs/cs2-killfeed-filter) | `1.0.1` | Killfeed filtering; disabled for game-mode-specific activation |
 | [AdvancedFriendlyFire](https://github.com/mister-keno/advanced-ff-cs2) | `main@ab332f0b5923` | Friendly-fire damage tracking and configured punishments; disabled for game-mode-specific activation |
 | [CS2-Gunsmenu](https://github.com/asapverneri/CS2-Gunsmenu) | `main@ec5dbdd99b23` | Player weapon-selection menus; disabled for game-mode-specific activation; not installed and marked manual in the Larnz manifest |
+| [GG1MapChooser](https://github.com/ssypchenko/GG1MapChooser) | `1.8.1` | Map voting with RTV, nominations, map pools and map rotation; includes the shared `ggmcAPI` dependency. |
 
 ## Larnz plugin dependencies
 
@@ -177,7 +178,6 @@ The first table deliberately retains the updater-compatible three-column structu
 | [SharpTimer](https://github.com/Letaryat/poor-sharptimer) | `0.4.0` | SharpTimer is a simple Surf/KZ/Bhop/MG/Deathrun/etc CS2 Timer plugin |
 | [STFixes](https://github.com/rcnoob/STFixes) | `1.0.5` | A CounterStrikeSharp plugin with common fixes and features for SharpTimer servers |
 | [GunGame](https://github.com/ssypchenko/cs2-gungame) | `1.2.4` | GunGame mode on Counter Strike Sharp |
-| [GG1MapChooser](https://github.com/ssypchenko/GG1MapChooser) | `1.8.1` | Larnz-managed map-voting integration with Rock The Vote (RTV), nominations, map pools, and map rotation. |
 | [K4-Arenas](https://github.com/KitsuneLab-Development/K4-Arenas) | `2.0.8` | All in one arena plugin, that you can use to have a ladder type gameplay. Support all map, 2v2/3v3/etc [Database setup](#setup-mysql-database) |
 | [CS2 Retakes](https://github.com/B3none/cs2-retakes) | `3.1.1` | CS2 implementation of retakes. Based on the version for CS:GO by Splewis. |
 | [CS2 Instadefuse](https://github.com/B3none/cs2-instadefuse) | `2.0.0` | Allows a CT to instantly defuse the bomb when nothing can prevent defusal. Written in C# for CounterStrikeSharp. |
@@ -273,7 +273,7 @@ The important difference is **how each script updates files**. Routine runner ma
 
 GitHub Actions checks for new upstream add-on releases every hour at **minute 17 UTC**. It runs KUS's documented per-plugin `.sh` updater scripts first, then checks the enabled add-ons in `DEPENDENCIES.json`, commits successful changes to `integration/kus-monorepo`, and runs the Windows validation workflow. CI checks that every updater listed in `scripts/update/README.md` exists and that every installed, automation-enabled manifest entry has a matching script.
 
-Coverage means the **15 existing KUS scripts plus the dedicated GG1MapChooser integration updater**, alongside the 17 enabled entries in our manifest (Metamod and CounterStrikeSharp are shared between the KUS-script and manifest groups). KUS catalog rows that do not have their own upstream updater script are still warning-only/skipped, as documented by KUS; this does not automatically update every optional plugin name in the catalog. `CS2-WeaponRestrict` remains intentionally excluded because it is marked not installed and not automated.
+Coverage means the **15 existing KUS scripts plus the dedicated GG1MapChooser integration updater**, alongside the installed, automation-enabled entries in our manifest (Metamod and CounterStrikeSharp are shared between the KUS-script and manifest groups). KUS catalog rows that do not have their own upstream updater script are still warning-only/skipped, as documented by KUS; this does not automatically update every optional plugin name in the catalog. `CS2-WeaponRestrict` remains intentionally excluded because it is marked not installed and not automated.
 
 The external Instance folder has its own `update.bat` for shared maintenance. Run it manually with all CS2 processes stopped. Start `watchdog.bat` for normal operation: it keeps a visible CMD guardian running `run.vbs` through `cscript.exe`, and relaunches the VBS host if it terminates. Inside that guard, `run.vbs` invokes the runner through `cmd.exe`, waits for it to return, then retries **100 milliseconds** after exit code 100. The VBS/watchdog layers do not run maintenance; each new `run.bat` invocation copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` before starting CS2.
 

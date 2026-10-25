@@ -92,7 +92,7 @@ The workflow runs the same KUS updater described in this document, then a second
 
 ### Coverage and its limits
 
-- All **15 upstream KUS per-plugin scripts** plus the **GG1MapChooser integration updater** are documented in the `Existing plugin scripts` table below and present in this repository.
+- All **15 upstream KUS per-plugin scripts** plus the **GG1MapChooser manifest/release adapter** are documented in the `Existing plugin scripts` table below and present in this repository.
 - Every manifest entry marked `installed: true` with automation enabled has a matching `scripts/update/plugins/<slug>.sh` adapter; CI checks this coverage dynamically. MetaMod and CounterStrikeSharp use their dedicated KUS-style scripts.
 - Entries initially marked `installed: false` are bootstrap-installed by the PowerShell source/release updater. Once their files verify successfully, the manifest flips them to `installed: true`; the Bash adapters then track upstream release tags or branch commits on subsequent hourly runs.
 - `CS2-WeaponRestrict` is deliberately excluded because its manifest entry is `installed: false` and `automation_supported: false`.
@@ -319,7 +319,7 @@ downloadable asset (size `0` if unknown).
 | CS2 Retakes | `plugins/cs2-retakes.sh` | Uses the full `RetakesPlugin-<v>.zip` (not the `-no-map-configs` one). Replaces `plugins/disabled/RetakesPlugin` (the plugin is kept disabled in this repo, so it is NOT at `plugins/RetakesPlugin`) and `shared/RetakesPluginShared`. |
 | MatchZy | `plugins/matchzy.sh` | Plain `MatchZy-<v>.zip` (not the `-with-cssharp-*` bundles). Merge-copies the plugin folder over `plugins/disabled/MatchZy` (nothing deleted). `game/csgo/cfg/MatchZy/` and `custom_files_example/cfg/MatchZy/` are customised and never written; new upstream files/settings are only reported for a manual port. |
 | GunGame | `plugins/gungame.sh` | Merge-copies `plugins/disabled/GG2` and `shared/GunGameAPI` (old leftovers like `Dapper.dll`/`runtimes/` are kept, as the manual updates did). `game/csgo/cfg/gungame/` is customised and never written; new upstream files, removed files and new settings are reported for a manual port. |
-| GG1MapChooser | `plugins/gg1mapchooser.sh` | Overlays the plugin and its shared dependency under `shared/ggmcAPI`; repairs missing files even when the release version is unchanged. Never writes `cfg/GGMCmaps.json` or `configs/plugins/GG1MapChooser/`. |
+| GG1MapChooser | `plugins/gg1mapchooser.sh` | Manifest-managed release adapter; overlays the plugin and `shared/ggmcAPI`, repairs missing runtime files, and preserves `cfg/GGMCmaps.json` and `configs/plugins/GG1MapChooser/`. The PowerShell release mapper discovers the two DLL directories without assuming archive wrapper paths. |
 | CS2 Deathmatch | `plugins/cs2-deathmatch.sh` | Asset is always `Deathmatch.zip`. Archive root is `addons/counterstrikesharp/` from 1.3.6 and `Deathmatch/` before it; `pick_dir` accepts either. Replaces `plugins/disabled/Deathmatch` and `shared/DeathmatchAPI` whole. `configs/plugins/Deathmatch/` and `gamedata/Deathmatch.json` are not shipped and not touched. |
 | deathrun-manager | `plugins/deathrun-manager.sh` | Replaces `plugins/disabled/DeathrunManager` whole. The shipped `configs/plugins/DeathrunManager/DeathrunManager.json` is never written, only compared (new settings reported). Archive junk (`README-ME.txt`, `logs/`) ignored. |
 | RollTheDice | `plugins/rollthedice.sh` | Archive root `RollTheDice/`; replaces `plugins/disabled/RollTheDice` whole. `configs/plugins/RollTheDice/` not touched. |

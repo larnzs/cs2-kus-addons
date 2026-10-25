@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Project:           Kus' modded Counter Strike 2 (CS2) Dedicated Server - https://github.com/kus/cs2-modded-server/
-# Update script for: GG1MapChooser
+# Update script for: GG1MapChooser (Larnz manifest-managed release)
 # README row:        [GG1MapChooser](https://github.com/ssypchenko/GG1MapChooser)
 # Sourced by scripts/update/update.sh - do not run directly.
+# This single adapter is called by the manifest pass; keep the plugin out of the
+# KUS catalog version table to avoid downloading/applying the same release twice.
 #
 # Manual process this automates:
 #   1. Download the exact upstream release asset: GG1MapChooser.<version>.zip.
@@ -30,7 +32,7 @@ plugin_preflight() {
 }
 
 # Return success only when a repair is required. This is checked even when the
-# README version matches upstream, so missing runtime dependencies are recoverable.
+# manifest version matches upstream, so missing runtime dependencies are recoverable.
 plugin_needs_repair() {
     local target="game/csgo/addons/counterstrikesharp/plugins/GG1MapChooser"
     local api_target="game/csgo/addons/counterstrikesharp/shared/ggmcAPI"

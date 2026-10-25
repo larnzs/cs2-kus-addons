@@ -469,7 +469,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $selected = @("SLAYER_AntiCamp", "SLAYER_HeadshotOnly", "CS2-TeamLimiter", "cs2-showdamage", "CS2-KillFeedFilter")
+          $selected = @("SLAYER_AntiCamp", "SLAYER_HeadshotOnly", "CS2-TeamLimiter", "cs2-showdamage", "CS2-KillFeedFilter", "GG1MapChooser")
           $ErrorActionPreference = "Stop"
           & ".\scripts\Inspect-Releases.ps1" -Only $selected
           if (-not $?) {

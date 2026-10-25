@@ -703,6 +703,41 @@
         "addons/counterstrikesharp/plugins/disabled/GunsMenu/lang/en.json"
       ],
       "automation_supported": false
+    },
+    {
+      "order": 28,
+      "name": "GG1MapChooser",
+      "repository": "https://github.com/ssypchenko/GG1MapChooser",
+      "type": "github_release",
+      "track": "latest",
+      "version": "1.8.1",
+      "release_tag": "1.8.1",
+      "assets": [
+        "GG1MapChooser.{version}.zip"
+      ],
+      "depends_on": [
+        "CounterStrikeSharp"
+      ],
+      "installed": true,
+      "merge": "release_plugin_pair",
+      "asset_mappings": {
+        "GG1MapChooser.{version}.zip": [
+          {
+            "merge": "release_plugin_pair",
+            "plugin_file": "GG1MapChooser.dll",
+            "plugin_install_path": "addons/counterstrikesharp/plugins/GG1MapChooser",
+            "shared_file": "ggmcAPI.dll",
+            "shared_install_path": "addons/counterstrikesharp/shared/ggmcAPI"
+          }
+        ]
+      },
+      "verify_paths": [
+        "addons/counterstrikesharp/plugins/GG1MapChooser/GG1MapChooser.dll",
+        "addons/counterstrikesharp/plugins/GG1MapChooser/GG1MapChooser.deps.json",
+        "addons/counterstrikesharp/plugins/GG1MapChooser/lang/en.json",
+        "addons/counterstrikesharp/shared/ggmcAPI/ggmcAPI.dll",
+        "addons/counterstrikesharp/shared/ggmcAPI/ggmcAPI.deps.json"
+      ]
     }
   ]
 }
