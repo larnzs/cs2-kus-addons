@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Full-tree FragCity game payload synchronizer for the custom K4ryuu/Pterodactyl Egg.
 #
-# The immutable host snapshot contains every tracked file under repository game/.
-# A newly provisioned volume with mode=pending receives the complete tree, including
-# configs, on its first startup. Later starts sync non-config payloads but protect exactly
-# csgo/cfg/, CounterStrikeSharp configs/, and five top-level CS2 config/list files.
+# The immutable host snapshot contains the complete deployable tree under repository game/,
+# excluding only the exact K4ryuu-managed runtime paths. A new volume with mode=pending
+# receives all staged files, including configs, at first startup. Later starts protect
+# exactly the customer-config paths while leaving excluded runtime files to the Egg.
 # If the state marker is absent, FRAGCITY_BASELINE_SHA256 distinguishes known legacy UUIDs
 # from new UUIDs. New UUIDs wait for host registration; CS2 is not launched before the
 # provisioner creates a matching pending marker. Known legacy configs remain untouched.
@@ -45,6 +45,22 @@ is_customer_config_path() {
         csgo/cfg/*|csgo/addons/counterstrikesharp/configs/*|\
         csgo/gamemodes_server.txt|csgo/mapcycle.txt|csgo/mapcyclecustom.txt|\
         csgo/subscribed_collection_ids.txt|csgo/subscribed_file_ids.txt)
+            return 0
+            ;;
+    esac
+    return 1
+}
+
+# These exact runtime paths belong to the K4ryuu Egg. They must neither be copied
+# from the repository nor removed as stale files from manifests written by older versions.
+# Do not broaden this list: every other repository path, including plugins/disabled/, is managed.
+is_runtime_excluded_path() {
+    local path="$1"
+    case "$path" in
+        csgo/addons/counterstrikesharp/api/*|csgo/addons/counterstrikesharp/bin/*|\
+        csgo/addons/counterstrikesharp/dotnet/*|csgo/addons/counterstrikesharp/lang/*|\
+        csgo/addons/metamod/bin/*|\
+        csgo/addons/metamod/counterstrikesharp.vdf|csgo/addons/metamod/metaplugins.ini)
             return 0
             ;;
     esac
@@ -189,9 +205,14 @@ EXPECTED_SOURCE_COUNT="$(wc -l < "$GAME_INVENTORY")"
 [[ "$(LC_ALL=C sort -u "$GAME_INVENTORY" | wc -l)" -eq "$EXPECTED_SOURCE_COUNT" ]] || die "Published full-game inventory contains duplicate paths."
 grep -q '^csgo/addons/counterstrikesharp/plugins/disabled/' "$GAME_INVENTORY" || die "Full-game inventory omitted plugins/disabled files."
 while IFS= read -r relative_path || [[ -n "$relative_path" ]]; do
-    validate_relative_path "$relative_path" || die "Unsafe path in full-game inventory: $relative_path"
+    validate_relative_path "$relative_path" || die "Unsafe path in deployable-game inventory: $relative_path"
+    is_runtime_excluded_path "$relative_path" && die "Published inventory contains a K4ryuu-managed runtime path that must be excluded: $relative_path"
     add_file "$relative_path" "$GAME_SOURCE/$relative_path"
 done < "$GAME_INVENTORY"
+for required_seed_path in csgo/subscribed_collection_ids.txt csgo/subscribed_file_ids.txt; do
+    [[ -n "${DESIRED_SOURCE[$required_seed_path]+present}" ]] \
+        || die "Required first-install seed file is missing from the published inventory: $required_seed_path"
+done
 ACTUAL_SOURCE_COUNT="$(find "$GAME_SOURCE" -type f | wc -l)"
 [[ "$ACTUAL_SOURCE_COUNT" -eq "$EXPECTED_SOURCE_COUNT" ]] || die "Full-game inventory mismatch: inventory=$EXPECTED_SOURCE_COUNT actual=$ACTUAL_SOURCE_COUNT."
 
@@ -235,7 +256,7 @@ VERIFIED=0
 CONFIGS_PRESERVED=0
 log "Target server UUID: $SERVER_UUID."
 log "Using published payload revision $SOURCE_COMMIT."
-log "Loaded the complete repository game/ inventory: $EXPECTED_SOURCE_COUNT files; config seeding is controlled by the per-server first-install state."
+log "Loaded the complete deployable game/ inventory: $EXPECTED_SOURCE_COUNT files; only the seven explicit K4ryuu runtime paths are excluded; config seeding is controlled by per-server first-install state."
 
 for relative_path in "${!DESIRED_SOURCE[@]}"; do
     if [[ "$CONFIG_SEED_ACTIVE" -ne 1 ]] && is_customer_config_path "$relative_path"; then
@@ -277,11 +298,29 @@ for relative_path in "${!DESIRED_SOURCE[@]}"; do
     VERIFIED=$((VERIFIED + 1))
 done
 
-# Only previously managed files that are now absent from the complete Git tree can be
-# deleted. Without a prior manifest, unrecognized CS2 engine/runtime files are preserved.
+# First-install mode is not complete unless both subscribed-ID files were copied and
+# SHA-256 verified at their repository-defined paths. Empty files are valid seed files.
+if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
+    for required_seed_path in csgo/subscribed_collection_ids.txt csgo/subscribed_file_ids.txt; do
+        target_path="$GAME_ROOT/$required_seed_path"
+        [[ -f "$target_path" && ! -L "$target_path" ]] || die "First-install seed did not create required file: $required_seed_path"
+        actual_hash="$(sha256sum -- "$target_path" | awk '{print $1}')"
+        [[ "$actual_hash" == "${DESIRED_HASH[$required_seed_path]}" ]] \
+            || die "First-install seed file failed SHA-256 verification: $required_seed_path"
+    done
+    log "Verified both subscribed_*_ids.txt seed files on the first install."
+fi
+
+# Only previously managed files that are now absent from the deployable inventory can be
+# deleted. Runtime paths owned by K4ryuu are never deleted, including from old manifests.
+# Without a prior manifest, unrecognized CS2 engine/runtime files are preserved.
 DELETED=0
 if [[ "$MANIFEST_PRESENT" -eq 1 ]]; then
     for relative_path in "${!PREVIOUS_MANAGED[@]}"; do
+        if is_runtime_excluded_path "$relative_path"; then
+            log "Leaving K4ryuu-managed runtime path untouched: $relative_path"
+            continue
+        fi
         [[ -n "${DESIRED_SOURCE[$relative_path]+present}" ]] && continue
         if [[ "$CONFIG_SEED_ACTIVE" -ne 1 ]] && is_customer_config_path "$relative_path"; then
             log "Preserving stale customer config file after first install: $relative_path"
@@ -322,5 +361,5 @@ fi
 
 log "Sync completed successfully."
 log "Files copied: $COPIED; already matching SHA-256: $UNCHANGED; verified: $VERIFIED; configs preserved: $CONFIGS_PRESERVED; stale managed files removed: $DELETED."
-log "All repository game/ files are in the source inventory; after first install only non-config payload files are updated."
+log "All deployable repository game/ files are inventoried; after first install only non-config payload files are updated."
 log "plugins/disabled/ and all other non-config subtrees are synchronized from the published payload."

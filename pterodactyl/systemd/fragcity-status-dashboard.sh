@@ -11,7 +11,7 @@ MOUNT_REFRESH_SECONDS="${FRAGCITY_STATUS_MOUNT_REFRESH_SECONDS:-15}"
 
 [[ "$REFRESH_SECONDS" =~ ^[1-9][0-9]*$ ]] || REFRESH_SECONDS=5
 [[ "$MOUNT_REFRESH_SECONDS" =~ ^[5-9][0-9]*$|^[1-9][0-9]+$ ]] || MOUNT_REFRESH_SECONDS=15
-UI_VERSION="3.1-first-install-state"
+UI_VERSION="4.0-ops-console"
 SELF_PATH="$(readlink -f -- "$0" 2>/dev/null || printf '%s' "$0")"
 
 # This inventory deliberately requires root because it reads Panel's database and
@@ -105,25 +105,17 @@ enabled_code() {
   esac
 }
 
-show_service_triplet() {
-  local left_label="$1" left_unit="$2" middle_label="$3" middle_unit="$4" right_label="$5" right_unit="$6"
-  local active enabled code
-  printf '  %-7s ' "$left_label"
-  active="$(systemctl is-active "$left_unit" 2>/dev/null || true)"
-  enabled="$(systemctl is-enabled "$left_unit" 2>/dev/null || true)"
-  code="$(active_code "$active")"; paint_switch "$code"; printf '/'
-  code="$(enabled_code "$enabled")"; paint_switch "$code"
-  printf '  │  %-8s ' "$middle_label"
-  active="$(systemctl is-active "$middle_unit" 2>/dev/null || true)"
-  enabled="$(systemctl is-enabled "$middle_unit" 2>/dev/null || true)"
-  code="$(active_code "$active")"; paint_switch "$code"; printf '/'
-  code="$(enabled_code "$enabled")"; paint_switch "$code"
-  printf '  │  %-10s ' "$right_label"
-  active="$(systemctl is-active "$right_unit" 2>/dev/null || true)"
-  enabled="$(systemctl is-enabled "$right_unit" 2>/dev/null || true)"
-  code="$(active_code "$active")"; paint_switch "$code"; printf '/'
-  code="$(enabled_code "$enabled")"; paint_switch "$code"
-  printf '\n'
+show_service_row() {
+  local label="$1" unit="$2" active enabled active_status enabled_status
+  active="$(systemctl is-active "$unit" 2>/dev/null || true)"
+  enabled="$(systemctl is-enabled "$unit" 2>/dev/null || true)"
+  active_status="$(active_code "$active")"
+  enabled_status="$(enabled_code "$enabled")"
+  printf '  %-23s ' "$label"
+  paint_switch "$active_status"
+  printf '    '
+  paint_switch "$enabled_status"
+  printf '  %s\n' "$unit"
 }
 
 short_time() {
@@ -153,16 +145,16 @@ system_memory_line() {
 }
 
 system_disk_line() {
-  local disk counts total
+  local disk running total
   disk="$(df -B1 --output=used,size,pcent / 2>/dev/null | awk 'NR==2 {printf "%.1f / %.1f GiB (%s)", $1/1073741824, $2/1073741824, $3}')"
   [[ -n "$disk" ]] || disk='unavailable'
-  printf '  ROOT  %-33s' "$disk"
+  printf '  ROOT FS  %-31s\n' "$disk"
   if timeout 3 docker info >/dev/null 2>&1; then
-    counts="$(docker ps -q 2>/dev/null | wc -l | tr -d ' ')"
+    running="$(docker ps -q 2>/dev/null | wc -l | tr -d ' ')"
     total="$(docker ps -aq 2>/dev/null | wc -l | tr -d ' ')"
-    printf '  DOCKER %s running / %s total\n' "$counts" "$total"
+    printf '  DOCKER   %s running / %s total containers\n' "$running" "$total"
   else
-    printf '  DOCKER unavailable\n'
+    printf '  DOCKER   unavailable\n'
   fi
 }
 
@@ -298,57 +290,70 @@ latest_event() {
 }
 
 render_dashboard() {
-  local width="$1" hostname_label timestamp load cores uptime_value source_commit payload_commit marker
+  local width="$1" hostname_label timestamp load cores uptime_value source_commit
+  local payload_commit_full payload_commit_short marker baseline_count processed_count
+  local sync_result provision_result game_ports web_ports
+
   hostname_label="$(hostname -s 2>/dev/null || hostname 2>/dev/null || printf 'unknown-node')"
   timestamp="$(date '+%Y-%m-%d %H:%M:%S %Z')"
   load="$(awk '{print $1" / "$2" / "$3}' /proc/loadavg 2>/dev/null)"
   cores="$(nproc 2>/dev/null || printf '?')"
   uptime_value="$(uptime -p 2>/dev/null | sed 's/^up //')"
   source_commit="$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD 2>/dev/null || printf 'unavailable')"
-  payload_commit="$(tr -d '\r\n' < "$PAYLOAD_ROOT/CURRENT_COMMIT" 2>/dev/null | cut -c1-12)"
-  [[ -n "$payload_commit" ]] || payload_commit='MISSING'
-  if [[ -r "$PAYLOAD_ROOT/revisions/$payload_commit/.source-commit" ]] &&
-     [[ "$(tr -d '\r\n' < "$PAYLOAD_ROOT/revisions/$payload_commit/.source-commit" 2>/dev/null)" == "$(tr -d '\r\n' < "$PAYLOAD_ROOT/CURRENT_COMMIT" 2>/dev/null)" ]]; then
+  payload_commit_full="$(tr -d '\\r\\n' < "$PAYLOAD_ROOT/CURRENT_COMMIT" 2>/dev/null)"
+  [[ "$payload_commit_full" =~ ^[0-9a-f]{40}$ ]] || payload_commit_full='MISSING'
+  payload_commit_short="${payload_commit_full:0:12}"
+  if [[ "$payload_commit_full" =~ ^[0-9a-f]{40}$ ]] &&
+     [[ -r "$PAYLOAD_ROOT/revisions/$payload_commit_full/.source-commit" ]] &&
+     [[ "$(tr -d '\\r\\n' < "$PAYLOAD_ROOT/revisions/$payload_commit_full/.source-commit" 2>/dev/null)" == "$payload_commit_full" ]]; then
     marker='MATCH'
   else
     marker='CHECK'
   fi
 
   draw_rule "$width"
-  printf '%bFRAGCITY%b  /  %bLIVE NODE MONITOR%b\n' "$C_WHITE" "$C_RESET" "$C_CYAN" "$C_RESET"
-  printf '  NODE %-20.20s  ·  %s  ·  refresh %ss  ·  UI %s\n' "$hostname_label" "$timestamp" "$REFRESH_SECONDS" "$UI_VERSION"
+  printf '%bFRAGCITY%b  /  %bNODE OPERATIONS CONSOLE%b\n' "$C_WHITE" "$C_RESET" "$C_CYAN" "$C_RESET"
+  printf '  NODE %-20.20s  |  %s  |  refresh %ss  |  UI %s\n' "$hostname_label" "$timestamp" "$REFRESH_SECONDS" "$UI_VERSION"
   draw_rule "$width"
 
-  section_title "HOST HEALTH"
-  printf '  CPU load %-23s  cores %s\n' "$load" "$cores"
+  section_title "HOST HEALTH  ·  RESOURCE CAPACITY"
+  printf '  CPU LOAD  %-28s  CORES %s\n' "$load" "$cores"
   system_memory_line
   system_disk_line
-  printf '  UPTIME  %-68.68s\n' "$uptime_value"
+  printf '  UPTIME    %-60.60s\n' "$uptime_value"
 
   section_title "SERVICE HEALTH  ·  ACTIVE / ENABLED AT BOOT"
-  show_service_triplet Docker docker.service Wings wings.service Nginx nginx.service
-  show_service_triplet PHP-FPM php8.3-fpm.service PanelQ pteroq.service MariaDB mariadb.service
-  show_service_triplet Redis redis-server.service SyncT fragcity-addon-payload-sync.timer ProvT fragcity-addon-provision.timer
+  printf '  %-23s %-8s  %-8s  %s\n' 'SERVICE' 'ACTIVE' 'ENABLED' 'SYSTEMD UNIT'
+  show_service_row 'Docker engine' docker.service
+  show_service_row 'Pterodactyl Wings' wings.service
+  show_service_row 'Nginx web server' nginx.service
+  show_service_row 'PHP-FPM 8.3' php8.3-fpm.service
+  show_service_row 'Panel queue worker' pteroq.service
+  show_service_row 'MariaDB database' mariadb.service
+  show_service_row 'Redis cache' redis-server.service
+  show_service_row 'Payload sync timer' fragcity-addon-payload-sync.timer
+  show_service_row 'Provisioner timer' fragcity-addon-provision.timer
 
-  section_title "AUTOMATION / PUBLISH STATUS"
-  printf '  Source %s  │  Published %s  │  Revision marker ' "$source_commit" "$payload_commit"
+  section_title "PAYLOAD  ·  PUBLISHER / AUTOMATION"
+  printf '  Checkout %s  |  Published %s  |  Revision integrity ' "$source_commit" "$payload_commit_short"
   if [[ "$marker" == MATCH ]]; then paint_switch ON; else paint_switch CHECK; fi
   printf '\n'
-  printf '  Sync timer: next %-16s last %-16s\n' \
+  printf '  Payload source  %s\n' "$PAYLOAD_ROOT"
+  printf '  Sync timer      next %-16s  last %-16s\n' \
     "$(timer_time fragcity-addon-payload-sync.timer NextElapseUSecRealtime)" \
     "$(timer_time fragcity-addon-payload-sync.timer LastTriggerUSec)"
-  printf '  Watch timer: next %-16s last %-16s\n' \
+  printf '  Provision timer next %-16s  last %-16s\n' \
     "$(timer_time fragcity-addon-provision.timer NextElapseUSecRealtime)" \
     "$(timer_time fragcity-addon-provision.timer LastTriggerUSec)"
-  printf '  Baseline hash registry: '
+  printf '  Baseline registry '
   case "$MOUNT_REGISTRY" in
     READY) paint_switch ON ;;
     MISSING|NO-BASELINE) paint_switch MISS ;;
     STALE|INVALID|UNSAFE) paint_switch FAIL ;;
     *) paint_switch CHECK ;;
   esac
-  printf ' (%s)\n' "$MOUNT_REGISTRY"
-  local baseline_count processed_count last_sync last_provision
+  printf '  (%s)\n' "$MOUNT_REGISTRY"
+
   if [[ -r "$STATE_ROOT/baseline-uuids.txt" ]]; then
     baseline_count="$(grep -Ec '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' "$STATE_ROOT/baseline-uuids.txt" 2>/dev/null || true)"
     [[ -n "$baseline_count" ]] || baseline_count=0
@@ -360,30 +365,30 @@ render_dashboard() {
   else
     processed_count=0
   fi
-  printf '  Baseline %s UUIDs  │  Processed markers %s\n' "$baseline_count" "$processed_count"
-  last_sync="$(systemctl show fragcity-addon-payload-sync.service --property=Result --value 2>/dev/null || printf 'unknown')"
-  last_provision="$(systemctl show fragcity-addon-provision.service --property=Result --value 2>/dev/null || printf 'unknown')"
-  printf '  Last run result: sync %-9s  │  provisioner %s\n' "$last_sync" "$last_provision"
+  printf '  Baseline UUIDs %-8s  Processed markers %s\n' "$baseline_count" "$processed_count"
+
+  sync_result="$(systemctl show fragcity-addon-payload-sync.service --property=Result --value 2>/dev/null || printf 'unknown')"
+  provision_result="$(systemctl show fragcity-addon-provision.service --property=Result --value 2>/dev/null || printf 'unknown')"
+  printf '  Last service result: sync=%s  provisioner=%s\n' "$sync_result" "$provision_result"
 
   render_mount_section
 
   section_title "NETWORK SNAPSHOT"
-  printf '  IPv4  %s\n' "$(ip -o -4 addr show scope global 2>/dev/null | awk '{gsub(/\/.*/, "", $4); printf "%s=%s ", $2, $4}' | cut -c1-70)"
-  local game_ports web_ports
+  printf '  IPv4      %s\n' "$(ip -o -4 addr show scope global 2>/dev/null | awk '{gsub(/\\/.*/, "", $4); printf "%s=%s ", $2, $4}' | cut -c1-74)"
   game_ports="$(ss -H -lun 2>/dev/null | awk '{print $5}' | grep -E ':(29[0-9]{3})$' | head -n 4 | paste -sd ', ' -)"
   web_ports="$(ss -H -ltn 2>/dev/null | awk '{print $4}' | grep -E ':(80|443)$' | paste -sd ', ' -)"
   [[ -n "$game_ports" ]] || game_ports='none detected in UDP 29xxx range'
   [[ -n "$web_ports" ]] || web_ports='none detected'
-  printf '  Game UDP  %s\n' "$(printf '%s' "$game_ports" | cut -c1-70)"
-  printf '  HTTP      %s\n' "$(printf '%s' "$web_ports" | cut -c1-70)"
+  printf '  GAME UDP  %s\n' "$(printf '%s' "$game_ports" | cut -c1-74)"
+  printf '  HTTP/S    %s\n' "$(printf '%s' "$web_ports" | cut -c1-74)"
 
   section_title "LATEST AUTOMATION EVENTS"
-  printf '  SYNC  %s\n' "$(latest_event fragcity-addon-payload-sync.service 70)"
-  printf '  WATCH %s\n' "$(latest_event fragcity-addon-provision.service 70)"
+  printf '  SYNC  %s\n' "$(latest_event fragcity-addon-payload-sync.service 74)"
+  printf '  WATCH %s\n' "$(latest_event fragcity-addon-provision.service 74)"
   draw_rule "$width"
-  printf '  %bLIVE%b  host checks %ss  ·  Panel/Docker Mount scan %ss  ·  Ctrl+C closes window\n' \
+  printf '  %bLIVE%b  host refresh %ss  |  Mount scan %ss  |  Ctrl+C closes this window\n' \
     "$C_GREEN" "$C_RESET" "$REFRESH_SECONDS" "$MOUNT_REFRESH_SECONDS"
-  printf '  %bRead-only monitor: closing this window does not stop or disable systemd timers.%b\n' "$C_DIM" "$C_RESET"
+  printf '  %bRead-only view: closing the dashboard does not stop or disable systemd timers.%b\n' "$C_DIM" "$C_RESET"
 }
 
 if [[ -t 1 ]]; then

@@ -69,9 +69,20 @@ jobs:
 
           grep -Fq 'publish_status_dashboard' pterodactyl/sync-addon-payload-host.sh
           grep -Fq 'copy_tree "$REPO_GAME_ROOT" "$STAGING_GAME"' pterodactyl/sync-addon-payload-host.sh
+          grep -Fq -- "--exclude='/csgo/addons/counterstrikesharp/api/***'" pterodactyl/sync-addon-payload-host.sh
+          grep -Fq -- "--exclude='/csgo/addons/counterstrikesharp/bin/***'" pterodactyl/sync-addon-payload-host.sh
+          grep -Fq -- "--exclude='/csgo/addons/counterstrikesharp/dotnet/***'" pterodactyl/sync-addon-payload-host.sh
+          grep -Fq -- "--exclude='/csgo/addons/counterstrikesharp/lang/***'" pterodactyl/sync-addon-payload-host.sh
+          grep -Fq -- "--exclude='/csgo/addons/metamod/bin/***'" pterodactyl/sync-addon-payload-host.sh
+          grep -Fq -- "--exclude='/csgo/addons/metamod/counterstrikesharp.vdf'" pterodactyl/sync-addon-payload-host.sh
+          grep -Fq -- "--exclude='/csgo/addons/metamod/metaplugins.ini'" pterodactyl/sync-addon-payload-host.sh
+          grep -Fq 'Required first-install seed file is missing' pterodactyl/sync-addon-payload-host.sh
           grep -Fq '.fragcity-game-files-v1.list' pterodactyl/sync-addon-payload-host.sh
           grep -Fq 'Loaded the complete repository game/ inventory:' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'is_customer_config_path()' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'is_runtime_excluded_path()' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'Leaving K4ryuu-managed runtime path untouched' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'Verified both subscribed_*_ids.txt seed files on the first install.' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'Preserving stale customer config file after first install' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'First-install seed is pending' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'FRAGCITY_BASELINE_SHA256' pterodactyl/sync-addon-payload-container.sh
@@ -86,6 +97,10 @@ jobs:
           grep -Fq 'stale_config_rel' pterodactyl/test-sync-payload.sh
           grep -Fq 'new UUID did not wait for host Provisioner registration' pterodactyl/test-sync-payload.sh
           grep -Fq 'expect_config_path no csgo/addons/otherplugin/extra.cfg' pterodactyl/test-sync-payload.sh
+          grep -Fq 'customer-subscribed-file-ids' pterodactyl/test-sync-payload.sh
+          grep -Fq 'customer-subscribed-collection-ids' pterodactyl/test-sync-payload.sh
+          grep -Fq 'installed-by-k4ryuu' pterodactyl/test-sync-payload.sh
+          grep -Fq 'FAIL: K4ryuu-managed runtime path was staged' pterodactyl/test-sync-payload.sh
           grep -Fq 'FRAGCITY_BASELINE_SHA256' pterodactyl/test-sync-payload.sh
           grep -Fq 'plugins/disabled' pterodactyl/test-sync-payload.sh
           grep -Fq 'CS2UpdateMonitor' pterodactyl/test-sync-payload.sh
@@ -109,6 +124,8 @@ jobs:
           grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'paint_switch' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'HOST HEALTH' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'NODE OPERATIONS CONSOLE' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'show_service_row' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'SERVICE HEALTH' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'ACTIVE MOUNTED SERVERS' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'server-mount-status.php' pterodactyl/systemd/fragcity-status-dashboard.sh

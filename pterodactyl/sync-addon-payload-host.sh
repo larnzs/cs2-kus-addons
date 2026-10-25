@@ -5,11 +5,11 @@
 # Any Git credentials are host-only; no credential, .git directory, or updater
 # script is exposed inside a Pterodactyl game container.
 #
-# It stages every tracked file under game/ into immutable revisions and publishes
-# the selected revision by atomically replacing CURRENT_COMMIT. The matching
-# container-side synchronizer SHA-256 verifies every repository game file, including
-# BotAI/, CS2UpdateMonitor/, plugins/disabled/ and bundled runtime payloads.
-# plugins/disabled/, CounterStrikeSharp configs/, cfg/, and five top-level CS2 files.
+# It stages the deployable repository game/ payload into immutable revisions and
+# publishes the selected revision by atomically replacing CURRENT_COMMIT. Only the
+# explicitly listed K4ryuu-managed runtime paths are excluded; all other files are
+# staged unchanged, including plugins/disabled/, BotAI/, CS2UpdateMonitor/, configs,
+# platform overlays and both subscribed_*_ids.txt first-install seed files.
 #
 # Environment overrides:
 #   FRAGCITY_PAYLOAD_MOUNT  default /var/lib/pterodactyl/mounts/fragcity-addon-payload
@@ -84,6 +84,10 @@ GAME_SOURCE="$REPO_GAME_ROOT/csgo"
 CSS_SOURCE="$GAME_SOURCE/addons/counterstrikesharp"
 [[ -d "$REPO_GAME_ROOT" && ! -L "$REPO_GAME_ROOT" ]] || die "Missing or unsafe repository game/ folder: $REPO_GAME_ROOT"
 [[ -n "$(find "$REPO_GAME_ROOT" -type f -print -quit)" ]] || die "Repository game/ folder contains no files."
+for required_seed in csgo/subscribed_collection_ids.txt csgo/subscribed_file_ids.txt; do
+    [[ -f "$REPO_GAME_ROOT/$required_seed" && ! -L "$REPO_GAME_ROOT/$required_seed" ]] \
+        || die "Required first-install seed file is missing or unsafe: $required_seed"
+done
 [[ -d "$CSS_SOURCE/plugins/disabled" && ! -L "$CSS_SOURCE/plugins/disabled" ]] || die "Missing or unsafe source folder: $CSS_SOURCE/plugins/disabled"
 [[ -n "$(find "$CSS_SOURCE/plugins/disabled" -type f -print -quit)" ]] || die "No files found under source folder: $CSS_SOURCE/plugins/disabled"
 
@@ -121,8 +125,23 @@ validate_revision() {
     [[ -z "$(find "$root/game" -type l -print -quit)" ]] || return 1
     [[ -d "$root/game/csgo/addons/counterstrikesharp/plugins/disabled" && ! -L "$root/game/csgo/addons/counterstrikesharp/plugins/disabled" ]] || return 1
     [[ -n "$(find "$root/game/csgo/addons/counterstrikesharp/plugins/disabled" -type f -print -quit)" ]] || return 1
+    local excluded_path required_seed
+    for excluded_path in \
+        csgo/addons/counterstrikesharp/api \
+        csgo/addons/counterstrikesharp/bin \
+        csgo/addons/counterstrikesharp/dotnet \
+        csgo/addons/counterstrikesharp/lang \
+        csgo/addons/metamod/bin \
+        csgo/addons/metamod/counterstrikesharp.vdf \
+        csgo/addons/metamod/metaplugins.ini; do
+        [[ ! -e "$root/game/$excluded_path" && ! -L "$root/game/$excluded_path" ]] || return 1
+    done
     game_inventory="$root/.fragcity-game-files-v1.list"
     [[ -f "$game_inventory" && ! -L "$game_inventory" ]] || return 1
+    for required_seed in csgo/subscribed_collection_ids.txt csgo/subscribed_file_ids.txt; do
+        [[ -f "$root/game/$required_seed" && ! -L "$root/game/$required_seed" ]] || return 1
+        grep -Fxq "$required_seed" "$game_inventory" || return 1
+    done
     expected_count="$(wc -l < "$game_inventory")"
     [[ "$expected_count" =~ ^[1-9][0-9]*$ ]] || return 1
     [[ "$(LC_ALL=C sort -u "$game_inventory" | wc -l)" -eq "$expected_count" ]] || return 1
@@ -164,17 +183,32 @@ else
         local source="$1" destination="$2"
         [[ -d "$source" ]] || die "Required source directory does not exist: $source"
         mkdir -p -- "$destination"
-        rsync -a --safe-links -- "$source/" "$destination/"
+        rsync -a --safe-links \
+            --exclude='/csgo/addons/counterstrikesharp/api/***' \
+            --exclude='/csgo/addons/counterstrikesharp/bin/***' \
+            --exclude='/csgo/addons/counterstrikesharp/dotnet/***' \
+            --exclude='/csgo/addons/counterstrikesharp/lang/***' \
+            --exclude='/csgo/addons/metamod/bin/***' \
+            --exclude='/csgo/addons/metamod/counterstrikesharp.vdf' \
+            --exclude='/csgo/addons/metamod/metaplugins.ini' \
+            -- "$source/" "$destination/"
     }
     # Publish every tracked file under repository game/, with no path exclusions.
     copy_tree "$REPO_GAME_ROOT" "$STAGING_GAME"
     printf '%s\n' "$SOURCE_COMMIT" > "$STAGING/.source-commit"
     GAME_INVENTORY="$STAGING/.fragcity-game-files-v1.list"
-    find "$REPO_GAME_ROOT" -type f -printf '%P\n' | LC_ALL=C sort > "$GAME_INVENTORY"
+    find "$STAGING_GAME" -type f -printf '%P\n' | LC_ALL=C sort > "$GAME_INVENTORY"
     source_count="$(find "$REPO_GAME_ROOT" -type f | wc -l)"
     staged_count="$(find "$STAGING_GAME" -type f | wc -l)"
-    [[ "$source_count" -gt 0 && "$source_count" -eq "$staged_count" ]] || die "Full game/ staging file count mismatch: source=$source_count staged=$staged_count"
-    validate_revision "$STAGING" || die "Staged full game/ revision failed validation."
+    inventory_count="$(wc -l < "$GAME_INVENTORY")"
+    [[ "$source_count" -gt 0 && "$staged_count" -gt 0 && "$source_count" -ge "$staged_count" && "$staged_count" -eq "$inventory_count" ]] \
+        || die "Deployable game/ staging inventory mismatch: repository=$source_count staged=$staged_count inventory=$inventory_count"
+    for required_seed in csgo/subscribed_collection_ids.txt csgo/subscribed_file_ids.txt; do
+        grep -Fxq "$required_seed" "$GAME_INVENTORY" \
+            || die "Required first-install seed file was not staged: $required_seed"
+    done
+    log "Staged $staged_count deployable game file(s) from $source_count repository file(s); excluded $((source_count - staged_count)) K4ryuu-managed runtime file(s)."
+    validate_revision "$STAGING" || die "Staged deployable game/ revision failed validation."
 
     # Immutable for containers, but readable/traversable by the non-root game user.
     chmod -R a-w "$STAGING"
@@ -262,7 +296,7 @@ publish_baseline_hash_registry() {
 
     sort -o "$temporary" "$temporary"
     count="$(wc -l < "$temporary")"
-    unique_count="$(sort -u "$temporary" | wc -l)"
+    unique_count="$(awk 'NR == 1 { previous = $0; count = 1; next } $0 != previous { count++; previous = $0 } END { print count + 0 }' "$temporary")"
     [[ "$count" -eq "$unique_count" ]] || { rm -f -- "$temporary"; die "Baseline contains duplicate UUIDs; refusing to publish its hash registry."; }
     chmod 0444 "$temporary"
     mv -f -- "$temporary" "$registry"
