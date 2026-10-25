@@ -50,6 +50,13 @@ assert_value CRITICAL "$(fragcity_server_severity FIRST-SEED-ERROR)" "unsafe see
 assert_value CRITICAL "$(fragcity_server_severity PROCESSED-MARKER-UNSAFE)" "unsafe marker severity"
 assert_value ATTENTION "$(fragcity_server_severity STARTUP-HOOK-OFF)" "startup hook severity"
 assert_value HEALTHY "$(fragcity_server_severity OK)" "healthy severity"
+
+assert_value CRITICAL "$(fragcity_system_posture 0 1 0 0)" "critical server elevates global posture"
+assert_value CRITICAL "$(fragcity_system_posture 1 0 0 0)" "critical host check elevates global posture"
+assert_value ATTENTION "$(fragcity_system_posture 0 0 1 0)" "warning group elevates global posture"
+assert_value ATTENTION "$(fragcity_system_posture 0 0 0 1)" "server attention elevates global posture"
+assert_value HEALTHY "$(fragcity_system_posture 0 0 0 0)" "fully healthy global posture"
+
 if fragcity_is_new_unregistered OFF OFF && ! fragcity_is_new_unregistered ON OFF; then
   :
 else
@@ -67,7 +74,7 @@ grep -Fq 'if (!isset($currentEligibleUuidSet[$baselineUuid]))' "$STATUS"
 grep -Fq 'if (validUuid($markerUuid) && !isset($currentEligibleUuidSet[$markerUuid]))' "$STATUS"
 grep -Fq 'ReadWritePaths=/usr/local/libexec' "$PUBLISHER_UNIT"
 grep -Fq 'fragcity_classify_server' "$DASHBOARD"
-grep -Fq 'MOUNT_CRITICAL_SERVER_COUNT > 0' "$DASHBOARD"
+grep -Fq 'fragcity_system_posture' "$DASHBOARD"
 grep -Fq 'fragcity_classify_server' "$MANAGER"
 grep -Fq 'STALE PROCESSED MARKER' "$MANAGER"
 
