@@ -235,16 +235,16 @@ mount_inventory_parse() {
         # One server per block, full UUID on its own line: no wrapped columns or
         # ambiguous ON/OFF fields when the terminal is narrower than the old table.
         MOUNT_SERVER_ROWS+="$(printf '  UUID      %s\n    NAME      %s\n    CONTAINER %s  |  PANEL MOUNT %s  |  DOCKER MOUNT %s\n    PROCESSED %s  |  STARTUP HOOK %s  |  BASELINE %s  |  FIRST SEED %s\n    HEALTH    %s\n\n' \
-          "$f1" "$name" "$state" "$f3" "$f5" "$f6" "$f7" "$f8" "$seed_state" "$reason")"
+          "$f1" "$name" "$state" "$f3" "$f5" "$f6" "$f7" "$f8" "$seed_state" "$reason")"$'\n\n'
         ;;
       ORPHAN_CONTAINER)
         MOUNT_ORPHAN_ROWS+="$(printf '  UUID      %s  |  CONTAINER STATE %s\n' "$f1" "$f2")"$'\n'
         ;;
       STALE_BASELINE)
-        MOUNT_STALE_BASELINE_ROWS+="$(printf '  %s  (in baseline, absent from current Panel UUID inventory)\n' "$f1")"
+        MOUNT_STALE_BASELINE_ROWS+="$(printf '  %s  (in baseline, absent from current Panel UUID inventory)\n' "$f1")"$'\n'
         ;;
       STALE_MARKER)
-        MOUNT_STALE_MARKER_ROWS+="$(printf '  %s  (processed marker, absent from current Panel UUID inventory)\n' "$f1")"
+        MOUNT_STALE_MARKER_ROWS+="$(printf '  %s  (processed marker, absent from current Panel UUID inventory)\n' "$f1")"$'\n'
         ;;
       DOCKER_SCAN)
         MOUNT_DOCKER_SCAN="$f1"
