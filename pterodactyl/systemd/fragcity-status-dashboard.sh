@@ -165,7 +165,7 @@ section_title() { printf '\n%b▸ %s%b\n' "$C_CYAN" "$1" "$C_RESET"; }
 
 mount_inventory_parse() {
   local now kind f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16
-  local state name seed_state reason rc row
+  local state name seed_state reason severity rc row
   now="$(date +%s)"
   if (( MOUNT_LAST_REFRESH > 0 && now - MOUNT_LAST_REFRESH < MOUNT_REFRESH_SECONDS )); then return; fi
   MOUNT_LAST_REFRESH="$now"
@@ -241,8 +241,8 @@ mount_inventory_parse() {
 
         # One server per block, full UUID on its own line: no wrapped columns or
         # ambiguous ON/OFF fields when the terminal is narrower than the old table.
-        MOUNT_SERVER_ROWS+="$(printf '  UUID      %s\n    NAME      %s\n    CONTAINER %s  |  PANEL MOUNT %s  |  DOCKER MOUNT %s\n    PROCESSED %s  |  STARTUP HOOK %s  |  BASELINE %s  |  FIRST SEED %s\n    HEALTH    %s\n\n' \
-          "$f1" "$name" "$state" "$f3" "$f5" "$f6" "$f7" "$f8" "$seed_state" "$reason")"$'\n\n'
+        MOUNT_SERVER_ROWS+="$(printf '  UUID      %s\n    NAME      %s\n    CONTAINER %s  |  PANEL MOUNT %s  |  DOCKER MOUNT %s\n    PROCESSED %s  |  STARTUP HOOK %s  |  BASELINE %s  |  FIRST SEED %s\n    HEALTH    %s  (%s)\n\n' \
+          "$f1" "$name" "$state" "$f3" "$f5" "$f6" "$f7" "$f8" "$seed_state" "$severity" "$reason")"$'\n\n'
         ;;
       ORPHAN_CONTAINER)
         MOUNT_ORPHAN_ROWS+="$(printf '  UUID      %s  |  CONTAINER STATE %s  |  REASON %s\n' "$f1" "$f2" "$f3")"$'\n'
