@@ -78,6 +78,44 @@ function initialSeedState(
     return 'BAD';
 }
 
+function baselineRegistryStatus(string $baselinePath, string $registryPath): string
+{
+    if (is_link($baselinePath) || is_link($registryPath)) {
+        return 'UNSAFE';
+    }
+    if (!is_file($baselinePath)) {
+        return 'NO-BASELINE';
+    }
+    if (!is_file($registryPath)) {
+        return 'MISSING';
+    }
+
+    $uuids = file($baselinePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $published = file($registryPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if ($uuids === false || $published === false) {
+        return 'INVALID';
+    }
+
+    $expected = [];
+    foreach ($uuids as $uuid) {
+        $uuid = trim($uuid);
+        if (preg_match('/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/D', $uuid) !== 1) {
+            return 'INVALID';
+        }
+        $expected[] = hash('sha256', $uuid);
+    }
+    foreach ($published as $digest) {
+        if (preg_match('/^[0-9a-f]{64}$/D', trim($digest)) !== 1) {
+            return 'INVALID';
+        }
+    }
+
+    sort($expected, SORT_STRING);
+    $published = array_map('trim', $published);
+    sort($published, SORT_STRING);
+    return $expected === $published ? 'READY' : 'STALE';
+}
+
 function inspectContainerMount(string $uuid, string $payloadRoot, string $mountTarget): array
 {
     try {
@@ -205,7 +243,11 @@ try {
         'seed_bad' => 0,
     ];
 
-    echo "META\tOK\t" . (int) $mount->id . "\t" . $payloadRoot . "\t" . $mountTarget . PHP_EOL;
+    $registryStatus = baselineRegistryStatus(
+        $baselinePath,
+        $payloadRoot . '/FRAGCITY_BASELINE_SHA256'
+    );
+    echo "META\tOK\t" . (int) $mount->id . "\t" . $payloadRoot . "\t" . $mountTarget . "\t" . $registryStatus . PHP_EOL;
 
     foreach ($servers as $server) {
         $uuid = (string) $server->uuid;
