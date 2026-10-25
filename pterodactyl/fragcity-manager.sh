@@ -520,7 +520,7 @@ main_cs2node_status() {
 refresh_main_mount_status() {
   local now result rc
   now="$(date +%s)"
-  if (( MAIN_MOUNT_STATUS_CACHE_AT > 0 && now - MAIN_MOUNT_STATUS_CACHE_AT < 15 )); then
+  if (( MAIN_MOUNT_STATUS_CACHE_AT > 0 && now - MAIN_MOUNT_STATUS_CACHE_AT < 5 )); then
     return
   fi
 
@@ -538,54 +538,75 @@ refresh_main_mount_status() {
 }
 
 render_server_mount_status() {
-  local line kind f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12
+  local line kind f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16
+  local docker_scan='UNKNOWN'
   refresh_main_mount_status
-  printf '\n%b[ ELIGIBLE SERVER UUIDs / FRAGCITY MOUNT STATUS ]%b\n' "$C" "$Z"
+  printf '\n%b[ CURRENT ELIGIBLE SERVER INVENTORY — LIVE PANEL UUIDs ]%b\n' "$C" "$Z"
   if [[ -z "$MAIN_MOUNT_STATUS_CACHE" ]]; then
     printf '  %bMount inventory unavailable%b\n' "$R" "$Z"
     printf '  %s\n' "$MAIN_MOUNT_STATUS_ERROR"
-    printf '  Check the configured read-only Mount and Panel database access.\n'
+    printf '  No stale/cached UUID list is presented as current. Check Panel DB and Docker access.\n'
     return
   fi
 
   while IFS= read -r line; do
-    IFS=$'\t' read -r kind f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 <<< "$line"
+    [[ -n "$line" ]] || continue
+    IFS=$'\t' read -r kind f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 <<< "$line"
     case "$kind" in
       META)
-        printf '  Mount ID: %s | source: %s | target: %s\n' "$f2" "$f3" "$f4"
-        printf '  Baseline hash registry: %s\n' "$f5"
-        printf '  %-36s %-18s %-7s %-13s %-10s %-8s %-8s %-10s\n' 'SERVER UUID' 'NAME' 'PANEL' 'DOCKER MOUNT' 'PROCESSED' 'STARTUP' 'BASELINE' 'FIRST SEED'
+        printf '  Mount ID: %s | source: %s\n' "$f2" "$f3"
+        printf '  Target: %s | baseline registry: %s\n' "$f4" "$f5"
         ;;
       SERVER)
-        printf '  %-36s %-18.18s ' "$f1" "$f2"
-        status_badge "$f3"; printf '  '
-        status_badge "$f5"; printf '  '
-        status_badge "$f6"; printf '  '
-        status_badge "$f7"; printf '  '
-        status_badge "$f8"; printf '  '
-        status_badge "$f9"; printf '\n'
-        if [[ "$f4" == ERROR ]]; then
-          printf '    %bDocker inspect failed for this UUID; Docker Mount is UNKNOWN.%b\n' "$Y" "$Z"
-        fi
-        if [[ "$f8" == OFF && "$f6" == OFF ]]; then
-          printf '    %bNEW / NOT REGISTERED:%b this UUID is outside the baseline and has no processed marker.\n' "$Y" "$Z"
-        elif [[ "$f9" == MISSING || "$f9" == PENDING || "$f9" == BAD || "$f9" == UNSAFE ]]; then
-          printf '    %bFIRST-INSTALL STATE:%b %s — check the provisioner journal.\n' "$Y" "$Z" "$f9"
+        printf '\n  UUID: %s\n' "$f1"
+        printf '  Name: %s\n' "$f2"
+        printf '  Container state: %s\n' "$f4"
+        printf '  Panel Mount: '; status_badge "$f3"
+        printf '  | Docker Mount: '; status_badge "$f5"; printf '\n'
+        printf '  Processed marker: '; status_badge "$f6"
+        printf '  | Startup hook: '; status_badge "$f7"; printf '\n'
+        printf '  Baseline: '; status_badge "$f8"
+        printf '  | First-install seed: '; status_badge "$f9"; printf '\n'
+        if [[ "$f4" == ABSENT || "$f5" == PENDING ]]; then
+          printf '  %bATTENTION: Panel has this UUID, but Docker has no matching container yet.%b\n' "$Y" "$Z"
+        elif [[ "$f4" == ERROR || "$f5" == UNKNOWN ]]; then
+          printf '  %bATTENTION: Docker state could not be verified for this UUID.%b\n' "$Y" "$Z"
+        elif [[ "$f3" != ON || "$f5" != ON || "$f7" != ON ]]; then
+          printf '  %bATTENTION: Mount assignment / Docker mount / startup hook need review.%b\n' "$Y" "$Z"
+        elif [[ "$f9" == PENDING || "$f9" == MISSING || "$f9" == BAD || "$f9" == UNSAFE ]]; then
+          printf '  %bATTENTION: First-install state requires review: %s%b\n' "$Y" "$f9" "$Z"
         fi
         ;;
+      ORPHAN_CONTAINER)
+        printf '  %bORPHAN DOCKER CONTAINER%b — UUID %s | state %s | no matching Panel server\n' "$Y" "$f1" "$f2" "$Z"
+        ;;
+      STALE_BASELINE)
+        printf '  %bSTALE BASELINE UUID%b — %s (historical only; not in the current Panel inventory)\n' "$Y" "$f1" "$Z"
+        ;;
+      STALE_MARKER)
+        printf '  %bSTALE PROCESSED MARKER%b — %s (historical only; not in the current Panel inventory)\n' "$Y" "$f1" "$Z"
+        ;;
+      DOCKER_SCAN)
+        docker_scan="$f1"
+        ;;
       SUMMARY)
-        printf '  Eligible: %s | Panel Mount ON: ' "$f1"; status_badge "$f2"
-        printf ' OFF: '; status_badge "$f3"
-        printf ' | Docker Mount ON: '; status_badge "$f4"
-        printf ' OFF: '; status_badge "$f5"
-        printf ' Pending (no container): '; status_badge "$f6"
-        printf ' Unknown: '; status_badge "$f7"
-        printf ' | Processed ON: '; status_badge "$f8"
-        printf ' | Startup ON: '; status_badge "$f9"
-        printf ' | Seed pending: '; status_badge "$f10"
-        printf ' | Seed missing (new): '; status_badge "$f11"
-        printf ' | Seed invalid: '; status_badge "$f12"
-        printf '\n'
+        printf '\n  LIVE COUNTS\n'
+        printf '  All Panel UUIDs: %s | Eligible for this Mount: %s\n' "$f13" "$f1"
+        printf '  Panel Mount ON/OFF: '; status_badge "$f2"; printf '/'
+        status_badge "$f3"
+        printf ' | Docker Mount ON/OFF: '; status_badge "$f4"; printf '/'
+        status_badge "$f5"; printf '\n'
+        printf '  No container: '; status_badge "$f6"
+        printf ' | Unknown: '; status_badge "$f7"
+        printf ' | Processed markers on eligible UUIDs: '; status_badge "$f8"
+        printf ' | Startup hooks: '; status_badge "$f9"; printf '\n'
+        printf '  Seed pending: '; status_badge "$f10"
+        printf ' | seed missing (new): '; status_badge "$f11"
+        printf ' | seed invalid: '; status_badge "$f12"; printf '\n'
+        printf '  Orphan Docker containers: '; status_badge "$f14"
+        printf ' | Baseline UUIDs absent from Panel: '; status_badge "$f15"
+        printf ' | Processed markers absent from Panel: '; status_badge "$f16"; printf '\n'
+        printf '  Docker inventory scan: '; status_badge "$docker_scan"; printf '\n'
         ;;
     esac
   done <<< "$MAIN_MOUNT_STATUS_CACHE"
