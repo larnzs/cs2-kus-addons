@@ -88,7 +88,7 @@ Keep the Mount eligible for exactly one Egg and one Node. The provisioner delibe
 
 ## Full game-tree payload deployment
 
-The publisher stages the entire tracked repository `game/` directory into the immutable revision without filtering by plugin, platform, configuration, or runtime path. A generated `.fragcity-game-files-v1.list` inventory records every file under that source tree. The publisher validates that the inventory is unique, every listed path exists, and the listed file count matches the staged tree; an incomplete old revision is rebuilt before publication.
+The publisher stages the deployable repository `game/` tree into an immutable revision. The snapshot excludes only the seven exact K4ryuu-managed runtime paths listed below. Its generated `.fragcity-game-files-v1.list` records every remaining deployable file, and the publisher validates that every inventory entry exists, no paths are duplicated, and the inventory count matches the staged tree. An incomplete prior revision is rebuilt before publication.
 
 The **only** runtime paths excluded from publication are:
 - `game/csgo/addons/counterstrikesharp/api/**`
@@ -107,7 +107,7 @@ On subsequent starts, only those exact config paths are protected from overwrite
 
 This is an **overlay**, not a request to replace the whole Steam-installed game directory with an exact mirror. Files present only in the upstream CS2 installation and absent from repository `game/` are retained. Stale cleanup is limited to previously recorded, non-config files that have disappeared from the repository.
 
-The publisher snapshot exposes only the full `game/` payload, its inventory/commit metadata, a lock and the container sync script. It does **not** expose the repository checkout, `.git` directory or host Git credentials inside a container.
+The published Mount exposes only the filtered deployable `game/` payload, its inventory/commit metadata, a lock and the container sync script. K4ryuu-owned runtime paths are absent from the snapshot and are never removed from a live volume, even if an older manifest listed them. The mount does not expose the checkout, `.git` directory or host Git credentials inside a container.
  
 ## Host repository access
 
@@ -264,7 +264,7 @@ systemctl enable --now fragcity-addon-payload-sync.timer
 systemctl list-timers --all fragcity-addon-payload-sync.timer --no-pager
 ```
 
-The timer refreshes the complete-game immutable snapshot from the current branch approximately every five minutes. A Payload update does not restart running CS2 servers; they sync the published files at their next normal startup.
+The timer refreshes the filtered deployable-game immutable snapshot from the current branch approximately every five minutes. A Payload update does not restart running CS2 servers; they sync the published files at their next normal startup.
 
 ### 5. Enable automatic provisioning only when ready
 
