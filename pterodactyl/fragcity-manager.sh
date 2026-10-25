@@ -538,7 +538,7 @@ refresh_main_mount_status() {
 }
 
 render_server_mount_status() {
-  local line kind f1 f2 f3 f4 f5 f6 f7 f8 f9
+  local line kind f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12
   refresh_main_mount_status
   printf '\n%b[ ELIGIBLE SERVER UUIDs / FRAGCITY MOUNT STATUS ]%b\n' "$C" "$Z"
   if [[ -z "$MAIN_MOUNT_STATUS_CACHE" ]]; then
@@ -549,11 +549,12 @@ render_server_mount_status() {
   fi
 
   while IFS= read -r line; do
-    IFS=$'\t' read -r kind f1 f2 f3 f4 f5 f6 f7 f8 f9 <<< "$line"
+    IFS=$'\t' read -r kind f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 <<< "$line"
     case "$kind" in
       META)
         printf '  Mount ID: %s | source: %s | target: %s\n' "$f2" "$f3" "$f4"
-        printf '  %-36s %-18s %-7s %-13s %-10s %-8s %-8s\n' 'SERVER UUID' 'NAME' 'PANEL' 'DOCKER MOUNT' 'PROCESSED' 'STARTUP' 'BASELINE'
+        printf '  Baseline hash registry: %s\n' "$f5"
+        printf '  %-36s %-18s %-7s %-13s %-10s %-8s %-8s %-10s\n' 'SERVER UUID' 'NAME' 'PANEL' 'DOCKER MOUNT' 'PROCESSED' 'STARTUP' 'BASELINE' 'FIRST SEED'
         ;;
       SERVER)
         printf '  %-36s %-18.18s ' "$f1" "$f2"
@@ -561,9 +562,15 @@ render_server_mount_status() {
         status_badge "$f5"; printf '  '
         status_badge "$f6"; printf '  '
         status_badge "$f7"; printf '  '
-        status_badge "$f8"; printf '\n'
+        status_badge "$f8"; printf '  '
+        status_badge "$f9"; printf '\n'
         if [[ "$f4" == ERROR ]]; then
           printf '    %bDocker inspect failed for this UUID; Docker Mount is UNKNOWN.%b\n' "$Y" "$Z"
+        fi
+        if [[ "$f8" == OFF && "$f6" != ON ]]; then
+          printf '    %bNEW / NOT REGISTERED:%b this UUID is outside the baseline and has no processed marker.\n' "$Y" "$Z"
+        elif [[ "$f9" == MISSING || "$f9" == PENDING || "$f9" == BAD || "$f9" == UNSAFE ]]; then
+          printf '    %bFIRST-INSTALL STATE:%b %s — check the provisioner journal.\n' "$Y" "$Z" "$f9"
         fi
         ;;
       SUMMARY)
@@ -575,6 +582,9 @@ render_server_mount_status() {
         printf ' Unknown: '; status_badge "$f7"
         printf ' | Processed ON: '; status_badge "$f8"
         printf ' | Startup ON: '; status_badge "$f9"
+        printf ' | Seed pending: '; status_badge "$f10"
+        printf ' | Seed missing (new): '; status_badge "$f11"
+        printf ' | Seed invalid: '; status_badge "$f12"
         printf '\n'
         ;;
     esac
