@@ -65,7 +65,9 @@ jobs:
             pterodactyl/test-sync-payload.sh \
             pterodactyl/install-host-services.sh \
             pterodactyl/systemd/fragcity-status-dashboard.sh \
-            pterodactyl/fragcity-manager.sh
+            pterodactyl/fragcity-manager.sh \
+            pterodactyl/fragcity-monitor-model.sh \
+            pterodactyl/test-monitoring.sh
 
           grep -Fq 'publish_status_dashboard' pterodactyl/sync-addon-payload-host.sh
           grep -Fq 'copy_tree "$REPO_GAME_ROOT" "$STAGING_GAME"' pterodactyl/sync-addon-payload-host.sh
@@ -184,6 +186,7 @@ jobs:
           php -l pterodactyl/provision-addon-servers.php
           php -l pterodactyl/server-mount-status.php
           grep -Fq 'function validUuid(string $uuid): bool' pterodactyl/server-mount-status.php
+          bash pterodactyl/test-monitoring.sh
 
           # The post-start verification embeds a Bash preflight as a PHP nowdoc.
           # Extract and syntax-check that code too; PHP lint alone cannot parse it.
