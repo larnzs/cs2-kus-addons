@@ -604,8 +604,53 @@ function prepareConfigSeedMarker(string $volumePath, string $uuid, int $mountId,
 }
 
 /**
+ * Validate a currently running container before adopting a new-server first-start race.
+ * This only permits state registration when the live container already has the exact
+ * read-only payload mount and matching Wings server UUID; it does not restart it.
+ */
+function assertRunningPayloadMount(
+    string $containerId,
+    string $uuid,
+    string $payloadRoot,
+    string $mountTarget
+): void {
+    $decoded = json_decode(runCommand(['docker', 'inspect', $containerId]), true);
+    if (!is_array($decoded) || count($decoded) !== 1 || !is_array($decoded[0])) {
+        fail('Could not decode Docker inspect while adopting running server ' . $uuid . '.');
+    }
+
+    $docker = $decoded[0];
+    if (($docker['Name'] ?? '') !== '/' . $uuid) {
+        fail('Running Docker container name does not match server UUID ' . $uuid . '.');
+    }
+
+    $payloadMounts = array_values(array_filter(
+        $docker['Mounts'] ?? [],
+        static fn (array $item): bool => rtrim((string) ($item['Destination'] ?? ''), '/') === $mountTarget
+    ));
+    if (count($payloadMounts) !== 1) {
+        fail('Cannot adopt running server ' . $uuid . ': expected exactly one payload mount at ' . $mountTarget . '.');
+    }
+
+    $actualSource = rtrim((string) ($payloadMounts[0]['Source'] ?? ''), '/');
+    if ($actualSource !== $payloadRoot || ($payloadMounts[0]['RW'] ?? true) !== false) {
+        fail('Cannot adopt running server ' . $uuid . ': payload mount source or read-only mode is incorrect.');
+    }
+
+    $uuidValues = [];
+    foreach (($docker['Config']['Env'] ?? []) as $value) {
+        if (str_starts_with((string) $value, 'P_SERVER_UUID=')) {
+            $uuidValues[] = substr((string) $value, strlen('P_SERVER_UUID='));
+        }
+    }
+    if (count($uuidValues) !== 1 || $uuidValues[0] !== $uuid) {
+        fail('Cannot adopt running server ' . $uuid . ': P_SERVER_UUID does not uniquely match the Panel UUID.');
+    }
+}
+
+/**
  * Process exactly one server. Returns false when it is not ready or is currently
- * running, leaving it unmarked so a later watcher pass can retry.
+ * running without a verified, already-active FragCity payload startup/mount.
  */
 function provisionOne(
     Server $server,
@@ -633,18 +678,58 @@ function provisionOne(
     $volumePath = serverVolumePath($server, $volumeRoot);
     $container = inspectServerContainer($uuid, $volumePath, (string) $server->image);
 
+    $startup = (string) $server->startup;
+    $prefix = serverStartupPrefix($mountTarget);
+
     if ($container !== null && $container['state'] === 'running') {
-        logLine('Skipping ' . $uuid . ': its Docker container is running; no changes were made.');
-        return false;
+        // A newly created server can start immediately from the Egg's startup template,
+        // before the one-minute host watcher has written its first-install state file.
+        // If this live container already uses the verified read-only FragCity mount and
+        // startup hook, safely adopt it now; the state marker will seed configs on its
+        // next restart. Do not stop/recreate or change files in a running container.
+        if (!str_contains($startup, EXPECTED_STARTUP_MARKER)
+            || !str_starts_with($startup, $prefix)) {
+            logLine('Deferring ' . $uuid . ': its container is running but the saved startup does not begin with the verified FragCity sync hook.');
+            return false;
+        }
+
+        assertRunningPayloadMount($container['id'], $uuid, $payloadRoot, $mountTarget);
+
+        DB::transaction(function () use ($mount, $server): void {
+            $mount->servers()->syncWithoutDetaching([(int) $server->id]);
+        });
+
+        prepareConfigSeedMarker($volumePath, $uuid, (int) $mount->id, $payloadCommit);
+
+        $markerPath = processedMarkerPath($stateRoot, $uuid);
+        if (is_link($markerPath) || file_exists($markerPath)) {
+            fail('Provisioned marker already exists or is unsafe while adopting running server ' . $uuid . '.');
+        }
+
+        $marker = [
+            'server_uuid' => $uuid,
+            'server_id' => (int) $server->id,
+            'mount_id' => (int) $mount->id,
+            'node_id' => (int) $server->node_id,
+            'egg_id' => (int) $server->egg_id,
+            'payload_commit_at_provision' => $payloadCommit,
+            'processed_at_utc' => gmdate('c'),
+            'startup_prefix' => $prefix,
+            'container_recreated' => false,
+            'adopted_running_container' => true,
+            'target_path' => $mountTarget,
+        ];
+
+        writeAtomically($markerPath, json_encode($marker, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);
+        logLine('Recovered first-start race for ' . $uuid . ': live payload mount and startup hook were verified; first-install state is registered for the next restart.');
+        return true;
     }
 
-    $startup = (string) $server->startup;
     if (!str_contains($startup, EXPECTED_STARTUP_MARKER)) {
         fail('Server startup does not contain the expected CS2 launch command; refusing to modify it.');
     }
 
     $syncScriptPath = rtrim($mountTarget, '/') . '/' . SYNC_SCRIPT_NAME;
-    $prefix = serverStartupPrefix($mountTarget);
 
     if (!str_starts_with($startup, $prefix) && str_contains($startup, $syncScriptPath)) {
         fail('The sync script is already present but not as a safe startup prefix; manual review required.');
