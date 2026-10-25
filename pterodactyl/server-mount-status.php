@@ -242,13 +242,35 @@ try {
         $allPanelUuidSet[$panelUuid] = true;
     }
 
+    // Node-local Docker inventory must be compared with Panel servers on this node,
+    // not all servers in the global Panel database. A server moved to another node
+    // must not make an old local container look current.
+    $nodePanelUuidSet = [];
+    foreach (Server::query()->whereIn('node_id', $nodeIds)->pluck('uuid')->all() as $nodeUuid) {
+        $nodeUuid = (string) $nodeUuid;
+        if (!validUuid($nodeUuid)) {
+            statusFail('Panel returned an invalid UUID while reconciling this Node inventory.');
+        }
+        $nodePanelUuidSet[$nodeUuid] = true;
+    }
+
     $assignedIds = array_fill_keys(
         $mount->servers()->pluck('servers.id')->map(static fn ($id) => (int) $id)->values()->all(),
         true
     );
     $servers = Server::query()->whereIn('egg_id', $eggIds)->whereIn('node_id', $nodeIds)->orderBy('created_at')->get();
+    $currentEligibleUuidSet = [];
+    foreach ($servers as $eligibleServer) {
+        $eligibleUuid = (string) $eligibleServer->uuid;
+        if (!validUuid($eligibleUuid)) {
+            statusFail('Panel returned an invalid UUID in the current eligible Mount inventory.');
+        }
+        $currentEligibleUuidSet[$eligibleUuid] = true;
+    }
 
-    // Detect UUID-named Docker containers whose server no longer exists in the Panel.
+    // Detect UUID-named Docker containers not represented by a current Panel server
+    // on this Node. This also catches containers left behind when a server is moved
+    // to another node, not just UUIDs deleted from the global Panel database.
     // This is observational only: the monitor never removes a container or volume.
     $orphanContainers = [];
     $dockerScanStatus = 'OK';
@@ -261,30 +283,41 @@ try {
             $parts = explode('|', $dockerRow, 2);
             $containerName = trim($parts[0] ?? '');
             $containerState = strtoupper(trim($parts[1] ?? 'UNKNOWN'));
-            if (validUuid($containerName) && !isset($allPanelUuidSet[$containerName])) {
-                $orphanContainers[$containerName] = $containerState;
+            if (validUuid($containerName) && !isset($nodePanelUuidSet[$containerName])) {
+                $orphanReason = isset($allPanelUuidSet[$containerName])
+                    ? 'PANEL_SERVER_NOT_ON_THIS_NODE'
+                    : 'PANEL_UUID_DELETED';
+                $orphanContainers[$containerName] = [
+                    'state' => $containerState,
+                    'reason' => $orphanReason,
+                ];
             }
         }
     } catch (Throwable $exception) {
         $dockerScanStatus = 'ERROR';
     }
 
+    // Baseline and processed markers are node/Mount-local historical data. A UUID
+    // is stale here if it is no longer eligible for this FragCity Egg + Node Mount,
+    // even when a Panel record still exists on a different node or with another Egg.
     $staleBaselineUuids = [];
     foreach (array_keys($baseline) as $baselineUuid) {
-        if (!isset($allPanelUuidSet[$baselineUuid])) {
-            $staleBaselineUuids[] = $baselineUuid;
+        if (!isset($currentEligibleUuidSet[$baselineUuid])) {
+            $staleBaselineUuids[$baselineUuid] = isset($allPanelUuidSet[$baselineUuid])
+                ? 'SERVER_NOT_ELIGIBLE_FOR_MOUNT'
+                : 'PANEL_UUID_DELETED';
         }
     }
 
-    // Processed markers are historical state, not live servers. Report markers whose
-    // UUID vanished from Panel instead of presenting them as current server rows.
     $staleProcessedUuids = [];
     $processedRoot = $stateRoot . '/processed';
     if (!is_link($processedRoot) && is_dir($processedRoot)) {
         foreach (glob($processedRoot . '/*.json') ?: [] as $markerPath) {
             $markerUuid = basename($markerPath, '.json');
-            if (validUuid($markerUuid) && !isset($allPanelUuidSet[$markerUuid])) {
-                $staleProcessedUuids[$markerUuid] = true;
+            if (validUuid($markerUuid) && !isset($currentEligibleUuidSet[$markerUuid])) {
+                $staleProcessedUuids[$markerUuid] = isset($allPanelUuidSet[$markerUuid])
+                    ? 'SERVER_NOT_ELIGIBLE_FOR_MOUNT'
+                    : 'PANEL_UUID_DELETED';
             }
         }
     }
@@ -363,14 +396,19 @@ try {
     }
 
     echo "DOCKER_SCAN\t" . $dockerScanStatus . PHP_EOL;
-    foreach ($orphanContainers as $orphanUuid => $containerState) {
-        echo implode("\t", ['ORPHAN_CONTAINER', $orphanUuid, $containerState]) . PHP_EOL;
+    foreach ($orphanContainers as $orphanUuid => $containerDetails) {
+        echo implode("\t", [
+            'ORPHAN_CONTAINER',
+            $orphanUuid,
+            $containerDetails['state'],
+            $containerDetails['reason'],
+        ]) . PHP_EOL;
     }
-    foreach ($staleBaselineUuids as $staleUuid) {
-        echo implode("\t", ['STALE_BASELINE', $staleUuid]) . PHP_EOL;
+    foreach ($staleBaselineUuids as $staleUuid => $staleReason) {
+        echo implode("\t", ['STALE_BASELINE', $staleUuid, $staleReason]) . PHP_EOL;
     }
-    foreach (array_keys($staleProcessedUuids) as $staleUuid) {
-        echo implode("\t", ['STALE_MARKER', $staleUuid]) . PHP_EOL;
+    foreach ($staleProcessedUuids as $staleUuid => $staleReason) {
+        echo implode("\t", ['STALE_MARKER', $staleUuid, $staleReason]) . PHP_EOL;
     }
 
     echo implode("\t", [
