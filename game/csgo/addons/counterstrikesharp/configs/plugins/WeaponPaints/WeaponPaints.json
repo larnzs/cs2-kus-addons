@@ -8,7 +8,7 @@
   "DatabasePassword": "Atrisayeafsorde824@",
   "DatabaseName": "GLOBAL_weaponpaints",
   "CmdRefreshCooldownSeconds": 3,
-  "Website": "fragcity.ir/weaponpaints.php",
+  "Website": "",
   "Additional": {
     "KnifeEnabled": true,
     "GloveEnabled": true,
@@ -20,13 +20,9 @@
     "CommandKillEnabled": true,
     "CommandKnife": [
       "knife"
-      "knives"
     ],
     "CommandMusic": [
       "music"
-      "musics"
-      "musickit"
-      "kit"
     ],
     "CommandPin": [
       "pin",
@@ -36,11 +32,9 @@
     ],
     "CommandGlove": [
       "gloves"
-      "glove"
     ],
     "CommandAgent": [
       "agents"
-      "agent"
     ],
     "CommandStattrak": [
       "stattrak",
@@ -59,7 +53,7 @@
       "kill"
     ],
     "GiveRandomKnife": false,
-    "GiveRandomSkin": false,
+    "GiveRandomSkin": true,
     "ShowSkinImage": true
   },
   "MenuType": "selectable"
