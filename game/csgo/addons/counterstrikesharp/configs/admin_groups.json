@@ -17,6 +17,7 @@
       "@css/rcon",
       "@css/cheats",
       "@css/root",
+      "@fragcity/mappropads.admin",
       "@custom/prac"
     ],
     "immunity": 100
