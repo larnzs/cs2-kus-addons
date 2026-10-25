@@ -42,6 +42,26 @@ is_test_config_path() {
     return 1
 }
 
+expect_config_path() {
+    local expected="$1" path="$2" actual=no
+    if is_test_config_path "$path"; then actual=yes; fi
+    [[ "$actual" == "$expected" ]] || {
+        echo "FAIL: config classifier for $path expected $expected, got $actual"
+        exit 1
+    }
+}
+expect_config_path yes csgo/cfg/MatchZy/config.cfg
+expect_config_path yes csgo/addons/counterstrikesharp/configs/plugins/Advertisement/Advertisement.json
+expect_config_path yes csgo/gamemodes_server.txt
+expect_config_path yes csgo/mapcycle.txt
+expect_config_path yes csgo/mapcyclecustom.txt
+expect_config_path yes csgo/subscribed_collection_ids.txt
+expect_config_path yes csgo/subscribed_file_ids.txt
+expect_config_path no csgo/addons/otherplugin/configs/other.json
+expect_config_path no csgo/addons/otherplugin/config/custom.json
+expect_config_path no csgo/addons/otherplugin/extra.cfg
+expect_config_path no csgo/addons/counterstrikesharp/plugins/SomePlugin/settings.cfg
+
 config_sample_rel="csgo/addons/counterstrikesharp/configs/plugins/Advertisement/Advertisement.json"
 [[ -f "$SOURCE_GAME/$config_sample_rel" ]] || { echo "FAIL: expected Advertisement config seed is missing"; exit 1; }
 config_source_count=0
