@@ -9,6 +9,7 @@ use Pterodactyl\Models\Server;
 use Symfony\Component\Process\Process;
 
 const DEFAULT_PANEL_ROOT = '/var/www/pterodactyl';
+const DEFAULT_VOLUME_ROOT = '/var/lib/pterodactyl/volumes';
 const DEFAULT_PAYLOAD_ROOT = '/var/lib/pterodactyl/mounts/fragcity-addon-payload';
 const DEFAULT_MOUNT_TARGET = '/home/container/egg/fragcity-payload';
 const DEFAULT_STATE_ROOT = '/var/lib/pterodactyl/fragcity-addon-provisioner';
@@ -33,6 +34,50 @@ function runReadOnlyCommand(array $arguments, int $timeout = 8): string
 }
 
 /** @return array{0:string,1:string} container state and actual mount state */
+function initialSeedState(
+    string $uuid,
+    string $volumeRoot,
+    bool $baselineKnown,
+    bool $inBaseline
+): string {
+    if (is_link($volumeRoot) || !is_dir($volumeRoot)) {
+        return 'UNKNOWN';
+    }
+
+    $volume = rtrim($volumeRoot, '/') . '/' . $uuid;
+    if (is_link($volume)) {
+        return 'UNSAFE';
+    }
+    if (!is_dir($volume)) {
+        return $baselineKnown && $inBaseline ? 'LEGACY' : ($baselineKnown ? 'MISSING' : 'UNKNOWN');
+    }
+
+    $path = $volume . '/.fragcity-config-seed-v1.state';
+    if (is_link($path)) {
+        return 'UNSAFE';
+    }
+    if (!file_exists($path)) {
+        return $baselineKnown && $inBaseline ? 'LEGACY' : ($baselineKnown ? 'MISSING' : 'UNKNOWN');
+    }
+    if (!is_file($path)) {
+        return 'BAD';
+    }
+
+    $lines = file($path, FILE_IGNORE_NEW_LINES);
+    if ($lines === false
+        || !in_array('fragcity-config-seed-v1', $lines, true)
+        || !in_array('server_uuid=' . $uuid, $lines, true)) {
+        return 'BAD';
+    }
+    if (in_array('mode=completed', $lines, true)) {
+        return 'DONE';
+    }
+    if (in_array('mode=pending', $lines, true)) {
+        return 'PENDING';
+    }
+    return 'BAD';
+}
+
 function inspectContainerMount(string $uuid, string $payloadRoot, string $mountTarget): array
 {
     try {
@@ -86,6 +131,7 @@ try {
     }
 
     $panelRoot = rtrim((string) (getenv('FRAGCITY_PANEL_ROOT') ?: DEFAULT_PANEL_ROOT), '/');
+    $volumeRoot = rtrim((string) (getenv('FRAGCITY_VOLUME_ROOT') ?: DEFAULT_VOLUME_ROOT), '/');
     $payloadRoot = rtrim((string) (getenv('FRAGCITY_PAYLOAD_SOURCE') ?: DEFAULT_PAYLOAD_ROOT), '/');
     $mountTarget = rtrim((string) (getenv('FRAGCITY_MOUNT_TARGET') ?: DEFAULT_MOUNT_TARGET), '/');
     $stateRoot = rtrim((string) (getenv('FRAGCITY_PROVISIONER_STATE') ?: DEFAULT_STATE_ROOT), '/');
@@ -154,6 +200,9 @@ try {
         'docker_unknown' => 0,
         'processed_on' => 0,
         'startup_on' => 0,
+        'seed_pending' => 0,
+        'seed_missing' => 0,
+        'seed_bad' => 0,
     ];
 
     echo "META\tOK\t" . (int) $mount->id . "\t" . $payloadRoot . "\t" . $mountTarget . PHP_EOL;
@@ -191,10 +240,19 @@ try {
         }
 
         $inBaseline = isset($baseline[$uuid]) ? 'ON' : ($baselineKnown ? 'OFF' : 'UNKNOWN');
+        $seedState = initialSeedState($uuid, $volumeRoot, $baselineKnown, isset($baseline[$uuid]));
+        if ($seedState === 'PENDING') {
+            $counts['seed_pending']++;
+        } elseif ($seedState === 'MISSING' && $inBaseline === 'OFF') {
+            $counts['seed_missing']++;
+        } elseif (in_array($seedState, ['BAD', 'UNSAFE'], true)) {
+            $counts['seed_bad']++;
+        }
+
         $name = trim(preg_replace('/[\t\r\n]+/', ' ', (string) $server->name) ?? '');
         echo implode("\t", [
             'SERVER', $uuid, $name, $panelMount, $containerState, $dockerMount,
-            $processed, $startup, $inBaseline,
+            $processed, $startup, $inBaseline, $seedState,
         ]) . PHP_EOL;
     }
 
@@ -209,6 +267,9 @@ try {
         (string) $counts['docker_unknown'],
         (string) $counts['processed_on'],
         (string) $counts['startup_on'],
+        (string) $counts['seed_pending'],
+        (string) $counts['seed_missing'],
+        (string) $counts['seed_bad'],
     ]) . PHP_EOL;
     exit(0);
 } catch (Throwable $exception) {
