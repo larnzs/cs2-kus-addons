@@ -88,7 +88,7 @@ jobs:
           grep -Fq 'verified %d update-managed non-config file(s)' pterodactyl/provision-addon-servers.php
           grep -Fq 'is_customer_config_path()' pterodactyl/provision-addon-servers.php
           grep -Fq 'prepareConfigSeedMarker' pterodactyl/provision-addon-servers.php
-          grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/systemd/fragcity-status-dashboard.sh          grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/systemd/fragcity-status-dashboard.sh
+          grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'paint_switch' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'HOST HEALTH' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'SERVICE HEALTH' pterodactyl/systemd/fragcity-status-dashboard.sh
