@@ -10,13 +10,13 @@
     "EndMapVoteMenuMode": "",
     "YesNoVotePanorama": true,
     "PanoramaSFUIString": "#SFUI_Vote_None",
-    "VotingTime": 30,
+    "VotingTime": 60,
     "ExtendMapInVote": true,
     "ExtendMapTimeMinutes": 10,
     "MaxExtendMapCount": 2,
-    "ChangeMapAfterVote": false,
+    "ChangeMapAfterVote": true,
     "SpectatorsCanVote": true,
-    "IncludeNoVote": false
+    "IncludeNoVote": true
   },
   "RTVSettings": {
     "AllowRTV": true,
@@ -26,7 +26,7 @@
   },
   "WinDrawSettings": {
     "VoteDependsOnRoundWins": true,
-    "TriggerRoundsBeforeEnd": 4,
+    "TriggerRoundsBeforeEnd": 1,
     "TriggerRoundsBeforeEndVoteAtRoundStart": true,
     "TriggerVoteAtRoundStartSecondsFromStart": 0,
     "ChangeMapAfterWinDraw": false
@@ -41,7 +41,7 @@
   },
   "PoolVoteSettings": {
     "Enable": false,
-    "DefaultPool": "",
+    "DefaultPool": "Active",
     "DelayFromStart": 90,
     "IntervalBetweenVotes": 120,
     "VotesToWin": 0,
@@ -71,11 +71,11 @@
   "OtherSettings": {
     "PrintPlayersChoiceInChat": true,
     "PrintNextMapForAll": true,
-    "DelayBeforeChangeSeconds": 10,
+    "DelayBeforeChangeSeconds": 3,
     "VoteStartSound": "sounds/vo/announcer/cs2_classic/felix_broken_fang_pick_1_map_tk01.wav",
     "RandomMapOnStart": false,
     "RandomMapOnStartDelay": 40,
-    "LastDisconnectedChangeMap": true,
+    "LastDisconnectedChangeMap": false,
     "WorkshopMapProblemCheck": true,
     "TvStopRecord": true,
     "DefaultMapWeight": 1,
