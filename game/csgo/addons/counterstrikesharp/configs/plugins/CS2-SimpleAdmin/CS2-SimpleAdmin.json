@@ -4,11 +4,11 @@
   "DatabaseConfig": {
     "DatabaseType": "MySQL",
     "SqliteFilePath": "cs2-simpleadmin.sqlite",
-    "DatabaseHost": "127.0.0.1",
+    "DatabaseHost": "172.18.0.1",
     "DatabasePort": 3306,
-    "DatabaseUser": "root",
-    "DatabasePassword": "",
-    "DatabaseName": "simpleadmin_plugin",
+    "DatabaseUser": "plugins",
+    "DatabasePassword": "Atrisayeafsorde824@",
+    "DatabaseName": "GLOABL_simpleadmin",
     "DatabaseSSlMode": "preferred"
   },
   "OtherSettings": {
