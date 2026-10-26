@@ -342,9 +342,9 @@
       "installed": true,
       "merge": "release_plugin_directory",
       "source_path": "plugins/SLAYER_AntiCamp",
-      "install_path": "addons/counterstrikesharp/plugins/SLAYER_AntiCamp",
+      "install_path": "addons/counterstrikesharp/plugins/disabled/SLAYER_AntiCamp",
       "verify_paths": [
-        "addons/counterstrikesharp/plugins/SLAYER_AntiCamp/SLAYER_AntiCamp.dll",
+        "addons/counterstrikesharp/plugins/disabled/SLAYER_AntiCamp/SLAYER_AntiCamp.dll",
         "addons/counterstrikesharp/source/SLAYER_AntiCamp/SLAYER_AntiCamp.cs",
         "addons/counterstrikesharp/source/SLAYER_AntiCamp/SLAYER_AntiCamp.csproj"
       ],
@@ -353,7 +353,7 @@
           {
             "merge": "release_plugin_directory",
             "source_path": "plugins/SLAYER_AntiCamp",
-            "install_path": "addons/counterstrikesharp/plugins/SLAYER_AntiCamp"
+            "install_path": "addons/counterstrikesharp/plugins/disabled/SLAYER_AntiCamp"
           },
           {
             "merge": "release_plugin_directory",

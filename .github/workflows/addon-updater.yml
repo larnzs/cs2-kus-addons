@@ -537,8 +537,13 @@ jobs:
             if (-not ($mappingItems | Where-Object install_path -eq "addons/counterstrikesharp/source/$slayerName")) {
               throw "$slayerName source directory does not map to CounterStrikeSharp/source."
             }
-            if (-not ($mappingItems | Where-Object install_path -eq "addons/counterstrikesharp/plugins/$slayerName")) {
-              throw "$slayerName plugin directory does not map to plugins."
+            $expectedPluginPath = if ($slayerName -eq "SLAYER_AntiCamp") {
+              "addons/counterstrikesharp/plugins/disabled/$slayerName"
+            } else {
+              "addons/counterstrikesharp/plugins/$slayerName"
+            }
+            if (-not ($mappingItems | Where-Object install_path -eq $expectedPluginPath)) {
+              throw "$slayerName plugin directory does not map to expected path '$expectedPluginPath'."
             }
           }
 
