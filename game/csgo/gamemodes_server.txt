@@ -485,7 +485,6 @@
 				"workshop/3073875025/surf_utopia_njv"		""
 				"workshop/3070321829/surf_beginner"		""
 				"workshop/3076980482/surf_mesa_revo"		""
-				"workshop/3080544577/surf_deathstar"		""
 				"workshop/3082548297/surf_rookie"		""
 				"workshop/3098972556/surf_benevolent"		""
 				"workshop/3088413071/surf_ace"		""
