@@ -491,14 +491,14 @@
 				"workshop/3133346713/surf_boreas"		""
 				"workshop/3129698096/surf_nyx"		""
 				"workshop/3296258256/surf_whiteout"		""
-				"workshop/xxxxxxxxxx/mapname"		""
-				"workshop/xxxxxxxxxx/mapname"		""
-				"workshop/xxxxxxxxxx/mapname"		""
-				"workshop/xxxxxxxxxx/mapname"		""
-				"workshop/xxxxxxxxxx/mapname"		""
-				"workshop/xxxxxxxxxx/mapname"		""
-				"workshop/xxxxxxxxxx/mapname"		""
-				"workshop/xxxxxxxxxx/mapname"		""
+				"workshop/3255589335/surf_aquaflow"		""
+				"workshop/3617159050/surf_rookie2"		""
+				"workshop/3075725935/surf_evo"		""
+				"workshop/3280013431/surf_lux"		""
+				"workshop/3319154265/surf_prisma"		""
+				"workshop/3120455026/Surf_FrostEdge"		""
+				"workshop/1403806356/surf_summit"		""
+				"workshop/3536081532/surf_rez"		""
 
 			}
 		}
