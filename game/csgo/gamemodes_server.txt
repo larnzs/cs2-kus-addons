@@ -491,7 +491,15 @@
 				"workshop/3133346713/surf_boreas"		""
 				"workshop/3129698096/surf_nyx"		""
 				"workshop/3296258256/surf_whiteout"		""
-				"workshop/3079877518/surf_ski_2"		""
+				"workshop/xxxxxxxxxx/mapname"		""
+				"workshop/xxxxxxxxxx/mapname"		""
+				"workshop/xxxxxxxxxx/mapname"		""
+				"workshop/xxxxxxxxxx/mapname"		""
+				"workshop/xxxxxxxxxx/mapname"		""
+				"workshop/xxxxxxxxxx/mapname"		""
+				"workshop/xxxxxxxxxx/mapname"		""
+				"workshop/xxxxxxxxxx/mapname"		""
+
 			}
 		}
 		"mg_minigames"
