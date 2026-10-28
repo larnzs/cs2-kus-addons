@@ -53,7 +53,7 @@
       "kill"
     ],
     "GiveRandomKnife": false,
-    "GiveRandomSkin": true,
+    "GiveRandomSkin": false,
     "ShowSkinImage": true
   },
   "MenuType": "selectable"
