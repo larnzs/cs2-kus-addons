@@ -29,7 +29,7 @@
   },
   "Maps": {
     "Mode": 0,
-    "Delay": 5,
+    "Delay": 0,
     "Style": "center",
     "Default": "de_dust2"
   },
