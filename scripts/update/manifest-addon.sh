@@ -65,7 +65,7 @@ manifest_copy_target() {
 
 manifest_apply_mapping() {
     local addon="$1" extract="$2" mapping="$3"
-    local mode source_path source_path_mode install_path source_root destination_root target relative source
+    local mode source_path source_path_mode install_path source_root csgo_root destination_root target relative source
     mode=$(printf '%s' "$mapping" | jq -r '.merge // empty')
     source_path=$(printf '%s' "$mapping" | jq -r '.source_path // empty')
     source_path_mode=$(printf '%s' "$mapping" | jq -r '.source_path_mode // empty')
@@ -84,7 +84,11 @@ manifest_apply_mapping() {
         release_plugin_directory)
             case "$source_path" in ""|/*|*..*) die "unsafe source_path '$source_path' for $addon" ;; esac
             case "$install_path" in ""|/*|*..*) die "unsafe install_path '$install_path' for $addon" ;; esac
-            if [ "$source_path" = "." ] || [ "$source_path" = "./" ]; then
+            if [ "$source_path_mode" = "csgo_root" ]; then
+                [ "$source_path" != "." ] && [ "$source_path" != "./" ] || die "source_path_mode 'csgo_root' requires an explicit path for $addon"
+                csgo_root=$(manifest_find_csgo_root "$extract") || die "could not locate CS2/addons root for $addon"
+                source_root="$csgo_root/$source_path"
+            elif [ "$source_path" = "." ] || [ "$source_path" = "./" ]; then
                 case "$source_path_mode" in
                     archive_root)
                         # This archive contains a collection of plugin directories at its root.
@@ -107,7 +111,7 @@ manifest_apply_mapping() {
                         ;;
                 esac
             else
-                [ -z "$source_path_mode" ] || die "source_path_mode is only supported with source_path '.' for $addon"
+                [ -z "$source_path_mode" ] || die "unsupported source_path_mode '$source_path_mode' for $addon"
                 source_root="$extract/$source_path"
             fi
             destination_root="game/csgo/$install_path"
