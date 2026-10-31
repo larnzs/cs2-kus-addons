@@ -40,7 +40,7 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 
 | Add-on | Version | Purpose |
 | --- | --- | --- |
-| [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) | `1.0.378` | Windows with-runtime files (including bundled .NET) are staged under `game/csgo/addons/windows/addons/counterstrikesharp/`; the shared/Linux payload remains under `game/csgo/addons/counterstrikesharp/`. |
+| [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) | `1.0.379` | Windows with-runtime files (including bundled .NET) are staged under `game/csgo/addons/windows/addons/counterstrikesharp/`; the shared/Linux payload remains under `game/csgo/addons/counterstrikesharp/`. |
 | [AnyBaseLibCS2](https://github.com/NickFox007/AnyBaseLibCS2) | `0.9.4` | Shared database/API library |
 | [PlayerSettingsCS2](https://github.com/NickFox007/PlayerSettingsCS2) | `0.9.4` | Persistent player settings |
 | [MenuManagerCS2](https://github.com/NickFox007/MenuManagerCS2) | `1.4.1` | Menu/API library |
