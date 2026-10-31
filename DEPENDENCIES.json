@@ -738,6 +738,51 @@
         "addons/counterstrikesharp/shared/ggmcAPI/ggmcAPI.dll",
         "addons/counterstrikesharp/shared/ggmcAPI/ggmcAPI.deps.json"
       ]
+    },
+    {
+      "order": 29,
+      "name": "SharpTimer",
+      "repository": "https://github.com/SharpTimer/SharpTimer",
+      "type": "github_release",
+      "track": "latest",
+      "version": "0.4.0",
+      "release_tag": "v0.4.0",
+      "assets": [
+        "SharpTimer-v{version}.zip"
+      ],
+      "depends_on": [
+        "Metamod:Source",
+        "CounterStrikeSharp"
+      ],
+      "installed": true,
+      "merge": "release_plugin_directory",
+      "asset_mappings": {
+        "SharpTimer-v{version}.zip": [
+          {
+            "merge": "release_plugin_directory",
+            "source_path": "addons/counterstrikesharp/plugins/SharpTimer",
+            "source_path_mode": "csgo_root",
+            "install_path": "addons/counterstrikesharp/plugins/disabled/SharpTimer"
+          },
+          {
+            "merge": "release_plugin_directory",
+            "source_path": "addons/counterstrikesharp/shared/SharpTimerAPI",
+            "source_path_mode": "csgo_root",
+            "install_path": "addons/counterstrikesharp/shared/SharpTimerAPI"
+          },
+          {
+            "merge": "release_plugin_directory",
+            "source_path": "addons/counterstrikesharp/gamedata",
+            "source_path_mode": "csgo_root",
+            "install_path": "addons/counterstrikesharp/gamedata"
+          }
+        ]
+      },
+      "verify_paths": [
+        "addons/counterstrikesharp/plugins/disabled/SharpTimer/SharpTimer.dll",
+        "addons/counterstrikesharp/shared/SharpTimerAPI/SharpTimerAPI.dll",
+        "addons/counterstrikesharp/gamedata/stgamedata.json"
+      ]
     }
   ]
 }
