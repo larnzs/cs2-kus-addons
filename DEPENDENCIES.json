@@ -741,6 +741,47 @@
     },
     {
       "order": 29,
+      "name": "cs2-tags",
+      "repository": "https://github.com/CounterStrike2-Plugins-Archive/cs2-tags",
+      "type": "github_release",
+      "track": "latest",
+      "version": "1.15",
+      "release_tag": "v1.15",
+      "assets": [
+        "cs2-tags-v{version}.zip"
+      ],
+      "depends_on": [
+        "CounterStrikeSharp"
+      ],
+      "installed": false,
+      "merge": "release_plugin_directory",
+      "asset_mappings": {
+        "cs2-tags-v{version}.zip": [
+          {
+            "merge": "release_plugin_directory",
+            "source_path": "plugins/cs2-tags",
+            "install_path": "addons/counterstrikesharp/plugins/cs2-tags"
+          },
+          {
+            "merge": "release_plugin_directory",
+            "source_path": "shared/TagsApi",
+            "install_path": "addons/counterstrikesharp/shared/TagsApi"
+          },
+          {
+            "merge": "release_plugin_directory",
+            "source_path": "configs/plugins/cs2-tags",
+            "install_path": "addons/counterstrikesharp/configs/plugins/cs2-tags"
+          }
+        ]
+      },
+      "verify_paths": [
+        "addons/counterstrikesharp/plugins/cs2-tags/cs2-tags.dll",
+        "addons/counterstrikesharp/shared/TagsApi/TagsApi.dll",
+        "addons/counterstrikesharp/configs/plugins/cs2-tags/cs2-tags-example.toml"
+      ]
+    },
+    {
+      "order": 30,
       "name": "SharpTimer",
       "repository": "https://github.com/SharpTimer/SharpTimer",
       "type": "github_release",
@@ -752,7 +793,8 @@
       ],
       "depends_on": [
         "Metamod:Source",
-        "CounterStrikeSharp"
+        "CounterStrikeSharp",
+        "cs2-tags"
       ],
       "installed": true,
       "merge": "release_plugin_directory",

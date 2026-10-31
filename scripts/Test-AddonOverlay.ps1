@@ -30,6 +30,7 @@ function Get-ProtectedConfigSnapshot {
         Get-ChildItem -LiteralPath $absoluteRoot -Recurse -File -Force | ForEach-Object {
             if ($_.Name -in ".gitnote", ".gitkeep") { return }
             $relative = $_.FullName.Substring($CsgoRoot.Length).TrimStart([char[]]@('\', '/')).Replace('\', '/')
+            if ($relative -ieq "addons/counterstrikesharp/configs/plugins/cs2-tags/cs2-tags-example.toml") { return }
             $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             [void]$items.Add([pscustomobject]@{ path = $relative; sha256 = $hash })
         }

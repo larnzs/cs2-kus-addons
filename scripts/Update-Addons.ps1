@@ -313,6 +313,9 @@ function Test-IsProtectedConfigDestination([string]$DestinationPath) {
     }
 
     $relative = $destinationFull.Substring($prefix.Length).Replace('\', '/')
+    if ($relative -match '^(?i:addons/counterstrikesharp/configs/plugins/cs2-tags)(/|$)') {
+        return $false
+    }
     return (
         $relative -match '^(?i:cfg)(/|$)' -or
         $relative -match '^(?i:addons/(windows/addons/)?counterstrikesharp/configs)(/|$)'

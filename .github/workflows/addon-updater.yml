@@ -90,12 +90,17 @@ jobs:
               exit 1
             fi
           done
-          for safe in "game/csgo/addons/counterstrikesharp/plugins/Example/configs.json" "game/csgo/addons/counterstrikesharp/bin/win64/counterstrikesharp.dll"; do
+          for safe in "game/csgo/addons/counterstrikesharp/plugins/Example/configs.json" "game/csgo/addons/counterstrikesharp/bin/win64/counterstrikesharp.dll" "game/csgo/addons/counterstrikesharp/configs/plugins/cs2-tags" "game/csgo/addons/counterstrikesharp/configs/plugins/cs2-tags/cs2-tags-example.toml"; do
             if is_protected_config_path "$safe"; then
               echo "A non-protected path was incorrectly blocked: $safe" >&2
               exit 1
             fi
           done
+          managed_config_path="game/csgo/addons/counterstrikesharp/configs/plugins/cs2-tags"
+          if ! ( assert_write_target "$managed_config_path" >/dev/null 2>&1 ); then
+            echo "Updater did not allow the explicit cs2-tags example-config destination." >&2
+            exit 1
+          fi
           if ! printf '%s\n' "${RSYNC_FLAGS[@]}" | grep -Fqx -- '/cfg/***'; then
             echo "Rsync safety exclude for manually managed game/csgo/cfg is missing." >&2
             exit 1
@@ -328,6 +333,11 @@ jobs:
           }
 
           $updater = Get-Content -LiteralPath ".\scripts\Update-Addons.ps1" -Raw
+          $overlayPolicy = Get-Content -LiteralPath ".\scripts\Test-AddonOverlay.ps1" -Raw
+          if ($updater -notmatch 'configs/plugins/cs2-tags' -or
+              $overlayPolicy -notmatch 'cs2-tags-example.toml') {
+            throw "The cs2-tags sample-config allowlist must be present in the PowerShell updater and config snapshot policy."
+          }
           if ($updater -notmatch 'Get-AddonMissingFiles' -or
               $updater -notmatch 'required_asset_name_contains' -or
               $updater -notmatch '\$needsRepair') {

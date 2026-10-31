@@ -66,13 +66,14 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 | [AdvancedFriendlyFire](https://github.com/mister-keno/advanced-ff-cs2) | `main@ab332f0b5923` | Friendly-fire damage tracking and configured punishments; disabled for game-mode-specific activation |
 | [CS2-Gunsmenu](https://github.com/asapverneri/CS2-Gunsmenu) | `main@ec5dbdd99b23` | Player weapon-selection menus; disabled for game-mode-specific activation; not installed and marked manual in the Larnz manifest |
 | [GG1MapChooser](https://github.com/ssypchenko/GG1MapChooser) | `1.8.1` | Map voting with RTV, nominations, map pools and map rotation; includes the shared `ggmcAPI` dependency. |
+| [cs2-tags](https://github.com/CounterStrike2-Plugins-Archive/cs2-tags) | `1.15` | Player score/chat tags and the shared TagsApi required by SharpTimer. |
 | [SharpTimer](https://github.com/SharpTimer/SharpTimer) | `0.4.2` | Surf/Bhop/Deathrun timer; staged under `plugins/disabled/SharpTimer` by default. |
 ## Larnz plugin dependencies
 
 - CounterStrikeSharp provides the runtime required by the managed CounterStrikeSharp plugins.
 - AnyBaseLibCS2, PlayerSettingsCS2 and MenuManagerCS2 provide shared APIs used by dependent plugins.
 - The release updater keeps the manifest, versions and runtime file layout synchronized. Fixed configuration paths are deliberately protected from incoming add-on release archives.
-- `game/csgo/addons/counterstrikesharp/configs/` (and the matching Windows-overlay path) is manually managed. Neither release updater may write/delete these trees; CI snapshots their tracked contents around the KUS updater. Customize them locally and commit/push your intentional changes.
+- `game/csgo/addons/counterstrikesharp/configs/` (and the matching Windows-overlay path) remains manually managed, except for the narrowly allowlisted `plugins/cs2-tags/` sample-config directory. The updater may overlay the upstream `cs2-tags-example.toml` there; all other CSS configs stay protected and are checked by CI.
 
 ## Project provenance
 
@@ -227,6 +228,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | K4-DamageInfo | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | SimpleAdmin | Default CSS plugin; deliberately retained from KUS | No dedicated script; not automatically updated |
 | CS2Rcon | Default CounterStrikeSharp plugin | No script; release updates are warned about and skipped |
+| cs2-tags | Active plugin at `plugins/cs2-tags/`, API at `shared/TagsApi/`, and example config at `configs/plugins/cs2-tags/` | Manifest adapter: `cs2-tags.sh`; only its sample-config folder is allowlisted |
 | SharpTimer | Mode-specific plugin staged under `plugins/disabled/SharpTimer/` | Manifest adapter: `sharptimer.sh`; `cfg/SharpTimer/` remains operator-managed |
 | STFixes | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | GunGame | Mode-specific plugin staged under `plugins/disabled/` | Script: `gungame.sh` |

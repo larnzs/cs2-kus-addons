@@ -106,7 +106,7 @@ The source-build README version is displayed as `<branch>@<12-character-SHA>` ev
 
 For upstream projects whose `.csproj` target framework lags behind their current CounterStrikeSharp API package, an optional manifest `target_framework` (for example, `net10.0`) overrides the framework during both PowerShell bootstrap builds and Bash source-build updates. The workflows install .NET 8 and 10 side-by-side so older plugins can continue targeting `net8.0`.
 
-The new adapters are `cs2-poor-mappropads.sh`, `cs2-playervotes.sh`, `slayer-noscope.sh`, `cs2-stafflist.sh`, `abs-mapcycle.sh`, `cs2-antibait.sh`, `advancedfriendlyfire.sh`, and `cs2-gunsmenu.sh`. `cs2-killfeedfilter.sh` follows the tagged release asset instead.
+The new adapters are `cs2-poor-mappropads.sh`, `cs2-playervotes.sh`, `slayer-noscope.sh`, `cs2-stafflist.sh`, `abs-mapcycle.sh`, `cs2-antibait.sh`, `advancedfriendlyfire.sh`, and `cs2-gunsmenu.sh`, and `cs2-tags.sh`. `cs2-killfeedfilter.sh` follows the tagged release asset instead.
 
 This differs from upstream KUS's original Action: this integration commits successful updates to the private `integration/kus-monorepo` branch, rather than opening a pull request into KUS's `master`.
 
@@ -364,14 +364,13 @@ downloadable asset (size `0` if unknown).
 - Two copy styles are in use on purpose: "replace whole" (`remove_path` + `copy_dir`) where the
   repo folder is byte-identical to the release, and "merge" (`copy_dir` only) where the manual
   history shows leftovers were never removed (MatchZy, GG2).
-- **CounterStrikeSharp configs are manual-only.** The exact trees
-  `game/csgo/addons/counterstrikesharp/configs/` and
-  `game/csgo/addons/windows/addons/counterstrikesharp/configs/` are blocked by a path guard,
-  excluded from rsync overlays, and checked after every KUS updater run. A direct write or a
-  delete of a parent directory intersecting either tree is rejected. The Windows PowerShell
-  updater also treats these destinations as protected. To change these settings, edit/upload
-  them intentionally from the local computer and commit/push them; release automation must
-  never merge upstream defaults into these folders.
+- **CounterStrikeSharp configs are manual-only except for one sample folder.** The shared
+  `game/csgo/addons/counterstrikesharp/configs/` and Windows-overlay
+  `game/csgo/addons/windows/addons/counterstrikesharp/configs/` trees remain protected, except
+  the shared `plugins/cs2-tags/` folder for the upstream `cs2-tags-example.toml` sample.
+  This exception is explicit in both updater guards; the config snapshot excludes only that
+  exact sample file. All other CSS config paths remain blocked and protected against
+  parent-directory deletes. Operator-specific settings remain manual.
 - **Config policy for other add-ons:** plugin scripts never write config files that can be customised. Anything a
   release ships under `cfg/` or `configs/` (MatchZy, GunGame, MultiAddonManager, deathrun-manager)
   is only compared with `warn_cfg_dir_changes` / `warn_new_settings`, and new files, removed

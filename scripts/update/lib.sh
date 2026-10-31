@@ -80,17 +80,23 @@ path_within() {
     [ "$p" = "$b" ] || [[ "$p" == "$b"/* ]]
 }
 
-# Shared cfg files and CounterStrikeSharp configs are manually managed. Release
-# automation must not modify either the root cfg tree or either CSS config tree.
+# Shared cfg files and CounterStrikeSharp configs are manually managed. The only
+# release-managed CSS config exception is the cs2-tags example-config directory.
 PROTECTED_CONFIG_PATHS=(
     "game/csgo/cfg"
     "game/csgo/addons/counterstrikesharp/configs"
     "game/csgo/addons/windows/addons/counterstrikesharp/configs"
 )
+MANAGED_PLUGIN_CONFIG_PATHS=(
+    "game/csgo/addons/counterstrikesharp/configs/plugins/cs2-tags"
+)
 
 is_protected_config_path() {
-    local p protected
+    local p protected managed
     p=$(printf '%s' "$(_norm_path "$1")" | tr '[:upper:]' '[:lower:]')
+    for managed in "${MANAGED_PLUGIN_CONFIG_PATHS[@]}"; do
+        if [ "$p" = "$managed" ] || [[ "$p" == "$managed"/* ]]; then return 1; fi
+    done
     for protected in "${PROTECTED_CONFIG_PATHS[@]}"; do
         if [ "$p" = "$protected" ] || [[ "$p" == "$protected"/* ]]; then return 0; fi
     done
