@@ -66,7 +66,7 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 | [AdvancedFriendlyFire](https://github.com/mister-keno/advanced-ff-cs2) | `main@ab332f0b5923` | Friendly-fire damage tracking and configured punishments; disabled for game-mode-specific activation |
 | [CS2-Gunsmenu](https://github.com/asapverneri/CS2-Gunsmenu) | `main@ec5dbdd99b23` | Player weapon-selection menus; disabled for game-mode-specific activation; not installed and marked manual in the Larnz manifest |
 | [GG1MapChooser](https://github.com/ssypchenko/GG1MapChooser) | `1.8.1` | Map voting with RTV, nominations, map pools and map rotation; includes the shared `ggmcAPI` dependency. |
-
+| [SharpTimer](https://github.com/SharpTimer/SharpTimer) | `0.4.0` | Surf/Bhop/Deathrun timer; staged under `plugins/disabled/SharpTimer` by default. |
 ## Larnz plugin dependencies
 
 - CounterStrikeSharp provides the runtime required by the managed CounterStrikeSharp plugins.
@@ -175,7 +175,6 @@ The first table deliberately retains the updater-compatible three-column structu
 | [K4-DamageInfo](https://github.com/KitsuneLab-Development/K4-DamageInfo) | `2.4.0` | Displays the amount of damage players have inflicted on the victim's HP and Armor, as well as the hit groups they have hit. |
 | [SimpleAdmin](https://github.com/connercsbn/SimpleAdmin/) | `0.1.2` | Adds basic administrator functions |
 | [CS2Rcon](https://github.com/LordFetznschaedl/CS2Rcon) | `1.2.0` | This is a rudimentary implementation of a RCON plugin for CS2 using CounterStrikeSharp as RCON does not work whilst connected to the server |
-| [SharpTimer](https://github.com/Letaryat/poor-sharptimer) | `0.4.0` | SharpTimer is a simple Surf/KZ/Bhop/MG/Deathrun/etc CS2 Timer plugin |
 | [STFixes](https://github.com/rcnoob/STFixes) | `1.0.5` | A CounterStrikeSharp plugin with common fixes and features for SharpTimer servers |
 | [GunGame](https://github.com/ssypchenko/cs2-gungame) | `1.2.4` | GunGame mode on Counter Strike Sharp |
 | [K4-Arenas](https://github.com/KitsuneLab-Development/K4-Arenas) | `2.0.8` | All in one arena plugin, that you can use to have a ladder type gameplay. Support all map, 2v2/3v3/etc [Database setup](#setup-mysql-database) |
@@ -228,7 +227,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | K4-DamageInfo | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | SimpleAdmin | Default CSS plugin; deliberately retained from KUS | No dedicated script; not automatically updated |
 | CS2Rcon | Default CounterStrikeSharp plugin | No script; release updates are warned about and skipped |
-| SharpTimer | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
+| SharpTimer | Mode-specific plugin staged under `plugins/disabled/SharpTimer/` | Manifest adapter: `sharptimer.sh`; `cfg/SharpTimer/` remains operator-managed |
 | STFixes | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | GunGame | Mode-specific plugin staged under `plugins/disabled/` | Script: `gungame.sh` |
 | GG1MapChooser | Default CounterStrikeSharp plugin for RTV and map selection | Script: `gg1mapchooser.sh` |
