@@ -478,14 +478,23 @@ function Resolve-ReleaseInstallTargets($Addon, [string]$ExtractRoot, [string]$As
                 ''
             }
 
-            if ($sourceRootMode -and $sourceRootMode -ne 'archive_root') {
+            if ($sourceRootMode -eq 'csgo_root') {
+                if ($normalizedSourcePath -eq '.') {
+                    throw "source_path_mode 'csgo_root' requires an explicit source_path for '$AssetName'."
+                }
+                $csgoRoot = Find-CsgoRoot $ExtractRoot
+                if (-not $csgoRoot) {
+                    throw "Could not locate a CS2 game root/addons directory in '$AssetName'."
+                }
+                $sourceRoot = Join-Path $csgoRoot $sourcePath
+            }
+            elseif ($sourceRootMode -and $sourceRootMode -ne 'archive_root') {
                 throw "Unsupported source_path_mode '$sourceRootMode' for '$AssetName'."
             }
-            if ($sourceRootMode -eq 'archive_root' -and $normalizedSourcePath -ne '.') {
+            elseif ($sourceRootMode -eq 'archive_root' -and $normalizedSourcePath -ne '.') {
                 throw "source_path_mode 'archive_root' requires source_path '.' for '$AssetName'."
             }
-
-            if ($normalizedSourcePath -eq '.' -and $sourceRootMode -eq 'archive_root') {
+            elseif ($normalizedSourcePath -eq '.' -and $sourceRootMode -eq 'archive_root') {
                 # Some release assets contain a collection of plugin directories
                 # directly at the archive root, rather than one primary DLL whose
                 # containing directory identifies a single plugin.
