@@ -745,8 +745,8 @@
       "repository": "https://github.com/SharpTimer/SharpTimer",
       "type": "github_release",
       "track": "latest",
-      "version": "0.4.0",
-      "release_tag": "v0.4.0",
+      "version": "0.4.2",
+      "release_tag": "v0.4.2",
       "assets": [
         "SharpTimer-v{version}.zip"
       ],

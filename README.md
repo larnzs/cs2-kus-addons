@@ -66,7 +66,7 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 | [AdvancedFriendlyFire](https://github.com/mister-keno/advanced-ff-cs2) | `main@ab332f0b5923` | Friendly-fire damage tracking and configured punishments; disabled for game-mode-specific activation |
 | [CS2-Gunsmenu](https://github.com/asapverneri/CS2-Gunsmenu) | `main@ec5dbdd99b23` | Player weapon-selection menus; disabled for game-mode-specific activation; not installed and marked manual in the Larnz manifest |
 | [GG1MapChooser](https://github.com/ssypchenko/GG1MapChooser) | `1.8.1` | Map voting with RTV, nominations, map pools and map rotation; includes the shared `ggmcAPI` dependency. |
-| [SharpTimer](https://github.com/SharpTimer/SharpTimer) | `0.4.0` | Surf/Bhop/Deathrun timer; staged under `plugins/disabled/SharpTimer` by default. |
+| [SharpTimer](https://github.com/SharpTimer/SharpTimer) | `0.4.2` | Surf/Bhop/Deathrun timer; staged under `plugins/disabled/SharpTimer` by default. |
 ## Larnz plugin dependencies
 
 - CounterStrikeSharp provides the runtime required by the managed CounterStrikeSharp plugins.
