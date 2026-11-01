@@ -311,6 +311,7 @@ downloadable asset (size `0` if unknown).
 | Mod | Script | Notes |
 | --- | --- | --- |
 | Metamod:Source | `plugins/metamod-source.sh` | Assets come from the dev downloads page quick-download links. Windows zip is applied before the Linux tar.gz on purpose: both ship `metamod.vdf`, `metamod_x64.vdf`, `metaplugins.ini`, `README.txt`; the Linux copies (LF endings, `linux64` server path) are what the repo keeps. |
+| CS2FaceitLevels | `plugins/cs2faceitlevels.sh` | Single release ZIP contains both platform binaries. Updates only `addons/CS2FaceitLevels/bin/`, `workshop.gamedata.json` and `addons/metamod/CS2FaceitLevels.vdf`; the runtime-generated `CS2FaceitLevels.json` (including `faceit_api_key`) is deliberately excluded. |
 | CounterStrikeSharp | `plugins/counterstrikesharp.sh` | Uses the `with-runtime` Windows and Linux zips. Windows first, then Linux rsync; the Windows overlay only merges `api/ bin/ dotnet/`. The shared and Windows `counterstrikesharp/configs/` paths are manual-only and excluded from release syncs. |
 | Inventory Simulator | `plugins/inventory-simulator.sh` | Replaces the plugin directory and the `inventory-simulator.json` gamedata file. |
 | MultiAddonManager | `plugins/multiaddonmanager.sh` | Windows zip + Linux `steamrt3` tar.gz (the `steamrt4` build is ignored). Replaces only the two binaries in `game/csgo/addons/multiaddonmanager/bin/`; the `.vdf` is left alone and the customised `game/csgo/cfg/multiaddonmanager/multiaddonmanager.cfg` is never written, only compared (new settings reported). |
