@@ -1,5 +1,5 @@
 {
-  "#css/admin": {
+  "@css/admin": {
     "flags": [
       "@css/reservation",
       "@css/generic",
