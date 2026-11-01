@@ -1,0 +1,1 @@
+# Keep this runtime data directory present; CS2-SimpleAdmin writes admins.json and groups.json here.
