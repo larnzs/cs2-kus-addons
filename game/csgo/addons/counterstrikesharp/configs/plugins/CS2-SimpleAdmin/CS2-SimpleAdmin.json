@@ -8,7 +8,7 @@
     "DatabasePort": 3306,
     "DatabaseUser": "plugins",
     "DatabasePassword": "Atrisayeafsorde824@",
-    "DatabaseName": "GLOABL_simpleadmin",
+    "DatabaseName": "GLOBAL_simpleadmin",
     "DatabaseSSlMode": "preferred"
   },
   "OtherSettings": {
