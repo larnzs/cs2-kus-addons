@@ -63,7 +63,7 @@
   },
   "Connection": {
     "Host": "172.18.0.1",
-    "Database": "GLOABL_ranks",
+    "Database": "GLOBAL_ranks",
     "User": "plugins",
     "Password": "Atrisayeafsorde824@",
     "Port": 3306
