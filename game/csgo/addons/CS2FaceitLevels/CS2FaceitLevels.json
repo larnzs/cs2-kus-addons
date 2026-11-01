@@ -1,0 +1,10 @@
+{
+  "faceit_api_key": "f832fc2f-16f2-484a-b2cf-ee650e4cf18d",
+  "debug": false,
+  "cache_minutes": 30,
+  "request_timeout_seconds": 10,
+  "clear_pin_when_no_faceit": false,
+  "enable_elo_commands": true,
+  "AutoUpdateSignatures": true,
+  "ConfigVersion": 2
+}
