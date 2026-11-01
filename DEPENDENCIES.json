@@ -825,6 +825,29 @@
         "addons/counterstrikesharp/shared/SharpTimerAPI/SharpTimerAPI.dll",
         "addons/counterstrikesharp/gamedata/stgamedata.json"
       ]
+    },
+    {
+      "order": 31,
+      "name": "CS2FaceitLevels",
+      "repository": "https://github.com/Staaar0/cs2-FaceitLevels",
+      "type": "github_release",
+      "track": "latest",
+      "version": "1.1.4-123",
+      "release_tag": "1.1.4-123",
+      "assets": [
+        "CS2FaceitLevels.zip"
+      ],
+      "depends_on": [
+        "Metamod:Source"
+      ],
+      "installed": true,
+      "merge": "release_csgo_root",
+      "verify_paths": [
+        "addons/CS2FaceitLevels/bin/CS2FaceitLevels.so",
+        "addons/CS2FaceitLevels/bin/CS2FaceitLevels.dll",
+        "addons/CS2FaceitLevels/workshop.gamedata.json",
+        "addons/metamod/CS2FaceitLevels.vdf"
+      ]
     }
   ]
 }
