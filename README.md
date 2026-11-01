@@ -68,8 +68,10 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 | [GG1MapChooser](https://github.com/ssypchenko/GG1MapChooser) | `1.8.1` | Map voting with RTV, nominations, map pools and map rotation; includes the shared `ggmcAPI` dependency. |
 | [cs2-tags](https://github.com/CounterStrike2-Plugins-Archive/cs2-tags) | `1.15` | Player score/chat tags and the shared TagsApi required by SharpTimer. |
 | [SharpTimer](https://github.com/SharpTimer/SharpTimer) | `0.4.2` | Surf/Bhop/Deathrun timer; staged under `plugins/disabled/SharpTimer` by default. |
+| [CS2FaceitLevels](https://github.com/Staaar0/cs2-FaceitLevels) | `1.1.4-123` | Native MetaMod plugin for FACEIT scoreboard levels, ELO lookup (`!elo` / `!elos`) and player badges. |
 ## Larnz plugin dependencies
 
+- CS2FaceitLevels depends only on MetaMod:Source. Its API-key file is generated at runtime at `game/csgo/addons/CS2FaceitLevels/CS2FaceitLevels.json`; the updater excludes that file and manages only the binaries, gamedata and MetaMod VDF.
 - CounterStrikeSharp provides the runtime required by the managed CounterStrikeSharp plugins.
 - AnyBaseLibCS2, PlayerSettingsCS2 and MenuManagerCS2 provide shared APIs used by dependent plugins.
 - The release updater keeps the manifest, versions and runtime file layout synchronized. Fixed configuration paths are deliberately protected from incoming add-on release archives.
