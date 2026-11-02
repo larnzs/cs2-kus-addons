@@ -112,6 +112,7 @@
       "@css/chat",
       "@css/vote",
       "@css/password",
+      "@css/rcon",
       "@css/cheats",
       "@css/root",
       "@css/ads",
