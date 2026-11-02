@@ -45,7 +45,7 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 | [PlayerSettingsCS2](https://github.com/NickFox007/PlayerSettingsCS2) | `0.9.4` | Persistent player settings |
 | [MenuManagerCS2](https://github.com/NickFox007/MenuManagerCS2) | `1.4.1` | Menu/API library |
 | [CS2-SimpleAdmin](https://github.com/daffyyyy/CS2-SimpleAdmin) | `1.9.1` | Additional administration features |
-| [WeaponPaints](https://github.com/Nereziel/cs2-WeaponPaints) | `466` | Player-side weapon customization |
+| [WeaponPaints](https://github.com/Nereziel/cs2-WeaponPaints) | `472` | Player-side weapon customization |
 | [AFKManager](https://github.com/NiGHT757/AFKManager) | `0.2.8` | AFK handling |
 | [CS2-Kill-Plugin](https://github.com/Quantor97/CS2-Kill-Plugin) | `0.2.0` | Player self-action command |
 | [SimpleResetScore](https://github.com/stefanx111/cs2-SimpleResetScore) | `1.0.7` | Reset-score command |
