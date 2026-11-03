@@ -4,8 +4,8 @@
         "version": "PTDL_v2",
         "update_url": "https:\/\/raw.githubusercontent.com\/K4ryuu\/CS2-Egg-Go\/main\/pterodactyl\/kitsunelab-cs2-go-egg.json"
     },
-    "exported_at": "2026-11-03T14:55:56+03:30",
-    "name": "KitsuneLab CS2 Go @ K4ryuu MODIFIED 2",
+    "exported_at": "2026-11-03T19:54:55+03:30",
+    "name": "KitsuneLab CS2 Go @ K4ryuu MODIFIED",
     "author": "k4ryuu@icloud.com",
     "description": "CS2 servers for Pterodactyl and Pelican with no shell in the image: one static Go binary boots the server, and an optional node daemon shares the game files, filters bot floods and caches workshop content. The successor of the bash KitsuneLab CS2 egg.",
     "features": [],
@@ -14,7 +14,7 @@
         "KitsuneLab CS2 Go - Beta": "ghcr.io\/k4ryuu\/cs2-egg-go:beta"
     },
     "file_denylist": [],
-    "startup": "bash \/home\/container\/egg\/fragcity-payload\/sync-addon-payload-container.sh && .\/game\/cs2.sh {{CUSTOM_PARAMS}} -tickrate {{TICKRATE}} -dedicated +ip 0.0.0.0 -port {{SERVER_PORT}} +map {{SRCDS_MAP}} +mapgroup {{MAPGROUP}} -maxplayers {{SRCDS_MAXPLAYERS}} +sv_setsteamaccount {{STEAM_ACC}} +game_type {{GAME_TYPE}} +game_mode {{GAME_MODE}} -authkey {{AUTHKEY}} +sv_password {{PASSWORD}} +host_workshop_collection {{WORKSHOP}}",
+    "startup": "bash \/home\/container\/egg\/fragcity-payload\/sync-addon-payload-container.sh && .\/game\/cs2.sh {{CUSTOM_PARAMS}} -tickrate {{TICKRATE}} -dedicated +ip 0.0.0.0 -port {{SERVER_PORT}} +map {{SRCDS_MAP}} +mapgroup {{MAPGROUP}} -maxplayers {{SRCDS_MAXPLAYERS}} +sv_setsteamaccount {{STEAM_ACC}} +game_type {{GAME_TYPE}} +game_mode {{GAME_MODE}} -authkey {{AUTHKEY}} +sv_password {{PASSWORD}} +host_workshop_collection {{WORKSHOP}} disable_workshop_command_filtering",
     "config": {
         "files": "{}",
         "startup": "{\r\n    \"done\": \"Source2Init OK\"\r\n}",
