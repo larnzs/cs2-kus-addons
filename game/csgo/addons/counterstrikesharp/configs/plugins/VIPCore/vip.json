@@ -22,7 +22,9 @@
       "ScoreboardTag": "VIP : SILVER",
       "ChatTag": "VIP : SILVER",
       "ColorTag": "silver"
-    }
+    },
+    "Vampirism": 3,
+    "Armor": 125
   },
   "GOLD": {
     "Money": "++3000",
