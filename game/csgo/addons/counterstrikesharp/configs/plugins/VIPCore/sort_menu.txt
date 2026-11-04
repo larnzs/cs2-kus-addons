@@ -12,14 +12,12 @@ InfiniteAmmo
 HealthRegen
 ArmorRegen
 Vampirism
-Antiflash
+WeaponsMenu
 Zeus
 Respawn
 DamageMultiplier
-Tag
-ShowDamage
-SoundDMG
 RainbowModel
 SmokeColor
 Killscreen
 TeammatesHeal
+Tag
