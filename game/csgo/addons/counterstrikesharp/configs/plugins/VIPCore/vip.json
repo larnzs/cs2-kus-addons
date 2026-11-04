@@ -1,63 +1,57 @@
 {
   "BRONZE": {
-    "Health": 110,
     "Armor": 50,
+    "Health": 110,
     "Money": "++1000",
     "Tag": {
-      "ScoreboardTag": "BRONZE",
-      "ChatTag": "[BRONZE]",
+      "ScoreboardTag": "VIP : BRONZE",
+      "ChatTag": "VIP : BRONZE",
       "ColorTag": "orange"
-    },
-    "ShowDamage": 1
+    }
   },
   "SILVER": {
-    "Health": 120,
     "Armor": 100,
+    "Health": 120,
     "Money": "++1500",
     "Defuser": true,
     "Bhop": {
-      "Timer": 5,
-      "MaxSpeed": 350
+      "Timer": 0,
+      "MaxSpeed": 0
     },
     "FastReload": true,
     "Tag": {
-      "ScoreboardTag": "SILVER",
-      "ChatTag": "[SILVER]",
+      "ScoreboardTag": "VIP : SILVER",
+      "ChatTag": "VIP : SILVER",
       "ColorTag": "silver"
-    },
-    "ShowDamage": 1,
-    "SoundDMG": 1
+    }
   },
   "GOLD": {
-    "Health": 130,
     "Armor": 100,
+    "Health": 130,
     "Money": "++2000",
     "Defuser": true,
     "Bhop": {
-      "Timer": 5,
-      "MaxSpeed": 350
+      "Timer": 0,
+      "MaxSpeed": 0
     },
     "NoFallDamage": true,
     "FastReload": true,
     "fastdefuse": 10,
-    "fastplant": true,
     "Gravity": 0.95,
     "Tag": {
-      "ScoreboardTag": "GOLD",
-      "ChatTag": "[GOLD]",
+      "ScoreboardTag": "VIP : GOLD",
+      "ChatTag": "VIP : GOLD",
       "ColorTag": "gold"
-    },
-    "ShowDamage": 1,
-    "SoundDMG": 1
+    }
   },
   "PLATINUM": {
-    "Health": 150,
     "Armor": 150,
+    "Health": 150,
     "Money": "++3000",
     "Defuser": true,
     "Bhop": {
-      "Timer": 5,
-      "MaxSpeed": 350
+      "Timer": 0,
+      "MaxSpeed": 0
     },
     "NoFallDamage": true,
     "FastReload": true,
@@ -66,31 +60,28 @@
     "Gravity": 0.9,
     "HealthRegen": {
       "Health": 2,
-      "Delay": 5,
-      "Interval": 5
+      "Delay": 0,
+      "Interval": 0
     },
     "ArmorRegen": {
       "Armor": 2,
-      "Delay": 3,
-      "Interval": 3
+      "Delay": 0,
+      "Interval": 0
     },
-    "Antiflash": 3,
     "Tag": {
-      "ScoreboardTag": "PLATINUM",
-      "ChatTag": "[PLATINUM]",
+      "ScoreboardTag": "VIP : PLATINUM",
+      "ChatTag": "VIP : PLATINUM",
       "ColorTag": "lightblue"
-    },
-    "ShowDamage": 1,
-    "SoundDMG": 1
+    }
   },
   "EMERALD": {
-    "Health": 180,
     "Armor": 200,
+    "Health": 180,
     "Money": "++5000",
     "Defuser": true,
     "Bhop": {
-      "Timer": 5,
-      "MaxSpeed": 350
+      "Timer": 0,
+      "MaxSpeed": 0
     },
     "NoFallDamage": true,
     "FastReload": true,
@@ -100,16 +91,15 @@
     "InfiniteAmmo": true,
     "HealthRegen": {
       "Health": 4,
-      "Delay": 5,
-      "Interval": 5
+      "Delay": 0,
+      "Interval": 0
     },
     "ArmorRegen": {
       "Armor": 4,
-      "Delay": 3,
-      "Interval": 3
+      "Delay": 0,
+      "Interval": 0
     },
     "Vampirism": 15,
-    "Antiflash": 3,
     "WeaponsMenu": {
       "CT": {
         "M4A1 + DEAGLE": {
@@ -137,21 +127,19 @@
       -1
     ],
     "Tag": {
-      "ScoreboardTag": "EMERALD",
-      "ChatTag": "[EMERALD]",
+      "ScoreboardTag": "VIP : EMERALD",
+      "ChatTag": "VIP : EMERALD",
       "ColorTag": "lime"
-    },
-    "ShowDamage": 1,
-    "SoundDMG": 1
+    }
   },
   "DIAMOND": {
-    "Health": 300,
     "Armor": 300,
+    "Health": 300,
     "Money": "++20000",
     "Defuser": true,
     "Bhop": {
-      "Timer": 5,
-      "MaxSpeed": 350
+      "Timer": 0,
+      "MaxSpeed": 0
     },
     "NoFallDamage": true,
     "FastReload": true,
@@ -161,16 +149,15 @@
     "InfiniteAmmo": true,
     "HealthRegen": {
       "Health": 15,
-      "Delay": 5,
-      "Interval": 5
+      "Delay": 0,
+      "Interval": 0
     },
     "ArmorRegen": {
       "Armor": 15,
-      "Delay": 3,
-      "Interval": 3
+      "Delay": 0,
+      "Interval": 0
     },
     "Vampirism": 40,
-    "Antiflash": 3,
     "WeaponsMenu": {
       "CT": {
         "M4A1 + DEAGLE": {
@@ -201,13 +188,11 @@
       -1
     ],
     "Killscreen": true,
-    "TeammatesHeal": 10,
+    "TeammatesHeal": 100,
     "Tag": {
-      "ScoreboardTag": "DIAMOND",
-      "ChatTag": "[DIAMOND]",
+      "ScoreboardTag": "VIP : DIAMOND",
+      "ChatTag": "VIP : DIAMOND",
       "ColorTag": "magenta"
-    },
-    "ShowDamage": 1,
-    "SoundDMG": 1
+    }
   }
 }
