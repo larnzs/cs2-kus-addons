@@ -1,10 +1,10 @@
 [Unit]
-Description=Check for newly created FragCity CS2 servers every minute
+Description=Check for newly created FragCity CS2 servers every 10 seconds
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=1min
-AccuracySec=15s
+OnUnitActiveSec=10s
+AccuracySec=1s
 Persistent=true
 Unit=fragcity-addon-provision.service
 
