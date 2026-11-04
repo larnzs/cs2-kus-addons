@@ -1,112 +1,213 @@
 {
-  "Delay": 2.0,
-  "Groups": {
-    "BRONZE": {
-      "Values": {
-        "armor": 50,
-        "health": 110,
-        "start_money": 1000,
-        "defuser": false,
-        "bhop": false,
-        "no_fall_damage": false,
-        "tag": "VIP : BRONZE"
+  "BRONZE": {
+    "Health": 110,
+    "Armor": 50,
+    "Money": "++1000",
+    "Tag": {
+      "ScoreboardTag": "BRONZE",
+      "ChatTag": "[BRONZE]",
+      "ColorTag": "orange"
+    },
+    "ShowDamage": 1
+  },
+  "SILVER": {
+    "Health": 120,
+    "Armor": 100,
+    "Money": "++1500",
+    "Defuser": true,
+    "Bhop": {
+      "Timer": 5,
+      "MaxSpeed": 350
+    },
+    "FastReload": true,
+    "Tag": {
+      "ScoreboardTag": "SILVER",
+      "ChatTag": "[SILVER]",
+      "ColorTag": "silver"
+    },
+    "ShowDamage": 1,
+    "SoundDMG": 1
+  },
+  "GOLD": {
+    "Health": 130,
+    "Armor": 100,
+    "Money": "++2000",
+    "Defuser": true,
+    "Bhop": {
+      "Timer": 5,
+      "MaxSpeed": 350
+    },
+    "NoFallDamage": true,
+    "FastReload": true,
+    "fastdefuse": 10,
+    "fastplant": true,
+    "Gravity": 0.95,
+    "Tag": {
+      "ScoreboardTag": "GOLD",
+      "ChatTag": "[GOLD]",
+      "ColorTag": "gold"
+    },
+    "ShowDamage": 1,
+    "SoundDMG": 1
+  },
+  "PLATINUM": {
+    "Health": 150,
+    "Armor": 150,
+    "Money": "++3000",
+    "Defuser": true,
+    "Bhop": {
+      "Timer": 5,
+      "MaxSpeed": 350
+    },
+    "NoFallDamage": true,
+    "FastReload": true,
+    "fastdefuse": 15,
+    "fastplant": true,
+    "Gravity": 0.9,
+    "HealthRegen": {
+      "Health": 2,
+      "Delay": 5,
+      "Interval": 5
+    },
+    "ArmorRegen": {
+      "Armor": 2,
+      "Delay": 3,
+      "Interval": 3
+    },
+    "Antiflash": 3,
+    "Tag": {
+      "ScoreboardTag": "PLATINUM",
+      "ChatTag": "[PLATINUM]",
+      "ColorTag": "lightblue"
+    },
+    "ShowDamage": 1,
+    "SoundDMG": 1
+  },
+  "EMERALD": {
+    "Health": 180,
+    "Armor": 200,
+    "Money": "++5000",
+    "Defuser": true,
+    "Bhop": {
+      "Timer": 5,
+      "MaxSpeed": 350
+    },
+    "NoFallDamage": true,
+    "FastReload": true,
+    "fastdefuse": 20,
+    "fastplant": true,
+    "Gravity": 0.85,
+    "InfiniteAmmo": true,
+    "HealthRegen": {
+      "Health": 4,
+      "Delay": 5,
+      "Interval": 5
+    },
+    "ArmorRegen": {
+      "Armor": 4,
+      "Delay": 3,
+      "Interval": 3
+    },
+    "Vampirism": 15,
+    "Antiflash": 3,
+    "WeaponsMenu": {
+      "CT": {
+        "M4A1 + DEAGLE": {
+          "Weapons": [
+            "weapon_m4a1",
+            "weapon_deagle"
+          ],
+          "Round": 2
+        }
+      },
+      "T": {
+        "AK47 + DEAGLE": {
+          "Weapons": [
+            "weapon_ak47",
+            "weapon_deagle"
+          ],
+          "Round": 2
+        }
       }
     },
-    "SILVER": {
-      "Values": {
-        "armor": 100,
-        "health": 120,
-        "start_money": 1500,
-        "defuser": true,
-        "bhop": true,
-        "no_fall_damage": false,
-        "fast_reload": true,
-        "tag": "VIP : SILVER"
+    "Zeus": true,
+    "SmokeColor": [
+      -1,
+      -1,
+      -1
+    ],
+    "Tag": {
+      "ScoreboardTag": "EMERALD",
+      "ChatTag": "[EMERALD]",
+      "ColorTag": "lime"
+    },
+    "ShowDamage": 1,
+    "SoundDMG": 1
+  },
+  "DIAMOND": {
+    "Health": 300,
+    "Armor": 300,
+    "Money": "++20000",
+    "Defuser": true,
+    "Bhop": {
+      "Timer": 5,
+      "MaxSpeed": 350
+    },
+    "NoFallDamage": true,
+    "FastReload": true,
+    "fastdefuse": 25,
+    "fastplant": true,
+    "Gravity": 0.75,
+    "InfiniteAmmo": true,
+    "HealthRegen": {
+      "Health": 15,
+      "Delay": 5,
+      "Interval": 5
+    },
+    "ArmorRegen": {
+      "Armor": 15,
+      "Delay": 3,
+      "Interval": 3
+    },
+    "Vampirism": 40,
+    "Antiflash": 3,
+    "WeaponsMenu": {
+      "CT": {
+        "M4A1 + DEAGLE": {
+          "Weapons": [
+            "weapon_m4a1",
+            "weapon_deagle"
+          ],
+          "Round": 2
+        }
+      },
+      "T": {
+        "AK47 + DEAGLE": {
+          "Weapons": [
+            "weapon_ak47",
+            "weapon_deagle"
+          ],
+          "Round": 2
+        }
       }
     },
-    "GOLD": {
-      "Values": {
-        "armor": 100,
-        "health": 130,
-        "start_money": 2000,
-        "defuser": true,
-        "bhop": true,
-        "no_fall_damage": true,
-        "fast_reload": true,
-        "fast_defuse": true,
-        "gravity": 0.95,
-        "tag": "VIP : GOLD"
-      }
+    "Zeus": true,
+    "Respawn": 1,
+    "DamageMultiplier": 1.35,
+    "RainbowModel": true,
+    "SmokeColor": [
+      -1,
+      -1,
+      -1
+    ],
+    "Killscreen": true,
+    "TeammatesHeal": 10,
+    "Tag": {
+      "ScoreboardTag": "DIAMOND",
+      "ChatTag": "[DIAMOND]",
+      "ColorTag": "magenta"
     },
-    "PLATINUM": {
-      "Values": {
-        "armor": 150,
-        "health": 150,
-        "start_money": 3000,
-        "defuser": true,
-        "bhop": true,
-        "no_fall_damage": true,
-        "fast_reload": true,
-        "fast_defuse": true,
-        "fast_plant": true,
-        "gravity": 0.9,
-        "infinite_ammo": false,
-        "regen_health": 2,
-        "regen_armor": 2,
-        "anti_flash": 0.3,
-        "tag": "VIP : PLATINUM"
-      }
-    },
-    "EMERALD": {
-      "Values": {
-        "armor": 200,
-        "health": 180,
-        "start_money": 5000,
-        "defuser": true,
-        "bhop": true,
-        "no_fall_damage": true,
-        "fast_reload": true,
-        "fast_defuse": true,
-        "fast_plant": true,
-        "gravity": 0.85,
-        "infinite_ammo": true,
-        "regen_health": 4,
-        "regen_armor": 4,
-        "vampirism": 15,
-        "anti_flash": 0.5,
-        "weapons_menu": true,
-        "zeus": true,
-        "tag": "VIP : EMERALD"
-      }
-    },
-    "DIAMOND": {
-      "Values": {
-        "armor": 300,
-        "health": 300,
-        "start_money": 20000,
-        "defuser": true,
-        "bhop": true,
-        "no_fall_damage": true,
-        "fast_reload": true,
-        "fast_defuse": true,
-        "fast_plant": true,
-        "gravity": 0.75,
-        "infinite_ammo": true,
-        "regen_health": 15,
-        "regen_armor": 15,
-        "vampirism": 40,
-        "anti_flash": 1.0,
-        "weapons_menu": true,
-        "zeus": true,
-        "respawn": true,
-        "damage_multiplier": 1.35,
-        "rainbow_model": true,
-        "smoke_color": "rainbow",
-        "kill_screen": true,
-        "night_vip": true,
-        "teammates_heal": 10,
-        "tag": "VIP : DIAMOND"
-      }
-    }
+    "ShowDamage": 1,
+    "SoundDMG": 1
   }
 }
