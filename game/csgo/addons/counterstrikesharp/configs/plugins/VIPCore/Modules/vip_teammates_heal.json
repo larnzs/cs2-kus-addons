@@ -4,5 +4,5 @@
     "weapon_molotov"
   ],
   "MaxHealth": 100,
-  "HealPerShot": 25
+  "HealPerShot": 10
 }
