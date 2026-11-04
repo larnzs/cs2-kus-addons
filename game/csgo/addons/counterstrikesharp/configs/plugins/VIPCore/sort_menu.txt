@@ -4,6 +4,7 @@ Money
 Defuser
 Bhop
 NoFallDamage
+Antiflash
 FastReload
 fastdefuse
 fastplant
