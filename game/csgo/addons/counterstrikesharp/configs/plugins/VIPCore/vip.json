@@ -28,13 +28,9 @@
   },
   "GOLD": {
     "Money": "++3000",
-    "Health": 130,
-    "Armor": 120,
+    "Health": 100,
+    "Armor": 150,
     "Defuser": true,
-    "Bhop": {
-      "Timer": 0,
-      "MaxSpeed": 0
-    },
     "FastReload": true,
     "Vampirism": 5,
     "DamageMultiplier": 1.05,
