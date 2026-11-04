@@ -1,8 +1,7 @@
 {
   "BRONZE": {
-    "Armor": 50,
-    "Health": 110,
     "Money": "++1000",
+    "TeammatesHeal": 100,
     "Tag": {
       "ScoreboardTag": "VIP : BRONZE",
       "ChatTag": "VIP : BRONZE",
@@ -10,15 +9,15 @@
     }
   },
   "SILVER": {
-    "Armor": 100,
-    "Health": 120,
-    "Money": "++1500",
+    "Money": "++2000",
     "Defuser": true,
-    "Bhop": {
-      "Timer": 0,
-      "MaxSpeed": 0
-    },
-    "FastReload": true,
+    "SmokeColor": [
+      -1,
+      -1,
+      -1
+    ],
+    "Killscreen": true,
+    "TeammatesHeal": 100,
     "Tag": {
       "ScoreboardTag": "VIP : SILVER",
       "ChatTag": "VIP : SILVER",
@@ -26,18 +25,29 @@
     }
   },
   "GOLD": {
-    "Armor": 100,
+    "Money": "++3000",
     "Health": 130,
-    "Money": "++2000",
+    "Armor": 120,
     "Defuser": true,
     "Bhop": {
       "Timer": 0,
       "MaxSpeed": 0
     },
-    "NoFallDamage": true,
     "FastReload": true,
+    "Vampirism": 5,
+    "DamageMultiplier": 1.05,
+    "NoFallDamage": true,
+    "Zeus": true,
     "fastdefuse": 10,
     "Gravity": 0.95,
+    "SmokeColor": [
+      -1,
+      -1,
+      -1
+    ],
+    "RainbowModel": true,
+    "Killscreen": true,
+    "TeammatesHeal": 100,
     "Tag": {
       "ScoreboardTag": "VIP : GOLD",
       "ChatTag": "VIP : GOLD",
@@ -45,16 +55,19 @@
     }
   },
   "PLATINUM": {
-    "Armor": 150,
-    "Health": 150,
     "Money": "++3000",
+    "Health": 150,
     "Defuser": true,
     "Bhop": {
       "Timer": 0,
       "MaxSpeed": 0
     },
-    "NoFallDamage": true,
     "FastReload": true,
+    "Vampirism": 10,
+    "DamageMultiplier": 1.1,
+    "NoFallDamage": true,
+    "Antiflash": 3,
+    "Zeus": true,
     "fastdefuse": 15,
     "fastplant": true,
     "Gravity": 0.9,
@@ -68,6 +81,14 @@
       "Delay": 0,
       "Interval": 0
     },
+    "SmokeColor": [
+      -1,
+      -1,
+      -1
+    ],
+    "RainbowModel": true,
+    "Killscreen": true,
+    "TeammatesHeal": 100,
     "Tag": {
       "ScoreboardTag": "VIP : PLATINUM",
       "ChatTag": "VIP : PLATINUM",
@@ -75,16 +96,19 @@
     }
   },
   "EMERALD": {
-    "Armor": 200,
-    "Health": 180,
     "Money": "++5000",
+    "Health": 180,
     "Defuser": true,
     "Bhop": {
       "Timer": 0,
       "MaxSpeed": 0
     },
-    "NoFallDamage": true,
     "FastReload": true,
+    "Vampirism": 15,
+    "DamageMultiplier": 1.2,
+    "NoFallDamage": true,
+    "Antiflash": 3,
+    "Zeus": true,
     "fastdefuse": 20,
     "fastplant": true,
     "Gravity": 0.85,
@@ -99,7 +123,6 @@
       "Delay": 0,
       "Interval": 0
     },
-    "Vampirism": 15,
     "WeaponsMenu": {
       "CT": {
         "M4A1 + DEAGLE": {
@@ -120,7 +143,14 @@
         }
       }
     },
-    "Zeus": true,
+    "SmokeColor": [
+      -1,
+      -1,
+      -1
+    ],
+    "RainbowModel": true,
+    "Killscreen": true,
+    "TeammatesHeal": 100,
     "Tag": {
       "ScoreboardTag": "VIP : EMERALD",
       "ChatTag": "VIP : EMERALD",
@@ -128,16 +158,19 @@
     }
   },
   "DIAMOND": {
-    "Armor": 300,
-    "Health": 300,
     "Money": "++20000",
+    "Health": 300,
     "Defuser": true,
     "Bhop": {
       "Timer": 0,
       "MaxSpeed": 0
     },
-    "NoFallDamage": true,
     "FastReload": true,
+    "Vampirism": 40,
+    "DamageMultiplier": 1.35,
+    "NoFallDamage": true,
+    "Antiflash": 3,
+    "Zeus": true,
     "fastdefuse": 25,
     "fastplant": true,
     "Gravity": 0.75,
@@ -152,7 +185,6 @@
       "Delay": 0,
       "Interval": 0
     },
-    "Vampirism": 40,
     "WeaponsMenu": {
       "CT": {
         "M4A1 + DEAGLE": {
@@ -173,15 +205,13 @@
         }
       }
     },
-    "Zeus": true,
     "Respawn": 1,
-    "DamageMultiplier": 1.35,
-    "RainbowModel": true,
     "SmokeColor": [
       -1,
       -1,
       -1
     ],
+    "RainbowModel": true,
     "Killscreen": true,
     "TeammatesHeal": 100,
     "Tag": {
