@@ -493,7 +493,11 @@
     ],
     "AdminFlags": [
       {
-        "name": "Server Admin (#css/admin)",
+        "name": "CounterStrikeSharp Admin (@css/admin)",
+        "flag": "@css/admin"
+      },
+      {
+        "name": "SimpleAdmin Admin (#css/admin)",
         "flag": "#css/admin"
       }
     ]
