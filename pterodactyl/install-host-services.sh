@@ -42,6 +42,8 @@ fi
   || die "The published payload is not ready at $PAYLOAD_ROOT."
 [[ -f "$REPO_ROOT/pterodactyl/provision-addon-servers.php" ]] \
   || die "Provisioner PHP script is missing."
+[[ -f "$REPO_ROOT/pterodactyl/custom-cfg-sync.php" && -d "$REPO_ROOT/pterodactyl/custom-cfg" ]] \
+  || die "Per-server custom CFG synchronizer/templates are missing."
 [[ -f "$REPO_ROOT/pterodactyl/systemd/fragcity-addon-payload-sync.service" ]] \
   || die "Payload publisher service unit is missing."
 [[ -f "$REPO_ROOT/pterodactyl/systemd/fragcity-addon-payload-sync.timer" ]] \

@@ -14,6 +14,25 @@ This integration connects the existing “Update CS2 Addons” GitHub Actions wo
 
 The host installer and Provisioner publish a one-way SHA-256 hash registry of the baseline UUIDs through the read-only Mount; raw server UUIDs are not exposed in that registry. If a server starts before the periodic Provisioner has registered it, the startup script recognizes the UUID as absent from the baseline and waits up to 90 seconds for the matching pending state file. The Provisioner can adopt an already-running server only after validating the exact read-only payload Mount, the matching `P_SERVER_UUID`, and the saved startup hook; it does not stop or replace that running container. If the marker is created during the wait, config seeding proceeds on that very first startup. If registration does not complete before timeout, synchronization fails closed and CS2 is not launched. Legacy volumes whose UUIDs are in the baseline and lack a state marker preserve existing config settings. The monitoring tools show the baseline registry state, baseline membership, processed UUID marker, and per-volume seed state so that a new, unregistered server is visible rather than silently classed as legacy.
 
+## Per-server custom CFG rendering from Panel Server Name
+
+The 35 active, root-level custom_*.cfg files are maintained as templates in pterodactyl/custom-cfg/; they are no longer shipped as static customer CFG files under game/csgo/cfg/. The host-side PHP provisioner renders them into each eligible server's own UUID-bound volume at:
+
+    /var/lib/pterodactyl/volumes/<server-uuid>/game/csgo/cfg/
+
+The provisioner reads the server's actual servers.name value from the Pterodactyl Panel database (Server->name) — the same Change Server Details → Server Name value shown in the Panel. It does not infer the name from a Docker container name; Wings identifies the container by UUID, while the Panel Server Name is the customer-facing name that becomes the game hostname.
+
+The existing fragcity-addon-provision.timer runs the provisioner every 10 seconds. Each pass reconciles every installed, runnable server matching the one configured FragCity Egg and Node, including baseline/legacy servers and servers already provisioned. A Panel Server Name change is therefore reflected in all mode-specific custom CFGs on the next pass, without restarting the container. A one-shot manual run is also available:
+
+    cd /opt/fragcity/cs2-kus-addons || exit 1
+    php pterodactyl/provision-addon-servers.php --sync-custom-cfgs
+    # Or limit the operation to one eligible server:
+    php pterodactyl/provision-addon-servers.php --sync-custom-cfgs --server '<server-uuid>'
+
+Only the active hostname directive is changed. Existing sv_tags, sv_minrate, sv_maxrate, server graphics, and all other lines in an already-present per-server custom CFG are preserved. If a custom CFG is missing, the provisioner creates it from the checked-in template and substitutes the Panel Server Name. It writes only when the rendered hostname differs, uses an atomic replacement, preserves file ownership/permissions, refuses symlinks, and never deletes files. Mode suffixes retain the same filename-to-label mapping used by the previous Python helper.
+
+The files game/csgo/cfg/SharpTimer/custom_exec.cfg, custom_rush.cfg.txt, and custom_valve-rush.cfg.txt are intentionally not part of this hostname-template set: the SharpTimer file is a plugin-specific custom exec file, while the .cfg.txt Rush files are text placeholders rather than active custom_*.cfg files.
+
 ## Egg startup hook (important)
 
 The tracked export [egg-kitsune-lab-c-s2-go--k4ryuu-m-o-d-i-f-i-e-d.json](egg-kitsune-lab-c-s2-go--k4ryuu-m-o-d-i-f-i-e-d.json) is based on K4ryuu's current Go Egg export, with the FragCity sync hook added at the beginning of its `startup` template. Its startup begins exactly with:

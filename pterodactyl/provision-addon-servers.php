@@ -9,6 +9,8 @@ use Pterodactyl\Models\Mount;
 use Pterodactyl\Models\Server;
 use Symfony\Component\Process\Process;
 
+require_once __DIR__ . '/custom-cfg-sync.php';
+
 /**
  * FragCity's Pterodactyl 1.x server provisioner.
  *
@@ -49,6 +51,7 @@ FragCity Pterodactyl addon provisioner
 Usage:
   php provision-addon-servers.php --initialize-baseline [--exclude <server-uuid>]
   php provision-addon-servers.php --publish-baseline-registry
+  php provision-addon-servers.php --sync-custom-cfgs [--server <server-uuid>]
   php provision-addon-servers.php --server <server-uuid>
   php provision-addon-servers.php --verify-server <server-uuid>
   php provision-addon-servers.php --set-config-seed <server-uuid> <pending|completed>
@@ -440,6 +443,39 @@ function serverVolumePath(Server $server, string $volumeRoot): string
  * Prepare target directories one component at a time. Do not follow symlinks, do
  * not create a volume, and refuse to hide any pre-existing files under a new mount.
  */
+
+/** Resolve the exact game/csgo/cfg directory inside one validated server volume. */
+function serverCfgDirectoryPath(string $volumePath): string
+{
+    $cursor = $volumePath;
+    foreach (['game', 'csgo', 'cfg'] as $component) {
+        $cursor .= '/' . $component;
+        if (is_link($cursor) || !is_dir($cursor)) {
+            fail('Server cfg directory is missing or unsafe: ' . $cursor);
+        }
+        $real = realpath($cursor);
+        if ($real === false || $real !== $cursor) {
+            fail('Server cfg directory failed path-containment validation: ' . $cursor);
+        }
+    }
+    return $cursor;
+}
+
+/** Render templates into this server's own UUID-bound volume. */
+function syncServerCustomConfigs(Server $server, Mount $mount, string $volumeRoot): array
+{
+    if (!serverIsEligible($server, $mount)) {
+        fail('Server ' . $server->uuid . ' is not eligible for the configured FragCity Mount.');
+    }
+    $volumePath = serverVolumePath($server, $volumeRoot);
+    $cfgDirectory = serverCfgDirectoryPath($volumePath);
+    return FragCityCustomCfgSynchronizer::sync(
+        __DIR__ . '/custom-cfg',
+        $cfgDirectory,
+        (string) $server->name
+    );
+}
+
 function prepareMountTarget(string $volumePath, string $mountTarget): string
 {
     $prefix = '/home/container/';
@@ -1134,6 +1170,7 @@ function main(array $argv): int
     }
 
     $serverUuid = null;
+    $customCfgServerUuid = null;
     $baselineExcludeUuid = null;
     $manualSeedMode = null;
     if (in_array($mode, ['--server', '--verify-server', '--set-config-seed'], true)) {
@@ -1155,6 +1192,15 @@ function main(array $argv): int
             usage();
             return 2;
         }
+    } elseif ($mode === '--sync-custom-cfgs') {
+        if (isset($argv[2])) {
+            $customCfgServerUuid = $argv[3] ?? '';
+            if (($argv[2] ?? '') !== '--server' || !validUuid($customCfgServerUuid) || isset($argv[4])) {
+                fwrite(STDERR, "ERROR: --sync-custom-cfgs accepts only --server followed by one canonical lowercase UUID.\n");
+                usage();
+                return 2;
+            }
+        }
     } elseif ($mode === '--initialize-baseline') {
         if (isset($argv[2])) {
             if (($argv[2] ?? '') !== '--exclude'
@@ -1167,7 +1213,7 @@ function main(array $argv): int
             }
             $baselineExcludeUuid = (string) $argv[3];
         }
-    } elseif (!in_array($mode, ['--watch', '--publish-baseline-registry'], true) || isset($argv[2])) {
+    } elseif (!in_array($mode, ['--watch', '--publish-baseline-registry', '--sync-custom-cfgs'], true) || isset($argv[2])) {
         fwrite(STDERR, "ERROR: invalid arguments.\n");
         usage();
         return 2;
@@ -1262,6 +1308,52 @@ function main(array $argv): int
         return 0;
     }
 
+
+    if ($mode === '--sync-custom-cfgs') {
+        $servers = eligibleServers($mount);
+        $matched = $customCfgServerUuid === null;
+        $checked = 0;
+        $updated = 0;
+        $created = 0;
+        $failures = 0;
+        foreach ($servers as $server) {
+            $uuid = (string) $server->uuid;
+            if ($customCfgServerUuid !== null && $uuid !== $customCfgServerUuid) {
+                continue;
+            }
+            $matched = true;
+            try {
+                if (!isServerReady($server) || $server->isSuspended()) {
+                    continue;
+                }
+                $stats = syncServerCustomConfigs($server, $mount, $config['volumeRoot']);
+                $checked++;
+                $updated += $stats['updated'];
+                $created += $stats['created'];
+                logLine(
+                    'Custom CFG sync for ' . $uuid . ' (' . (string) $server->name . '): ' .
+                    $stats['created'] . ' created, ' . $stats['updated'] . ' hostname updated, ' .
+                    $stats['unchanged'] . ' unchanged.'
+                );
+            } catch (Throwable $exception) {
+                $failures++;
+                fwrite(STDERR, '[fragcity-provision] CUSTOM CFG ERROR for ' . $uuid . ': ' . $exception->getMessage() . PHP_EOL);
+            }
+        }
+        if (!$matched) {
+            fail(
+                'No server was found with UUID ' . $customCfgServerUuid .
+                ' that is eligible for the configured FragCity Mount/Egg/Node.'
+            );
+        }
+        logLine(
+            'Custom CFG reconciliation finished. Servers checked: ' . $checked .
+            '; files created: ' . $created . '; hostnames updated: ' . $updated .
+            '; errors: ' . $failures . '.'
+        );
+        return $failures === 0 ? 0 : 1;
+    }
+
     if ($mode === '--set-config-seed') {
         /** @var Server|null $manualServer */
         $manualServer = Server::query()->where('uuid', $serverUuid)->first();
@@ -1284,9 +1376,34 @@ function main(array $argv): int
         $servers = eligibleServers($mount);
         $successes = 0;
         $failures = 0;
+        $customCfgServers = 0;
+        $customCfgUpdated = 0;
 
         foreach ($servers as $server) {
             $uuid = (string) $server->uuid;
+
+            // Reconcile custom CFG hostnames for every eligible installed server,
+            // including one-time-baseline servers and servers already provisioned.
+            try {
+                if (!isServerReady($server) || $server->isSuspended()) {
+                    continue;
+                }
+                $cfgStats = syncServerCustomConfigs($server, $mount, $config['volumeRoot']);
+                $customCfgServers++;
+                $customCfgUpdated += $cfgStats['created'] + $cfgStats['updated'];
+                if ($cfgStats['created'] > 0 || $cfgStats['updated'] > 0) {
+                    logLine(
+                        'Custom CFGs reconciled for ' . $uuid . ' (' . (string) $server->name . '): ' .
+                        $cfgStats['created'] . ' created, ' . $cfgStats['updated'] .
+                        ' hostname updated, ' . $cfgStats['unchanged'] . ' unchanged.'
+                    );
+                }
+            } catch (Throwable $exception) {
+                $failures++;
+                fwrite(STDERR, '[fragcity-provision] CUSTOM CFG ERROR for ' . $uuid . ': ' . $exception->getMessage() . PHP_EOL);
+                continue;
+            }
+
             if (isset($baseline[$uuid])) {
                 continue;
             }
@@ -1323,7 +1440,7 @@ function main(array $argv): int
             }
         }
 
-        logLine('Watch pass finished. Provisioned: ' . $successes . '; errors: ' . $failures . '.');
+        logLine('Watch pass finished. Custom CFG servers checked: ' . $customCfgServers . '; custom CFG files created/updated: ' . $customCfgUpdated . '; provisioned: ' . $successes . '; errors: ' . $failures . '.');
         return $failures === 0 ? 0 : 1;
     }
 
@@ -1350,6 +1467,13 @@ function main(array $argv): int
         );
         return 0;
     }
+
+    $customCfgStats = syncServerCustomConfigs($server, $mount, $config['volumeRoot']);
+    logLine(
+        'Manual custom CFG sync for ' . $serverUuid . ': ' .
+        $customCfgStats['created'] . ' created, ' . $customCfgStats['updated'] .
+        ' hostname updated, ' . $customCfgStats['unchanged'] . ' unchanged.'
+    );
 
     $markerPath = processedMarkerPath($config['stateRoot'], $serverUuid);
     if (is_link($markerPath)) {
