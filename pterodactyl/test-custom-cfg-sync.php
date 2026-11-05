@@ -161,7 +161,7 @@ try {
     );
 
     expectThrows(
-        static fn () => FragCityCustomCfgSynchronizer::render("hostname \\"old\\"\\n", 'Name', 'custom_unmapped.cfg'),
+        static fn () => FragCityCustomCfgSynchronizer::render("hostname \"old\"\n", 'Name', 'custom_unmapped.cfg'),
         'template without an explicit game-mode emoji must fail closed'
     );
 
