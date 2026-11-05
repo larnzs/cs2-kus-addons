@@ -368,6 +368,7 @@ process_manifest_addons() {
             fi
             release_json=$(github_api "repos/$repo/releases?per_page=100") || release_json=""
             latest=$(github_latest_matching_release_tag "$release_json" "$track_asset" "$track_tag_regex") || latest=""
+            [ -z "$latest" ] || latest=$(normalize_version "$latest")
             if [ -z "$latest" ]; then
                 RES_UNKNOWN+=("$name $version (no non-draft release matched $track_asset / $track_tag_regex)")
                 MANIFEST_ADDON_ACTIVE=0

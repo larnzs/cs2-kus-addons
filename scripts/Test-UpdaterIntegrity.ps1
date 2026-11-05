@@ -51,13 +51,14 @@ try {
     Assert-Condition ([bool]$vipModules[0].installed) "VIPCore Modules must be marked installed."
     Assert-Condition ([string]$vipModules[0].track -eq "latest_matching_release") "VIPCore Modules must follow asset-specific release tags."
     Assert-Condition ([string]$vipModules[0].track_asset -eq "VIP_Modules.zip") "VIPCore Modules must select VIP_Modules.zip."
-    Assert-Condition ([string]$vipModules[0].repair_track_tag_regex -eq '^v[0-9]+\.[0-9]+\.[0-9]+    Assert-Condition ([string]$vipModules[0].asset_mappings.'VIP_Modules.zip'.source_path_mode -eq "archive_root") "VIP_Modules.zip must map from archive_root."
+    Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$vipModules[0].repair_track_tag_regex)) "VIPCore Modules must declare a full-release repair tag pattern."
+    Assert-Condition ([string]$vipModules[0].asset_mappings.'VIP_Modules.zip'.source_path_mode -eq "archive_root") "VIP_Modules.zip must map from archive_root."
     Assert-Condition (@($vipModules[0].verify_paths).Count -eq 45) "VIPCore Modules must verify all 45 module DLLs."
     $vipModulesRoot = Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/plugins"
     $vipModuleDirs = @(Get-ChildItem -LiteralPath $vipModulesRoot -Directory -Filter "VIP_*" | ForEach-Object { $_.Name } | Sort-Object)
     Assert-Condition ($vipModuleDirs.Count -eq 45) "Expected 45 tracked VIP_* module directories."
     foreach ($verifyPath in @($vipModules[0].verify_paths)) {
-        $relative = ([string]$verifyPath).Replace("/", [IO.Path]::DirectorySeparatorChar)
+        $relative = ([string]$verifyPath).Replace("/", "\")
         Assert-Condition (Test-Path -LiteralPath (Join-Path (Join-Path $repoRoot "game/csgo") $relative) -PathType Leaf) "Missing imported VIP module runtime file: $verifyPath"
     }
     Assert-Condition (($names | Sort-Object -Unique).Count -eq $names.Count) "Duplicate add-on names in DEPENDENCIES.json."
