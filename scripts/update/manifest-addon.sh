@@ -2,6 +2,7 @@
 # Shared adapter for Larnz-managed release add-ons. Individual plug-ins are KUS-style
 # scripts that declare bounded PLUGIN_PATHS and delegate archive mappings here.
 # This file is sourced by scripts/update/plugins/<slug>.sh; do not run directly.
+declare -gA PLUGIN_SOURCE_PATH_OVERRIDES=()
 
 manifest_assert_automation_supported() {
     local name="$1" enabled
@@ -65,6 +66,12 @@ manifest_mapping_for_asset() {
     ' DEPENDENCIES.json
 }
 
+manifest_source_relative_path() {
+    local target="$1" default="$2" override
+    override="${PLUGIN_SOURCE_PATH_OVERRIDES[$target]-}"
+    printf '%s' "${override:-$default}"
+}
+
 manifest_copy_target() {
     local source="$1" destination="$2"
     if [ -d "$source" ]; then
@@ -78,7 +85,7 @@ manifest_copy_target() {
 
 manifest_apply_mapping() {
     local addon="$1" extract="$2" mapping="$3"
-    local mode source_path source_path_mode install_path source_root csgo_root destination_root target relative source
+    local mode source_path source_path_mode install_path source_root csgo_root destination_root target relative source source_relative
     mode=$(printf '%s' "$mapping" | jq -r '.merge // empty')
     source_path=$(printf '%s' "$mapping" | jq -r '.source_path // empty')
     source_path_mode=$(printf '%s' "$mapping" | jq -r '.source_path_mode // empty')
@@ -88,7 +95,9 @@ manifest_apply_mapping() {
             source_root=$(manifest_find_csgo_root "$extract") || die "could not locate CS2/addons root for $addon"
             for target in "${PLUGIN_PATHS[@]}"; do
                 case "$target" in game/csgo/*) relative="${target#game/csgo/}" ;; *) continue ;; esac
-                source="$source_root/$relative"
+                source_relative=$(manifest_source_relative_path "$target" "$relative")
+                case "$source_relative" in /*|..|../*|*/..|*/../*) die "unsafe source path override '$source_relative' for $addon" ;; esac
+                source="$source_root/$source_relative"
                 if [ -e "$source" ]; then
                     manifest_copy_target "$source" "$target" || die "could not overlay $source -> $target"
                 fi
@@ -135,8 +144,10 @@ manifest_apply_mapping() {
                     "$destination_root"/*) relative="${target#"$destination_root"/}" ;;
                     *) continue ;;
                 esac
+                source_relative=$(manifest_source_relative_path "$target" "$relative")
+                case "$source_relative" in /*|..|../*|*/..|*/../*) die "unsafe source path override '$source_relative' for $addon" ;; esac
                 source="$source_root"
-                [ -z "$relative" ] || source="$source_root/$relative"
+                [ -z "$source_relative" ] || source="$source_root/$source_relative"
                 if [ -e "$source" ]; then
                     manifest_copy_target "$source" "$target" || die "could not overlay $source -> $target"
                 fi

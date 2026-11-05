@@ -2,11 +2,9 @@
   "BRONZE": {
     "Money": "++1000",
     "TeammatesHeal": 100,
-    "Tag": {
-      "ScoreboardTag": "VIP : BRONZE",
-      "ChatTag": "VIP : BRONZE",
-      "ColorTag": "orange"
-    }
+    "Tag": [
+      "BRONZE"
+    ]
   },
   "SILVER": {
     "Money": "++2000",
@@ -18,11 +16,9 @@
     ],
     "Killscreen": true,
     "TeammatesHeal": 100,
-    "Tag": {
-      "ScoreboardTag": "VIP : SILVER",
-      "ChatTag": "VIP : SILVER",
-      "ColorTag": "silver"
-    },
+    "Tag": [
+      "SILVER"
+    ],
     "Vampirism": 3,
     "Armor": 125
   },
@@ -46,11 +42,9 @@
     "RainbowModel": true,
     "Killscreen": true,
     "TeammatesHeal": 100,
-    "Tag": {
-      "ScoreboardTag": "VIP : GOLD",
-      "ChatTag": "VIP : GOLD",
-      "ColorTag": "gold"
-    }
+    "Tag": [
+      "GOLD"
+    ]
   },
   "PLATINUM": {
     "Money": "++3000",
@@ -87,11 +81,9 @@
     "RainbowModel": true,
     "Killscreen": true,
     "TeammatesHeal": 100,
-    "Tag": {
-      "ScoreboardTag": "VIP : PLATINUM",
-      "ChatTag": "VIP : PLATINUM",
-      "ColorTag": "lightblue"
-    }
+    "Tag": [
+      "PLATINUM"
+    ]
   },
   "EMERALD": {
     "Money": "++5000",
@@ -123,21 +115,175 @@
     },
     "WeaponsMenu": {
       "CT": {
-        "M4A1 + DEAGLE": {
+        "MP9 + P250": {
           "Weapons": [
-            "weapon_m4a1",
+            "weapon_mp9",
+            "weapon_p250"
+          ],
+          "Round": 1
+        },
+        "MP7 + FIVE-SEVEN": {
+          "Weapons": [
+            "weapon_mp7",
+            "weapon_fiveseven"
+          ],
+          "Round": 1
+        },
+        "UMP-45 + P2000": {
+          "Weapons": [
+            "weapon_ump45",
+            "weapon_hkp2000"
+          ],
+          "Round": 1
+        },
+        "NOVA + P250": {
+          "Weapons": [
+            "weapon_nova",
+            "weapon_p250"
+          ],
+          "Round": 1
+        },
+        "MAG-7 + FIVE-SEVEN": {
+          "Weapons": [
+            "weapon_mag7",
+            "weapon_fiveseven"
+          ],
+          "Round": 1
+        },
+        "XM1014 + DEAGLE": {
+          "Weapons": [
+            "weapon_xm1014",
             "weapon_deagle"
           ],
-          "Round": 2
+          "Round": 1
+        },
+        "M4A4 + P250": {
+          "Weapons": [
+            "weapon_m4a1",
+            "weapon_p250"
+          ],
+          "Round": 5
+        },
+        "M4A1-S + P250": {
+          "Weapons": [
+            "weapon_m4a1_silencer",
+            "weapon_p250"
+          ],
+          "Round": 5
+        },
+        "AUG + FIVE-SEVEN": {
+          "Weapons": [
+            "weapon_aug",
+            "weapon_fiveseven"
+          ],
+          "Round": 5
+        },
+        "FAMAS + DEAGLE": {
+          "Weapons": [
+            "weapon_famas",
+            "weapon_deagle"
+          ],
+          "Round": 5
+        },
+        "SCOUT + DEAGLE": {
+          "Weapons": [
+            "weapon_ssg08",
+            "weapon_deagle"
+          ],
+          "Round": 5
+        },
+        "AWP + P250": {
+          "Weapons": [
+            "weapon_awp",
+            "weapon_p250"
+          ],
+          "Round": 5
         }
       },
       "T": {
-        "AK47 + DEAGLE": {
+        "MAC-10 + GLOCK": {
+          "Weapons": [
+            "weapon_mac10",
+            "weapon_glock"
+          ],
+          "Round": 1
+        },
+        "MP7 + TEC-9": {
+          "Weapons": [
+            "weapon_mp7",
+            "weapon_tec9"
+          ],
+          "Round": 1
+        },
+        "UMP-45 + P250": {
+          "Weapons": [
+            "weapon_ump45",
+            "weapon_p250"
+          ],
+          "Round": 1
+        },
+        "SAWED-OFF + TEC-9": {
+          "Weapons": [
+            "weapon_sawedoff",
+            "weapon_tec9"
+          ],
+          "Round": 1
+        },
+        "NOVA + GLOCK": {
+          "Weapons": [
+            "weapon_nova",
+            "weapon_glock"
+          ],
+          "Round": 1
+        },
+        "XM1014 + TEC-9": {
+          "Weapons": [
+            "weapon_xm1014",
+            "weapon_tec9"
+          ],
+          "Round": 1
+        },
+        "AK-47 + DEAGLE": {
           "Weapons": [
             "weapon_ak47",
             "weapon_deagle"
           ],
-          "Round": 2
+          "Round": 5
+        },
+        "AK-47 + TEC-9": {
+          "Weapons": [
+            "weapon_ak47",
+            "weapon_tec9"
+          ],
+          "Round": 5
+        },
+        "GALIL AR + P250": {
+          "Weapons": [
+            "weapon_galilar",
+            "weapon_p250"
+          ],
+          "Round": 5
+        },
+        "SG 553 + FIVE-SEVEN": {
+          "Weapons": [
+            "weapon_sg556",
+            "weapon_fiveseven"
+          ],
+          "Round": 5
+        },
+        "SCOUT + DEAGLE": {
+          "Weapons": [
+            "weapon_ssg08",
+            "weapon_deagle"
+          ],
+          "Round": 5
+        },
+        "AWP + TEC-9": {
+          "Weapons": [
+            "weapon_awp",
+            "weapon_tec9"
+          ],
+          "Round": 5
         }
       }
     },
@@ -149,11 +295,9 @@
     "RainbowModel": true,
     "Killscreen": true,
     "TeammatesHeal": 100,
-    "Tag": {
-      "ScoreboardTag": "VIP : EMERALD",
-      "ChatTag": "VIP : EMERALD",
-      "ColorTag": "lime"
-    }
+    "Tag": [
+      "EMERALD"
+    ]
   },
   "DIAMOND": {
     "Money": "++20000",
@@ -185,21 +329,175 @@
     },
     "WeaponsMenu": {
       "CT": {
-        "M4A1 + DEAGLE": {
+        "MP9 + P250": {
           "Weapons": [
-            "weapon_m4a1",
+            "weapon_mp9",
+            "weapon_p250"
+          ],
+          "Round": 1
+        },
+        "MP7 + FIVE-SEVEN": {
+          "Weapons": [
+            "weapon_mp7",
+            "weapon_fiveseven"
+          ],
+          "Round": 1
+        },
+        "UMP-45 + P2000": {
+          "Weapons": [
+            "weapon_ump45",
+            "weapon_hkp2000"
+          ],
+          "Round": 1
+        },
+        "NOVA + P250": {
+          "Weapons": [
+            "weapon_nova",
+            "weapon_p250"
+          ],
+          "Round": 1
+        },
+        "MAG-7 + FIVE-SEVEN": {
+          "Weapons": [
+            "weapon_mag7",
+            "weapon_fiveseven"
+          ],
+          "Round": 1
+        },
+        "XM1014 + DEAGLE": {
+          "Weapons": [
+            "weapon_xm1014",
             "weapon_deagle"
           ],
-          "Round": 2
+          "Round": 1
+        },
+        "M4A4 + P250": {
+          "Weapons": [
+            "weapon_m4a1",
+            "weapon_p250"
+          ],
+          "Round": 5
+        },
+        "M4A1-S + P250": {
+          "Weapons": [
+            "weapon_m4a1_silencer",
+            "weapon_p250"
+          ],
+          "Round": 5
+        },
+        "AUG + FIVE-SEVEN": {
+          "Weapons": [
+            "weapon_aug",
+            "weapon_fiveseven"
+          ],
+          "Round": 5
+        },
+        "FAMAS + DEAGLE": {
+          "Weapons": [
+            "weapon_famas",
+            "weapon_deagle"
+          ],
+          "Round": 5
+        },
+        "SCOUT + DEAGLE": {
+          "Weapons": [
+            "weapon_ssg08",
+            "weapon_deagle"
+          ],
+          "Round": 5
+        },
+        "AWP + P250": {
+          "Weapons": [
+            "weapon_awp",
+            "weapon_p250"
+          ],
+          "Round": 5
         }
       },
       "T": {
-        "AK47 + DEAGLE": {
+        "MAC-10 + GLOCK": {
+          "Weapons": [
+            "weapon_mac10",
+            "weapon_glock"
+          ],
+          "Round": 1
+        },
+        "MP7 + TEC-9": {
+          "Weapons": [
+            "weapon_mp7",
+            "weapon_tec9"
+          ],
+          "Round": 1
+        },
+        "UMP-45 + P250": {
+          "Weapons": [
+            "weapon_ump45",
+            "weapon_p250"
+          ],
+          "Round": 1
+        },
+        "SAWED-OFF + TEC-9": {
+          "Weapons": [
+            "weapon_sawedoff",
+            "weapon_tec9"
+          ],
+          "Round": 1
+        },
+        "NOVA + GLOCK": {
+          "Weapons": [
+            "weapon_nova",
+            "weapon_glock"
+          ],
+          "Round": 1
+        },
+        "XM1014 + TEC-9": {
+          "Weapons": [
+            "weapon_xm1014",
+            "weapon_tec9"
+          ],
+          "Round": 1
+        },
+        "AK-47 + DEAGLE": {
           "Weapons": [
             "weapon_ak47",
             "weapon_deagle"
           ],
-          "Round": 2
+          "Round": 5
+        },
+        "AK-47 + TEC-9": {
+          "Weapons": [
+            "weapon_ak47",
+            "weapon_tec9"
+          ],
+          "Round": 5
+        },
+        "GALIL AR + P250": {
+          "Weapons": [
+            "weapon_galilar",
+            "weapon_p250"
+          ],
+          "Round": 5
+        },
+        "SG 553 + FIVE-SEVEN": {
+          "Weapons": [
+            "weapon_sg556",
+            "weapon_fiveseven"
+          ],
+          "Round": 5
+        },
+        "SCOUT + DEAGLE": {
+          "Weapons": [
+            "weapon_ssg08",
+            "weapon_deagle"
+          ],
+          "Round": 5
+        },
+        "AWP + TEC-9": {
+          "Weapons": [
+            "weapon_awp",
+            "weapon_tec9"
+          ],
+          "Round": 5
         }
       }
     },
@@ -212,10 +510,8 @@
     "RainbowModel": true,
     "Killscreen": true,
     "TeammatesHeal": 100,
-    "Tag": {
-      "ScoreboardTag": "VIP : DIAMOND",
-      "ChatTag": "VIP : DIAMOND",
-      "ColorTag": "magenta"
-    }
+    "Tag": [
+      "DIAMOND"
+    ]
   }
 }

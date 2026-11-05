@@ -31,10 +31,10 @@ PLUGIN_PATHS=(
     "game/csgo/addons/counterstrikesharp/plugins/VIP_Jumps"
     "game/csgo/addons/counterstrikesharp/plugins/VIP_KillScreen"
     "game/csgo/addons/counterstrikesharp/plugins/VIP_Money"
-    "game/csgo/addons/counterstrikesharp/plugins/VIP_NightVip"
+    "game/csgo/addons/counterstrikesharp/plugins/disabled/VIP_NightVip"
     "game/csgo/addons/counterstrikesharp/plugins/VIP_NoFallDamage"
     "game/csgo/addons/counterstrikesharp/plugins/VIP_RainbowModel"
-    "game/csgo/addons/counterstrikesharp/plugins/VIP_Random"
+    "game/csgo/addons/counterstrikesharp/plugins/disabled/VIP_Random"
     "game/csgo/addons/counterstrikesharp/plugins/VIP_RegenArmor"
     "game/csgo/addons/counterstrikesharp/plugins/VIP_RegenHealth"
     "game/csgo/addons/counterstrikesharp/plugins/VIP_ResetDeaths"
@@ -51,6 +51,8 @@ PLUGIN_PATHS=(
     "game/csgo/addons/counterstrikesharp/plugins/VIP_WeaponsMenu"
     "game/csgo/addons/counterstrikesharp/plugins/VIP_Zeus"
 )
+PLUGIN_SOURCE_PATH_OVERRIDES["game/csgo/addons/counterstrikesharp/plugins/disabled/VIP_NightVip"]="VIP_NightVip"
+PLUGIN_SOURCE_PATH_OVERRIDES["game/csgo/addons/counterstrikesharp/plugins/disabled/VIP_Random"]="VIP_Random"
 
 plugin_assets() { manifest_addon_assets "VIPCore Modules"; }
 plugin_apply() { manifest_plugin_apply "VIPCore Modules"; }

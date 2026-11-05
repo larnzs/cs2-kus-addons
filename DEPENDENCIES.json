@@ -228,9 +228,9 @@
       "installed": true,
       "merge": "release_plugin_directory",
       "source_path": "AFKManager",
-      "install_path": "addons/counterstrikesharp/plugins/AFKManager",
+      "install_path": "addons/counterstrikesharp/plugins/disabled/AFKManager",
       "verify_paths": [
-        "addons/counterstrikesharp/plugins/AFKManager/AFKManager.dll"
+        "addons/counterstrikesharp/plugins/disabled/AFKManager/AFKManager.dll"
       ]
     },
     {
@@ -321,7 +321,7 @@
         "addons/counterstrikesharp/plugins/Ranks_ExStats_GeoIP/Ranks_ExStats_GeoIP.dll",
         "addons/counterstrikesharp/plugins/Ranks_ExStats_Hits/Ranks_ExStats_Hits.dll",
         "addons/counterstrikesharp/plugins/Ranks_FakeRank/Ranks_FakeRank.dll",
-        "addons/counterstrikesharp/plugins/Ranks_Tag/Ranks_Tag.dll",
+        "addons/counterstrikesharp/plugins/disabled/Ranks_Tag/Ranks_Tag.dll",
         "addons/counterstrikesharp/shared/RanksApi/RanksApi.dll"
       ]
     },
@@ -942,10 +942,10 @@
         "addons/counterstrikesharp/plugins/VIP_Jumps/VIP_Jumps.dll",
         "addons/counterstrikesharp/plugins/VIP_KillScreen/VIP_KillScreen.dll",
         "addons/counterstrikesharp/plugins/VIP_Money/VIP_Money.dll",
-        "addons/counterstrikesharp/plugins/VIP_NightVip/VIP_NightVip.dll",
+        "addons/counterstrikesharp/plugins/disabled/VIP_NightVip/VIP_NightVip.dll",
         "addons/counterstrikesharp/plugins/VIP_NoFallDamage/VIP_NoFallDamage.dll",
         "addons/counterstrikesharp/plugins/VIP_RainbowModel/VIP_RainbowModel.dll",
-        "addons/counterstrikesharp/plugins/VIP_Random/VIP_Random.dll",
+        "addons/counterstrikesharp/plugins/disabled/VIP_Random/VIP_Random.dll",
         "addons/counterstrikesharp/plugins/VIP_RegenArmor/VIP_RegenArmor.dll",
         "addons/counterstrikesharp/plugins/VIP_RegenHealth/VIP_RegenHealth.dll",
         "addons/counterstrikesharp/plugins/VIP_ResetDeaths/VIP_ResetDeaths.dll",
