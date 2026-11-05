@@ -59,7 +59,9 @@ try {
             && preg_match('/U\\+[0-9A-F]{4,6}/i', $emoji) !== 1,
             $filename . ' maps to a real UTF-8 emoji character, not a replacement glyph or code-point text');
         $renderedTemplate = FragCityCustomCfgSynchronizer::render((string) $contents, 'FragCity Template Check', $filename);
-        expect(str_contains($renderedTemplate, 'hostname "FragCity Template Check - ' . $emoji . '"'),
+        $expectedHostnamePattern = '/^\\s*hostname\\s+"FragCity Template Check - '
+            . preg_quote($emoji, '/') . '"\\s*$/mi';
+        expect(preg_match($expectedHostnamePattern, $renderedTemplate) === 1,
             $filename . ' renders the exact server-name / hyphen / emoji hostname format');
         expect(!str_contains($renderedTemplate, 'Mode :') && !str_contains($renderedTemplate, ' | '),
             $filename . ' does not render the legacy label or pipe separator');
