@@ -903,8 +903,8 @@
       "track": "latest_matching_release",
       "track_asset": "VIP_Modules.zip",
       "track_tag_regex": "^v[0-9]+\\.[0-9]+\\.[0-9]+(-modules-[0-9]+)?$",
-      "version": "2.0.3",
-      "release_tag": "v2.0.3",
+      "version": "2.0.3-modules-1",
+      "release_tag": "v2.0.3-modules-1",
       "assets": [
         "VIP_Modules.zip"
       ],
