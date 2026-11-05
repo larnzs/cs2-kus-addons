@@ -848,6 +848,42 @@
         "addons/CS2FaceitLevels/workshop.gamedata.json",
         "addons/metamod/CS2FaceitLevels.vdf"
       ]
+    },
+    {
+      "order": 32,
+      "name": "VIPCore",
+      "repository": "https://github.com/partiusfabaa/cs2-VIPCore",
+      "type": "github_release",
+      "track": "latest",
+      "version": "2.0.3",
+      "release_tag": "v2.0.3",
+      "assets": [
+        "VIPCore.zip"
+      ],
+      "depends_on": [
+        "CounterStrikeSharp"
+      ],
+      "installed": false,
+      "merge": "release_plugin_directory",
+      "automation_supported": true,
+      "verify_paths": [
+        "addons/counterstrikesharp/plugins/VIPCore/VIPCore.dll",
+        "addons/counterstrikesharp/shared/VipCoreApi/VipCoreApi.dll"
+      ],
+      "asset_mappings": {
+        "VIPCore.zip": [
+          {
+            "merge": "release_plugin_directory",
+            "source_path": "plugins",
+            "install_path": "addons/counterstrikesharp/plugins"
+          },
+          {
+            "merge": "release_plugin_directory",
+            "source_path": "shared",
+            "install_path": "addons/counterstrikesharp/shared"
+          }
+        ]
+      }
     }
   ]
 }
