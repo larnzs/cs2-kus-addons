@@ -60,7 +60,11 @@ manifest_mapping_for_asset() {
               install_path:($addon.install_path // "")}]
         else
             [ $addon.asset_mappings | to_entries[] |
-              select((.key | gsub("\\{version\\}"; $version)) == $asset) |
+              (.key | gsub("\\{version\\}"; $version) |
+               gsub("\\."; "\\\\.") |
+               gsub("\\*"; ".*") |
+               gsub("\\?"; ".")) as $pattern |
+              select($asset | test("^" + $pattern + "$")) |
               .value | (if type == "array" then .[] else . end) ]
         end
     ' DEPENDENCIES.json
