@@ -25,6 +25,26 @@ function Normalize-Version([string]$Tag) {
     return [regex]::Replace($Tag, "^[^0-9]*", "")
 }
 
+function Get-AddonVersion($Addon, [string]$Tag) {
+    $prefix = if ($Addon.PSObject.Properties.Name -contains "track_version_prefix") {
+        [string]$Addon.track_version_prefix
+    } else {
+        ""
+    }
+    if (-not [string]::IsNullOrWhiteSpace($prefix) -and
+        -not [string]::IsNullOrEmpty($Tag) -and
+        $Tag.StartsWith($prefix, [StringComparison]::Ordinal)) {
+        return $Tag.Substring($prefix.Length)
+    }
+    if ($Addon.PSObject.Properties.Name -contains "version_format" -and
+        [string]$Addon.version_format -eq "metamod") {
+        $version = Normalize-Version $Tag
+        return ($version -replace '^(\d+\.\d+\.\d+)\.(\d+)$', '$1-$2')
+    }
+    return Normalize-Version $Tag
+}
+
+
 function Get-Headers() {
     $headers = @{
         Accept = "application/vnd.github+json"
@@ -45,6 +65,43 @@ function Get-RepoSlug([string]$Url) {
 
 function Get-Release($Addon) {
     $repo = Get-RepoSlug $Addon.repository
+
+    if ($Addon.track -eq "latest_matching_release") {
+        $assetPattern = [string]$Addon.track_asset
+        $tagPattern = [string]$Addon.track_tag_regex
+        if ([string]::IsNullOrWhiteSpace($assetPattern) -or [string]::IsNullOrWhiteSpace($tagPattern)) {
+            throw "Add-on '$($Addon.name)' requires track_asset and track_tag_regex."
+        }
+
+        $assetRegex = $null
+        if ($assetPattern.StartsWith("regex:", [StringComparison]::Ordinal)) {
+            $assetRegex = $assetPattern.Substring(6)
+        }
+
+        $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases?per_page=100" -Headers (Get-Headers) -Method Get
+        $release = @($releases | Where-Object {
+            $candidate = $_
+            if ($candidate.draft -or [string]$candidate.tag_name -notmatch $tagPattern) {
+                return $false
+            }
+            $assetFound = $false
+            foreach ($candidateAsset in @($candidate.assets)) {
+                $candidateName = [string]$candidateAsset.name
+                if ($null -ne $assetRegex) {
+                    if ($candidateName -match $assetRegex) { $assetFound = $true; break }
+                } elseif ($candidateName -eq $assetPattern) {
+                    $assetFound = $true
+                    break
+                }
+            }
+            return $assetFound
+        }) | Select-Object -First 1
+
+        if (-not $release) {
+            throw "No non-draft release matched tag pattern '$tagPattern' and asset pattern '$assetPattern' for $($Addon.name)."
+        }
+        return $release
+    }
 
     if ($Addon.track -eq "pinned") {
         $wanted = [string]$Addon.version
@@ -67,7 +124,7 @@ function Get-Assets($Release, $Addon) {
     $selected = @()
 
     foreach ($pattern in @($Addon.assets)) {
-        $resolved = ([string]$pattern).Replace("{version}", (Normalize-Version $Release.tag_name))
+        $resolved = ([string]$pattern).Replace("{version}", (Get-AddonVersion -Addon $Addon -Tag $Release.tag_name))
         $matches = @($Release.assets | Where-Object { $_.name -like $resolved })
 
         if ($matches.Count -ne 1) {
@@ -293,7 +350,7 @@ function Inspect-Addon($Addon) {
     }
 
     $release = Get-Release $Addon
-    $version = Normalize-Version $release.tag_name
+    $version = Get-AddonVersion -Addon $Addon -Tag $release.tag_name
     $safeName = $Addon.name -replace '[^A-Za-z0-9._-]', '-'
     $workRoot = Join-Path $CacheRoot ("{0}\{1}" -f $safeName, $version)
 

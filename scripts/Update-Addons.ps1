@@ -29,7 +29,20 @@ function Normalize-Version([string]$Tag) {
 }
 
 function Get-AddonVersion($Addon, [string]$Tag) {
-    $version = Normalize-Version $Tag
+    $prefix = if ($Addon.PSObject.Properties.Name -contains "track_version_prefix") {
+        [string]$Addon.track_version_prefix
+    } else {
+        ""
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($prefix) -and
+        -not [string]::IsNullOrEmpty($Tag) -and
+        $Tag.StartsWith($prefix, [StringComparison]::Ordinal)) {
+        $version = $Tag.Substring($prefix.Length)
+    } else {
+        $version = Normalize-Version $Tag
+    }
+
     if ($Addon.PSObject.Properties.Name -contains "version_format" -and
         [string]$Addon.version_format -eq "metamod") {
         # Metamod tags are 2.0.0.1474; KUS tracks/displays them as 2.0.0-1474.
@@ -37,6 +50,7 @@ function Get-AddonVersion($Addon, [string]$Tag) {
     }
     return $version
 }
+
 
 function Get-GitHubHeaders() {
     $headers = @{
@@ -104,6 +118,11 @@ function Get-ReleaseForAddon($Addon) {
             Write-Warn ("Required files are missing; resolving a full repair release for {0}." -f $Addon.name)
         }
 
+        $assetRegex = $null
+        if ($assetName.StartsWith("regex:", [StringComparison]::Ordinal)) {
+            $assetRegex = $assetName.Substring(6)
+        }
+
         $releases = Invoke-GitHubApi "https://api.github.com/repos/$repo/releases?per_page=100"
         $release = @(
             $releases | Where-Object {
@@ -111,12 +130,26 @@ function Get-ReleaseForAddon($Addon) {
                 if ($candidate.draft -or [string]$candidate.tag_name -notmatch $tagPattern) {
                     return $false
                 }
-                return @($candidate.assets | Where-Object { [string]$_.name -eq $assetName }).Count -gt 0
+
+                $assetFound = $false
+                foreach ($candidateAsset in @($candidate.assets)) {
+                    $candidateName = [string]$candidateAsset.name
+                    if ($null -ne $assetRegex) {
+                        if ($candidateName -match $assetRegex) {
+                            $assetFound = $true
+                            break
+                        }
+                    } elseif ($candidateName -eq $assetName) {
+                        $assetFound = $true
+                        break
+                    }
+                }
+                return $assetFound
             }
         ) | Select-Object -First 1
 
         if (-not $release) {
-            throw "No non-draft release in $repo matched tag pattern '$tagPattern' and asset '$assetName'."
+            throw "No non-draft release in $repo matched tag pattern '$tagPattern' and asset pattern '$assetName'."
         }
         return $release
     }
@@ -144,7 +177,7 @@ function Get-ReleaseAssets($Release, $Addon) {
     $selected = @()
 
     foreach ($pattern in @($Addon.assets)) {
-        $resolved = ([string]$pattern).Replace("{version}", (Normalize-Version $Release.tag_name))
+        $resolved = ([string]$pattern).Replace("{version}", (Get-AddonVersion -Addon $Addon -Tag $Release.tag_name))
         $matches = @($Release.assets | Where-Object { $_.name -like $resolved })
 
         if ($matches.Count -ne 1) {
