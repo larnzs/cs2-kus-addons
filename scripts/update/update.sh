@@ -183,6 +183,14 @@ fail_mod() {   # $1 message  (records failure, adds a flag)
     add_flag "$PLUGIN_NAME: $1"
 }
 
+# This is the explicit list of installed KUS catalog add-ons that must never be
+# treated as "up to date" or "optional" without a dedicated updater adapter.
+is_required_script_addon() {
+    local name="$1"
+    [ -f "scripts/update/required-script-addons.txt" ] || return 1
+    grep -Fqx -- "$name" "scripts/update/required-script-addons.txt"
+}
+
 # NOTE: process_mod is deliberately called as a plain statement (never inside
 # if/||/&&) so that run_isolated keeps errexit semantics. It always returns 0.
 process_mod() {   # $1 name, $2 url, $3 current version
@@ -197,7 +205,9 @@ process_mod() {   # $1 name, $2 url, $3 current version
     fi
     if [ -z "$latest" ]; then
         last_updated=$(set +u; set +e; set +o pipefail; fetch_last_updated "$PLUGIN_URL" 2>/dev/null)
-        if [ -n "$last_updated" ]; then
+        if is_required_script_addon "$PLUGIN_NAME"; then
+            fail_mod "installed add-on is on the required-coverage list but no release version could be resolved (last commit: ${last_updated:-unknown})"
+        elif [ -n "$last_updated" ]; then
             log "${C_DIM}?  $PLUGIN_NAME $OLD_VERSION - no releases, last commit $last_updated - $PLUGIN_URL${C_OFF}"
             RES_UNKNOWN+=("$PLUGIN_NAME $OLD_VERSION (no releases; last commit $last_updated)")
         else
@@ -208,6 +218,11 @@ process_mod() {   # $1 name, $2 url, $3 current version
     fi
 
     script="$PLUGIN_SCRIPT_DIR/$PLUGIN_SLUG.sh"
+    if is_required_script_addon "$PLUGIN_NAME" && [ ! -f "$script" ]; then
+        NEW_VERSION="$latest"
+        fail_mod "installed add-on is missing its required updater adapter: $script"
+        return 0
+    fi
     local script_loaded=0
     if [ "$latest" = "$OLD_VERSION" ]; then
         # A pinned release can still have an incomplete payload (for example, a
