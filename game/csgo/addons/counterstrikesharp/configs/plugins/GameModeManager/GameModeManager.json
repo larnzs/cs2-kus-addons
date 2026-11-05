@@ -193,7 +193,7 @@
         ]
       },
       {
-        "Name": "Deathmatch (Valve)",
+        "Name": "Team Deathmatch (Valve)",
         "Config": "dm-valve.cfg",
         "DefaultMap": "de_mirage",
         "MapGroups": [
