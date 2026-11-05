@@ -40,6 +40,7 @@ final class FragCityCustomCfgSynchronizer
         ['course', 'Course', '🧭'],
         ['executes', 'Executes', '⚙'],
         ['soccer', 'Soccer', '⚽'],
+        ['casualw', 'Casual Workshop', ''],
         ['war', 'War', '⚔'],
         ['casual-1.6', 'Casual1.6', ''],
         ['1v1', '1v1', '🥊'],

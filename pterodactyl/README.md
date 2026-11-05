@@ -16,7 +16,7 @@ The host installer and Provisioner publish a one-way SHA-256 hash registry of th
 
 ## Per-server custom CFG rendering from Panel Server Name
 
-The 35 active, root-level custom_*.cfg files are maintained as templates in pterodactyl/custom-cfg/; they are no longer shipped as static customer CFG files under game/csgo/cfg/. The host-side PHP provisioner renders them into each eligible server's own UUID-bound volume at:
+The 36 active, root-level custom_*.cfg files are maintained as templates in pterodactyl/custom-cfg/; they are no longer shipped as static customer CFG files under game/csgo/cfg/. The host-side PHP provisioner renders them into each eligible server's own UUID-bound volume at:
 
     /var/lib/pterodactyl/volumes/<server-uuid>/game/csgo/cfg/
 
