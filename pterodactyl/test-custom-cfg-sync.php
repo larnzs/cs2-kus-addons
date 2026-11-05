@@ -90,8 +90,8 @@ try {
         $actualOutputRoot,
         'FragCity Template Check'
     );
-    expect($actualRender['files'] === 36 && $actualRender['created'] === 36,
-        'all 37 repository templates render successfully into a fresh server cfg folder');
+    expect($actualRender['files'] === 37 && $actualRender['created'] === 37,
+        'all 37 repository templates render successfully into a fresh server cfg folder; stats=' . json_encode($actualRender));
 
     $template = implode("\r\n", [
         '// template comment',

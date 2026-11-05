@@ -187,7 +187,7 @@ final class FragCityCustomCfgSynchronizer
                 throw new RuntimeException('Could not read custom CFG file: ' . ($isNew ? $realTemplate : $targetPath));
             }
             $rendered = self::render($sourceContents, $serverName, $filename);
-            if ($rendered === $sourceContents) {
+            if (!$isNew && $rendered === $sourceContents) {
                 $unchanged++;
                 continue;
             }
