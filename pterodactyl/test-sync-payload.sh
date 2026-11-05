@@ -54,7 +54,7 @@ done < "$INVENTORY"
 for relative in \
     csgo/addons/counterstrikesharp/plugins/disabled \
     csgo/addons/counterstrikesharp/plugins/BotAI \
-    csgo/addons/counterstrikesharp/plugins/CS2UpdateMonitor \
+    csgo/addons/counterstrikesharp/plugins/disabled/CS2UpdateMonitor \
     csgo/addons/windows; do
     [[ -d "$SOURCE_GAME/$relative" ]] || { echo "FAIL: full game payload is missing $relative"; exit 1; }
 done
@@ -104,7 +104,7 @@ for path in \
     is_runtime_excluded_path "$path" || { echo "FAIL: runtime exclude classifier missed $path"; exit 1; }
 done
 for path in \
-    csgo/addons/counterstrikesharp/plugins/disabled/CS2UpdateMonitor.vdf \
+    csgo/addons/counterstrikesharp/plugins/disabled/CS2UpdateMonitor/CS2UpdateMonitor.dll \
     csgo/addons/counterstrikesharp/plugins/BotAI/BotAI.dll \
     csgo/addons/counterstrikesharp/source/CounterStrikeSharp.API.cs \
     csgo/cfg/server.cfg; do
@@ -223,7 +223,7 @@ grep -Eq "verified: $expected_count; configs preserved: 0; stale managed files r
 for relative in \
     csgo/addons/counterstrikesharp/plugins/disabled \
     csgo/addons/counterstrikesharp/plugins/BotAI \
-    csgo/addons/counterstrikesharp/plugins/CS2UpdateMonitor \
+    csgo/addons/counterstrikesharp/plugins/disabled/CS2UpdateMonitor \
     csgo/addons/windows; do
     sample="$(find "$SOURCE_GAME/$relative" -type f -print -quit)"
     [[ -n "$sample" ]]

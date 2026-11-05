@@ -55,7 +55,7 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 | [SLAYER_HeadshotOnly](https://github.com/zakriamansoor47/SLAYER_HeadshotOnly) | `1.2.1` | Headshot-only mode |
 | [CS2-TeamLimiter](https://github.com/Ferks-FK/CS2-TeamLimiter) | `development@b9be93940543` | Team-size limits |
 | [CS2-WeaponRestrict](https://github.com/TICHOJEBEC-SK/cs2-WeaponRestrict) | `WeaponRestrict1.5` | Configurable weapon restrictions; not installed and marked manual in the Larnz manifest |
-| [CS2UpdateMonitor](https://github.com/beanman109/cs2-updatemonitor) | `1.1.0` | Detects a new game build and signals the external supervisor |
+| [CS2UpdateMonitor](https://github.com/beanman109/cs2-updatemonitor) | `1.1.0` | Disabled under `plugins/disabled/`; cs2node owns CS2 build detection and update lifecycle |
 | [CS2-Poor-MapPropAds](https://github.com/Letaryat/CS2-Poor-MapPropAds) | `main@2a1e4ce9e8af` | Wall-mounted prop billboard advertisements; global plugin |
 | [CS2-Playervotes](https://github.com/asapverneri/CS2-Playervotes) | `main@81b4a2bda817` | Player-initiated votes for kick, ban, mute, gag and silence; global plugin |
 | [CS2-StaffList](https://github.com/asapverneri/CS2-StaffList) | `main@07fc28119686` | Lists online staff with hide-from-list controls; global plugin |

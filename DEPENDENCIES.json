@@ -448,7 +448,7 @@
       "version": "1.1.0",
       "release_tag": "v1.1.0",
       "assets": [
-        "CS2UpdateMonitor-{version}-windows-x64.zip"
+        "CS2UpdateMonitor-{version}-linux-x64.zip"
       ],
       "depends_on": [
         "CounterStrikeSharp"
@@ -456,11 +456,11 @@
       "installed": true,
       "merge": "release_plugin_directory",
       "source_path": "CS2UpdateMonitor",
-      "install_path": "addons/counterstrikesharp/plugins/CS2UpdateMonitor",
+      "install_path": "addons/counterstrikesharp/plugins/disabled/CS2UpdateMonitor",
       "verify_paths": [
-        "addons/counterstrikesharp/plugins/CS2UpdateMonitor/CS2UpdateMonitor.dll",
-        "addons/counterstrikesharp/plugins/CS2UpdateMonitor/CS2UpdateMonitor.deps.json",
-        "addons/counterstrikesharp/plugins/CS2UpdateMonitor/CS2UpdateMonitor.runtimeconfig.json"
+        "addons/counterstrikesharp/plugins/disabled/CS2UpdateMonitor/CS2UpdateMonitor.dll",
+        "addons/counterstrikesharp/plugins/disabled/CS2UpdateMonitor/CS2UpdateMonitor.deps.json",
+        "addons/counterstrikesharp/plugins/disabled/CS2UpdateMonitor/CS2UpdateMonitor.runtimeconfig.json"
       ]
     },
     {

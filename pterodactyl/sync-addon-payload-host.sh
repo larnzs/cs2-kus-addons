@@ -8,7 +8,7 @@
 # It stages the deployable repository game/ payload into immutable revisions and
 # publishes the selected revision by atomically replacing CURRENT_COMMIT. Only the
 # explicitly listed K4ryuu-managed runtime paths are excluded; all other files are
-# staged unchanged, including plugins/disabled/, BotAI/, CS2UpdateMonitor/, configs,
+# staged unchanged, including plugins/disabled/ (including CS2UpdateMonitor), BotAI/, configs,
 # platform overlays and both subscribed_*_ids.txt first-install seed files.
 #
 # Environment overrides:
