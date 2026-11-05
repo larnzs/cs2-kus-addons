@@ -5,8 +5,9 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 CFG_ROOT = ROOT / "game" / "csgo" / "cfg"
@@ -14,27 +15,86 @@ PLUGINS_ROOT = ROOT / "game" / "csgo" / "addons" / "counterstrikesharp"
 UNLOAD_CFG = CFG_ROOT / "unload_plugins.cfg"
 POLICY_FILE = ROOT / "scripts" / "plugin-mode-policy.json"
 
-LOAD_RE = re.compile(r'^\s*css_plugins\s+load\s+"([^"]+)"', re.IGNORECASE)
-UNLOAD_RE = re.compile(r'^\s*css_plugins\s+unload\s+"([^"]+)"', re.IGNORECASE)
-MODE_RE = re.compile(r'^\s*css_gamemode\b', re.IGNORECASE)
-EXEC_UNLOAD_RE = re.compile(r'^\s*exec\s+unload_plugins\.cfg\b', re.IGNORECASE)
+PLUGIN_PREFIX_RE = re.compile(r"^\s*css_plugins(?:\s|$)", re.IGNORECASE)
+PLUGIN_COMMAND_RE = re.compile(
+    r"^\s*css_plugins\s+(load|unload|reload)\s+(.+?)\s*$",
+    re.IGNORECASE,
+)
+MODE_RE = re.compile(r"^\s*css_gamemode\b", re.IGNORECASE)
+EXEC_UNLOAD_RE = re.compile(r"^\s*exec\s+unload_plugins\.cfg\b", re.IGNORECASE)
 DLL_PATH_RE = re.compile(r"^plugins/.+\.dll$", re.IGNORECASE)
+SPECIAL_MODULE = "CS2Rcon"
 
 
 def read_lines(path: Path) -> list[str]:
     return path.read_text(encoding="utf-8-sig").splitlines()
 
 
-def commands(path: Path, pattern: re.Pattern[str]) -> list[tuple[int, str]]:
-    found: list[tuple[int, str]] = []
+def is_comment_or_blank(line: str) -> bool:
+    stripped = line.lstrip()
+    return not stripped or stripped.startswith("//") or stripped.startswith("#")
+
+
+def parse_plugin_command(line: str) -> tuple[str, str] | None:
+    """Parse exactly one css_plugins operation and exactly one target argument."""
+    command_text = line.partition("//")[0].strip()
+    match = PLUGIN_COMMAND_RE.match(command_text)
+    if not match:
+        return None
+
+    # shlex handles quoted paths and rejects malformed quotes or extra arguments.
+    arguments = shlex.split(match.group(2), posix=True)
+    if len(arguments) != 1:
+        raise ValueError("expected exactly one plugin target argument")
+    return match.group(1).lower(), arguments[0].strip()
+
+
+def collect_plugin_commands(path: Path, errors: list[str]) -> list[tuple[int, str, str]]:
+    found: list[tuple[int, str, str]] = []
     for number, line in enumerate(read_lines(path), start=1):
-        stripped = line.lstrip()
-        if not stripped or stripped.startswith("//") or stripped.startswith("#"):
+        if is_comment_or_blank(line) or not PLUGIN_PREFIX_RE.match(line):
             continue
-        match = pattern.match(line)
-        if match:
-            found.append((number, match.group(1).strip()))
+        try:
+            parsed = parse_plugin_command(line)
+        except ValueError as exc:
+            errors.append(f"{path.relative_to(ROOT)}:{number}: malformed css_plugins command: {exc}")
+            continue
+        if parsed is None:
+            errors.append(
+                f"{path.relative_to(ROOT)}:{number}: unsupported css_plugins command; "
+                "use load, unload, or reload with exactly one quoted target"
+            )
+            continue
+        operation, target = parsed
+        found.append((number, operation, target))
     return found
+
+
+def is_dll_target(target: str) -> bool:
+    relative = PurePosixPath(target)
+    return (
+        bool(DLL_PATH_RE.fullmatch(target))
+        and not relative.is_absolute()
+        and ".." not in relative.parts
+    )
+
+
+def validate_dll_target(
+    target: str,
+    context: str,
+    errors: list[str],
+) -> bool:
+    if not is_dll_target(target):
+        errors.append(
+            f"{context}: plugin targets must use a relative plugins/.../*.dll path; got {target!r}"
+        )
+        return False
+
+    disk_path = PLUGINS_ROOT.joinpath(*PurePosixPath(target).parts)
+    if not disk_path.is_file():
+        errors.append(f"{context}: plugin DLL does not exist: {target}")
+        return False
+    return True
 
 
 def main() -> int:
@@ -47,27 +107,47 @@ def main() -> int:
         policy = json.loads(POLICY_FILE.read_text(encoding="utf-8"))
         afk = policy["afk_manager"]
         afk_plugin = afk["plugin"]
-        enabled_modes = set(afk["enabled_modes"])
-        disabled_modes = set(afk["disabled_modes"])
+        enabled_list = afk["enabled_modes"]
+        disabled_list = afk["disabled_modes"]
+        if not isinstance(afk_plugin, str) or not afk_plugin:
+            raise TypeError("afk_manager.plugin must be a non-empty string")
+        if not isinstance(enabled_list, list) or not all(isinstance(x, str) and x for x in enabled_list):
+            raise TypeError("afk_manager.enabled_modes must be a list of non-empty strings")
+        if not isinstance(disabled_list, list) or not all(isinstance(x, str) and x for x in disabled_list):
+            raise TypeError("afk_manager.disabled_modes must be a list of non-empty strings")
+        enabled_modes = set(enabled_list)
+        disabled_modes = set(disabled_list)
     except (KeyError, TypeError, json.JSONDecodeError) as exc:
         print(f"ERROR: invalid {POLICY_FILE.relative_to(ROOT)}: {exc}", file=sys.stderr)
         return 1
 
+    if len(enabled_modes) != len(enabled_list):
+        errors.append("AFK policy contains duplicate entries in enabled_modes")
+    if len(disabled_modes) != len(disabled_list):
+        errors.append("AFK policy contains duplicate entries in disabled_modes")
     if enabled_modes & disabled_modes:
         errors.append(f"AFK policy contains modes in both lists: {sorted(enabled_modes & disabled_modes)}")
+    if not is_dll_target(afk_plugin):
+        errors.append(f"AFK policy plugin must be a relative plugins/.../*.dll path: {afk_plugin!r}")
 
     mode_configs: dict[str, Path] = {}
-    modes_missing_reset: list[str] = []
     for path in sorted(CFG_ROOT.glob("*.cfg")):
-        uncommented = [line for line in read_lines(path) if not line.lstrip().startswith("//")]
-        if any(MODE_RE.match(line) for line in uncommented):
-            if any(EXEC_UNLOAD_RE.match(line) for line in uncommented):
-                mode_configs[path.name] = path
-            else:
-                modes_missing_reset.append(path.name)
+        lines = read_lines(path)
+        if not any(
+            MODE_RE.match(line) for line in lines if not is_comment_or_blank(line)
+        ):
+            continue
 
-    if modes_missing_reset:
-        errors.append(f"Primary game-mode CFGs missing exec unload_plugins.cfg: {sorted(modes_missing_reset)}")
+        mode_configs[path.name] = path
+        reset_lines = [
+            number for number, line in enumerate(lines, start=1)
+            if not is_comment_or_blank(line) and EXEC_UNLOAD_RE.match(line)
+        ]
+        if len(reset_lines) != 1:
+            errors.append(
+                f"{path.relative_to(ROOT)}: expected exactly one exec unload_plugins.cfg, "
+                f"found {len(reset_lines)}"
+            )
 
     policy_modes = enabled_modes | disabled_modes
     actual_modes = set(mode_configs)
@@ -76,62 +156,129 @@ def main() -> int:
     if policy_modes - actual_modes:
         errors.append(f"AFK policy references missing/non-mode CFGs: {sorted(policy_modes - actual_modes)}")
 
-    unload_commands = commands(UNLOAD_CFG, UNLOAD_RE)
-    unload_paths = [target for _, target in unload_commands if DLL_PATH_RE.match(target)]
+    all_cfg_files = sorted(CFG_ROOT.rglob("*.cfg"))
+    command_map: dict[Path, list[tuple[int, str, str]]] = {
+        path: collect_plugin_commands(path, errors) for path in all_cfg_files
+    }
+
+    central_commands = command_map.get(UNLOAD_CFG, [])
+    unload_paths = [
+        target for _, operation, target in central_commands
+        if operation == "unload" and is_dll_target(target)
+    ]
     duplicates = sorted({target for target in unload_paths if unload_paths.count(target) > 1})
     if duplicates:
         errors.append(f"Central unload list contains duplicate DLL paths: {duplicates}")
 
-    for line_number, target in unload_commands:
-        if DLL_PATH_RE.match(target) and not (PLUGINS_ROOT / target).is_file():
-            errors.append(f"unload_plugins.cfg:{line_number}: DLL does not exist: {target}")
+    central_reload_special = [
+        (number, target)
+        for number, operation, target in central_commands
+        if operation == "reload" and target == SPECIAL_MODULE
+    ]
+    if len(central_reload_special) != 1:
+        errors.append(
+            f"unload_plugins.cfg: expected exactly one reload of {SPECIAL_MODULE}, "
+            f"found {len(central_reload_special)}"
+        )
 
-    all_cfg_files = sorted(CFG_ROOT.rglob("*.cfg"))
+    if any(operation == "load" for _, operation, _ in central_commands):
+        errors.append("unload_plugins.cfg: central reset must not load plugins")
+
     unique_loaded_paths: set[str] = set()
-    for cfg in all_cfg_files:
-        path_loads = [
-            (line, target) for line, target in commands(cfg, LOAD_RE)
-            if DLL_PATH_RE.match(target)
-        ]
-        for line_number, target in path_loads:
-            unique_loaded_paths.add(target)
-            if not (PLUGINS_ROOT / target).is_file():
-                errors.append(f"{cfg.relative_to(ROOT)}:{line_number}: loaded DLL does not exist: {target}")
-            if target not in unload_paths:
-                errors.append(f"{cfg.relative_to(ROOT)}:{line_number}: {target} is loaded but absent from unload_plugins.cfg")
+    afk_loads_by_cfg: dict[Path, list[int]] = {}
 
-        # Sub-configs inherit the reset from their parent mode CFG. If this CFG
-        # explicitly runs the reset itself, its own loads must come after it.
+    for cfg in all_cfg_files:
+        commands = command_map[cfg]
         reset_lines = [
             number for number, line in enumerate(read_lines(cfg), start=1)
-            if EXEC_UNLOAD_RE.match(line) and not line.lstrip().startswith("//")
+            if not is_comment_or_blank(line) and EXEC_UNLOAD_RE.match(line)
         ]
-        if reset_lines and any(number < reset_lines[0] for number, _ in path_loads):
-            errors.append(f"{cfg.relative_to(ROOT)}: a path-based plugin loads before its central reset")
+        if reset_lines:
+            first_reset = reset_lines[0]
+            if any(number < first_reset for number, _, _ in commands):
+                errors.append(
+                    f"{cfg.relative_to(ROOT)}: a css_plugins command appears before its central reset"
+                )
 
+        for line_number, operation, target in commands:
+            context = f"{cfg.relative_to(ROOT)}:{line_number}"
+
+            if target == SPECIAL_MODULE:
+                if operation == "load":
+                    errors.append(
+                        f"{context}: {SPECIAL_MODULE} must not be loaded by module name; "
+                        "use an explicit DLL path for manually loaded plugins"
+                    )
+                elif operation == "reload" and cfg != UNLOAD_CFG:
+                    errors.append(
+                        f"{context}: {SPECIAL_MODULE} may only be reloaded by unload_plugins.cfg"
+                    )
+                elif operation == "unload" and cfg == UNLOAD_CFG:
+                    errors.append(
+                        f"{context}: central reset must reload {SPECIAL_MODULE}, not leave it unloaded"
+                    )
+                continue
+
+            if not validate_dll_target(target, context, errors):
+                continue
+
+            if target not in unload_paths:
+                errors.append(
+                    f"{context}: {target} is used by css_plugins {operation} "
+                    "but is absent from unload_plugins.cfg"
+                )
+
+            if operation == "load":
+                unique_loaded_paths.add(target)
+                if target == afk_plugin:
+                    afk_loads_by_cfg.setdefault(cfg, []).append(line_number)
+
+    # Every manually loaded DLL is centrally reset, and every central entry points to a real DLL.
+    for line_number, operation, target in central_commands:
+        context = f"unload_plugins.cfg:{line_number}"
+        if operation == "unload":
+            validate_dll_target(target, context, errors)
+        elif operation == "reload" and target != SPECIAL_MODULE:
+            errors.append(
+                f"{context}: only the documented {SPECIAL_MODULE} special-case reload is allowed"
+            )
+        elif operation == "load":
+            errors.append(f"{context}: central reset cannot load plugins")
+
+    # Each primary mode must reset before any plugin command in that mode CFG.
     for mode_name, path in sorted(mode_configs.items()):
-        mode_lines = read_lines(path)
+        lines = read_lines(path)
         reset_lines = [
-            number for number, line in enumerate(mode_lines, start=1)
-            if EXEC_UNLOAD_RE.match(line) and not line.lstrip().startswith("//")
+            number for number, line in enumerate(lines, start=1)
+            if not is_comment_or_blank(line) and EXEC_UNLOAD_RE.match(line)
         ]
-        direct_load_lines = [
-            number for number, line in enumerate(mode_lines, start=1)
-            if LOAD_RE.match(line) and not line.lstrip().startswith("//")
-            and DLL_PATH_RE.match(LOAD_RE.match(line).group(1).strip())
-        ]
-        if not reset_lines or any(number < reset_lines[0] for number in direct_load_lines):
-            errors.append(f"{mode_name}: central unload reset must precede every direct DLL load")
+        command_lines = [number for number, _, _ in command_map[path]]
+        if len(reset_lines) == 1 and any(number < reset_lines[0] for number in command_lines):
+            errors.append(f"{mode_name}: central unload reset must precede every plugin command")
+
+    # AFKManager may only be loaded once, directly by allowlisted primary mode CFGs.
+    enabled_paths = {mode_configs[name] for name in enabled_modes if name in mode_configs}
+    for cfg, line_numbers in afk_loads_by_cfg.items():
+        if cfg not in enabled_paths:
+            errors.append(
+                f"{cfg.relative_to(ROOT)}: AFKManager load is outside the enabled primary-mode allowlist"
+            )
+        if len(line_numbers) != 1:
+            errors.append(
+                f"{cfg.relative_to(ROOT)}: expected one AFKManager load, found {len(line_numbers)}"
+            )
 
     for mode_name in sorted(enabled_modes & actual_modes):
-        loads = [target for _, target in commands(mode_configs[mode_name], LOAD_RE) if target == afk_plugin]
-        if len(loads) != 1:
-            errors.append(f"{mode_name}: expected exactly one AFKManager load, found {len(loads)}")
+        path = mode_configs[mode_name]
+        count = len(afk_loads_by_cfg.get(path, []))
+        if count != 1:
+            errors.append(f"{mode_name}: expected exactly one AFKManager load, found {count}")
 
     for mode_name in sorted(disabled_modes & actual_modes):
-        loads = [target for _, target in commands(mode_configs[mode_name], LOAD_RE) if target == afk_plugin]
-        if loads:
-            errors.append(f"{mode_name}: AFKManager must remain disabled, but a load command exists")
+        path = mode_configs[mode_name]
+        count = len(afk_loads_by_cfg.get(path, []))
+        if count:
+            errors.append(f"{mode_name}: AFKManager must remain disabled, but {count} load command(s) exist")
 
     if afk_plugin not in unload_paths:
         errors.append(f"AFKManager is enabled in mode CFGs but missing from unload_plugins.cfg: {afk_plugin}")
@@ -144,8 +291,9 @@ def main() -> int:
 
     print(
         "PASS: validated "
-        f"{len(all_cfg_files)} CFG files, {len(mode_configs)} mode CFGs, "
+        f"{len(all_cfg_files)} CFG files, {len(mode_configs)} primary mode CFGs, "
         f"{len(unique_loaded_paths)} unique path-loaded plugin DLLs; "
+        f"{len(central_commands)} central lifecycle commands; "
         f"AFKManager enabled in {len(enabled_modes)} modes and disabled in {len(disabled_modes)}."
     )
     return 0
