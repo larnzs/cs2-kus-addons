@@ -85,6 +85,30 @@ function Get-ReleaseForAddon($Addon) {
         return $release
     }
 
+    if ($Addon.track -eq "latest_matching_release") {
+        $assetName = [string]$Addon.track_asset
+        $tagPattern = [string]$Addon.track_tag_regex
+        if ([string]::IsNullOrWhiteSpace($assetName) -or [string]::IsNullOrWhiteSpace($tagPattern)) {
+            throw "Add-on '$($Addon.name)' uses latest_matching_release but is missing track_asset or track_tag_regex."
+        }
+
+        $releases = Invoke-GitHubApi "https://api.github.com/repos/$repo/releases?per_page=100"
+        $release = @(
+            $releases | Where-Object {
+                $candidate = $_
+                if ($candidate.draft -or [string]$candidate.tag_name -notmatch $tagPattern) {
+                    return $false
+                }
+                return @($candidate.assets | Where-Object { [string]$_.name -eq $assetName }).Count -gt 0
+            }
+        ) | Select-Object -First 1
+
+        if (-not $release) {
+            throw "No non-draft release in $repo matched tag pattern '$tagPattern' and asset '$assetName'."
+        }
+        return $release
+    }
+
     if ($Addon.track -eq "pinned") {
         $wanted = [string]$Addon.version
         $releases = Invoke-GitHubApi "https://api.github.com/repos/$repo/releases?per_page=30"

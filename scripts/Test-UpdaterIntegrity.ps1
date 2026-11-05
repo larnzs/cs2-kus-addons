@@ -26,6 +26,27 @@ try {
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
     $names = @($manifest.addons | ForEach-Object { [string]$_.name })
     $orders = @($manifest.addons | ForEach-Object { [int]$_.order })
+
+    $vipCore = @($manifest.addons | Where-Object { $_.name -eq "VIPCore" })
+    Assert-Condition ($vipCore.Count -eq 1) "Expected exactly one VIPCore manifest entry."
+    Assert-Condition ([bool]$vipCore[0].installed) "VIPCore must be marked installed."
+    Assert-Condition (@($vipCore[0].depends_on | Where-Object { $_ -eq "Metamod:Source" }).Count -eq 1) "VIPCore must depend on MetaMod:Source."
+    Assert-Condition (@($vipCore[0].depends_on | Where-Object { $_ -eq "CounterStrikeSharp" }).Count -eq 1) "VIPCore must depend on CounterStrikeSharp."
+
+    $vipModules = @($manifest.addons | Where-Object { $_.name -eq "VIPCore Modules" })
+    Assert-Condition ($vipModules.Count -eq 1) "Expected exactly one VIPCore Modules manifest entry."
+    Assert-Condition ([bool]$vipModules[0].installed) "VIPCore Modules must be marked installed."
+    Assert-Condition ([string]$vipModules[0].track -eq "latest_matching_release") "VIPCore Modules must follow asset-specific release tags."
+    Assert-Condition ([string]$vipModules[0].track_asset -eq "VIP_Modules.zip") "VIPCore Modules must select VIP_Modules.zip."
+    Assert-Condition ([string]$vipModules[0].asset_mappings.'VIP_Modules.zip'.source_path_mode -eq "archive_root") "VIP_Modules.zip must map from archive_root."
+    Assert-Condition (@($vipModules[0].verify_paths).Count -eq 45) "VIPCore Modules must verify all 45 module DLLs."
+    $vipModulesRoot = Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/plugins"
+    $vipModuleDirs = @(Get-ChildItem -LiteralPath $vipModulesRoot -Directory -Filter "VIP_*" | ForEach-Object { $_.Name } | Sort-Object)
+    Assert-Condition ($vipModuleDirs.Count -eq 45) "Expected 45 tracked VIP_* module directories."
+    foreach ($verifyPath in @($vipModules[0].verify_paths)) {
+        $relative = ([string]$verifyPath).Replace("/", [IO.Path]::DirectorySeparatorChar)
+        Assert-Condition (Test-Path -LiteralPath (Join-Path (Join-Path $repoRoot "game/csgo") $relative) -PathType Leaf) "Missing imported VIP module runtime file: $verifyPath"
+    }
     Assert-Condition (($names | Sort-Object -Unique).Count -eq $names.Count) "Duplicate add-on names in DEPENDENCIES.json."
     Assert-Condition (($orders | Sort-Object -Unique).Count -eq $orders.Count) "Duplicate add-on order values in DEPENDENCIES.json."
     foreach ($addon in @($manifest.addons)) {
