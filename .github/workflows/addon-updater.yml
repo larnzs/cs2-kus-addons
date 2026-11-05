@@ -506,11 +506,26 @@ jobs:
           }
 
           $vipCore = @($manifest.addons | Where-Object { [string]$_.name -eq "VIPCore" })
-          if ($vipCore.Count -gt 0) {
-            throw "VIPCore must not be managed by DEPENDENCIES.json."
+          if ($vipCore.Count -ne 1 -or -not [bool]$vipCore[0].installed) {
+            throw "VIPCore must have exactly one installed manifest entry."
           }
-          if (Test-Path -LiteralPath ".\scripts\update\plugins\vipcore.sh") {
-            throw "VIPCore-specific updater script must not be present."
+          if ([string]$vipCore[0].track -ne "latest_matching_release" -or
+              [string]$vipCore[0].track_asset -ne "VIPCore.zip") {
+            throw "VIPCore must track full Core releases by the VIPCore.zip asset."
+          }
+          if (@($vipCore[0].depends_on | Where-Object { $_ -eq "Metamod:Source" }).Count -ne 1 -or
+              @($vipCore[0].depends_on | Where-Object { $_ -eq "CounterStrikeSharp" }).Count -ne 1) {
+            throw "VIPCore must declare MetaMod:Source and CounterStrikeSharp dependencies."
+          }
+
+          $vipModules = @($manifest.addons | Where-Object { [string]$_.name -eq "VIPCore Modules" })
+          if ($vipModules.Count -ne 1 -or -not [bool]$vipModules[0].installed) {
+            throw "VIPCore Modules must have exactly one installed manifest entry."
+          }
+          if ([string]$vipModules[0].track -ne "latest_matching_release" -or
+              [string]$vipModules[0].track_asset -ne "VIP_Modules.zip" -or
+              @($vipModules[0].verify_paths).Count -ne 45) {
+            throw "VIPCore Modules must track VIP_Modules.zip and verify all 45 installed module DLLs."
           }
 
           $names = @($manifest.addons | ForEach-Object { [string]$_.name })
