@@ -59,8 +59,17 @@ try {
     Assert-Condition ([string]$vipModules[0].asset_mappings.'VIP_Modules.zip'.source_path_mode -eq "archive_root") "VIP_Modules.zip must map from archive_root."
     Assert-Condition (@($vipModules[0].verify_paths).Count -eq 45) "VIPCore Modules must verify all 45 module DLLs."
     $vipModulesRoot = Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/plugins"
-    $vipModuleDirs = @(Get-ChildItem -LiteralPath $vipModulesRoot -Directory -Filter "VIP_*" | ForEach-Object { $_.Name } | Sort-Object)
-    Assert-Condition ($vipModuleDirs.Count -eq 45) "Expected 45 tracked VIP_* module directories."
+    $vipModuleDirs = @(
+        Get-ChildItem -LiteralPath $vipModulesRoot -Directory -Filter "VIP_*" |
+            ForEach-Object { $_.Name }
+        Get-ChildItem -LiteralPath (Join-Path $vipModulesRoot "disabled") -Directory -Filter "VIP_*" |
+            ForEach-Object { $_.Name }
+    ) | Sort-Object -Unique
+    Assert-Condition ($vipModuleDirs.Count -eq 45) "Expected 45 tracked VIP_* module directories across active and disabled plugin folders."
+    foreach ($disabledModule in @("VIP_NightVip", "VIP_Random")) {
+        Assert-Condition (Test-Path -LiteralPath (Join-Path (Join-Path $vipModulesRoot "disabled") $disabledModule) -PathType Container) "'$disabledModule' must remain under plugins/disabled."
+        Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $vipModulesRoot $disabledModule))) "'$disabledModule' must not be placed in the auto-load plugin root."
+    }
     foreach ($verifyPath in @($vipModules[0].verify_paths)) {
         $relative = ([string]$verifyPath).Replace("/", "\")
         Assert-Condition (Test-Path -LiteralPath (Join-Path (Join-Path $repoRoot "game/csgo") $relative) -PathType Leaf) "Missing imported VIP module runtime file: $verifyPath"
