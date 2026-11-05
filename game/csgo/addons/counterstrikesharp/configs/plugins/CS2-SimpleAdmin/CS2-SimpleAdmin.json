@@ -21,7 +21,7 @@
     "MaxBanDuration": 10080,
     "MaxMuteDuration": 10080,
     "ExpireOldIpBans": 0,
-    "ReloadAdminsEveryMapChange": false,
+    "ReloadAdminsEveryMapChange": true,
     "DisconnectedPlayersHistoryCount": 10,
     "NotifyPenaltiesToAdminOnConnect": true,
     "ShowBanMenuIfNoTime": true,
