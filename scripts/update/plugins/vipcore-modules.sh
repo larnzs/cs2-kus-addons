@@ -54,4 +54,18 @@ PLUGIN_PATHS=(
 
 plugin_assets() { manifest_addon_assets "VIPCore Modules"; }
 plugin_apply() { manifest_plugin_apply "VIPCore Modules"; }
-plugin_needs_repair() { manifest_addon_needs_repair "VIPCore Modules"; }
+plugin_needs_repair() {
+    manifest_addon_needs_repair "VIPCore Modules" || return 1
+
+    local repo release_json repair_regex repair_tag
+    repo=$(github_repo_from_url "$PLUGIN_URL")
+    repair_regex=$(jq -er '.addons[] | select(.name == "VIPCore Modules") | .repair_track_tag_regex // empty' DEPENDENCIES.json) \
+        || die "VIPCore Modules is missing repair_track_tag_regex."
+    release_json=$(github_api "repos/$repo/releases?per_page=100") \
+        || die "could not list VIPCore releases for full-package repair."
+    repair_tag=$(github_latest_matching_release_tag "$release_json" "VIP_Modules.zip" "$repair_regex")
+    [ -n "$repair_tag" ] || die "no full VIPCore Modules release matched $repair_regex."
+    PLUGIN_REPAIR_VERSION=$(normalize_version "$repair_tag")
+    warn "VIPCore module payload is incomplete; repairing from full release $repair_tag."
+    return 0
+}

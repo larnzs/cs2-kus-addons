@@ -188,7 +188,7 @@ fail_mod() {   # $1 message  (records failure, adds a flag)
 process_mod() {   # $1 name, $2 url, $3 current version
     PLUGIN_NAME="$1"; PLUGIN_URL="$2"; OLD_VERSION="$3"; NEW_VERSION=""
     PLUGIN_SLUG=$(slugify "$PLUGIN_NAME")
-    local latest last_updated script
+    local latest last_updated script PLUGIN_REPAIR_VERSION=""
 
     if [ -n "${4:-}" ]; then
         latest="$4"
@@ -217,8 +217,8 @@ process_mod() {   # $1 name, $2 url, $3 current version
             if ! load_plugin_script "$script"; then fail_mod "invalid plugin script $script"; return 0; fi
             script_loaded=1
             if declare -F plugin_needs_repair >/dev/null && plugin_needs_repair; then
-                NEW_VERSION="$latest"
-                log "${C_YEL}FIX $PLUGIN_NAME $latest - installed payload is incomplete${C_OFF}"
+                NEW_VERSION="${PLUGIN_REPAIR_VERSION:-$latest}"
+                log "${C_YEL}FIX $PLUGIN_NAME $OLD_VERSION - installed payload is incomplete; repair release $NEW_VERSION${C_OFF}"
             else
                 log "${C_GRN}OK $PLUGIN_NAME $latest${C_OFF}"
                 RES_UPTODATE+=("$PLUGIN_NAME $latest")

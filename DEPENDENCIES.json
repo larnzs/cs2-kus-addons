@@ -900,8 +900,8 @@
       "track": "latest_matching_release",
       "track_asset": "VIP_Modules.zip",
       "track_tag_regex": "^v[0-9]+\\.[0-9]+\\.[0-9]+(-modules-[0-9]+)?$",
-      "version": "2.0.3-modules-1",
-      "release_tag": "v2.0.3-modules-1",
+      "version": "2.0.3",
+      "release_tag": "v2.0.3",
       "assets": [
         "VIP_Modules.zip"
       ],
@@ -966,7 +966,8 @@
           "source_path_mode": "archive_root",
           "install_path": "addons/counterstrikesharp/plugins"
         }
-      }
+      },
+      "repair_track_tag_regex": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
     }
   ]
 }

@@ -70,7 +70,7 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 | [SharpTimer](https://github.com/SharpTimer/SharpTimer) | `0.4.2` | Surf/Bhop/Deathrun timer; staged under `plugins/disabled/SharpTimer` by default. |
 | [CS2FaceitLevels](https://github.com/Staaar0/cs2-FaceitLevels) | `1.1.4-123` | Native MetaMod plugin for FACEIT scoreboard levels, ELO lookup (`!elo` / `!elos`) and player badges. |
 | [VIPCore](https://github.com/partiusfabaa/cs2-VIPCore) | `2.0.3` | VIP framework and shared API; local VIPCore configuration is preserved. |
-| [VIPCore Modules](https://github.com/partiusfabaa/cs2-VIPCore) | `2.0.3-modules-1` | VIP feature modules, tracked from the newest release containing `VIP_Modules.zip`. |
+| [VIPCore Modules](https://github.com/partiusfabaa/cs2-VIPCore) | `2.0.3` | VIP feature modules; tracks incremental module releases and repairs missing modules from a full package. |
 ## Larnz plugin dependencies
 
 - CS2FaceitLevels depends only on MetaMod:Source. Its API-key file is generated at runtime at `game/csgo/addons/CS2FaceitLevels/CS2FaceitLevels.json`; the updater excludes that file and manages only the binaries, gamedata and MetaMod VDF.
