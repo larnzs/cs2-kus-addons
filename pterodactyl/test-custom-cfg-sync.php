@@ -69,13 +69,14 @@ try {
         }
         if (preg_match_all('/^\s*exec\s+"?(custom_[A-Za-z0-9._-]+\.cfg)\b/im', $modeContents, $matches) > 0) {
             foreach ($matches[1] as $name) {
-                $referencedCustomConfigs[$name] = true;
+                $referencedCustomConfigs[$name][] = basename($modeCfg);
             }
         }
     }
-    foreach (array_keys($referencedCustomConfigs) as $referencedName) {
+    foreach ($referencedCustomConfigs as $referencedName => $sourceCfgs) {
         expect(isset($templateNames[$referencedName]),
-            'every active exec custom_*.cfg reference has a template: ' . $referencedName);
+            'every active exec custom_*.cfg reference has a template: ' . $referencedName .
+            ' (referenced by: ' . implode(', ', array_unique($sourceCfgs)) . ')');
     }
 
     $actualOutputRoot = $root . '/actual-repo-template-render';
