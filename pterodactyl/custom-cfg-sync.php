@@ -12,55 +12,63 @@ declare(strict_types=1);
 final class FragCityCustomCfgSynchronizer
 {
     private const MODE_RULES = [
-        ['valve-deathmatch-freeforall', 'Deathmatch FFA', '☠'],
-        ['deathmatch-freeforall', 'Deathmatch FFA', '☠'],
-        ['valve-deathmatch', 'Deathmatch', '☠'],
-        ['deathmatch', 'Deathmatch', '☠'],
-        ['valve-competitive', 'Competitive', '⚔'],
-        ['competitive', 'Competitive', '⚔'],
-        ['comp', 'Competitive', '⚔'],
-        ['retake', 'Retake', '🔄'],
-        ['wingman', 'Wingman', '👥'],
-        ['scoutzknivez', 'Scoutzknivez', '🎯'],
-        ['minigames', 'Minigames', '🎮'],
-        ['deathrun', 'Deathrun', '🏃'],
-        ['surf', 'Surf', '🏄'],
-        ['bhop', 'Bhop', '🐇'],
-        ['kz', 'KZ', '🧗'],
-        ['aim', 'Aim', '🚧'],
-        ['awp', 'AWP', '🎯'],
-        ['hs', 'Headshot', '💥'],
-        ['gg', 'Gun Game', '🔫'],
-        ['ctf', 'CTF', '🚩'],
-        ['br', 'Battle Royale', '👑'],
-        ['battle', 'Battle', '🛡'],
-        ['practice', 'Practice', '🧪'],
-        ['prefire', 'Prefire', '🔥'],
-        ['oitc', 'OITC', '🔪'],
-        ['course', 'Course', '🧭'],
-        ['executes', 'Executes', '⚙'],
-        ['soccer', 'Soccer', '⚽'],
-        ['casualw', 'Casual Workshop', ''],
-        ['war', 'War', '⚔'],
-        ['casual-1.6', 'Casual1.6', ''],
-        ['1v1', '1v1', '🥊'],
+        // Match the most specific names first. Every active template must have an emoji.
+        ['valve-deathmatch-freeforall', '🎯'],
+        ['deathmatch-freeforall', '🎯'],
+        ['ffamulti', '🎯'],
+        ['valve-deathmatch', '🎯'],
+        ['deathmatch', '🎯'],
+        ['valve-armsrace', '🏁'],
+        ['armsrace', '🏁'],
+        ['valve-competitive', '🏆'],
+        ['competitive', '🏆'],
+        ['comp', '🏆'],
+        ['valve-retake', '🔄'],
+        ['retake', '🔄'],
+        ['valve-wingman', '🤝'],
+        ['wingman', '🤝'],
+        ['scoutzknivez', '🎯'],
+        ['minigames', '🎮'],
+        ['deathrun', '🏃'],
+        ['surf', '🏄'],
+        ['bhop', '🐇'],
+        ['kz', '🧗'],
+        ['aim', '🎯'],
+        ['awp', '🎯'],
+        ['hs', '🎯'],
+        ['gg', '🎮'],
+        ['ctf', '🚩'],
+        ['br', '👑'],
+        ['battle', '🛡️'],
+        ['practice', '🧪'],
+        ['prefire', '⚡'],
+        ['oitc', '⏱️'],
+        ['course', '🧭'],
+        ['executes', '🧩'],
+        ['soccer', '⚽'],
+        ['casualw', '🧰'],
+        ['casual-1.6', '🕹️'],
+        ['casual', '🎮'],
+        ['war', '🏆'],
+        ['1v1', '⚡'],
+        ['bots', '🤖'],
+        ['hns', '🙈'],
+        ['all', '🌐'],
     ];
 
-    public static function modeLabelFromFilename(string $filename): string
+    public static function modeEmojiFromFilename(string $filename): string
     {
         $stem = pathinfo($filename, PATHINFO_FILENAME);
         if (strncasecmp($stem, 'custom_', 7) !== 0) {
             throw new RuntimeException('Custom CFG filename must begin with custom_: ' . $filename);
         }
         $normalized = str_replace('_', '-', strtolower(substr($stem, 7)));
-        foreach (self::MODE_RULES as [$needle, $label, $emoji]) {
+        foreach (self::MODE_RULES as [$needle, $emoji]) {
             if (str_contains($normalized, $needle)) {
-                return trim($label . ' ' . $emoji);
+                return $emoji;
             }
         }
-        $fallback = str_replace('-', ' ', $normalized);
-        $fallback = preg_replace('/\s+/', ' ', trim($fallback));
-        return ucwords((string) $fallback);
+        throw new RuntimeException('No game-mode emoji mapping exists for custom CFG: ' . $filename);
     }
 
     public static function sanitizeServerName(string $serverName): string
@@ -91,7 +99,7 @@ final class FragCityCustomCfgSynchronizer
     public static function render(string $contents, string $serverName, string $filename): string
     {
         $hostname = self::sanitizeServerName($serverName)
-            . ' | Mode : ' . self::modeLabelFromFilename($filename);
+            . ' - ' . self::modeEmojiFromFilename($filename);
         $lines = preg_split('/(?<=\n)/', $contents);
         if ($lines === false) {
             throw new RuntimeException('Could not split custom CFG contents: ' . $filename);

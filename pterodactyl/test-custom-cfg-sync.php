@@ -34,27 +34,35 @@ try {
     $actualTemplates = glob($repoTemplateRoot . '/custom_*.cfg', GLOB_NOSORT);
     expect(is_array($actualTemplates) && count($actualTemplates) === 37,
         'repository contains exactly 37 active custom CFG templates');
-    expect(FragCityCustomCfgSynchronizer::modeLabelFromFilename('custom_casual-1.6.cfg') === 'Casual1.6',
-        'Casual 1.6 keeps the previous hostname suffix after its filename is aligned with the mode CFG');
-    expect(FragCityCustomCfgSynchronizer::modeLabelFromFilename('custom_casualw.cfg') === 'Casual Workshop',
-        'Casual Workshop receives its own custom hostname suffix');
+    expect(FragCityCustomCfgSynchronizer::modeEmojiFromFilename('custom_casual-1.6.cfg') === '🕹️',
+        'Casual 1.6 receives an emoji-only hostname suffix');
+    expect(FragCityCustomCfgSynchronizer::modeEmojiFromFilename('custom_casualw.cfg') === '🧰',
+        'Casual Workshop receives its own emoji-only hostname suffix');
     $casualWorkshopTemplate = file_get_contents($repoTemplateRoot . '/custom_casualw.cfg');
     expect($casualWorkshopTemplate !== false
         && !str_contains((string) $casualWorkshopTemplate, 'exec settings/alltalk_on.cfg'),
         'Casual Workshop template does not inherit Casual-only gameplay settings');
     expect(str_contains((string) $casualWorkshopTemplate, '// Executed after casualw.cfg'),
         'Casual Workshop template documents its actual CFG entry point');
-    expect(FragCityCustomCfgSynchronizer::modeLabelFromFilename('custom_deathmatch-valve.cfg') === 'Deathmatch ☠',
-        'Valve Deathmatch template retains the matching active CFG filename and display suffix');
-    expect(FragCityCustomCfgSynchronizer::modeLabelFromFilename('custom_valve-deathmatch.cfg') === 'Deathmatch ☠',
-        'Valve Deathmatch Map Start settings keep their own matching custom CFG alias');
+    expect(FragCityCustomCfgSynchronizer::modeEmojiFromFilename('custom_deathmatch-valve.cfg') === '🎯',
+        'Valve Deathmatch template retains the matching active CFG filename and emoji');
+    expect(FragCityCustomCfgSynchronizer::modeEmojiFromFilename('custom_valve-deathmatch.cfg') === '🎯',
+        'Valve Deathmatch Map Start settings keep their own matching custom CFG alias and emoji');
     $templateNames = [];
     foreach ($actualTemplates as $actualTemplate) {
         $filename = basename($actualTemplate);
         $templateNames[$filename] = true;
         $contents = file_get_contents($actualTemplate);
         expect($contents !== false, 'repository template is readable: ' . $filename);
-        FragCityCustomCfgSynchronizer::render((string) $contents, 'FragCity Template Check', $filename);
+        $emoji = FragCityCustomCfgSynchronizer::modeEmojiFromFilename($filename);
+        expect($emoji !== '' && preg_match('//u', $emoji) === 1 && !str_contains($emoji, '�')
+            && preg_match('/U\\+[0-9A-F]{4,6}/i', $emoji) !== 1,
+            $filename . ' maps to a real UTF-8 emoji character, not a replacement glyph or code-point text');
+        $renderedTemplate = FragCityCustomCfgSynchronizer::render((string) $contents, 'FragCity Template Check', $filename);
+        expect(str_contains($renderedTemplate, 'hostname "FragCity Template Check - ' . $emoji . '"'),
+            $filename . ' renders the exact server-name / hyphen / emoji hostname format');
+        expect(!str_contains($renderedTemplate, 'Mode :') && !str_contains($renderedTemplate, ' | '),
+            $filename . ' does not render the legacy label or pipe separator');
         foreach (['sv_tags', 'sv_minrate', 'sv_maxrate', 'sv_server_graphic1', 'sv_server_graphic2'] as $directive) {
             expect(preg_match_all('/^\s*' . preg_quote($directive, '/') . '\b/mi', (string) $contents) === 1,
                 $filename . ' has exactly one ' . $directive . ' directive');
@@ -95,7 +103,7 @@ try {
 
     $template = implode("\r\n", [
         '// template comment',
-        'hostname "OLD NAME | Mode : Practice"',
+        'hostname "OLD NAME - 🧪"',
         'sv_tags "128tick"',
         'sv_minrate 196608',
         'sv_maxrate 196608',
@@ -114,8 +122,10 @@ try {
 
     $practicePath = $cfgRoot . '/custom_practice.cfg';
     $practice = (string) file_get_contents($practicePath);
-    expect(str_contains($practice, 'hostname "FragCity Test North exec echo BAD | Mode : Practice 🧪"'),
-        'server name is safely rendered with practice mode suffix');
+    expect(str_contains($practice, 'hostname "FragCity Test North exec echo BAD - 🧪"'),
+        'server name is safely rendered with the practice emoji suffix');
+    expect(!str_contains($practice, 'Mode :') && !str_contains($practice, ' | '),
+        'rendered hostname contains neither the legacy text label nor the pipe separator');
     expect(!str_contains($practice, '"North";'), 'quotes and command separators cannot escape the hostname string');
     expect(str_contains($practice, 'sv_tags "128tick"'), 'sv_tags is preserved');
     expect(str_contains($practice, 'sv_minrate 196608') && str_contains($practice, 'sv_maxrate 196608'),
@@ -134,20 +144,25 @@ try {
     $renamed = FragCityCustomCfgSynchronizer::sync($templateRoot, $cfgRoot, 'FragCity North-2');
     $renamedPractice = (string) file_get_contents($practicePath);
     expect($renamed['updated'] === 2, 'a Server Name change updates the custom CFG files');
-    expect(str_contains($renamedPractice, 'hostname "FragCity North-2 | Mode : Practice 🧪"'),
-        'renamed server hostname is rendered');
+    expect(str_contains($renamedPractice, 'hostname "FragCity North-2 - 🧪"'),
+        'renamed server hostname is rendered with the hyphen and emoji');
     expect(str_contains($renamedPractice, 'sv_tags "customer-tag"'),
         'rename does not overwrite server tags');
     expect(str_contains($renamedPractice, 'sv_minrate 196608') && str_contains($renamedPractice, 'sv_maxrate 196608'),
         'rename does not overwrite server rates');
 
     $ffa = (string) file_get_contents($cfgRoot . '/custom_valve-deathmatch-freeforall.cfg');
-    expect(str_contains($ffa, 'Mode : Deathmatch FFA ☠'),
-        'specific Valve FFA rule wins before generic Deathmatch rule');
+    expect(str_contains($ffa, 'hostname "FragCity North-2 - 🎯"'),
+        'specific Valve FFA rule wins before generic Deathmatch rule and renders its emoji');
 
     expectThrows(
         static fn () => FragCityCustomCfgSynchronizer::render("sv_tags \"fixture\"\n", 'Name', 'custom_missing.cfg'),
         'template without hostname must fail closed'
+    );
+
+    expectThrows(
+        static fn () => FragCityCustomCfgSynchronizer::render("hostname \\"old\\"\\n", 'Name', 'custom_unmapped.cfg'),
+        'template without an explicit game-mode emoji must fail closed'
     );
 
     $outside = $root . '/outside.txt';
