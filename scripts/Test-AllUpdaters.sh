@@ -63,35 +63,28 @@ while IFS= read -r name; do
 done < <(jq -r '.addons[] | select(.installed == true) | select(.automation_supported != false) | .name' DEPENDENCIES.json)
 pass "$manifest_count installed/automated manifest add-ons have adapter files"
 
-# Regression: the RRimmer archive uses a CSS-build suffix that must match the
-# wildcard asset mapping on both Bash and PowerShell updater code paths.
-mm_repo="$(jq -r '.addons[] | select(.name == "MenuManagerCS2") | .repository' DEPENDENCIES.json)"
-mm_asset="$(jq -r '.addons[] | select(.name == "MenuManagerCS2") | .assets[0]' DEPENDENCIES.json)"
-[ "$mm_repo" = "https://github.com/RRimmer/PanoramaMenuManagerCS2" ] || fail "MenuManagerCS2 is not tracking the PanoramaMenuManager fork"
-[[ "$mm_asset" == *"cssharp*.zip" ]] || fail "MenuManagerCS2 must match the CSS-versioned archive"
-mapping="$(bash -c '
-    set -Eeuo pipefail
-    exec 3>&1
-    source scripts/update/lib.sh
-    source scripts/update/manifest-addon.sh
-    NEW_VERSION="1.3.01"
-    manifest_mapping_for_asset "MenuManagerCS2" "MenuManagerCS2-1.3.01-cssharp377.zip"
-' )" || fail "wildcard manifest asset mapping failed"
-printf '%s' "$mapping" | jq -e 'length == 1 and .[0].merge == "release_plugin_directory" and .[0].source_path == "Server-plugins/addons" and .[0].install_path == "addons"' >/dev/null || fail "MenuManagerCS2 wildcard mapping resolved incorrectly"
-pass "wildcard MenuManagerCS2 asset mapping resolves to the intended server-plugin root"
-
-# MenuManagerCS2 releases use a prefixed tag and a CSSHarP build suffix in the asset.
-mm_track=$(jq -r '.addons[] | select(.name == "MenuManagerCS2") | .track' DEPENDENCIES.json)
-mm_track_asset=$(jq -r '.addons[] | select(.name == "MenuManagerCS2") | .track_asset' DEPENDENCIES.json)
-mm_track_tag_regex=$(jq -r '.addons[] | select(.name == "MenuManagerCS2") | .track_tag_regex' DEPENDENCIES.json)
-mm_version_prefix=$(jq -r '.addons[] | select(.name == "MenuManagerCS2") | .track_version_prefix' DEPENDENCIES.json)
-[ "$mm_track" = "latest_matching_release" ] || fail "MenuManagerCS2 must use latest_matching_release"
-mm_fixture='[{"draft":false,"tag_name":"MenuManagerCS2-1.3.01","assets":[{"name":"MenuManagerCS2-1.3.01-cssharp377.zip"}]}]'
-mm_matched_tag="$(bash -c 'source scripts/update/lib.sh; github_latest_matching_release_tag "$1" "$2" "$3"' bash "$mm_fixture" "$mm_track_asset" "$mm_track_tag_regex")" || fail "MenuManagerCS2 prefixed release tag/asset regex did not match"
-[ "$mm_matched_tag" = "MenuManagerCS2-1.3.01" ] || fail "MenuManagerCS2 selected the wrong prefixed tag: $mm_matched_tag"
-mm_matched_version="${mm_matched_tag#"$mm_version_prefix"}"
-[ "$mm_matched_version" = "1.3.01" ] || fail "MenuManagerCS2 tag prefix did not resolve to the manifest version"
-pass "MenuManagerCS2 prefixed tag and versioned CSSHarP asset are auto-resolvable"
+# GG1MapChooser and MenuManagerCS2 are supplied by the GameModeManager release,
+# so neither component may have an independent release tracker or updater adapter.
+for bundled_name in "GG1MapChooser" "MenuManagerCS2"; do
+    bundled_entry="$(jq -c --arg name "$bundled_name" '.addons[] | select(.name == $name)' DEPENDENCIES.json)"
+    [ -n "$bundled_entry" ] || fail "$bundled_name is missing from DEPENDENCIES.json"
+    printf '%s' "$bundled_entry" | jq -e '
+        .type == "bundled" and
+        .version == "bundled" and
+        .installed == true and
+        .automation_supported == false and
+        .bundled_by == "GameModeManager" and
+        (.bundle_component | type == "string" and length > 0) and
+        (.bundle_shared_dependency | type == "string" and length > 0) and
+        ((.verify_paths | length) >= 4) and
+        (has("assets") | not) and
+        (has("asset_mappings") | not) and
+        (has("track") | not)
+    ' >/dev/null || fail "$bundled_name is not configured as a verified GameModeManager bundle dependency"
+done
+[ ! -e "scripts/update/plugins/gg1mapchooser.sh" ] || fail "GG1MapChooser still has a competing standalone updater"
+[ ! -e "scripts/update/plugins/menumanagercs2.sh" ] || fail "MenuManagerCS2 still has a competing standalone updater"
+pass "GG1MapChooser and MenuManagerCS2 are bundle-only manifest dependencies with no duplicate updater"
 
 # GameModeManager must resolve through its exact slug-derived script filename.
 gmm_slug="$(bash -c 'source scripts/update/lib.sh; slugify "GameModeManager"')"
@@ -100,13 +93,31 @@ gmm_script="scripts/update/plugins/$gmm_slug.sh"
 [ -f "$gmm_script" ] || fail "GameModeManager auto-loader path is missing: $gmm_script"
 bash -n "$gmm_script" || fail "GameModeManager updater syntax is invalid"
 gmm_paths="$(bash -c 'set -Eeuo pipefail; exec 3>&1; source scripts/update/lib.sh; source "$1"; printf "%s\n" "${PLUGIN_PATHS[@]}"' bash "$gmm_script")" || fail "could not inspect GMM PLUGIN_PATHS"
-printf '%s' "$gmm_paths" | grep -Fq 'plugins/GameModeManager' || fail "GMM plugin path is missing"
-printf '%s' "$gmm_paths" | grep -Fq 'plugins/PMM_GG1MapChooser' || fail "GMM bundled PMM path is missing"
-printf '%s' "$gmm_paths" | grep -Fq 'shared/GameModeManager.Shared' || fail "GMM shared dependency path is missing"
+for required_path in \
+    "plugins/GameModeManager" \
+    "plugins/GG1MapChooser" \
+    "plugins/MenuManagerCore" \
+    "plugins/PMM_GG1MapChooser" \
+    "shared/GameModeManager.Shared" \
+    "shared/ggmcAPI" \
+    "shared/MenuManagerApi"; do
+    printf '%s' "$gmm_paths" | grep -Fq "$required_path" || fail "GMM bundled path is missing: $required_path"
+done
 if printf '%s\n' "$gmm_paths" | grep -E '(^|/)(cfg|configs)(/|$)' >/dev/null; then
     fail "GMM PLUGIN_PATHS must not include cfg or config trees"
 fi
-pass "GameModeManager slug, bundled plugins, shared API and protected configs"
+gmm_script_text="$(cat "$gmm_script")"
+for required_archive_path in \
+    'addons/counterstrikesharp/plugins/GameModeManager' \
+    'addons/counterstrikesharp/plugins/GG1MapChooser' \
+    'addons/counterstrikesharp/plugins/MenuManagerCore' \
+    'addons/counterstrikesharp/plugins/PMM_GG1MapChooser' \
+    'addons/counterstrikesharp/shared/GameModeManager.Shared' \
+    'addons/counterstrikesharp/shared/ggmcAPI' \
+    'addons/counterstrikesharp/shared/MenuManagerApi'; do
+    printf '%s' "$gmm_script_text" | grep -Fq "$required_archive_path" || fail "GMM updater is missing archive source path: $required_archive_path"
+done
+pass "GameModeManager owns all four bundled plugins and three shared APIs; cfg/configs remain protected"
 
 # MultiAddonManager is Linux-only for Pterodactyl and must choose the tested SteamRT3 asset.
 mam_runtime="$(jq -r '.architecture.pterodactyl_linux_runtime // empty' DEPENDENCIES.json)"
@@ -122,11 +133,11 @@ fi
 grep -Fq 'MultiAddonManager' scripts/update/required-script-addons.txt || fail "MultiAddonManager is not in required updater coverage"
 pass "MultiAddonManager SteamRT3 asset selection and Linux destination paths"
 
-# Manifest adapters must self-repair missing runtime files and GG1 must persist its release version.
-grep -Fq 'manifest_addon_needs_repair "GG1MapChooser"' scripts/update/plugins/gg1mapchooser.sh || fail "GG1MapChooser same-version repair is missing"
-grep -Fq 'manifest_update_version "GG1MapChooser" "$NEW_VERSION"' scripts/update/plugins/gg1mapchooser.sh || fail "GG1MapChooser release version is not persisted"
-grep -Fq 'plugin_needs_repair()' scripts/update/plugins/menumanagercs2.sh || fail "MenuManagerCS2 same-version repair is missing"
-pass "GG1MapChooser and MenuManagerCS2 dependency repair paths"
+# Same-version repair verifies the complete GameModeManager bundle, not separate adapters.
+grep -Fq 'plugin_needs_repair()' scripts/update/plugins/gamemodemanager.sh || fail "GameModeManager bundle same-version repair is missing"
+grep -Fq 'GameModeManager.Shared/GameModeManager.Shared.dll' scripts/update/plugins/gamemodemanager.sh || fail "GameModeManager shared contract verification is missing"
+grep -Fq 'MenuManagerApi/MenuManagerApi.dll' scripts/update/plugins/gamemodemanager.sh || fail "MenuManagerApi bundle verification is missing"
+pass "GameModeManager bundle same-version repair covers all bundled runtime components"
 
 # The runner must treat missing adapters on required installed rows as failures.
 grep -Fq 'is_required_script_addon "$PLUGIN_NAME"' scripts/update/update.sh || fail "update.sh does not enforce required adapter coverage"

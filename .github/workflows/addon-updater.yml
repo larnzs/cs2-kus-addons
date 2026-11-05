@@ -176,16 +176,35 @@ jobs:
           protected_after="$RUNNER_TEMP/protected-configs-after.txt"
           git ls-tree -r HEAD -- "${protected_paths[@]}" | sort > "$protected_before"
 
-          # Keep GG1MapChooser bootstrap/repair isolated whenever any required runtime
-          # file is missing. A main DLL alone is not proof that its shared API dependency
-          # was deployed, and unrelated catalog failures must not block this repair.
-          if [[ -f "game/csgo/addons/counterstrikesharp/plugins/GG1MapChooser/GG1MapChooser.dll" &&
-                -f "game/csgo/addons/counterstrikesharp/plugins/GG1MapChooser/GG1MapChooser.deps.json" &&
-                -f "game/csgo/addons/counterstrikesharp/shared/ggmcAPI/ggmcAPI.dll" ]]; then
-            bash scripts/update/update.sh
+          # GameModeManager's ZIP is the single source of truth for its four bundled
+          # plugins and three shared APIs. Repair the entire bundle if any runtime file
+          # is missing; never bootstrap GG1/MenuManager from separate release archives.
+          bundle_missing=0
+          for required in \
+            "game/csgo/addons/counterstrikesharp/plugins/GameModeManager/GameModeManager.dll" \
+            "game/csgo/addons/counterstrikesharp/plugins/GameModeManager/GameModeManager.deps.json" \
+            "game/csgo/addons/counterstrikesharp/plugins/GameModeManager/Gameloop.Vdf.dll" \
+            "game/csgo/addons/counterstrikesharp/plugins/GG1MapChooser/GG1MapChooser.dll" \
+            "game/csgo/addons/counterstrikesharp/plugins/GG1MapChooser/GG1MapChooser.deps.json" \
+            "game/csgo/addons/counterstrikesharp/plugins/MenuManagerCore/MenuManagerCore.dll" \
+            "game/csgo/addons/counterstrikesharp/plugins/MenuManagerCore/runtimes/linux-x64/native/libe_sqlite3.so" \
+            "game/csgo/addons/counterstrikesharp/plugins/MenuManagerCore/runtimes/win-x64/native/e_sqlite3.dll" \
+            "game/csgo/addons/counterstrikesharp/plugins/PMM_GG1MapChooser/PMM_GG1MapChooser.dll" \
+            "game/csgo/addons/counterstrikesharp/plugins/PMM_GG1MapChooser/PMM_GG1MapChooser.deps.json" \
+            "game/csgo/addons/counterstrikesharp/plugins/PMM_GG1MapChooser/harmony/0Harmony.dll" \
+            "game/csgo/addons/counterstrikesharp/shared/GameModeManager.Shared/GameModeManager.Shared.dll" \
+            "game/csgo/addons/counterstrikesharp/shared/ggmcAPI/ggmcAPI.dll" \
+            "game/csgo/addons/counterstrikesharp/shared/MenuManagerApi/MenuManagerApi.dll"; do
+            if [[ ! -f "$required" ]]; then
+              echo "Missing GameModeManager bundle file: $required"
+              bundle_missing=1
+            fi
+          done
+          if [[ "$bundle_missing" -eq 1 ]]; then
+            echo "GameModeManager bundle is incomplete; repairing all bundled components."
+            bash scripts/update/update.sh --only gamemodemanager
           else
-            echo "GG1MapChooser payload or shared dependency is missing; repairing only GG1MapChooser."
-            bash scripts/update/update.sh --only gg1mapchooser
+            bash scripts/update/update.sh
           fi
 
           # The shell updater creates local commits before publishing. Compare the
@@ -479,12 +498,70 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $selected = @("SLAYER_AntiCamp", "SLAYER_HeadshotOnly", "CS2-TeamLimiter", "cs2-showdamage", "CS2-KillFeedFilter", "GG1MapChooser", "MenuManagerCS2")
+          $selected = @("SLAYER_AntiCamp", "SLAYER_HeadshotOnly", "CS2-TeamLimiter", "cs2-showdamage", "CS2-KillFeedFilter")
           $ErrorActionPreference = "Stop"
           & ".\scripts\Inspect-Releases.ps1" -Only $selected
           if (-not $?) {
             throw "Explicit release archive mapping smoke test failed."
           }
+
+      - name: Smoke-test GameModeManager bundled release archive
+        if: github.event_name != 'schedule'
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $readme = Get-Content -LiteralPath ".\README.md" -Raw
+          $versionMatch = [regex]::Match($readme, '(?m)^\|\s*\[GameModeManager\]\(https://github\.com/nickj609/GameModeManager\)\s*\|\s*`([^`]+)`\s*\|')
+          if (-not $versionMatch.Success) { throw "Could not read GameModeManager version from README." }
+          $version = $versionMatch.Groups[1].Value
+          $headers = @{
+            Authorization = "Bearer $env:GITHUB_TOKEN"
+            "X-GitHub-Api-Version" = "2022-11-28"
+            "User-Agent" = "cs2-kus-addons-updater-validation"
+          }
+          $release = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/nickj609/GameModeManager/releases/tags/v$version"
+          $assetName = "GameModeManager_v$version.zip"
+          $asset = @($release.assets | Where-Object name -eq $assetName) | Select-Object -First 1
+          if (-not $asset) { throw "GameModeManager release v$version has no $assetName asset." }
+          $zipPath = Join-Path $env:RUNNER_TEMP $assetName
+          $extractPath = Join-Path $env:RUNNER_TEMP "gmm-bundle-$version"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath
+          Expand-Archive -LiteralPath $zipPath -DestinationPath $extractPath -Force
+          foreach ($rootFolder in @("addons", "cfg")) {
+            if (-not (Test-Path -LiteralPath (Join-Path $extractPath $rootFolder) -PathType Container)) {
+              throw "GameModeManager ZIP is missing root folder '$rootFolder'."
+            }
+          }
+          $bundleRoot = Join-Path $extractPath "addons\counterstrikesharp"
+          $requiredFiles = @(
+            "plugins\GameModeManager\GameModeManager.dll",
+            "plugins\GameModeManager\GameModeManager.deps.json",
+            "plugins\GameModeManager\Gameloop.Vdf.dll",
+            "plugins\GG1MapChooser\GG1MapChooser.dll",
+            "plugins\GG1MapChooser\GG1MapChooser.deps.json",
+            "plugins\MenuManagerCore\MenuManagerCore.dll",
+            "plugins\MenuManagerCore\MenuManagerCore.deps.json",
+            "plugins\MenuManagerCore\runtimes\linux-x64\native\libe_sqlite3.so",
+            "plugins\MenuManagerCore\runtimes\win-x64\native\e_sqlite3.dll",
+            "plugins\PMM_GG1MapChooser\PMM_GG1MapChooser.dll",
+            "plugins\PMM_GG1MapChooser\PMM_GG1MapChooser.deps.json",
+            "plugins\PMM_GG1MapChooser\harmony\0Harmony.dll",
+            "shared\GameModeManager.Shared\GameModeManager.Shared.dll",
+            "shared\GameModeManager.Shared\GameModeManager.Shared.deps.json",
+            "shared\ggmcAPI\ggmcAPI.dll",
+            "shared\ggmcAPI\ggmcAPI.deps.json",
+            "shared\MenuManagerApi\MenuManagerApi.dll",
+            "shared\MenuManagerApi\MenuManagerApi.deps.json"
+          )
+          foreach ($relative in $requiredFiles) {
+            $path = Join-Path $bundleRoot $relative
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+              throw "GameModeManager $version bundle is missing expected file: $relative"
+            }
+          }
+          Write-Host "Verified GameModeManager $version ZIP root and all four plugin / three shared dependency payloads."
 
       - name: Validate manifest and automation policy
         shell: pwsh
@@ -541,6 +618,39 @@ jobs:
           if ($weaponPaints.PSObject.Properties.Name -contains "automation_supported" -and
               -not [bool]$weaponPaints.automation_supported) {
             throw "WeaponPaints must be managed by the stable-release updater."
+          }
+
+          foreach ($bundlePolicy in @(
+            @{ name = "GG1MapChooser"; component = "GG1MapChooser"; shared = "ggmcAPI"; verify = @(
+              "addons/counterstrikesharp/plugins/GG1MapChooser/GG1MapChooser.dll",
+              "addons/counterstrikesharp/shared/ggmcAPI/ggmcAPI.dll"
+            ) },
+            @{ name = "MenuManagerCS2"; component = "MenuManagerCore"; shared = "MenuManagerApi"; verify = @(
+              "addons/counterstrikesharp/plugins/MenuManagerCore/MenuManagerCore.dll",
+              "addons/counterstrikesharp/plugins/MenuManagerCore/runtimes/linux-x64/native/libe_sqlite3.so",
+              "addons/counterstrikesharp/plugins/MenuManagerCore/runtimes/win-x64/native/e_sqlite3.dll",
+              "addons/counterstrikesharp/shared/MenuManagerApi/MenuManagerApi.dll"
+            ) }
+          )) {
+            $bundled = @($manifest.addons | Where-Object name -eq $bundlePolicy.name) | Select-Object -First 1
+            if (-not $bundled -or [string]$bundled.type -ne "bundled" -or
+                [string]$bundled.version -ne "bundled" -or
+                [bool]$bundled.automation_supported -or
+                [string]$bundled.bundled_by -ne "GameModeManager" -or
+                [string]$bundled.bundle_component -ne $bundlePolicy.component -or
+                [string]$bundled.bundle_shared_dependency -ne $bundlePolicy.shared) {
+              throw "$($bundlePolicy.name) must be a non-automated GameModeManager bundle dependency."
+            }
+            foreach ($requiredPath in $bundlePolicy.verify) {
+              if (@($bundled.verify_paths | Where-Object { [string]$_ -eq $requiredPath }).Count -ne 1) {
+                throw "$($bundlePolicy.name) verification is missing '$requiredPath'."
+              }
+            }
+            foreach ($forbiddenField in @("assets", "asset_mappings", "track", "track_asset", "release_tag")) {
+              if ($bundled.PSObject.Properties.Name -contains $forbiddenField) {
+                throw "$($bundlePolicy.name) must not retain independent release tracking field '$forbiddenField'."
+              }
+            }
           }
 
           $automated = @($manifest.addons | Where-Object {
@@ -687,7 +797,10 @@ jobs:
 
           foreach ($addon in $addons) {
             $expectedVersion = [string]$addon.version
-            if ([string]$addon.type -eq "github_source_build" -and
+            if ($addon.PSObject.Properties.Name -contains "bundled_by") {
+              $expectedVersion = "bundled"
+            }
+            elseif ([string]$addon.type -eq "github_source_build" -and
                 -not [string]::IsNullOrWhiteSpace([string]$addon.branch)) {
               $shortCommit = $expectedVersion.Substring(0, [Math]::Min(12, $expectedVersion.Length))
               $expectedVersion = "$([string]$addon.branch)@$shortCommit"

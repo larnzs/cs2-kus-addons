@@ -1340,6 +1340,21 @@ foreach ($addon in $addons) {
     }
 }
 
+# Bundle-only entries are dependencies for other add-ons, not independent release
+# updates. Verify their owner-provided files before any -Only filtering takes place.
+foreach ($bundledAddon in @($addons | Where-Object {
+    $_.PSObject.Properties.Name -contains "bundled_by" -and
+    -not [string]::IsNullOrWhiteSpace([string]$_.bundled_by)
+})) {
+    $bundleMissingFiles = @(Get-AddonMissingFiles $bundledAddon)
+    $bundleAvailable = [bool]$bundledAddon.installed -and $bundleMissingFiles.Count -eq 0
+    $available[$bundledAddon.name] = $bundleAvailable
+    if (-not $bundleAvailable) {
+        Write-Warn ("Bundled dependency '{0}' from '{1}' is incomplete:" -f $bundledAddon.name, [string]$bundledAddon.bundled_by)
+        foreach ($missing in $bundleMissingFiles) { Write-Warn ("  " + $missing) }
+    }
+}
+
 
 if ($Only) {
     $selected = @(
@@ -1373,7 +1388,16 @@ foreach ($addon in $addons) {
 
     if ($addon.PSObject.Properties.Name -contains "automation_supported" -and
         -not [bool]$addon.automation_supported) {
-        Write-Warn "This addon is tracked in the manifest but is not automated by this updater."
+        if ($addon.PSObject.Properties.Name -contains "bundled_by" -and
+            -not [string]::IsNullOrWhiteSpace([string]$addon.bundled_by)) {
+            if (-not [bool]$available[$addon.name]) {
+                throw ("Bundled dependency '{0}' is incomplete. Run scripts/update/update.sh --only gamemodemanager before updating dependents." -f $addon.name)
+            }
+            Write-Info ("Verified {0} from bundled package '{1}'." -f $addon.name, [string]$addon.bundled_by)
+        }
+        else {
+            Write-Warn "This addon is tracked in the manifest but is not automated by this updater."
+        }
         continue
     }
 

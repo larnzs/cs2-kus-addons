@@ -43,7 +43,7 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 | [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) | `1.0.379` | Windows with-runtime files (including bundled .NET) are staged under `game/csgo/addons/windows/addons/counterstrikesharp/`; the shared/Linux payload remains under `game/csgo/addons/counterstrikesharp/`. |
 | [AnyBaseLibCS2](https://github.com/NickFox007/AnyBaseLibCS2) | `0.9.4` | Shared database/API library |
 | [PlayerSettingsCS2](https://github.com/NickFox007/PlayerSettingsCS2) | `0.9.4` | Persistent player settings |
-| [MenuManagerCS2](https://github.com/RRimmer/PanoramaMenuManagerCS2) | `1.3.01` | Panorama menu core/API used by GameModeManager 2.x; managed separately from GMM. |
+| [MenuManagerCS2](https://github.com/RRimmer/PanoramaMenuManagerCS2) | `bundled` | `MenuManagerCore` and `MenuManagerApi` are shipped and updated only through the GameModeManager bundle. |
 | [CS2-SimpleAdmin](https://github.com/daffyyyy/CS2-SimpleAdmin) | `1.9.1` | Additional administration features |
 | [WeaponPaints](https://github.com/Nereziel/cs2-WeaponPaints) | `472` | Player-side weapon customization |
 | [AFKManager](https://github.com/NiGHT757/AFKManager) | `0.2.8` | Stored under `plugins/disabled/`; selectively loaded by allowlisted public-mode CFGs |
@@ -65,7 +65,7 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 | [CS2-KillFeedFilter](https://github.com/abnerfs/cs2-killfeed-filter) | `1.0.1` | Killfeed filtering; disabled for game-mode-specific activation |
 | [AdvancedFriendlyFire](https://github.com/mister-keno/advanced-ff-cs2) | `main@ab332f0b5923` | Friendly-fire damage tracking and configured punishments; disabled for game-mode-specific activation |
 | [CS2-Gunsmenu](https://github.com/asapverneri/CS2-Gunsmenu) | `main@ec5dbdd99b23` | Player weapon-selection menus; disabled for game-mode-specific activation; not installed and marked manual in the Larnz manifest |
-| [GG1MapChooser](https://github.com/ssypchenko/GG1MapChooser) | `1.8.1` | Map voting with RTV, nominations, map pools and map rotation; includes the shared `ggmcAPI` dependency. |
+| [GG1MapChooser](https://github.com/ssypchenko/GG1MapChooser) | `bundled` | `GG1MapChooser` and `ggmcAPI` are shipped and updated only through the GameModeManager bundle. |
 | [cs2-tags](https://github.com/CounterStrike2-Plugins-Archive/cs2-tags) | `1.15` | Player score/chat tags and the shared TagsApi required by SharpTimer. |
 | [SharpTimer](https://github.com/SharpTimer/SharpTimer) | `0.4.2` | Surf/Bhop/Deathrun timer; staged under `plugins/disabled/SharpTimer` by default. |
 | [CS2FaceitLevels](https://github.com/Staaar0/cs2-FaceitLevels) | `1.1.4-123` | Native MetaMod plugin for FACEIT scoreboard levels, ELO lookup (`!elo` / `!elos`) and player badges. |
@@ -75,7 +75,7 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 
 - CS2FaceitLevels depends only on MetaMod:Source. Its API-key file is generated at runtime at `game/csgo/addons/CS2FaceitLevels/CS2FaceitLevels.json`; the updater excludes that file and manages only the binaries, gamedata and MetaMod VDF.
 - CounterStrikeSharp provides the runtime required by the managed CounterStrikeSharp plugins.
-- AnyBaseLibCS2, PlayerSettingsCS2 and MenuManagerCS2 provide shared APIs used by dependent plugins.
+- AnyBaseLibCS2 and PlayerSettingsCS2 provide shared APIs; the MenuManager API is supplied by the GameModeManager bundle.
 - The release updater keeps the manifest, versions and runtime file layout synchronized. Fixed configuration paths are deliberately protected from incoming add-on release archives.
 - `game/csgo/addons/counterstrikesharp/configs/` (and the matching Windows-overlay path) remains manually managed, except for the narrowly allowlisted `plugins/cs2-tags/` sample-config directory. The updater may overlay the upstream `cs2-tags-example.toml` there; all other CSS configs stay protected and are checked by CI.
 
@@ -172,7 +172,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | [CS2Fixes-RampbugFix](https://github.com/Interesting-exe/CS2Fixes-RampbugFix) | `5-1` | Minimizes rampbugs (needs to be enabled via `!settings` [How?](#i-run-a-surfkzbhop-server-and-want-movementunlocker-and-cs2fixes-rampbugfix-permanently-enabled)) |
 | [CS2_ExecAfter](https://github.com/kus/CS2_ExecAfter) | `1.0.0` | Executes a command after server event (i.e. OnMapStart) or a delay. |
 | [CS2 Remove Map Weapons](https://github.com/kus/CS2-Remove-Map-Weapons) | `1.0.1` | Remove weapons from the map in CS2 as `mp_weapons_allow_map_placed 0` does not work. |
-| [GameModeManager](https://github.com/nickj609/GameModeManager) | `2.0.0` | Configurable game modes, settings, map groups and rotations; uses GG1MapChooser and PanoramaMenuManager APIs. |
+| [GameModeManager](https://github.com/nickj609/GameModeManager) | `2.0.0` | Configurable game modes, settings, map groups and rotations; its release bundles GG1MapChooser, MenuManagerCore, PMM_GG1MapChooser and all three shared APIs. |
 | [Inventory Simulator](https://github.com/ianlucas/cs2-css-inventory-simulator) | `3.8.0` | Use any Weapon, Knife, Gloves, Agent, Music Kit, Pin or Graffiti. [How?](#skin-changer) |
 | [CS2-PlayerModelChanger](https://github.com/samyycX/CS2-PlayerModelChanger) | `1.8.6` | A lightweighted counterstrikesharp plugin to change player model. [How?](#model-changer) |
 | [MatchZy](https://github.com/shobhit-pathak/MatchZy) | `0.9.2` | MatchZy is a plugin for CS2 for running and managing practice/pugs/scrims/matches with easy configuration! |
@@ -224,7 +224,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | CS2Fixes-RampbugFix | Base native add-on | No script; release updates are warned about and skipped |
 | CS2_ExecAfter | Default CounterStrikeSharp plugin | No script; release updates are warned about and skipped |
 | CS2 Remove Map Weapons | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
-| GameModeManager | Default CounterStrikeSharp plugin | Script: `gamemodemanager.sh`; updates GameModeManager, PMM_GG1MapChooser and shared/GameModeManager.Shared while preserving config and cfg trees. |
+| GameModeManager | Default CounterStrikeSharp plugin | Script: `gamemodemanager.sh`; owns all four bundled plugin folders and all three shared API folders from `addons/counterstrikesharp/`. Copies no `cfg/` or CounterStrikeSharp `configs/` content. |
 | Inventory Simulator | Default CounterStrikeSharp plugin | Script: `inventory-simulator.sh` |
 | CS2-PlayerModelChanger | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | MatchZy | Mode-specific plugin staged under `plugins/disabled/` | Script: `matchzy.sh` |
@@ -236,7 +236,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | SharpTimer | Mode-specific plugin staged under `plugins/disabled/SharpTimer/` | Manifest adapter: `sharptimer.sh`; `cfg/SharpTimer/` remains operator-managed |
 | STFixes | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | GunGame | Mode-specific plugin staged under `plugins/disabled/` | Script: `gungame.sh` |
-| GG1MapChooser | Default CounterStrikeSharp plugin for RTV and map selection | Script: `gg1mapchooser.sh` |
+| GG1MapChooser | Default CounterStrikeSharp plugin for RTV and map selection | Bundled with GameModeManager; updated through `gamemodemanager.sh`. |
 | K4-Arenas | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | CS2 Retakes | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-retakes.sh` |
 | CS2 Instadefuse | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |

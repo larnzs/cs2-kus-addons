@@ -1,87 +1,103 @@
 #!/usr/bin/env bash
-# Updater for GameModeManager 2.x.
-# The release owns GameModeManager, its shared contract assembly and the
-# bundled PMM_GG1MapChooser plugin. GG1MapChooser and MenuManagerCore remain
-# independently managed so this adapter never overwrites their runtime files.
+# GameModeManager 2.x owns its complete bundled plugin/runtime set.
+# The official ZIP root is addons/ and cfg/. Only the seven explicitly listed
+# subdirectories under addons/counterstrikesharp are ever copied.
 PLUGIN_PATHS=(
     "game/csgo/addons/counterstrikesharp/plugins/GameModeManager"
+    "game/csgo/addons/counterstrikesharp/plugins/GG1MapChooser"
+    "game/csgo/addons/counterstrikesharp/plugins/MenuManagerCore"
     "game/csgo/addons/counterstrikesharp/plugins/PMM_GG1MapChooser"
     "game/csgo/addons/counterstrikesharp/shared/GameModeManager.Shared"
+    "game/csgo/addons/counterstrikesharp/shared/ggmcAPI"
+    "game/csgo/addons/counterstrikesharp/shared/MenuManagerApi"
 )
 
-plugin_assets() {
-    printf 'GameModeManager_v%s.zip\n' "$NEW_VERSION"
-}
-
-plugin_preflight() {
-    require_dir "game/csgo/addons/counterstrikesharp/plugins"
-    require_file "game/csgo/addons/counterstrikesharp/plugins/GG1MapChooser/GG1MapChooser.dll"
-    require_file "game/csgo/addons/counterstrikesharp/shared/ggmcAPI/ggmcAPI.dll"
-    require_file "game/csgo/addons/counterstrikesharp/plugins/MenuManagerCore/MenuManagerCore.dll"
-    require_file "game/csgo/addons/counterstrikesharp/shared/MenuManagerApi/MenuManagerApi.dll"
-}
+plugin_assets() { printf 'GameModeManager_v%s.zip\n' "$NEW_VERSION"; }
 
 plugin_needs_repair() {
-    local gmm="game/csgo/addons/counterstrikesharp/plugins/GameModeManager"
-    local pmm="game/csgo/addons/counterstrikesharp/plugins/PMM_GG1MapChooser"
-    local shared="game/csgo/addons/counterstrikesharp/shared/GameModeManager.Shared"
-
-    [[ ! -f "$gmm/GameModeManager.dll" ||
-       ! -f "$gmm/GameModeManager.deps.json" ||
-       ! -f "$gmm/Gameloop.Vdf.dll" ||
-       ! -f "$gmm/lang/en.json" ||
-       ! -f "$pmm/PMM_GG1MapChooser.dll" ||
-       ! -f "$pmm/PMM_GG1MapChooser.deps.json" ||
-       ! -f "$pmm/harmony/0Harmony.dll" ||
-       ! -f "$shared/GameModeManager.Shared.dll" ||
-       ! -f "$shared/GameModeManager.Shared.deps.json" ]]
+    local root="game/csgo/addons/counterstrikesharp" required
+    local -a required_files=(
+        "$root/plugins/GameModeManager/GameModeManager.dll"
+        "$root/plugins/GameModeManager/GameModeManager.deps.json"
+        "$root/plugins/GameModeManager/Gameloop.Vdf.dll"
+        "$root/plugins/GameModeManager/lang/en.json"
+        "$root/plugins/GG1MapChooser/GG1MapChooser.dll"
+        "$root/plugins/GG1MapChooser/GG1MapChooser.deps.json"
+        "$root/plugins/GG1MapChooser/lang/en.json"
+        "$root/plugins/MenuManagerCore/MenuManagerCore.dll"
+        "$root/plugins/MenuManagerCore/MenuManagerCore.deps.json"
+        "$root/plugins/MenuManagerCore/runtimes/linux-x64/native/libe_sqlite3.so"
+        "$root/plugins/MenuManagerCore/runtimes/win-x64/native/e_sqlite3.dll"
+        "$root/plugins/PMM_GG1MapChooser/PMM_GG1MapChooser.dll"
+        "$root/plugins/PMM_GG1MapChooser/PMM_GG1MapChooser.deps.json"
+        "$root/plugins/PMM_GG1MapChooser/harmony/0Harmony.dll"
+        "$root/plugins/PMM_GG1MapChooser/lang/en.json"
+        "$root/shared/GameModeManager.Shared/GameModeManager.Shared.dll"
+        "$root/shared/GameModeManager.Shared/GameModeManager.Shared.deps.json"
+        "$root/shared/ggmcAPI/ggmcAPI.dll"
+        "$root/shared/ggmcAPI/ggmcAPI.deps.json"
+        "$root/shared/MenuManagerApi/MenuManagerApi.dll"
+        "$root/shared/MenuManagerApi/MenuManagerApi.deps.json"
+    )
+    for required in "${required_files[@]}"; do [[ -f "$required" ]] || return 0; done
+    return 1
 }
 
 plugin_apply() {
-    local x file source
-    local -a gmm=() pmm=() shared=()
-
+    local extract_root source_root relative source destination
+    local -a bundle_dirs=(
+        "plugins/GameModeManager"
+        "plugins/GG1MapChooser"
+        "plugins/MenuManagerCore"
+        "plugins/PMM_GG1MapChooser"
+        "shared/GameModeManager.Shared"
+        "shared/ggmcAPI"
+        "shared/MenuManagerApi"
+    )
     if is_dry; then
         dry "extract GameModeManager_v${NEW_VERSION}.zip"
-        dry "overlay GameModeManager/ -> addons/counterstrikesharp/plugins/GameModeManager/"
-        dry "overlay PMM_GG1MapChooser/ -> addons/counterstrikesharp/plugins/PMM_GG1MapChooser/"
-        dry "overlay GameModeManager.Shared/ -> addons/counterstrikesharp/shared/GameModeManager.Shared/"
-        dry "preserve GameModeManager.json, PMM_GG1MapChooser.json and all cfg/config trees"
+        dry "overlay addons/counterstrikesharp/{plugins/GameModeManager,GG1MapChooser,MenuManagerCore,PMM_GG1MapChooser}"
+        dry "overlay addons/counterstrikesharp/shared/{GameModeManager.Shared,ggmcAPI,MenuManagerApi}"
+        dry "preserve ZIP cfg/, CounterStrikeSharp configs/, and generated configuration files"
         return 0
     fi
 
-    x=$(extract_asset "GameModeManager_v${NEW_VERSION}.zip")
+    extract_root=$(extract_asset "GameModeManager_v${NEW_VERSION}.zip")
+    source_root="$extract_root/addons/counterstrikesharp"
+    require_dir "$extract_root/addons"
+    require_dir "$source_root/plugins"
+    require_dir "$source_root/shared"
 
-    while IFS= read -r -d '' file; do gmm+=("$file"); done \
-        < <(find "$x" -type f -name 'GameModeManager.dll' -print0)
-    while IFS= read -r -d '' file; do pmm+=("$file"); done \
-        < <(find "$x" -type f -name 'PMM_GG1MapChooser.dll' -print0)
-    while IFS= read -r -d '' file; do shared+=("$file"); done \
-        < <(find "$x" -type f -name 'GameModeManager.Shared.dll' -print0)
+    # Validate every component before writing any destination.
+    require_file "$source_root/plugins/GameModeManager/GameModeManager.dll"
+    require_file "$source_root/plugins/GameModeManager/GameModeManager.deps.json"
+    require_file "$source_root/plugins/GameModeManager/Gameloop.Vdf.dll"
+    require_file "$source_root/plugins/GameModeManager/lang/en.json"
+    require_file "$source_root/plugins/GG1MapChooser/GG1MapChooser.dll"
+    require_file "$source_root/plugins/GG1MapChooser/GG1MapChooser.deps.json"
+    require_file "$source_root/plugins/GG1MapChooser/lang/en.json"
+    require_file "$source_root/plugins/MenuManagerCore/MenuManagerCore.dll"
+    require_file "$source_root/plugins/MenuManagerCore/MenuManagerCore.deps.json"
+    require_file "$source_root/plugins/MenuManagerCore/runtimes/linux-x64/native/libe_sqlite3.so"
+    require_file "$source_root/plugins/MenuManagerCore/runtimes/win-x64/native/e_sqlite3.dll"
+    require_file "$source_root/plugins/PMM_GG1MapChooser/PMM_GG1MapChooser.dll"
+    require_file "$source_root/plugins/PMM_GG1MapChooser/PMM_GG1MapChooser.deps.json"
+    require_file "$source_root/plugins/PMM_GG1MapChooser/harmony/0Harmony.dll"
+    require_file "$source_root/plugins/PMM_GG1MapChooser/lang/en.json"
+    require_file "$source_root/shared/GameModeManager.Shared/GameModeManager.Shared.dll"
+    require_file "$source_root/shared/GameModeManager.Shared/GameModeManager.Shared.deps.json"
+    require_file "$source_root/shared/ggmcAPI/ggmcAPI.dll"
+    require_file "$source_root/shared/ggmcAPI/ggmcAPI.deps.json"
+    require_file "$source_root/shared/MenuManagerApi/MenuManagerApi.dll"
+    require_file "$source_root/shared/MenuManagerApi/MenuManagerApi.deps.json"
 
-    [[ ${#gmm[@]} -eq 1 ]] || die "Expected exactly one GameModeManager.dll in release archive; found ${#gmm[@]}."
-    [[ ${#pmm[@]} -eq 1 ]] || die "Expected exactly one PMM_GG1MapChooser.dll in release archive; found ${#pmm[@]}."
-    [[ ${#shared[@]} -eq 1 ]] || die "Expected exactly one GameModeManager.Shared.dll in release archive; found ${#shared[@]}."
-
-    source=$(dirname "${gmm[0]}")
-    require_file "$source/GameModeManager.deps.json"
-    require_file "$source/Gameloop.Vdf.dll"
-    copy_dir "$source" "game/csgo/addons/counterstrikesharp/plugins/GameModeManager"
-
-    source=$(dirname "${pmm[0]}")
-    require_file "$source/PMM_GG1MapChooser.deps.json"
-    require_file "$source/harmony/0Harmony.dll"
-    copy_dir "$source" "game/csgo/addons/counterstrikesharp/plugins/PMM_GG1MapChooser"
-
-    source=$(dirname "${shared[0]}")
-    require_file "$source/GameModeManager.Shared.deps.json"
-    copy_dir "$source" "game/csgo/addons/counterstrikesharp/shared/GameModeManager.Shared"
-
-    require_file "game/csgo/addons/counterstrikesharp/plugins/GameModeManager/GameModeManager.dll"
-    require_file "game/csgo/addons/counterstrikesharp/plugins/PMM_GG1MapChooser/PMM_GG1MapChooser.dll"
-    require_file "game/csgo/addons/counterstrikesharp/shared/GameModeManager.Shared/GameModeManager.Shared.dll"
-
-    warn "GameModeManager 2.x has a config migration; GameModeManager.json was not changed."
-    warn "The release cfg/ tree and all CounterStrikeSharp configs were excluded from this update."
-    remove_extracted "$x"
+    for relative in "${bundle_dirs[@]}"; do
+        source="$source_root/$relative"
+        destination="game/csgo/addons/counterstrikesharp/$relative"
+        require_dir "$source"
+        copy_dir "$source" "$destination"
+    done
+    plugin_needs_repair && die "GameModeManager bundle verification failed after overlay."
+    warn "Operator-owned configs/ and the release cfg/ directory were not copied."
+    remove_extracted "$extract_root"
 }

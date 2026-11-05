@@ -142,38 +142,22 @@
       "order": 4,
       "name": "MenuManagerCS2",
       "repository": "https://github.com/RRimmer/PanoramaMenuManagerCS2",
-      "type": "github_release",
-      "track": "latest_matching_release",
-      "version": "1.3.01",
-      "release_tag": "MenuManagerCS2-1.3.01",
-      "assets": [
-        "MenuManagerCS2-{version}-cssharp*.zip"
-      ],
+      "type": "bundled",
+      "version": "bundled",
       "depends_on": [
         "CounterStrikeSharp"
       ],
       "installed": true,
-      "merge": "release_plugin_directory",
       "verify_paths": [
         "addons/counterstrikesharp/plugins/MenuManagerCore/MenuManagerCore.dll",
         "addons/counterstrikesharp/plugins/MenuManagerCore/runtimes/linux-x64/native/libe_sqlite3.so",
         "addons/counterstrikesharp/plugins/MenuManagerCore/runtimes/win-x64/native/e_sqlite3.dll",
         "addons/counterstrikesharp/shared/MenuManagerApi/MenuManagerApi.dll"
       ],
-      "source_path": "Server-plugins/addons",
-      "install_path": "addons",
-      "asset_mappings": {
-        "MenuManagerCS2-{version}-cssharp*.zip": [
-          {
-            "merge": "release_plugin_directory",
-            "source_path": "Server-plugins/addons",
-            "install_path": "addons"
-          }
-        ]
-      },
-      "track_asset": "regex:^MenuManagerCS2-[0-9]+\\.[0-9]+\\.[0-9]+-cssharp[0-9]+\\.zip$",
-      "track_tag_regex": "^MenuManagerCS2-[0-9]+\\.[0-9]+\\.[0-9]+$",
-      "track_version_prefix": "MenuManagerCS2-"
+      "automation_supported": false,
+      "bundled_by": "GameModeManager",
+      "bundle_component": "MenuManagerCore",
+      "bundle_shared_dependency": "MenuManagerApi"
     },
     {
       "order": 5,
@@ -724,36 +708,23 @@
       "order": 28,
       "name": "GG1MapChooser",
       "repository": "https://github.com/ssypchenko/GG1MapChooser",
-      "type": "github_release",
-      "track": "latest",
-      "version": "1.8.1",
-      "release_tag": "1.8.1",
-      "assets": [
-        "GG1MapChooser.{version}.zip"
-      ],
+      "type": "bundled",
+      "version": "bundled",
       "depends_on": [
         "CounterStrikeSharp"
       ],
       "installed": true,
-      "merge": "release_plugin_pair",
-      "asset_mappings": {
-        "GG1MapChooser.{version}.zip": [
-          {
-            "merge": "release_plugin_pair",
-            "plugin_file": "GG1MapChooser.dll",
-            "plugin_install_path": "addons/counterstrikesharp/plugins/GG1MapChooser",
-            "shared_file": "ggmcAPI.dll",
-            "shared_install_path": "addons/counterstrikesharp/shared/ggmcAPI"
-          }
-        ]
-      },
       "verify_paths": [
         "addons/counterstrikesharp/plugins/GG1MapChooser/GG1MapChooser.dll",
         "addons/counterstrikesharp/plugins/GG1MapChooser/GG1MapChooser.deps.json",
         "addons/counterstrikesharp/plugins/GG1MapChooser/lang/en.json",
         "addons/counterstrikesharp/shared/ggmcAPI/ggmcAPI.dll",
         "addons/counterstrikesharp/shared/ggmcAPI/ggmcAPI.deps.json"
-      ]
+      ],
+      "automation_supported": false,
+      "bundled_by": "GameModeManager",
+      "bundle_component": "GG1MapChooser",
+      "bundle_shared_dependency": "ggmcAPI"
     },
     {
       "order": 29,
