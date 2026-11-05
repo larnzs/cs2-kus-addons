@@ -92,6 +92,18 @@ function Get-ReleaseForAddon($Addon) {
             throw "Add-on '$($Addon.name)' uses latest_matching_release but is missing track_asset or track_tag_regex."
         }
 
+        # Module-only VIPCore archives are incremental. If any declared module DLL
+        # is missing, repair from the newest full release archive instead.
+        $missingRuntimeFiles = @(Get-AddonMissingFiles $Addon)
+        if ($missingRuntimeFiles.Count -gt 0) {
+            $repairPattern = [string]$Addon.repair_track_tag_regex
+            if ([string]::IsNullOrWhiteSpace($repairPattern)) {
+                throw "Add-on '$($Addon.name)' is missing repair_track_tag_regex."
+            }
+            $tagPattern = $repairPattern
+            Write-Warn ("Required files are missing; resolving a full repair release for {0}." -f $Addon.name)
+        }
+
         $releases = Invoke-GitHubApi "https://api.github.com/repos/$repo/releases?per_page=100"
         $release = @(
             $releases | Where-Object {

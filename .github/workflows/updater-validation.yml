@@ -126,6 +126,10 @@ jobs:
 )"
           [[ "$matched" == "v2.0.4" ]] || { echo "ERROR: expected later full release, got '$matched'." >&2; exit 1; }
 
+          full_repair_pattern="$(jq -r '.addons[] | select(.name == "VIPCore Modules") | .repair_track_tag_regex' DEPENDENCIES.json)"
+          full_repair_tag="$(github_latest_matching_release_tag "$releases_fixture" "VIP_Modules.zip" "$full_repair_pattern")"
+          [[ "$full_repair_tag" == "v2.0.3" ]] || { echo "ERROR: full repair selector should choose v2.0.3, got '$full_repair_tag'." >&2; exit 1; }
+
           jq -e '.addons[] | select(.name == "VIPCore") | .installed == true and (.depends_on | index("Metamod:Source") != null) and (.verify_paths | index("addons/counterstrikesharp/shared/VipCoreApi/VipCoreApi.dll") != null)' DEPENDENCIES.json >/dev/null
           jq -e '.addons[] | select(.name == "VIPCore") | (.asset_mappings["VIPCore.zip"] | length == 2 and any(.[]; .source_path_mode == "csgo_root" and .source_path == "addons/counterstrikesharp/plugins/VIPCore" and .install_path == "addons/counterstrikesharp/plugins/VIPCore") and any(.[]; .source_path_mode == "csgo_root" and .source_path == "addons/counterstrikesharp/shared/VipCoreApi" and .install_path == "addons/counterstrikesharp/shared/VipCoreApi"))' DEPENDENCIES.json >/dev/null
           [[ "$(jq -r '.addons[] | select(.name == "VIPCore Modules") | .asset_mappings["VIP_Modules.zip"].source_path_mode' DEPENDENCIES.json)" == "archive_root" ]] || {
