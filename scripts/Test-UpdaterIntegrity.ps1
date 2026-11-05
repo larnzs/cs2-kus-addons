@@ -95,6 +95,19 @@ try {
                 $hasInstallPath = -not [string]::IsNullOrWhiteSpace([string]$addon.install_path)
             }
             Assert-Condition ($hasInstallDirectory -or $hasInstallPath) "Source-built add-on '$($addon.name)' has no destination."
+        } elseif ($addon.type -eq "bundled") {
+            Assert-Condition (-not [bool]$addon.automation_supported) "Bundled add-on '$($addon.name)' must not have an independent updater."
+            Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$addon.bundled_by)) "Bundled add-on '$($addon.name)' has no bundle owner."
+            Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$addon.bundle_component)) "Bundled add-on '$($addon.name)' has no component directory."
+            Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$addon.bundle_shared_dependency)) "Bundled add-on '$($addon.name)' has no shared dependency directory."
+            Assert-Condition (@($addon.verify_paths).Count -gt 0) "Bundled add-on '$($addon.name)' has no verify_paths."
+            foreach ($forbiddenField in @("assets", "asset_mappings", "track", "track_asset", "release_tag", "merge")) {
+                Assert-Condition (-not ($addon.PSObject.Properties.Name -contains $forbiddenField)) "Bundled add-on '$($addon.name)' must not have independent release field '$forbiddenField'."
+            }
+            foreach ($verifyPath in @($addon.verify_paths)) {
+                $relative = ([string]$verifyPath).Replace("/", "\")
+                Assert-Condition (Test-Path -LiteralPath (Join-Path (Join-Path $repoRoot "game/csgo") $relative) -PathType Leaf) "Missing bundled runtime file for '$($addon.name)': $verifyPath"
+            }
         } else {
             throw "TEST FAILED: unsupported add-on type '$($addon.type)'."
         }
