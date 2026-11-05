@@ -347,7 +347,7 @@ process_manifest_addons() {
         info "skipping Larnz-managed addons because a prior KUS addon update failed"
         return 0
     fi
-    local entry name url version track type branch latest repo automation slug track_asset track_tag_regex release_json
+    local entry name url version track type branch latest repo automation slug track_asset track_tag_regex track_version_prefix release_json
     while IFS= read -r entry; do
         [ -n "$entry" ] || continue
         if [ "$STOP_RUN" = 1 ]; then
@@ -389,6 +389,7 @@ process_manifest_addons() {
             repo=$(github_repo_from_url "$url")
             track_asset=$(printf '%s' "$entry" | jq -r '.track_asset // empty')
             track_tag_regex=$(printf '%s' "$entry" | jq -r '.track_tag_regex // empty')
+            track_version_prefix=$(printf '%s' "$entry" | jq -r '.track_version_prefix // empty')
             if [ -z "$repo" ] || [ -z "$track_asset" ] || [ -z "$track_tag_regex" ]; then
                 err "manifest entry '$name' requires repository, track_asset and track_tag_regex"
                 RES_FAILED+=("$name (invalid latest_matching_release policy)")
@@ -397,7 +398,14 @@ process_manifest_addons() {
             fi
             release_json=$(github_api "repos/$repo/releases?per_page=100") || release_json=""
             latest=$(github_latest_matching_release_tag "$release_json" "$track_asset" "$track_tag_regex") || latest=""
-            [ -z "$latest" ] || latest=$(normalize_version "$latest")
+            if [ -n "$latest" ] && [ -n "$track_version_prefix" ]; then
+                case "$latest" in
+                    "$track_version_prefix"*) latest="${latest#"$track_version_prefix"}" ;;
+                    *) latest="" ;;
+                esac
+            elif [ -n "$latest" ]; then
+                latest=$(normalize_version "$latest")
+            fi
             if [ -z "$latest" ]; then
                 RES_UNKNOWN+=("$name $version (no non-draft release matched $track_asset / $track_tag_regex)")
                 MANIFEST_ADDON_ACTIVE=0

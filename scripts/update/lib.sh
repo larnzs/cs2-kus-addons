@@ -193,12 +193,18 @@ github_latest_matching_release_tag() {
     local releases_json="$1" asset_name="$2" tag_regex="$3"
     [ -n "$releases_json" ] && [ -n "$asset_name" ] && [ -n "$tag_regex" ] || return 1
     printf '%s' "$releases_json" | jq -r --arg asset "$asset_name" --arg regex "$tag_regex" '
+        def asset_matches($name; $pattern):
+            if ($pattern | startswith("regex:")) then
+                ($name | test($pattern[6:]))
+            else
+                $name == $pattern
+            end;
         if type != "array" then empty
         else
             [ .[] |
               select(.draft != true) |
               select((.tag_name // "") | test($regex)) |
-              select(any(.assets[]?; .name == $asset))
+              select(any(.assets[]?; asset_matches(.name; $asset)))
             ][0].tag_name // empty
         end
     '

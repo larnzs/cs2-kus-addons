@@ -79,6 +79,19 @@ mapping="$(bash -c '
 printf '%s' "$mapping" | jq -e 'length == 1 and .[0].merge == "release_plugin_directory" and .[0].source_path == "Server-plugins/addons" and .[0].install_path == "addons"' >/dev/null || fail "MenuManagerCS2 wildcard mapping resolved incorrectly"
 pass "wildcard MenuManagerCS2 asset mapping resolves to the intended server-plugin root"
 
+# MenuManagerCS2 releases use a prefixed tag and a CSSHarP build suffix in the asset.
+mm_track=$(jq -r '.addons[] | select(.name == "MenuManagerCS2") | .track' DEPENDENCIES.json)
+mm_track_asset=$(jq -r '.addons[] | select(.name == "MenuManagerCS2") | .track_asset' DEPENDENCIES.json)
+mm_track_tag_regex=$(jq -r '.addons[] | select(.name == "MenuManagerCS2") | .track_tag_regex' DEPENDENCIES.json)
+mm_version_prefix=$(jq -r '.addons[] | select(.name == "MenuManagerCS2") | .track_version_prefix' DEPENDENCIES.json)
+[ "$mm_track" = "latest_matching_release" ] || fail "MenuManagerCS2 must use latest_matching_release"
+mm_fixture='[{"draft":false,"tag_name":"MenuManagerCS2-1.3.01","assets":[{"name":"MenuManagerCS2-1.3.01-cssharp377.zip"}]}]'
+mm_matched_tag="$(bash -c 'source scripts/update/lib.sh; github_latest_matching_release_tag "$1" "$2" "$3"' bash "$mm_fixture" "$mm_track_asset" "$mm_track_tag_regex")" || fail "MenuManagerCS2 prefixed release tag/asset regex did not match"
+[ "$mm_matched_tag" = "MenuManagerCS2-1.3.01" ] || fail "MenuManagerCS2 selected the wrong prefixed tag: $mm_matched_tag"
+mm_matched_version="${mm_matched_tag#"$mm_version_prefix"}"
+[ "$mm_matched_version" = "1.3.01" ] || fail "MenuManagerCS2 tag prefix did not resolve to the manifest version"
+pass "MenuManagerCS2 prefixed tag and versioned CSSHarP asset are auto-resolvable"
+
 # GameModeManager must resolve through its exact slug-derived script filename.
 gmm_slug="$(bash -c 'source scripts/update/lib.sh; slugify "GameModeManager"')"
 [ "$gmm_slug" = "gamemodemanager" ] || fail "GameModeManager slug changed unexpectedly: $gmm_slug"

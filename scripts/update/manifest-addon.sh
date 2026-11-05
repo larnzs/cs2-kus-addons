@@ -210,7 +210,7 @@ manifest_verify_addon() {
 }
 
 manifest_update_version() {
-    local name="$1" version="$2" repo type tag json tmp
+    local name="$1" version="$2" repo type tag json tmp version_prefix
     if is_dry; then
         dry "update DEPENDENCIES.json version for $name to $version"
         return 0
@@ -227,11 +227,21 @@ manifest_update_version() {
         ' DEPENDENCIES.json > "$tmp" || die "could not update MetaMod manifest metadata"
     elif [ "$type" = "github_release" ]; then
         json=$(github_api "repos/$(github_repo_from_url "$repo")/releases?per_page=30") || die "could not confirm release tag for $name"
-        tag=$(printf '%s' "$json" | jq -r --arg version "$version" '
-            [.[] | select(.draft == false) |
-             select((.tag_name | sub("^[^0-9]*";"") | gsub("[^0-9A-Za-z.-]";"")) == $version) |
-             .tag_name] | first // empty
-        ')
+        version_prefix=$(jq -r --arg name "$name" '.addons[] | select(.name == $name) | .track_version_prefix // empty' DEPENDENCIES.json)
+        if [ -n "$version_prefix" ]; then
+            tag=$(printf '%s' "$json" | jq -r --arg version "$version" --arg prefix "$version_prefix" '
+                [.[] | select(.draft == false) |
+                 select((.tag_name // "") | startswith($prefix)) |
+                 select((.tag_name | ltrimstr($prefix)) == $version) |
+                 .tag_name] | first // empty
+            ')
+        else
+            tag=$(printf '%s' "$json" | jq -r --arg version "$version" '
+                [.[] | select(.draft == false) |
+                 select((.tag_name | sub("^[^0-9]*";"") | gsub("[^0-9A-Za-z.-]";"")) == $version) |
+                 .tag_name] | first // empty
+            ')
+        fi
         [ -n "$tag" ] || die "no release tag matching $version was found for $name"
         jq --arg name "$name" --arg version "$version" --arg tag "$tag" '
             (.addons[] | select(.name == $name)) |= (.version = $version | .release_tag = $tag)
