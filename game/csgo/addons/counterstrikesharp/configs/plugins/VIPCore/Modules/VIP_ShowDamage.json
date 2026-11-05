@@ -1,5 +1,5 @@
 {
-  "ShowArmorDmg": true,
+  "ShowArmorDmg": false,
   "HideDamage": false,
   "AdminGroup": "",
   "SoundPath": "sounds/Training/timer_bell.vsnd_c"
