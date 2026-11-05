@@ -36,6 +36,8 @@ try {
         'repository contains exactly 35 active custom CFG templates');
     expect(FragCityCustomCfgSynchronizer::modeLabelFromFilename('custom_casual-1.6.cfg') === 'Casual1.6',
         'Casual 1.6 keeps the previous hostname suffix after its filename is aligned with the mode CFG');
+    expect(FragCityCustomCfgSynchronizer::modeLabelFromFilename('custom_deathmatch-valve.cfg') === 'Deathmatch ☠',
+        'Valve Deathmatch template retains the matching active CFG filename and display suffix');
     $templateNames = [];
     foreach ($actualTemplates as $actualTemplate) {
         $filename = basename($actualTemplate);
