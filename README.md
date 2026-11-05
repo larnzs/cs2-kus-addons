@@ -43,7 +43,7 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 | [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) | `1.0.379` | Windows with-runtime files (including bundled .NET) are staged under `game/csgo/addons/windows/addons/counterstrikesharp/`; the shared/Linux payload remains under `game/csgo/addons/counterstrikesharp/`. |
 | [AnyBaseLibCS2](https://github.com/NickFox007/AnyBaseLibCS2) | `0.9.4` | Shared database/API library |
 | [PlayerSettingsCS2](https://github.com/NickFox007/PlayerSettingsCS2) | `0.9.4` | Persistent player settings |
-| [MenuManagerCS2](https://github.com/NickFox007/MenuManagerCS2) | `1.4.1` | Menu/API library |
+| [MenuManagerCS2](https://github.com/RRimmer/PanoramaMenuManagerCS2) | `1.3.01` | Panorama menu core/API used by GameModeManager 2.x; managed separately from GMM. |
 | [CS2-SimpleAdmin](https://github.com/daffyyyy/CS2-SimpleAdmin) | `1.9.1` | Additional administration features |
 | [WeaponPaints](https://github.com/Nereziel/cs2-WeaponPaints) | `472` | Player-side weapon customization |
 | [AFKManager](https://github.com/NiGHT757/AFKManager) | `0.2.8` | Stored under `plugins/disabled/`; selectively loaded by allowlisted public-mode CFGs |
