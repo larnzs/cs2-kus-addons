@@ -38,6 +38,10 @@ try {
         'Casual 1.6 keeps the previous hostname suffix after its filename is aligned with the mode CFG');
     expect(FragCityCustomCfgSynchronizer::modeLabelFromFilename('custom_casualw.cfg') === 'Casual Workshop',
         'Casual Workshop receives its own custom hostname suffix');
+    $casualWorkshopTemplate = file_get_contents($repoTemplateRoot . '/custom_casualw.cfg');
+    expect($casualWorkshopTemplate !== false
+        && !str_contains((string) $casualWorkshopTemplate, 'exec settings/alltalk_on.cfg'),
+        'Casual Workshop template does not inherit Casual-only gameplay settings');
     expect(FragCityCustomCfgSynchronizer::modeLabelFromFilename('custom_deathmatch-valve.cfg') === 'Deathmatch ☠',
         'Valve Deathmatch template retains the matching active CFG filename and display suffix');
     $templateNames = [];
