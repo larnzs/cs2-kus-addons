@@ -879,13 +879,15 @@
         "VIPCore.zip": [
           {
             "merge": "release_plugin_directory",
-            "source_path": "plugins",
-            "install_path": "addons/counterstrikesharp/plugins"
+            "source_path": "addons/counterstrikesharp/plugins/VIPCore",
+            "source_path_mode": "csgo_root",
+            "install_path": "addons/counterstrikesharp/plugins/VIPCore"
           },
           {
             "merge": "release_plugin_directory",
-            "source_path": "shared",
-            "install_path": "addons/counterstrikesharp/shared"
+            "source_path": "addons/counterstrikesharp/shared/VipCoreApi",
+            "source_path_mode": "csgo_root",
+            "install_path": "addons/counterstrikesharp/shared/VipCoreApi"
           }
         ]
       }

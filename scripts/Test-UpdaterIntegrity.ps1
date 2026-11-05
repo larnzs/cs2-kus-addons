@@ -33,6 +33,19 @@ try {
     Assert-Condition (@($vipCore[0].depends_on | Where-Object { $_ -eq "Metamod:Source" }).Count -eq 1) "VIPCore must depend on MetaMod:Source."
     Assert-Condition (@($vipCore[0].depends_on | Where-Object { $_ -eq "CounterStrikeSharp" }).Count -eq 1) "VIPCore must depend on CounterStrikeSharp."
 
+    $vipCoreMappings = @($vipCore[0].asset_mappings.'VIPCore.zip')
+    Assert-Condition ($vipCoreMappings.Count -eq 2) "VIPCore.zip must map both the plugin and shared API directories."
+    Assert-Condition (@($vipCoreMappings | Where-Object {
+        [string]$_.source_path -eq "addons/counterstrikesharp/plugins/VIPCore" -and
+        [string]$_.source_path_mode -eq "csgo_root" -and
+        [string]$_.install_path -eq "addons/counterstrikesharp/plugins/VIPCore"
+    }).Count -eq 1) "VIPCore plugin mapping must use the real addons/counterstrikesharp/plugins/VIPCore archive path."
+    Assert-Condition (@($vipCoreMappings | Where-Object {
+        [string]$_.source_path -eq "addons/counterstrikesharp/shared/VipCoreApi" -and
+        [string]$_.source_path_mode -eq "csgo_root" -and
+        [string]$_.install_path -eq "addons/counterstrikesharp/shared/VipCoreApi"
+    }).Count -eq 1) "VIPCore shared API mapping must use the real addons/counterstrikesharp/shared/VipCoreApi archive path."
+
     $vipModules = @($manifest.addons | Where-Object { $_.name -eq "VIPCore Modules" })
     Assert-Condition ($vipModules.Count -eq 1) "Expected exactly one VIPCore Modules manifest entry."
     Assert-Condition ([bool]$vipModules[0].installed) "VIPCore Modules must be marked installed."

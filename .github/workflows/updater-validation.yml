@@ -127,6 +127,7 @@ jobs:
           [[ "$matched" == "v2.0.4" ]] || { echo "ERROR: expected later full release, got '$matched'." >&2; exit 1; }
 
           jq -e '.addons[] | select(.name == "VIPCore") | .installed == true and (.depends_on | index("Metamod:Source") != null) and (.verify_paths | index("addons/counterstrikesharp/shared/VipCoreApi/VipCoreApi.dll") != null)' DEPENDENCIES.json >/dev/null
+          jq -e '.addons[] | select(.name == "VIPCore") | (.asset_mappings["VIPCore.zip"] | length == 2 and any(.[]; .source_path_mode == "csgo_root" and .source_path == "addons/counterstrikesharp/plugins/VIPCore" and .install_path == "addons/counterstrikesharp/plugins/VIPCore") and any(.[]; .source_path_mode == "csgo_root" and .source_path == "addons/counterstrikesharp/shared/VipCoreApi" and .install_path == "addons/counterstrikesharp/shared/VipCoreApi"))' DEPENDENCIES.json >/dev/null
           [[ "$(jq -r '.addons[] | select(.name == "VIPCore Modules") | .asset_mappings["VIP_Modules.zip"].source_path_mode' DEPENDENCIES.json)" == "archive_root" ]] || {
             echo "ERROR: VIP_Modules.zip must be mapped from archive_root." >&2
             exit 1
