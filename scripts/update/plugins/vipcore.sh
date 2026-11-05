@@ -11,3 +11,4 @@ PLUGIN_PATHS=(
 
 plugin_assets() { manifest_addon_assets "VIPCore"; }
 plugin_apply() { manifest_plugin_apply "VIPCore"; }
+plugin_needs_repair() { manifest_addon_needs_repair "VIPCore"; }

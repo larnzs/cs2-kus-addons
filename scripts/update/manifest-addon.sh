@@ -22,6 +22,19 @@ manifest_addon_assets() {
     ' DEPENDENCIES.json
 }
 
+# Return success when at least one declared runtime file is missing (same-version repair).
+manifest_addon_needs_repair() {
+    local name="$1" path checked=0
+    manifest_assert_automation_supported "$name"
+    while IFS= read -r path; do
+        [ -n "$path" ] || continue
+        checked=$((checked + 1))
+        [ -f "game/csgo/$path" ] || return 0
+    done < <(jq -r --arg name "$name" '.addons[] | select(.name == $name) | .verify_paths[]?' DEPENDENCIES.json)
+    [ "$checked" -gt 0 ] || die "no verify_paths defined for $name; cannot perform same-version repair check"
+    return 1
+}
+
 manifest_find_csgo_root() {
     local extract="$1" candidate d
     if [ -d "$extract/addons" ]; then printf '%s\n' "$extract"; return 0; fi

@@ -188,6 +188,22 @@ github_repo_from_url() {
     printf '%s' "$1" | sed -E 's#^https?://(www\.)?github\.com/##; s#/+$##; s#\.git$##'
 }
 
+# Select newest non-draft release (GitHub API order) with the requested asset and tag.
+github_latest_matching_release_tag() {
+    local releases_json="$1" asset_name="$2" tag_regex="$3"
+    [ -n "$releases_json" ] && [ -n "$asset_name" ] && [ -n "$tag_regex" ] || return 1
+    printf '%s' "$releases_json" | jq -r --arg asset "$asset_name" --arg regex "$tag_regex" '
+        if type != "array" then empty
+        else
+            [ .[] |
+              select(.draft != true) |
+              select((.tag_name // "") | test($regex)) |
+              select(any(.assets[]?; .name == $asset))
+            ][0].tag_name // empty
+        end
+    '
+}
+
 # Prints "name<TAB>url<TAB>size" for every asset of the release whose tag
 # normalises to $2 (the version detected by check-updates.sh).
 github_release_assets() {
