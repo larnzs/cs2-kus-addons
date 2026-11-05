@@ -1,5 +1,5 @@
 {
-    "@css/root": {
+  "@css/root": {
     "flags": [
       "@css/reservation",
       "@css/generic",
@@ -22,14 +22,13 @@
     ],
     "immunity": 100
   },
-    "@css/admin": {
+  "@css/admin": {
     "flags": [
       "@css/reservation",
       "@css/generic",
       "@css/kick",
       "@css/ban",
       "@css/unban",
-      "@css/vip",
       "@css/slay",
       "@css/changemap",
       "@css/cvar",
@@ -37,15 +36,12 @@
       "@css/chat",
       "@css/vote",
       "@css/password",
-      "@css/rcon",
       "@css/cheats",
-      "@css/root",
       "@css/ads",
       "@custom/prac"
     ],
     "immunity": 99
   },
-
   "@css/moderator": {
     "flags": [
       "@css/reservation",
@@ -64,7 +60,7 @@
     ],
     "immunity": 50
   },
-      "@css/vip": {
+  "@css/vip": {
     "flags": [
       "@css/reservation",
       "@css/vip",
@@ -74,7 +70,7 @@
     ],
     "immunity": 25
   },
-        "#css/root": {
+  "#css/root": {
     "flags": [
       "@css/reservation",
       "@css/generic",
@@ -97,14 +93,13 @@
     ],
     "immunity": 100
   },
-    "#css/admin": {
+  "#css/admin": {
     "flags": [
       "@css/reservation",
       "@css/generic",
       "@css/kick",
       "@css/ban",
       "@css/unban",
-      "@css/vip",
       "@css/slay",
       "@css/changemap",
       "@css/cvar",
@@ -112,15 +107,12 @@
       "@css/chat",
       "@css/vote",
       "@css/password",
-      "@css/rcon",
       "@css/cheats",
-      "@css/root",
       "@css/ads",
       "@custom/prac"
     ],
     "immunity": 99
   },
-
   "#css/moderator": {
     "flags": [
       "@css/reservation",
@@ -139,7 +131,7 @@
     ],
     "immunity": 50
   },
-      "#css/vip": {
+  "#css/vip": {
     "flags": [
       "@css/reservation",
       "@css/vip",
