@@ -20,8 +20,9 @@ require_once __DIR__ . '/custom-cfg-sync.php';
  *
  * Modes:
  *   --initialize-baseline  Record existing eligible server UUIDs without changing them.
+ *   --sync-custom-cfgs     Reconcile custom CFG hostnames for all eligible installed servers.
  *   --server <uuid>         Explicitly provision one server (for controlled tests).
- *   --watch                 Provision only eligible servers created after the baseline.
+ *   --watch                 Reconcile custom CFGs and provision eligible servers created after the baseline.
  *   --help                  Print this help.
  */
 
@@ -60,7 +61,8 @@ Usage:
 
 Safety model:
   * --initialize-baseline only records currently eligible servers; it does not modify them.
-  * --watch only processes servers not present in that baseline and not already provisioned.
+  * --watch reconciles custom CFGs for every eligible installed server, then provisions only UUIDs not present in the baseline.
+  * --sync-custom-cfgs changes only hostname directives; it does not change mounts, startup settings, or Docker containers.
   * --server is a one-shot test override and requires a Panel name beginning "FragCity Payload Test".
   * --verify-server is read-only with respect to server files, mounts, startup settings, and Docker containers.
   * --set-config-seed changes only the selected eligible volume's first-install state file.
@@ -858,7 +860,7 @@ function provisionOne(
 
     if ($container !== null && $container['state'] === 'running') {
         // A newly created server can start immediately from the Egg's startup template,
-        // before the one-minute host watcher has written its first-install state file.
+        // before the 10-second host watcher has written its first-install state file.
         // If this live container already uses the verified read-only FragCity mount and
         // startup hook, safely adopt it now; the state marker will seed configs on its
         // next restart. Do not stop/recreate or change files in a running container.

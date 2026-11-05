@@ -1,5 +1,5 @@
 [Unit]
-Description=Provision newly created eligible FragCity CS2 servers
+Description=Reconcile per-server custom CFGs and provision new eligible FragCity CS2 servers
 After=network-online.target docker.service
 Wants=network-online.target
 Requires=docker.service

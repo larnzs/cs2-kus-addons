@@ -29,6 +29,55 @@ if (!mkdir($templateRoot, 0700, true) || !mkdir($cfgRoot, 0700, true)) {
 }
 
 try {
+    $repoTemplateRoot = __DIR__ . '/custom-cfg';
+    $repoCfgRoot = dirname(__DIR__) . '/game/csgo/cfg';
+    $actualTemplates = glob($repoTemplateRoot . '/custom_*.cfg', GLOB_NOSORT);
+    expect(is_array($actualTemplates) && count($actualTemplates) === 35,
+        'repository contains exactly 35 active custom CFG templates');
+    $templateNames = [];
+    foreach ($actualTemplates as $actualTemplate) {
+        $filename = basename($actualTemplate);
+        $templateNames[$filename] = true;
+        $contents = file_get_contents($actualTemplate);
+        expect($contents !== false, 'repository template is readable: ' . $filename);
+        FragCityCustomCfgSynchronizer::render((string) $contents, 'FragCity Template Check', $filename);
+        foreach (['sv_tags', 'sv_minrate', 'sv_maxrate', 'sv_server_graphic1', 'sv_server_graphic2'] as $directive) {
+            expect(preg_match_all('/^\\s*' . preg_quote($directive, '/') . '\\b/mi', (string) $contents) === 1,
+                $filename . ' has exactly one ' . $directive . ' directive');
+        }
+    }
+    expect(glob($repoCfgRoot . '/custom_*.cfg') === [],
+        'no static custom CFG files remain in the deployable game/csgo/cfg tree');
+
+    $referencedCustomConfigs = [];
+    foreach (glob($repoCfgRoot . '/*.cfg') ?: [] as $modeCfg) {
+        $modeContents = file_get_contents($modeCfg);
+        if ($modeContents === false) {
+            throw new RuntimeException('Could not read game CFG: ' . $modeCfg);
+        }
+        if (preg_match_all('/^\\s*exec\\s+["\\\']?(custom_[A-Za-z0-9._-]+\\.cfg)\\b/im', $modeContents, $matches) > 0) {
+            foreach ($matches[1] as $name) {
+                $referencedCustomConfigs[$name] = true;
+            }
+        }
+    }
+    foreach (array_keys($referencedCustomConfigs) as $referencedName) {
+        expect(isset($templateNames[$referencedName]),
+            'every active exec custom_*.cfg reference has a template: ' . $referencedName);
+    }
+
+    $actualOutputRoot = $root . '/actual-repo-template-render';
+    if (!mkdir($actualOutputRoot, 0700, true)) {
+        throw new RuntimeException('Could not create actual-template render directory.');
+    }
+    $actualRender = FragCityCustomCfgSynchronizer::sync(
+        $repoTemplateRoot,
+        $actualOutputRoot,
+        'FragCity Template Check'
+    );
+    expect($actualRender['files'] === 35 && $actualRender['created'] === 35,
+        'all 35 repository templates render successfully into a fresh server cfg folder');
+
     $template = implode("\r\n", [
         '// template comment',
         'hostname "OLD NAME | Mode : Practice"',

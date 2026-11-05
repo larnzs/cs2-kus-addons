@@ -1,5 +1,5 @@
 [Unit]
-Description=Check for newly created FragCity CS2 servers every 10 seconds
+Description=Reconcile custom CFG hostnames and check for new FragCity CS2 servers every 10 seconds
 
 [Timer]
 OnBootSec=2min
