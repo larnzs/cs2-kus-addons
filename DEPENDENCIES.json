@@ -11,7 +11,8 @@
     "runtime_roots": {
       "windows": "server/game/csgo",
       "linux": "<SteamCMD install root>/game/csgo"
-    }
+    },
+    "pterodactyl_linux_runtime": "steamrt3"
   },
   "not_managed_by_this_repo": [
     "Source2ZE/MultiAddonManager",

@@ -79,16 +79,40 @@ mapping="$(bash -c '
 printf '%s' "$mapping" | jq -e 'length == 1 and .[0].merge == "release_plugin_directory" and .[0].source_path == "Server-plugins/addons" and .[0].install_path == "addons"' >/dev/null || fail "MenuManagerCS2 wildcard mapping resolved incorrectly"
 pass "wildcard MenuManagerCS2 asset mapping resolves to the intended server-plugin root"
 
-# GMM must install only plugin binaries; user configuration and cfg remain protected.
-gmm="$(sed -n '1,240p' scripts/update/plugins/game-mode-manager.sh)"
-printf '%s' "$gmm" | grep -Fq 'GameModeManager.dll' || fail "GMM adapter does not validate GameModeManager.dll"
-printf '%s' "$gmm" | grep -Fq 'PMM_GG1MapChooser.dll' || fail "GMM adapter does not validate PMM_GG1MapChooser.dll"
-printf '%s' "$gmm" | grep -Fq 'GameModeManager.json' || fail "GMM adapter does not document config preservation"
-printf '%s' "$gmm" | grep -Fq 'preserve' || fail "GMM adapter does not describe config-preserving behavior"
-if grep -E '^[[:space:]]*"game/csgo/(cfg|addons/counterstrikesharp/configs)' scripts/update/plugins/game-mode-manager.sh; then
+# GameModeManager must resolve through its exact slug-derived script filename.
+gmm_slug="$(bash -c 'source scripts/update/lib.sh; slugify "GameModeManager"')"
+[ "$gmm_slug" = "gamemodemanager" ] || fail "GameModeManager slug changed unexpectedly: $gmm_slug"
+gmm_script="scripts/update/plugins/$gmm_slug.sh"
+[ -f "$gmm_script" ] || fail "GameModeManager auto-loader path is missing: $gmm_script"
+bash -n "$gmm_script" || fail "GameModeManager updater syntax is invalid"
+gmm_paths="$(bash -c 'set -Eeuo pipefail; exec 3>&1; source scripts/update/lib.sh; source "$1"; printf "%s\n" "\${PLUGIN_PATHS[@]}"' bash "$gmm_script")" || fail "could not inspect GMM PLUGIN_PATHS"
+printf '%s' "$gmm_paths" | grep -Fq 'plugins/GameModeManager' || fail "GMM plugin path is missing"
+printf '%s' "$gmm_paths" | grep -Fq 'plugins/PMM_GG1MapChooser' || fail "GMM bundled PMM path is missing"
+printf '%s' "$gmm_paths" | grep -Fq 'shared/GameModeManager.Shared' || fail "GMM shared dependency path is missing"
+if printf '%s\n' "$gmm_paths" | grep -E '(^|/)(cfg|configs)(/|$)' >/dev/null; then
     fail "GMM PLUGIN_PATHS must not include cfg or config trees"
 fi
-pass "GameModeManager updater protects custom config and cfg paths"
+pass "GameModeManager slug, bundled plugins, shared API and protected configs"
+
+# MultiAddonManager is Linux-only for Pterodactyl and must choose the tested SteamRT3 asset.
+mam_runtime="$(jq -r '.architecture.pterodactyl_linux_runtime // empty' DEPENDENCIES.json)"
+[ "$mam_runtime" = "steamrt3" ] || fail "Pterodactyl runtime must be steamrt3, got '$mam_runtime'"
+mam_asset="$(bash -c 'set -Eeuo pipefail; exec 3>&1; source scripts/update/lib.sh; source scripts/update/plugins/multiaddonmanager.sh; NEW_VERSION=1.7.3; plugin_assets')"
+[ "$mam_asset" = "MultiAddonManager-v1.7.3-steamrt3.tar.gz" ] || fail "MultiAddonManager selected the wrong release asset: $mam_asset"
+mam_paths="$(bash -c 'set -Eeuo pipefail; exec 3>&1; source scripts/update/lib.sh; source scripts/update/plugins/multiaddonmanager.sh; printf "%s\n" "\${PLUGIN_PATHS[@]}"')"
+printf '%s' "$mam_paths" | grep -Fq 'multiaddonmanager.so' || fail "MultiAddonManager Linux binary path is missing"
+printf '%s' "$mam_paths" | grep -Fq 'addons/metamod/multiaddonmanager.vdf' || fail "MultiAddonManager MetaMod VDF path is missing"
+if printf '%s\n' "$mam_paths" | grep -E 'multiaddonmanager.dll|(^|/)(cfg|configs)(/|$)' >/dev/null; then
+    fail "MultiAddonManager must not own Windows binaries or cfg/config trees"
+fi
+grep -Fq 'MultiAddonManager' scripts/update/required-script-addons.txt || fail "MultiAddonManager is not in required updater coverage"
+pass "MultiAddonManager SteamRT3 asset selection and Linux destination paths"
+
+# Manifest adapters must self-repair missing runtime files and GG1 must persist its release version.
+grep -Fq 'manifest_addon_needs_repair "GG1MapChooser"' scripts/update/plugins/gg1mapchooser.sh || fail "GG1MapChooser same-version repair is missing"
+grep -Fq 'manifest_update_version "GG1MapChooser" "$NEW_VERSION"' scripts/update/plugins/gg1mapchooser.sh || fail "GG1MapChooser release version is not persisted"
+grep -Fq 'plugin_needs_repair()' scripts/update/plugins/menumanagercs2.sh || fail "MenuManagerCS2 same-version repair is missing"
+pass "GG1MapChooser and MenuManagerCS2 dependency repair paths"
 
 # The runner must treat missing adapters on required installed rows as failures.
 grep -Fq 'is_required_script_addon "$PLUGIN_NAME"' scripts/update/update.sh || fail "update.sh does not enforce required adapter coverage"

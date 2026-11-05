@@ -6,4 +6,5 @@ PLUGIN_PATHS=(
     "game/csgo/addons/counterstrikesharp/shared/MenuManagerApi"
 )
 plugin_assets() { manifest_addon_assets "MenuManagerCS2"; }
+plugin_needs_repair() { manifest_addon_needs_repair "MenuManagerCS2"; }
 plugin_apply() { manifest_plugin_apply "MenuManagerCS2"; }

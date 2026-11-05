@@ -40,6 +40,10 @@ jobs:
             bash -n "$file"
           done < <(find scripts/update/plugins -type f -name '*.sh' -print0)
 
+      - name: Run updater hard checks
+        shell: bash
+        run: bash scripts/Test-AllUpdaters.sh
+
       - name: Test manifest updater helper behavior
         shell: bash
         run: |

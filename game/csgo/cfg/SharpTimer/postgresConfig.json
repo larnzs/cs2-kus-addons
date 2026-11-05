@@ -1,8 +1,0 @@
-{
-    "Host": "172.18.0.1",
-    "Database": "GLOBAL_sharptimer",
-    "Username": "plugins",
-    "Password": "Atrisayeafsorde824@",
-    "TablePrefix": "postgres",
-    "Port": 3306
-}

@@ -1,21 +1,8 @@
 #!/usr/bin/env bash
-# Project:           Kus' modded Counter Strike 2 (CS2) Dedicated Server - https://github.com/kus/cs2-modded-server/
-# Update script for: GG1MapChooser (Larnz manifest-managed release)
-# README row:        [GG1MapChooser](https://github.com/ssypchenko/GG1MapChooser)
-# Sourced by scripts/update/update.sh - do not run directly.
-# This single adapter is called by the manifest pass; keep the plugin out of the
-# KUS catalog version table to avoid downloading/applying the same release twice.
-#
-# Manual process this automates:
-#   1. Download the exact upstream release asset: GG1MapChooser.<version>.zip.
-#   2. Locate the directory containing GG1MapChooser.dll, regardless of the wrapper
-#      directories used by the upstream ZIP.
-#   3. Overlay its files into the default plugin directory. This is intentionally a
-#      non-destructive merge: stale upstream files are retained for manual review.
-#   4. Never write to game/csgo/cfg/GGMCmaps.json or CounterStrikeSharp configs/.
-#
-# Configuration files are user-managed. The plugin can create its own CSS config on
-# first load; GGMCmaps.json must be configured separately after this integration step.
+# Manifest-managed updater for GG1MapChooser and its shared ggmcAPI.
+# This plugin is updated separately from GameModeManager. Only the plugin and
+# shared API directories are owned here; cfg/ and CSS configs remain untouched.
+source scripts/update/manifest-addon.sh
 
 PLUGIN_PATHS=(
     "game/csgo/addons/counterstrikesharp/plugins/GG1MapChooser"
@@ -23,7 +10,7 @@ PLUGIN_PATHS=(
 )
 
 plugin_assets() {
-    echo "GG1MapChooser.${NEW_VERSION}.zip"
+    manifest_addon_assets "GG1MapChooser"
 }
 
 plugin_preflight() {
@@ -31,56 +18,44 @@ plugin_preflight() {
     require_dir "game/csgo/addons/counterstrikesharp/shared"
 }
 
-# Return success only when a repair is required. This is checked even when the
-# manifest version matches upstream, so missing runtime dependencies are recoverable.
 plugin_needs_repair() {
-    local target="game/csgo/addons/counterstrikesharp/plugins/GG1MapChooser"
-    local api_target="game/csgo/addons/counterstrikesharp/shared/ggmcAPI"
-    [[ ! -f "$target/GG1MapChooser.dll" ||
-       ! -f "$target/GG1MapChooser.deps.json" ||
-       ! -f "$api_target/ggmcAPI.dll" ]]
+    manifest_addon_needs_repair "GG1MapChooser"
 }
 
 plugin_apply() {
-    local x file src api_file api_src target api_target
-    local matches=()
-    local api_matches=()
+    local x file src api_file api_src
+    local -a matches=() api_matches=()
+
+    if is_dry; then
+        dry "extract GG1MapChooser.${NEW_VERSION}.zip"
+        dry "overlay GG1MapChooser plugin directory"
+        dry "overlay shared/ggmcAPI dependency directory"
+        dry "preserve cfg/GGMCmaps.json and CounterStrikeSharp configs"
+        manifest_update_version "GG1MapChooser" "$NEW_VERSION"
+        return 0
+    fi
 
     x=$(extract_asset "GG1MapChooser.${NEW_VERSION}.zip")
 
-    # Resolve the main assembly by content instead of assuming an archive root.
-    while IFS= read -r -d '' file; do
-        matches+=("$file")
-    done < <(find "$x" -type f -iname 'GG1MapChooser.dll' -print0)
+    while IFS= read -r -d '' file; do matches+=("$file"); done \
+        < <(find "$x" -type f -iname 'GG1MapChooser.dll' -print0)
+    while IFS= read -r -d '' file; do api_matches+=("$file"); done \
+        < <(find "$x" -type f -iname 'ggmcAPI.dll' -print0)
 
-    if [ "${#matches[@]}" -ne 1 ]; then
-        die "Expected exactly one GG1MapChooser.dll in the upstream release archive; found ${#matches[@]}."
-    fi
-
-    # The upstream release installs ggmcAPI as a CounterStrikeSharp shared library.
-    # Preserve that shared/ggmcAPI destination rather than placing it with the plugin.
-    while IFS= read -r -d '' file; do
-        api_matches+=("$file")
-    done < <(find "$x" -type f -iname 'ggmcAPI.dll' -print0)
-
-    if [ "${#api_matches[@]}" -ne 1 ]; then
-        die "Expected exactly one ggmcAPI.dll in the upstream release archive; found ${#api_matches[@]}."
-    fi
+    [[ ${#matches[@]} -eq 1 ]] || die "Expected exactly one GG1MapChooser.dll; found ${#matches[@]}."
+    [[ ${#api_matches[@]} -eq 1 ]] || die "Expected exactly one ggmcAPI.dll; found ${#api_matches[@]}."
 
     src=$(dirname "${matches[0]}")
     api_file="${api_matches[0]}"
     api_src=$(dirname "$api_file")
-    target="game/csgo/addons/counterstrikesharp/plugins/GG1MapChooser"
-    api_target="game/csgo/addons/counterstrikesharp/shared/ggmcAPI"
-    require_file "$src/GG1MapChooser.dll"
+
     require_file "$src/GG1MapChooser.deps.json"
-    require_file "$api_src/ggmcAPI.dll"
+    require_file "$api_src/ggmcAPI.deps.json"
 
-    # Overlay only plugin-owned files and the dedicated shared dependency directory.
-    # Do not copy any cfg/ or CounterStrikeSharp configs/ payload.
-    copy_dir "$src" "$target"
-    copy_dir "$api_src" "$api_target"
-    require_file "$api_target/ggmcAPI.dll"
+    copy_dir "$src" "game/csgo/addons/counterstrikesharp/plugins/GG1MapChooser"
+    copy_dir "$api_src" "game/csgo/addons/counterstrikesharp/shared/ggmcAPI"
 
+    manifest_verify_addon "GG1MapChooser"
+    manifest_update_version "GG1MapChooser" "$NEW_VERSION"
     remove_extracted "$x"
 }

@@ -92,7 +92,7 @@ The workflow runs the same KUS updater described in this document, then a second
 
 ### Coverage and its limits
 
-- All **15 upstream KUS per-plugin scripts** plus the **GG1MapChooser manifest/release adapter** are documented in the `Existing plugin scripts` table below and present in this repository.
+- Every required KUS catalog adapter (including GameModeManager and MultiAddonManager) and every installed/automated manifest adapter is documented below and checked by the updater hard tests.
 - Every manifest entry marked `installed: true` with automation enabled has a matching `scripts/update/plugins/<slug>.sh` adapter; CI checks this coverage dynamically. MetaMod and CounterStrikeSharp use their dedicated KUS-style scripts.
 - Entries initially marked `installed: false` are bootstrap-installed by the PowerShell source/release updater. Once their files verify successfully, the manifest flips them to `installed: true`; the Bash adapters then track upstream release tags or branch commits on subsequent hourly runs.
 - `CS2-WeaponRestrict` is deliberately excluded because its manifest entry is `installed: false` and `automation_supported: false`.
@@ -315,8 +315,9 @@ downloadable asset (size `0` if unknown).
 | VIPCore | `plugins/vipcore.sh` | Tracks `VIPCore.zip` and `VipCoreApi`; verifies Core runtime dependencies and repairs missing same-version files. |
 | VIPCore Modules | `plugins/vipcore-modules.sh` | Tracks the newest non-draft release carrying `VIP_Modules.zip`, including module-only `latest=false` releases; updates the 45 declared `VIP_*` directories from the archive root. |
 | CounterStrikeSharp | `plugins/counterstrikesharp.sh` | Uses the `with-runtime` Windows and Linux zips. Windows first, then Linux rsync; the Windows overlay only merges `api/ bin/ dotnet/`. The shared and Windows `counterstrikesharp/configs/` paths are manual-only and excluded from release syncs. |
+| GameModeManager | `plugins/gamemodemanager.sh` | Tracks `GameModeManager_v{version}.zip`; updates the GameModeManager plugin, bundled PMM_GG1MapChooser and required `shared/GameModeManager.Shared` contract. It does not overwrite GG1MapChooser, MenuManagerCore, configs or cfg files. |
 | Inventory Simulator | `plugins/inventory-simulator.sh` | Replaces the plugin directory and the `inventory-simulator.json` gamedata file. |
-| MultiAddonManager | `plugins/multiaddonmanager.sh` | Windows zip + Linux `steamrt3` tar.gz (the `steamrt4` build is ignored). Replaces only the two binaries in `game/csgo/addons/multiaddonmanager/bin/`; the `.vdf` is left alone and the customised `game/csgo/cfg/multiaddonmanager/multiaddonmanager.cfg` is never written, only compared (new settings reported). |
+| MultiAddonManager | `plugins/multiaddonmanager.sh` | Uses `architecture.pterodactyl_linux_runtime` from `DEPENDENCIES.json` (SteamRT3). Updates only `addons/multiaddonmanager/bin/multiaddonmanager.so` and `addons/metamod/multiaddonmanager.vdf`; no `cfg/` payload is copied. |
 | ServerListPlayersFix | `plugins/serverlistplayersfix.sh` | Windows zip + Linux `steamrt3` tar.gz. Replaces only `bin/win64/*.dll` and `bin/linuxsteamrt64/*.so`; the repo's per-platform `.vdf` copies are left alone. |
 | MovementUnlocker | `plugins/movementunlocker.sh` | Windows zip + Linux `steamrt3` tar.gz. Replaces only `bin/win64/*.dll` and `bin/linuxsteamrt64/*.so`; the `.vdf` copies under `addons/surf/` are left alone. |
 | CS2 Retakes | `plugins/cs2-retakes.sh` | Uses the full `RetakesPlugin-<v>.zip` (not the `-no-map-configs` one). Replaces `plugins/disabled/RetakesPlugin` (the plugin is kept disabled in this repo, so it is NOT at `plugins/RetakesPlugin`) and `shared/RetakesPluginShared`. |

@@ -172,7 +172,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | [CS2Fixes-RampbugFix](https://github.com/Interesting-exe/CS2Fixes-RampbugFix) | `5-1` | Minimizes rampbugs (needs to be enabled via `!settings` [How?](#i-run-a-surfkzbhop-server-and-want-movementunlocker-and-cs2fixes-rampbugfix-permanently-enabled)) |
 | [CS2_ExecAfter](https://github.com/kus/CS2_ExecAfter) | `1.0.0` | Executes a command after server event (i.e. OnMapStart) or a delay. |
 | [CS2 Remove Map Weapons](https://github.com/kus/CS2-Remove-Map-Weapons) | `1.0.1` | Remove weapons from the map in CS2 as `mp_weapons_allow_map_placed 0` does not work. |
-| [GameModeManager](https://github.com/nickj609/GameModeManager) | `1.0.62` | ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Upstream notes that this plugin is waiting for a fix. It helps admins manage game modes and map groups. |
+| [GameModeManager](https://github.com/nickj609/GameModeManager) | `2.0.0` | Configurable game modes, settings, map groups and rotations; uses GG1MapChooser and PanoramaMenuManager APIs. |
 | [Inventory Simulator](https://github.com/ianlucas/cs2-css-inventory-simulator) | `3.8.0` | Use any Weapon, Knife, Gloves, Agent, Music Kit, Pin or Graffiti. [How?](#skin-changer) |
 | [CS2-PlayerModelChanger](https://github.com/samyycX/CS2-PlayerModelChanger) | `1.8.6` | A lightweighted counterstrikesharp plugin to change player model. [How?](#model-changer) |
 | [MatchZy](https://github.com/shobhit-pathak/MatchZy) | `0.9.2` | MatchZy is a plugin for CS2 for running and managing practice/pugs/scrims/matches with easy configuration! |
@@ -218,13 +218,13 @@ The first table deliberately retains the updater-compatible three-column structu
 | Plugin | Payload placement / activation | Update automation |
 | --- | --- | --- |
 | Metamod:Source | Base native add-on | Script `metamod-source.sh`; manifest also tracks this version |
-| MultiAddonManager | Base native add-on | Script: `multiaddonmanager.sh` |
+| MultiAddonManager | Base native add-on | Script: `multiaddonmanager.sh`; Pterodactyl Linux updates SteamRT3 `.so` and MetaMod VDF only. |
 | ServerListPlayersFix | Base native add-on | Script: `serverlistplayersfix.sh` |
 | MovementUnlocker | Base native add-on | Script: `movementunlocker.sh` |
 | CS2Fixes-RampbugFix | Base native add-on | No script; release updates are warned about and skipped |
 | CS2_ExecAfter | Default CounterStrikeSharp plugin | No script; release updates are warned about and skipped |
 | CS2 Remove Map Weapons | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
-| GameModeManager | Default CounterStrikeSharp plugin | No script; release updates are warned about and skipped |
+| GameModeManager | Default CounterStrikeSharp plugin | Script: `gamemodemanager.sh`; updates GameModeManager, PMM_GG1MapChooser and shared/GameModeManager.Shared while preserving config and cfg trees. |
 | Inventory Simulator | Default CounterStrikeSharp plugin | Script: `inventory-simulator.sh` |
 | CS2-PlayerModelChanger | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | MatchZy | Mode-specific plugin staged under `plugins/disabled/` | Script: `matchzy.sh` |
@@ -278,7 +278,7 @@ The important difference is **how each script updates files**. Routine runner ma
 
 GitHub Actions checks for new upstream add-on releases every hour at **minute 17 UTC**. It runs KUS's documented per-plugin `.sh` updater scripts first, then checks the enabled add-ons in `DEPENDENCIES.json`, commits successful changes to `integration/kus-monorepo`, and runs the Windows validation workflow. CI checks that every updater listed in `scripts/update/README.md` exists and that every installed, automation-enabled manifest entry has a matching script.
 
-Coverage means the **15 existing KUS scripts plus the dedicated GG1MapChooser integration updater**, alongside the installed, automation-enabled entries in our manifest (Metamod and CounterStrikeSharp are shared between the KUS-script and manifest groups). KUS catalog rows that do not have their own upstream updater script are still warning-only/skipped, as documented by KUS; this does not automatically update every optional plugin name in the catalog. `CS2-WeaponRestrict` remains intentionally excluded because it is marked not installed and not automated.
+Coverage is enforced for every required KUS catalog add-on and every installed, automation-enabled manifest entry. `GameModeManager` and `MultiAddonManager` both have slug-matched updater adapters; optional catalog rows without adapters remain warning-only/skipped. `CS2-WeaponRestrict` remains excluded because it is not installed and automation is disabled.
 
 The external Instance folder has its own `update.bat` for shared maintenance. Run it manually with all CS2 processes stopped. Start `watchdog.bat` for normal operation: it keeps a visible CMD guardian running `run.vbs` through `cscript.exe`, and relaunches the VBS host if it terminates. Inside that guard, `run.vbs` invokes the runner through `cmd.exe`, waits for it to return, then retries **100 milliseconds** after exit code 100. The VBS/watchdog layers do not run maintenance; each new `run.bat` invocation copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` before starting CS2.
 
