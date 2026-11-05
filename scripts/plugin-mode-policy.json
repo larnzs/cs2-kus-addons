@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "afk_manager": {
+    "plugin": "plugins/disabled/AFKManager/AFKManager.dll",
+    "enabled_modes": [
+      "Casual-1.6.cfg",
+      "aim.cfg",
+      "awp-aim.cfg",
+      "awp.cfg",
+      "battle.cfg",
+      "br.cfg",
+      "casual-active.cfg",
+      "casual.cfg",
+      "casualw.cfg",
+      "ctf.cfg",
+      "deathmatch.cfg",
+      "gg.cfg",
+      "minigames.cfg",
+      "oitc.cfg",
+      "scoutzknivez.cfg",
+      "soccer.cfg",
+      "valve-armsrace.cfg",
+      "valve-deathmatch-freeforall.cfg",
+      "valve-deathmatch.cfg",
+      "vip.cfg"
+    ],
+    "disabled_modes": [
+      "1v1.cfg",
+      "45.cfg",
+      "bhop.cfg",
+      "comp.cfg",
+      "course.cfg",
+      "deathrun.cfg",
+      "executes.cfg",
+      "hns.cfg",
+      "kz.cfg",
+      "practice.cfg",
+      "prefire.cfg",
+      "retake.cfg",
+      "surf.cfg",
+      "valve-competitive.cfg",
+      "valve-retake.cfg",
+      "valve-wingman.cfg",
+      "wingman.cfg"
+    ]
+  }
+}

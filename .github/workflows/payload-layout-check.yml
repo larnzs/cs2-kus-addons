@@ -13,6 +13,9 @@ on:
       - "scripts/Inspect-Releases.ps1"
       - "scripts/Restructure-KUS-Payload.ps1"
       - "scripts/Integrate-KUS.ps1"
+      - "scripts/plugin-mode-policy.json"
+      - "scripts/validate-plugin-lifecycle.py"
+      - "docs/MODE-PLUGIN-LIFECYCLE.md"
       - "windows/**"
       - "linux/**"
       - "instance/**"
@@ -51,6 +54,12 @@ jobs:
             bash -n "$file"
           done < <(find instance linux docker google scripts -type f -name '*.sh' -print0)
           echo "Shell syntax passed."
+
+      - name: Validate CounterStrikeSharp mode plugin lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/validate-plugin-lifecycle.py
 
       - name: Validate Docker Compose configuration
         shell: bash

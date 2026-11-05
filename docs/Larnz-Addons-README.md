@@ -54,7 +54,7 @@ They are intentionally **not reinstalled or managed by this repository**.
 | [CS2UpdateMonitor](https://github.com/beanman109/cs2-updatemonitor) | 1.1.0 | Detects new CS2 game builds and coordinates the restart handoff to the external supervisor. |
 | [WeaponPaints](https://github.com/Nereziel/cs2-WeaponPaints) | `466` | Additional player-side game customization plugin. |
 | [CS2-SimpleAdmin](https://github.com/daffyyyy/CS2-SimpleAdmin) | 1.9.0 | Provides extended server administration functionality. |
-| [AFKManager](https://github.com/NiGHT757/AFKManager) | 0.2.8 | Detects AFK players and applies the configured AFK handling. |
+| [AFKManager](https://github.com/NiGHT757/AFKManager) | 0.2.8 | AFK/anti-camp handling; manually loaded only by approved public-mode CFGs and centrally unloaded on every mode switch. |
 | [CS2-Kill-Plugin](https://github.com/Quantor97/CS2-Kill-Plugin) | 0.2.0 | Adds a player self-action command. |
 | [SimpleResetScore](https://github.com/stefanx111/cs2-SimpleResetScore) | 1.0.7 | Lets players reset their own score. |
 | [cs2-showdamage](https://github.com/abnerfs/cs2-showdamage) | 1.1.0 | Shows damage information during gameplay. |

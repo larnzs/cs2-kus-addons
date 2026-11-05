@@ -120,84 +120,77 @@
             "weapon_mp9",
             "weapon_p250"
           ],
-          "Round": 1
+          "Round": 2
         },
         "MP7 + FIVE-SEVEN": {
           "Weapons": [
             "weapon_mp7",
             "weapon_fiveseven"
           ],
-          "Round": 1
+          "Round": 2
         },
         "UMP-45 + P2000": {
           "Weapons": [
             "weapon_ump45",
             "weapon_hkp2000"
           ],
-          "Round": 1
+          "Round": 2
         },
         "NOVA + P250": {
           "Weapons": [
             "weapon_nova",
             "weapon_p250"
           ],
-          "Round": 1
+          "Round": 2
         },
         "MAG-7 + FIVE-SEVEN": {
           "Weapons": [
             "weapon_mag7",
             "weapon_fiveseven"
           ],
-          "Round": 1
+          "Round": 2
         },
         "XM1014 + DEAGLE": {
           "Weapons": [
             "weapon_xm1014",
             "weapon_deagle"
           ],
-          "Round": 1
+          "Round": 2
         },
         "M4A4 + P250": {
           "Weapons": [
             "weapon_m4a1",
             "weapon_p250"
           ],
-          "Round": 5
+          "Round": 2
         },
         "M4A1-S + P250": {
           "Weapons": [
             "weapon_m4a1_silencer",
             "weapon_p250"
           ],
-          "Round": 5
+          "Round": 2
         },
         "AUG + FIVE-SEVEN": {
           "Weapons": [
             "weapon_aug",
             "weapon_fiveseven"
           ],
-          "Round": 5
+          "Round": 2
         },
         "FAMAS + DEAGLE": {
           "Weapons": [
             "weapon_famas",
             "weapon_deagle"
           ],
-          "Round": 5
+          "Round": 2
         },
         "SCOUT + DEAGLE": {
           "Weapons": [
             "weapon_ssg08",
             "weapon_deagle"
           ],
-          "Round": 5
-        },
-        "AWP + P250": {
-          "Weapons": [
-            "weapon_awp",
-            "weapon_p250"
-          ],
-          "Round": 5
+          "Round": 2
         }
       },
       "T": {
@@ -206,84 +199,77 @@
             "weapon_mac10",
             "weapon_glock"
           ],
-          "Round": 1
+          "Round": 2
         },
         "MP7 + TEC-9": {
           "Weapons": [
             "weapon_mp7",
             "weapon_tec9"
           ],
-          "Round": 1
+          "Round": 2
         },
         "UMP-45 + P250": {
           "Weapons": [
             "weapon_ump45",
             "weapon_p250"
           ],
-          "Round": 1
+          "Round": 2
         },
         "SAWED-OFF + TEC-9": {
           "Weapons": [
             "weapon_sawedoff",
             "weapon_tec9"
           ],
-          "Round": 1
+          "Round": 2
         },
         "NOVA + GLOCK": {
           "Weapons": [
             "weapon_nova",
             "weapon_glock"
           ],
-          "Round": 1
+          "Round": 2
         },
         "XM1014 + TEC-9": {
           "Weapons": [
             "weapon_xm1014",
             "weapon_tec9"
           ],
-          "Round": 1
+          "Round": 2
         },
         "AK-47 + DEAGLE": {
           "Weapons": [
             "weapon_ak47",
             "weapon_deagle"
           ],
-          "Round": 5
+          "Round": 2
         },
         "AK-47 + TEC-9": {
           "Weapons": [
             "weapon_ak47",
             "weapon_tec9"
           ],
-          "Round": 5
+          "Round": 2
         },
         "GALIL AR + P250": {
           "Weapons": [
             "weapon_galilar",
             "weapon_p250"
           ],
-          "Round": 5
+          "Round": 2
         },
         "SG 553 + FIVE-SEVEN": {
           "Weapons": [
             "weapon_sg556",
             "weapon_fiveseven"
           ],
-          "Round": 5
+          "Round": 2
         },
         "SCOUT + DEAGLE": {
           "Weapons": [
             "weapon_ssg08",
             "weapon_deagle"
           ],
-          "Round": 5
-        },
-        "AWP + TEC-9": {
-          "Weapons": [
-            "weapon_awp",
-            "weapon_tec9"
-          ],
-          "Round": 5
+          "Round": 2
         }
       }
     },
@@ -334,84 +320,77 @@
             "weapon_mp9",
             "weapon_p250"
           ],
-          "Round": 1
+          "Round": 2
         },
         "MP7 + FIVE-SEVEN": {
           "Weapons": [
             "weapon_mp7",
             "weapon_fiveseven"
           ],
-          "Round": 1
+          "Round": 2
         },
         "UMP-45 + P2000": {
           "Weapons": [
             "weapon_ump45",
             "weapon_hkp2000"
           ],
-          "Round": 1
+          "Round": 2
         },
         "NOVA + P250": {
           "Weapons": [
             "weapon_nova",
             "weapon_p250"
           ],
-          "Round": 1
+          "Round": 2
         },
         "MAG-7 + FIVE-SEVEN": {
           "Weapons": [
             "weapon_mag7",
             "weapon_fiveseven"
           ],
-          "Round": 1
+          "Round": 2
         },
         "XM1014 + DEAGLE": {
           "Weapons": [
             "weapon_xm1014",
             "weapon_deagle"
           ],
-          "Round": 1
+          "Round": 2
         },
         "M4A4 + P250": {
           "Weapons": [
             "weapon_m4a1",
             "weapon_p250"
           ],
-          "Round": 5
+          "Round": 2
         },
         "M4A1-S + P250": {
           "Weapons": [
             "weapon_m4a1_silencer",
             "weapon_p250"
           ],
-          "Round": 5
+          "Round": 2
         },
         "AUG + FIVE-SEVEN": {
           "Weapons": [
             "weapon_aug",
             "weapon_fiveseven"
           ],
-          "Round": 5
+          "Round": 2
         },
         "FAMAS + DEAGLE": {
           "Weapons": [
             "weapon_famas",
             "weapon_deagle"
           ],
-          "Round": 5
+          "Round": 2
         },
         "SCOUT + DEAGLE": {
           "Weapons": [
             "weapon_ssg08",
             "weapon_deagle"
           ],
-          "Round": 5
-        },
-        "AWP + P250": {
-          "Weapons": [
-            "weapon_awp",
-            "weapon_p250"
-          ],
-          "Round": 5
+          "Round": 2
         }
       },
       "T": {
@@ -420,84 +399,77 @@
             "weapon_mac10",
             "weapon_glock"
           ],
-          "Round": 1
+          "Round": 2
         },
         "MP7 + TEC-9": {
           "Weapons": [
             "weapon_mp7",
             "weapon_tec9"
           ],
-          "Round": 1
+          "Round": 2
         },
         "UMP-45 + P250": {
           "Weapons": [
             "weapon_ump45",
             "weapon_p250"
           ],
-          "Round": 1
+          "Round": 2
         },
         "SAWED-OFF + TEC-9": {
           "Weapons": [
             "weapon_sawedoff",
             "weapon_tec9"
           ],
-          "Round": 1
+          "Round": 2
         },
         "NOVA + GLOCK": {
           "Weapons": [
             "weapon_nova",
             "weapon_glock"
           ],
-          "Round": 1
+          "Round": 2
         },
         "XM1014 + TEC-9": {
           "Weapons": [
             "weapon_xm1014",
             "weapon_tec9"
           ],
-          "Round": 1
+          "Round": 2
         },
         "AK-47 + DEAGLE": {
           "Weapons": [
             "weapon_ak47",
             "weapon_deagle"
           ],
-          "Round": 5
+          "Round": 2
         },
         "AK-47 + TEC-9": {
           "Weapons": [
             "weapon_ak47",
             "weapon_tec9"
           ],
-          "Round": 5
+          "Round": 2
         },
         "GALIL AR + P250": {
           "Weapons": [
             "weapon_galilar",
             "weapon_p250"
           ],
-          "Round": 5
+          "Round": 2
         },
         "SG 553 + FIVE-SEVEN": {
           "Weapons": [
             "weapon_sg556",
             "weapon_fiveseven"
           ],
-          "Round": 5
+          "Round": 2
         },
         "SCOUT + DEAGLE": {
           "Weapons": [
             "weapon_ssg08",
             "weapon_deagle"
           ],
-          "Round": 5
-        },
-        "AWP + TEC-9": {
-          "Weapons": [
-            "weapon_awp",
-            "weapon_tec9"
-          ],
-          "Round": 5
+          "Round": 2
         }
       }
     },
