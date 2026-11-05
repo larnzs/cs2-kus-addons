@@ -42,6 +42,8 @@ try {
     expect($casualWorkshopTemplate !== false
         && !str_contains((string) $casualWorkshopTemplate, 'exec settings/alltalk_on.cfg'),
         'Casual Workshop template does not inherit Casual-only gameplay settings');
+    expect(str_contains((string) $casualWorkshopTemplate, '// Executed after casualw.cfg'),
+        'Casual Workshop template documents its actual CFG entry point');
     expect(FragCityCustomCfgSynchronizer::modeLabelFromFilename('custom_deathmatch-valve.cfg') === 'Deathmatch ☠',
         'Valve Deathmatch template retains the matching active CFG filename and display suffix');
     $templateNames = [];
