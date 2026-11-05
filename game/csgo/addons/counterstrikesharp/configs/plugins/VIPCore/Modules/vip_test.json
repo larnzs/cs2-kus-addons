@@ -1,5 +1,5 @@
 {
-  "VipTestEnabled": true,
+  "VipTestEnabled": false,
   "VipTestDuration": 3600,
   "VipTestCooldown": 86400,
   "VipTestGroup": "BRONZE",
