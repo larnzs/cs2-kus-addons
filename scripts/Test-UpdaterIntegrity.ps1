@@ -30,6 +30,10 @@ try {
     $vipCore = @($manifest.addons | Where-Object { $_.name -eq "VIPCore" })
     Assert-Condition ($vipCore.Count -eq 1) "Expected exactly one VIPCore manifest entry."
     Assert-Condition ([bool]$vipCore[0].installed) "VIPCore must be marked installed."
+    Assert-Condition ([string]$vipCore[0].track -eq "latest_matching_release") "VIPCore must track the latest release carrying its own asset."
+    Assert-Condition ([string]$vipCore[0].track_asset -eq "VIPCore.zip") "VIPCore must select VIPCore.zip independently of module-only releases."
+    Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$vipCore[0].track_tag_regex)) "VIPCore must declare a full Core release tag pattern."
+    Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$vipCore[0].repair_track_tag_regex)) "VIPCore must declare a full Core repair tag pattern."
     Assert-Condition (@($vipCore[0].depends_on | Where-Object { $_ -eq "Metamod:Source" }).Count -eq 1) "VIPCore must depend on MetaMod:Source."
     Assert-Condition (@($vipCore[0].depends_on | Where-Object { $_ -eq "CounterStrikeSharp" }).Count -eq 1) "VIPCore must depend on CounterStrikeSharp."
 

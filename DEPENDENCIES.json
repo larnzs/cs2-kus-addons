@@ -854,7 +854,7 @@
       "name": "VIPCore",
       "repository": "https://github.com/partiusfabaa/cs2-VIPCore",
       "type": "github_release",
-      "track": "latest",
+      "track": "latest_matching_release",
       "version": "2.0.3",
       "release_tag": "v2.0.3",
       "assets": [
@@ -890,7 +890,10 @@
             "install_path": "addons/counterstrikesharp/shared/VipCoreApi"
           }
         ]
-      }
+      },
+      "track_asset": "VIPCore.zip",
+      "track_tag_regex": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "repair_track_tag_regex": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
     },
     {
       "order": 33,
