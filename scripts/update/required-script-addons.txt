@@ -1,0 +1,9 @@
+# Exact README catalog names for installed add-ons whose adapter is mandatory.
+# One name per line; catalog-only optional entries are deliberately not listed.
+GameModeManager
+CS2 Advertisement
+CS2-CustomVotes
+CS2_ExecAfter
+CS2Rcon
+SimpleAdmin
+AnnouncementBroadcaster
