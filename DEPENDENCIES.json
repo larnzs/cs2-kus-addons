@@ -140,24 +140,36 @@
     {
       "order": 4,
       "name": "MenuManagerCS2",
-      "repository": "https://github.com/NickFox007/MenuManagerCS2",
+      "repository": "https://github.com/RRimmer/PanoramaMenuManagerCS2",
       "type": "github_release",
       "track": "latest",
-      "version": "1.4.1",
-      "release_tag": "1.4.1",
+      "version": "1.3.01",
+      "release_tag": "MenuManagerCS2-1.3.01",
       "assets": [
-        "MenuManager.zip"
+        "MenuManagerCS2-{version}-cssharp*.zip"
       ],
       "depends_on": [
-        "CounterStrikeSharp",
-        "PlayerSettingsCS2"
+        "CounterStrikeSharp"
       ],
       "installed": true,
-      "merge": "release_csgo_root",
+      "merge": "release_plugin_directory",
       "verify_paths": [
         "addons/counterstrikesharp/plugins/MenuManagerCore/MenuManagerCore.dll",
+        "addons/counterstrikesharp/plugins/MenuManagerCore/runtimes/linux-x64/native/libe_sqlite3.so",
+        "addons/counterstrikesharp/plugins/MenuManagerCore/runtimes/win-x64/native/e_sqlite3.dll",
         "addons/counterstrikesharp/shared/MenuManagerApi/MenuManagerApi.dll"
-      ]
+      ],
+      "source_path": "Server-plugins/addons",
+      "install_path": "addons",
+      "asset_mappings": {
+        "MenuManagerCS2-{version}-cssharp*.zip": [
+          {
+            "merge": "release_plugin_directory",
+            "source_path": "Server-plugins/addons",
+            "install_path": "addons"
+          }
+        ]
+      }
     },
     {
       "order": 5,
