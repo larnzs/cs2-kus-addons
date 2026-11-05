@@ -42,7 +42,7 @@ try {
         expect($contents !== false, 'repository template is readable: ' . $filename);
         FragCityCustomCfgSynchronizer::render((string) $contents, 'FragCity Template Check', $filename);
         foreach (['sv_tags', 'sv_minrate', 'sv_maxrate', 'sv_server_graphic1', 'sv_server_graphic2'] as $directive) {
-            expect(preg_match_all('/^\\s*' . preg_quote($directive, '/') . '\\b/mi', (string) $contents) === 1,
+            expect(preg_match_all('/^\s*' . preg_quote($directive, '/') . '\b/mi', (string) $contents) === 1,
                 $filename . ' has exactly one ' . $directive . ' directive');
         }
     }
@@ -55,7 +55,7 @@ try {
         if ($modeContents === false) {
             throw new RuntimeException('Could not read game CFG: ' . $modeCfg);
         }
-        if (preg_match_all('/^\\s*exec\\s+["\\\']?(custom_[A-Za-z0-9._-]+\\.cfg)\\b/im', $modeContents, $matches) > 0) {
+        if (preg_match_all('/^\s*exec\s+"?(custom_[A-Za-z0-9._-]+\.cfg)\b/im', $modeContents, $matches) > 0) {
             foreach ($matches[1] as $name) {
                 $referencedCustomConfigs[$name] = true;
             }
