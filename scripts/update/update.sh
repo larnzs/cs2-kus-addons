@@ -231,7 +231,21 @@ process_mod() {   # $1 name, $2 url, $3 current version
         fi
     else
         NEW_VERSION="$latest"
-        log "${C_YEL}UP $PLUGIN_NAME update available $OLD_VERSION > $NEW_VERSION  $PLUGIN_URL${C_OFF}"
+        # Check plugin-owned runtime paths even when an upstream release is newer.
+        # Incremental release archives may omit unchanged module folders, so an
+        # incomplete payload must be repaired from the declared full-package track.
+        if [ -f "$script" ]; then
+            if ! load_plugin_script "$script"; then fail_mod "invalid plugin script $script"; return 0; fi
+            script_loaded=1
+            if declare -F plugin_needs_repair >/dev/null && plugin_needs_repair; then
+                NEW_VERSION="${PLUGIN_REPAIR_VERSION:-$latest}"
+                log "${C_YEL}FIX $PLUGIN_NAME - incomplete payload; applying repair release $NEW_VERSION (latest release: $latest)${C_OFF}"
+            else
+                log "${C_YEL}UP $PLUGIN_NAME update available $OLD_VERSION > $NEW_VERSION  $PLUGIN_URL${C_OFF}"
+            fi
+        else
+            log "${C_YEL}UP $PLUGIN_NAME update available $OLD_VERSION > $NEW_VERSION  $PLUGIN_URL${C_OFF}"
+        fi
     fi
 
     if [ ! -f "$script" ]; then

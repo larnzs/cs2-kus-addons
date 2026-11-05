@@ -169,7 +169,7 @@ try {
     $retakeCfg = Get-Content -LiteralPath (Join-Path $repoRoot "game/csgo/cfg/retake.cfg") -Raw
     Assert-Condition ($retakeCfg.Contains('css_plugins load "plugins/disabled/Antibait/Antibait.dll"')) "Retake CFG does not load Antibait from the disabled folder."
     $unloadCfg = Get-Content -LiteralPath (Join-Path $repoRoot "game/csgo/cfg/unload_plugins.cfg") -Raw
-    Assert-Condition ($unloadCfg.Contains('css_plugins unload "Antibait"')) "Antibait is not unloaded when switching out of its game mode."
+    Assert-Condition ($unloadCfg.Contains('css_plugins unload "plugins/disabled/Antibait/Antibait.dll"')) "Antibait is not unloaded when switching out of its game mode."
 
 
     # Runtime updater must serialize runs and avoid the shared initializing-worktree race.
