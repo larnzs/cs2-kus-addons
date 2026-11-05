@@ -190,8 +190,8 @@ jobs:
           php -l pterodactyl/server-mount-status.php
           php pterodactyl/test-custom-cfg-sync.php
           custom_cfg_template_count="$(find pterodactyl/custom-cfg -maxdepth 1 -type f -name 'custom_*.cfg' | wc -l)"
-          if [[ "$custom_cfg_template_count" -ne 36 ]]; then
-            echo "Expected 36 custom CFG templates under pterodactyl/custom-cfg; found $custom_cfg_template_count."
+          if [[ "$custom_cfg_template_count" -ne 37 ]]; then
+            echo "Expected 37 custom CFG templates under pterodactyl/custom-cfg; found $custom_cfg_template_count."
             exit 1
           fi
           if find game/csgo/cfg -maxdepth 1 -type f -name 'custom_*.cfg' -print -quit | grep -q .; then

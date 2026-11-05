@@ -32,8 +32,8 @@ try {
     $repoTemplateRoot = __DIR__ . '/custom-cfg';
     $repoCfgRoot = dirname(__DIR__) . '/game/csgo/cfg';
     $actualTemplates = glob($repoTemplateRoot . '/custom_*.cfg', GLOB_NOSORT);
-    expect(is_array($actualTemplates) && count($actualTemplates) === 36,
-        'repository contains exactly 36 active custom CFG templates');
+    expect(is_array($actualTemplates) && count($actualTemplates) === 37,
+        'repository contains exactly 37 active custom CFG templates');
     expect(FragCityCustomCfgSynchronizer::modeLabelFromFilename('custom_casual-1.6.cfg') === 'Casual1.6',
         'Casual 1.6 keeps the previous hostname suffix after its filename is aligned with the mode CFG');
     expect(FragCityCustomCfgSynchronizer::modeLabelFromFilename('custom_casualw.cfg') === 'Casual Workshop',
@@ -46,6 +46,8 @@ try {
         'Casual Workshop template documents its actual CFG entry point');
     expect(FragCityCustomCfgSynchronizer::modeLabelFromFilename('custom_deathmatch-valve.cfg') === 'Deathmatch ☠',
         'Valve Deathmatch template retains the matching active CFG filename and display suffix');
+    expect(FragCityCustomCfgSynchronizer::modeLabelFromFilename('custom_valve-deathmatch.cfg') === 'Deathmatch ☠',
+        'Valve Deathmatch Map Start settings keep their own matching custom CFG alias');
     $templateNames = [];
     foreach ($actualTemplates as $actualTemplate) {
         $filename = basename($actualTemplate);
@@ -89,7 +91,7 @@ try {
         'FragCity Template Check'
     );
     expect($actualRender['files'] === 36 && $actualRender['created'] === 36,
-        'all 36 repository templates render successfully into a fresh server cfg folder');
+        'all 37 repository templates render successfully into a fresh server cfg folder');
 
     $template = implode("\r\n", [
         '// template comment',
