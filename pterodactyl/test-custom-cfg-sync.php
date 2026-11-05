@@ -34,6 +34,8 @@ try {
     $actualTemplates = glob($repoTemplateRoot . '/custom_*.cfg', GLOB_NOSORT);
     expect(is_array($actualTemplates) && count($actualTemplates) === 35,
         'repository contains exactly 35 active custom CFG templates');
+    expect(FragCityCustomCfgSynchronizer::modeLabelFromFilename('custom_casual-1.6.cfg') === 'Casual1.6',
+        'Casual 1.6 keeps the previous hostname suffix after its filename is aligned with the mode CFG');
     $templateNames = [];
     foreach ($actualTemplates as $actualTemplate) {
         $filename = basename($actualTemplate);
