@@ -1,48 +1,35 @@
 {
-  "Version": 12,
-  "RTV": {
-    "Enabled": false,
-    "Style": "center",
-    "PerMap": false,
-    "HideHud": false,
-    "MinRounds": 0,
-    "MinPlayers": 1,
-    "VoteDuration": 15,
-    "OptionsToShow": 15,
-    "VotePercentage": 51,
-    "OptionsInCoolDown": 3,
-    "EndOfMapVote": true,
-    "IncludeModes": false,
-    "IncludeExtend": true,
-    "MaxExtends": 6,
-    "ExtendTime": 10,
-    "ExtendRounds": 5,
-    "ModePercentage": 40,
-    "EnabledInWarmup": false,
-    "HideHudAfterVote": false,
-    "NominationEnabled": true,
-    "MaxNominationWinners": 1,
-    "ChangeImmediately": false,
-    "TriggerKillsBeforeEnd": 13,
-    "TriggerRoundsBeforeEnd": 2,
-    "TriggerSecondsBeforeEnd": 120
-  },
+  "Version": 13,
+  "WorkshopAddon": "",
   "Maps": {
-    "Mode": 0,
     "Delay": 0,
-    "Style": "center",
     "Default": "de_dust2"
   },
   "Votes": {
     "Enabled": true,
-    "Maps": true,
-    "Style": "center",
     "GameModes": true,
-    "GameSettings": false
+    "GameSettings": false,
+    "Style": "menu",
+    "Percentage": 51,
+    "Duration": 30,
+    "MinPlayers": 1,
+    "Cooldown": 60,
+    "AllowSpectators": false,
+    "AllowInWarmup": false,
+    "NativeTitleToken": "",
+    "UsePanorama": false
+  },
+  "MapChooser": {
+    "GeneratePools": true,
+    "TriggerSecondsBeforeEnd": 120,
+    "TriggerKillsBeforeEnd": 13,
+    "ModesInVotes": false
+  },
+  "AdminPanel": {
+    "Enabled": true
   },
   "Settings": {
     "Enabled": true,
-    "Style": "center",
     "Folder": "settings"
   },
   "Warmup": {
@@ -69,21 +56,13 @@
     ]
   },
   "Commands": {
-    "Map": true,
     "Maps": true,
     "Mode": true,
     "Modes": true,
-    "TimeLeft": true,
-    "TimeLimit": true,
-    "Style": "center"
+    "TimeLimit": true
   },
   "Rotation": {
     "Enabled": false,
-    "Cycle": 0,
-    "MapGroups": [
-      "mg_active",
-      "mg_comp"
-    ],
     "WhenServerEmpty": false,
     "CustomTimeLimit": 600,
     "ModeRotation": false,
@@ -105,7 +84,6 @@
     ]
   },
   "GameModes": {
-    "Style": "center",
     "Default": {
       "Name": "Casual",
       "Config": "casual.cfg",
@@ -118,19 +96,76 @@
     "MapGroupFile": "gamemodes_server.txt",
     "List": [
       {
-        "Name": "Gun Game",
-        "Config": "gg.cfg",
-        "DefaultMap": "ar_pool_day",
+        "Name": "Competitive 45°",
+        "Config": "45.cfg",
+        "DefaultMap": "3276886893",
         "MapGroups": [
-          "mg_gg"
+          "mg_45"
         ]
       },
       {
-        "Name": "Deathmatch",
-        "Config": "deathmatch.cfg",
+        "Name": "1v1 Arenas",
+        "Config": "1v1.cfg",
+        "DefaultMap": "3070253400",
+        "MapGroups": [
+          "mg_1v1"
+        ]
+      },
+      {
+        "Name": "Awp Only",
+        "Config": "awp.cfg",
+        "DefaultMap": "3142070597",
+        "MapGroups": [
+          "mg_awp"
+        ]
+      },
+      {
+        "Name": "Aim",
+        "Config": "aim.cfg",
+        "DefaultMap": "3084291314",
+        "MapGroups": [
+          "mg_aim"
+        ]
+      },
+      {
+        "Name": "Battle Ball",
+        "Config": "battle.cfg",
+        "DefaultMap": "3280650663",
+        "MapGroups": [
+          "mg_battle"
+        ]
+      },
+      {
+        "Name": "Battle Royale",
+        "Config": "br.cfg",
+        "DefaultMap": "3462095803",
+        "MapGroups": [
+          "mg_battleroyale"
+        ]
+      },
+      {
+        "Name": "Bhop",
+        "Config": "bhop.cfg",
+        "DefaultMap": "3088973190",
+        "MapGroups": [
+          "mg_bhop"
+        ]
+      },
+      {
+        "Name": "Casual",
+        "Config": "casual.cfg",
         "DefaultMap": "de_dust2",
         "MapGroups": [
-          "mg_dm"
+          "mg_active",
+          "mg_comp"
+        ]
+      },
+      {
+        "Name": "Casual (1.6)",
+        "Config": "Casual-1.6.cfg",
+        "DefaultMap": "3201205818",
+        "MapGroups": [
+          "mg_casual-1.6"
         ]
       },
       {
@@ -142,11 +177,75 @@
         ]
       },
       {
-        "Name": "Wingman",
-        "Config": "wingman.cfg",
-        "DefaultMap": "de_nuke",
+        "Name": "Course",
+        "Config": "course.cfg",
+        "DefaultMap": "3070455802",
         "MapGroups": [
-          "mg_wingman"
+          "mg_course"
+        ]
+      },
+      {
+        "Name": "Deathmatch",
+        "Config": "deathmatch.cfg",
+        "DefaultMap": "de_dust2",
+        "MapGroups": [
+          "mg_dm"
+        ]
+      },
+      {
+        "Name": "Deathmatch (Valve)",
+        "Config": "dm-valve.cfg",
+        "DefaultMap": "de_mirage",
+        "MapGroups": [
+          "mg_dm"
+        ]
+      },
+      {
+        "Name": "Deathrun",
+        "Config": "deathrun.cfg",
+        "DefaultMap": "3164611860",
+        "MapGroups": [
+          "mg_deathrun"
+        ]
+      },
+      {
+        "Name": "Executes",
+        "Config": "executes.cfg",
+        "DefaultMap": "de_mirage",
+        "MapGroups": [
+          "mg_executes"
+        ]
+      },
+      {
+        "Name": "Gun Game",
+        "Config": "gg.cfg",
+        "DefaultMap": "ar_pool_day",
+        "MapGroups": [
+          "mg_gg"
+        ]
+      },
+      {
+        "Name": "Hide N Seek",
+        "Config": "hns.cfg",
+        "DefaultMap": "3644811896",
+        "MapGroups": [
+          "mg_hns"
+        ]
+      },
+      {
+        "Name": "Kreedz Climbing",
+        "Config": "kz.cfg",
+        "DefaultMap": "3086304337",
+        "MapGroups": [
+          "mg_kz"
+        ]
+      },
+      {
+        "Name": "Minigames",
+        "Config": "minigames.cfg",
+        "DefaultMap": "3082120895",
+        "MapGroups": [
+          "mg_minigames"
         ]
       },
       {
@@ -174,43 +273,11 @@
         ]
       },
       {
-        "Name": "Executes",
-        "Config": "executes.cfg",
-        "DefaultMap": "de_mirage",
+        "Name": "ScoutzKnivez",
+        "Config": "scoutzknivez.cfg",
+        "DefaultMap": "3073929825",
         "MapGroups": [
-          "mg_executes"
-        ]
-      },
-      {
-        "Name": "Awp Only",
-        "Config": "awp.cfg",
-        "DefaultMap": "3142070597",
-        "MapGroups": [
-          "mg_awp"
-        ]
-      },
-      {
-        "Name": "1v1 Arenas",
-        "Config": "1v1.cfg",
-        "DefaultMap": "3070253400",
-        "MapGroups": [
-          "mg_1v1"
-        ]
-      },
-      {
-        "Name": "Aim",
-        "Config": "aim.cfg",
-        "DefaultMap": "3084291314",
-        "MapGroups": [
-          "mg_aim"
-        ]
-      },
-      {
-        "Name": "Bhop",
-        "Config": "bhop.cfg",
-        "DefaultMap": "3088973190",
-        "MapGroups": [
-          "mg_bhop"
+          "mg_scoutzknivez"
         ]
       },
       {
@@ -222,11 +289,19 @@
         ]
       },
       {
-        "Name": "Kreedz Climbing",
-        "Config": "kz.cfg",
-        "DefaultMap": "3086304337",
+        "Name": "Soccer",
+        "Config": "soccer.cfg",
+        "DefaultMap": "3238565662",
         "MapGroups": [
-          "mg_kz"
+          "mg_soccer"
+        ]
+      },
+      {
+        "Name": "Wingman",
+        "Config": "wingman.cfg",
+        "DefaultMap": "de_nuke",
+        "MapGroups": [
+          "mg_wingman"
         ]
       },
       {
@@ -238,92 +313,11 @@
         ]
       },
       {
-        "Name": "Hide N Seek",
-        "Config": "hns.cfg",
-        "DefaultMap": "3644811896",
-        "MapGroups": [
-          "mg_hns"
-        ]
-      },
-      {
-        "Name": "Soccer",
-        "Config": "soccer.cfg",
-        "DefaultMap": "3238565662",
-        "MapGroups": [
-          "mg_soccer"
-        ]
-      },
-      {
-        "Name": "Course",
-        "Config": "course.cfg",
-        "DefaultMap": "3070455802",
-        "MapGroups": [
-          "mg_course"
-        ]
-      },
-      {
-        "Name": "Deathrun",
-        "Config": "deathrun.cfg",
-        "DefaultMap": "3164611860",
-        "MapGroups": [
-          "mg_deathrun"
-        ]
-      },
-      {
-        "Name": "Minigames",
-        "Config": "minigames.cfg",
-        "DefaultMap": "3082120895",
-        "MapGroups": [
-          "mg_minigames"
-        ]
-      },
-      {
-        "Name": "ScoutzKnivez",
-        "Config": "scoutzknivez.cfg",
-        "DefaultMap": "3073929825",
-        "MapGroups": [
-          "mg_scoutzknivez"
-        ]
-      },
-      {
         "Name": "One In The Chamber",
         "Config": "oitc.cfg",
         "DefaultMap": "ar_pool_day",
         "MapGroups": [
           "mg_gg"
-        ]
-      },
-      {
-        "Name": "Battle Ball",
-        "Config": "battle.cfg",
-        "DefaultMap": "3280650663",
-        "MapGroups": [
-          "mg_battle"
-        ]
-      },
-      {
-        "Name": "Battle Royale",
-        "Config": "br.cfg",
-        "DefaultMap": "3462095803",
-        "MapGroups": [
-          "mg_battleroyale"
-        ]
-      },
-      {
-        "Name": "Casual",
-        "Config": "casual.cfg",
-        "DefaultMap": "de_dust2",
-        "MapGroups": [
-          "mg_active",
-          "mg_comp"
-        ]
-      },
-      {
-        "Name": "Casual (1.6)",
-        "Config": "Casual-1.6.cfg",
-        "DefaultMap": "3201205818",
-        "MapGroups": [
-          "mg_casual-1.6"
         ]
       },
       {
@@ -380,14 +374,6 @@
         "DefaultMap": "de_dust2",
         "MapGroups": [
           "mg_valve_retakes"
-        ]
-      },
-      {
-        "Name": "Competitive 45°",
-        "Config": "45.cfg",
-        "DefaultMap": "3276886893",
-        "MapGroups": [
-          "mg_45"
         ]
       }
     ]
