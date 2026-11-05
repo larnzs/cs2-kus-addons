@@ -54,7 +54,7 @@ manifest_mapping_for_asset() {
     local name="$1" asset="$2" has_explicit key encoded candidate items result="[]"
 
     has_explicit=$(jq -r --arg name "$name" '
-        [.addons[] | select(.name == $name) | (.asset_mappings // null != null)] | first // false
+        [.addons[] | select(.name == $name) | ((.asset_mappings // null) != null)] | first // false
     ' DEPENDENCIES.json)
 
     if [ "$has_explicit" != "true" ]; then
