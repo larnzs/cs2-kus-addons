@@ -20,9 +20,8 @@ manifest="$(jq -e '.addons | type == "array"' DEPENDENCIES.json)"
 
 required_count=0
 while IFS= read -r name; do
-    case "$name" in
-        ""|\\#*) continue ;;
-    esac
+    [ -z "$name" ] && continue
+    [ "${name:0:1}" = "#" ] && continue
     slug="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//')"
     script="scripts/update/plugins/$slug.sh"
     [ -f "$script" ] || fail "installed add-on '$name' has no adapter: $script"
