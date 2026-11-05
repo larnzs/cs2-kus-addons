@@ -25,9 +25,9 @@
     "NoRTVafterRoundsPlayed": 0
   },
   "WinDrawSettings": {
-    "VoteDependsOnRoundWins": true,
+    "VoteDependsOnRoundWins": false,
     "TriggerRoundsBeforeEnd": 1,
-    "TriggerRoundsBeforeEndVoteAtRoundStart": true,
+    "TriggerRoundsBeforeEndVoteAtRoundStart": false,
     "TriggerVoteAtRoundStartSecondsFromStart": 0,
     "ChangeMapAfterWinDraw": false
   },
