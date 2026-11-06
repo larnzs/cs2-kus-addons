@@ -766,7 +766,6 @@
                 "workshop/3711703660/VIP de_inferno"	""
                 "workshop/3711702027/VIP de_anubis"	""
                 "workshop/3575485852/VIP de_ancient_night"	""
-            
                 "workshop/3829020468/VIP de_Italy"	""
                 "workshop/3785985069/VIP de_Mirage"	""
                 "workshop/3716297014/VIP de_Cache"	""}
@@ -811,7 +810,6 @@
                 "workshop/3121217565/de_thera"	""
                 "workshop/3073892687/de_season"	""
                 "workshop/3386116667/de_ema"	""
-            
                 "workshop/3818017613/de_dust2_winter"	""
                 "workshop/3609803878/de_mirage_winter"	""}
         }
