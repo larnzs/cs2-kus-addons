@@ -32,7 +32,7 @@
   },
   "EnableMetrics": true,
   "EnableUpdateCheck": true,
-  "Timezone": "UTC",
+  "Timezone": "Asia/Tehran",
   "WarnThreshold": {
     "998": "css_addban STEAMID64 60 \"3/4 Warn\"",
     "999": "css_ban #USERID 120 \"4/4 Warn\""
