@@ -227,6 +227,30 @@
       "minplayers": 0,
       "maxplayers": 0,
       "weight": 1
+    },
+    "VIP de_Italy": {
+      "ws": true,
+      "display": "VIP | Italy",
+      "mapid": "3829020468",
+      "minplayers": 0,
+      "maxplayers": 0,
+      "weight": 1
+    },
+    "VIP de_Mirage": {
+      "ws": true,
+      "display": "VIP | Mirage",
+      "mapid": "3785985069",
+      "minplayers": 0,
+      "maxplayers": 0,
+      "weight": 1
+    },
+    "VIP de_Cache": {
+      "ws": true,
+      "display": "VIP | Cache",
+      "mapid": "3716297014",
+      "minplayers": 0,
+      "maxplayers": 0,
+      "weight": 1
     }
   },
   "Casual": {
@@ -618,6 +642,22 @@
       "ws": true,
       "display": "Twofort Cs2",
       "mapid": "3345551391",
+      "minplayers": 0,
+      "maxplayers": 0,
+      "weight": 1
+    },
+    "de_dust2_winter": {
+      "ws": true,
+      "display": "Dust2 Winter",
+      "mapid": "3818017613",
+      "minplayers": 0,
+      "maxplayers": 0,
+      "weight": 1
+    },
+    "de_mirage_winter": {
+      "ws": true,
+      "display": "Mirage Winter",
+      "mapid": "3609803878",
       "minplayers": 0,
       "maxplayers": 0,
       "weight": 1
@@ -4102,6 +4142,22 @@
       "ws": true,
       "display": "Twofort Cs2",
       "mapid": "3345551391",
+      "minplayers": 0,
+      "maxplayers": 0,
+      "weight": 1
+    },
+    "de_dust2_winter": {
+      "ws": true,
+      "display": "Dust2 Winter",
+      "mapid": "3818017613",
+      "minplayers": 0,
+      "maxplayers": 0,
+      "weight": 1
+    },
+    "de_mirage_winter": {
+      "ws": true,
+      "display": "Mirage Winter",
+      "mapid": "3609803878",
       "minplayers": 0,
       "maxplayers": 0,
       "weight": 1
