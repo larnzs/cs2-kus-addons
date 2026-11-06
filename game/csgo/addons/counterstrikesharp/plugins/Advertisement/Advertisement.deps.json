@@ -6,7 +6,7 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v10.0": {
-      "Advertisement/2.0.1": {
+      "Advertisement/2.0.2": {
         "dependencies": {
           "PanoramaManager": "0.4.4"
         },
@@ -25,7 +25,7 @@
     }
   },
   "libraries": {
-    "Advertisement/2.0.1": {
+    "Advertisement/2.0.2": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
