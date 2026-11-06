@@ -2,43 +2,43 @@
   "TagSets": {
     "BRONZE": [
       {
-        "ScoreboardTag": "🥉 VIP",
-        "ChatTag": "[🥉 VIP]",
+        "ScoreboardTag": "VIP : ⭐",
+        "ChatTag": "[VIP : ⭐]",
         "ColorTag": "orange"
       }
     ],
     "SILVER": [
       {
-        "ScoreboardTag": "⭐⭐ VIP",
-        "ChatTag": "[⭐⭐ VIP]",
+        "ScoreboardTag": "VIP : ⭐⭐ ",
+        "ChatTag": "[VIP : ⭐⭐]",
         "ColorTag": "silver"
       }
     ],
     "GOLD": [
       {
-        "ScoreboardTag": "⭐⭐⭐ VIP",
-        "ChatTag": "[⭐⭐⭐ VIP]",
+        "ScoreboardTag": "VIP : ⭐⭐⭐",
+        "ChatTag": "[VIP : ⭐⭐⭐]",
         "ColorTag": "gold"
       }
     ],
     "PLATINUM": [
       {
-        "ScoreboardTag": "💠 VIP",
-        "ChatTag": "[💠 VIP]",
+        "ScoreboardTag": "VIP : ⭐⭐⭐⭐",
+        "ChatTag": "[VIP ⭐⭐⭐⭐]",
         "ColorTag": "lightblue"
       }
     ],
     "EMERALD": [
       {
-        "ScoreboardTag": "🟢 VIP",
-        "ChatTag": "[🟢 VIP]",
+        "ScoreboardTag": "VIP : ⭐⭐⭐⭐⭐",
+        "ChatTag": "[VIP : ⭐⭐⭐⭐⭐]",
         "ColorTag": "lime"
       }
     ],
     "DIAMOND": [
       {
-        "ScoreboardTag": "💎 VIP",
-        "ChatTag": "[💎 VIP]",
+        "ScoreboardTag": "VIP : ⭐⭐⭐⭐⭐⭐",
+        "ChatTag": "[VIP : ⭐⭐⭐⭐⭐⭐]",
         "ColorTag": "magenta"
       }
     ]
