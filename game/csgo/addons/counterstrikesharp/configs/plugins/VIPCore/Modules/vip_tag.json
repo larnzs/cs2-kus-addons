@@ -4,42 +4,54 @@
       {
         "ScoreboardTag": "VIP : ⭐",
         "ChatTag": "[VIP : ⭐]",
-        "ColorTag": "orange"
+        "ColorTag": "orange",
+        "NameColor": "default",
+        "MessageColor": "default"
       }
     ],
     "SILVER": [
       {
-        "ScoreboardTag": "VIP : ⭐⭐ ",
+        "ScoreboardTag": "VIP : ⭐⭐",
         "ChatTag": "[VIP : ⭐⭐]",
-        "ColorTag": "silver"
+        "ColorTag": "silver",
+        "NameColor": "default",
+        "MessageColor": "default"
       }
     ],
     "GOLD": [
       {
         "ScoreboardTag": "VIP : ⭐⭐⭐",
         "ChatTag": "[VIP : ⭐⭐⭐]",
-        "ColorTag": "gold"
+        "ColorTag": "gold",
+        "NameColor": "default",
+        "MessageColor": "default"
       }
     ],
     "PLATINUM": [
       {
         "ScoreboardTag": "VIP : ⭐⭐⭐⭐",
-        "ChatTag": "[VIP ⭐⭐⭐⭐]",
-        "ColorTag": "lightblue"
+        "ChatTag": "[VIP : ⭐⭐⭐⭐]",
+        "ColorTag": "lightblue",
+        "NameColor": "default",
+        "MessageColor": "default"
       }
     ],
     "EMERALD": [
       {
         "ScoreboardTag": "VIP : ⭐⭐⭐⭐⭐",
         "ChatTag": "[VIP : ⭐⭐⭐⭐⭐]",
-        "ColorTag": "lime"
+        "ColorTag": "lime",
+        "NameColor": "default",
+        "MessageColor": "default"
       }
     ],
     "DIAMOND": [
       {
         "ScoreboardTag": "VIP : ⭐⭐⭐⭐⭐⭐",
         "ChatTag": "[VIP : ⭐⭐⭐⭐⭐⭐]",
-        "ColorTag": "magenta"
+        "ColorTag": "magenta",
+        "NameColor": "default",
+        "MessageColor": "default"
       }
     ]
   },
