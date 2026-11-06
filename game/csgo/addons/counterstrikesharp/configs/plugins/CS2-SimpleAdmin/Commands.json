@@ -78,16 +78,24 @@
       ]
     },
     "css_addadmin": {
-      "aliases": []
+      "aliases": [
+        "css_addadmin"
+      ]
     },
     "css_deladmin": {
-      "aliases": []
+      "aliases": [
+        "css_deladmin"
+      ]
     },
     "css_addgroup": {
-      "aliases": []
+      "aliases": [
+        "css_addgroup"
+      ]
     },
     "css_delgroup": {
-      "aliases": []
+      "aliases": [
+        "css_delgroup"
+      ]
     },
     "css_reloadadmins": {
       "aliases": [
