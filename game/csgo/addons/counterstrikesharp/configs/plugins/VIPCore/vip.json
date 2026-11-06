@@ -33,7 +33,6 @@
     "NoFallDamage": true,
     "Zeus": true,
     "fastdefuse": 10,
-    "Gravity": 0.95,
     "SmokeColor": [
       -1,
       -1,
@@ -83,7 +82,11 @@
     "TeammatesHeal": 100,
     "Tag": [
       "PLATINUM"
-    ]
+    ],
+    "Jumps": {
+      "Jumps": 1,
+      "LimitPerRound": 5
+    }
   },
   "EMERALD": {
     "Money": "++5000",
@@ -283,7 +286,11 @@
     "TeammatesHeal": 100,
     "Tag": [
       "EMERALD"
-    ]
+    ],
+    "Jumps": {
+      "Jumps": 1,
+      "LimitPerRound": 5
+    }
   },
   "DIAMOND": {
     "Money": "++20000",
@@ -484,6 +491,10 @@
     "TeammatesHeal": 100,
     "Tag": [
       "DIAMOND"
-    ]
+    ],
+    "Jumps": {
+      "Jumps": 1,
+      "LimitPerRound": 5
+    }
   }
 }
