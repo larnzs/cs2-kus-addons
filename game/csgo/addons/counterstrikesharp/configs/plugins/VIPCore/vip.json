@@ -1,7 +1,6 @@
 {
   "BRONZE": {
     "Money": "++1000",
-    "TeammatesHeal": 100,
     "Tag": [
       "BRONZE"
     ],
@@ -16,14 +15,13 @@
       -1
     ],
     "Killscreen": true,
-    "TeammatesHeal": 100,
     "Tag": [
       "SILVER"
     ],
     "Vampirism": 3,
     "Armor": 125,
     "BuyTeamWeapon": false,
-    "Healthshot": 1,
+    "Healthshot": 0,
     "InfiniteAmmo": {
       "Type": 1,
       "DisabledGuns": []
@@ -47,7 +45,6 @@
     ],
     "RainbowModel": true,
     "Killscreen": true,
-    "TeammatesHeal": 100,
     "Tag": [
       "GOLD"
     ],
@@ -74,7 +71,7 @@
     "Zeus": true,
     "fastdefuse": 15,
     "fastplant": true,
-    "Gravity": 0.9,
+    "Gravity": 1.05,
     "HealthRegen": {
       "Health": 2,
       "Delay": 0,
@@ -124,7 +121,7 @@
     "Zeus": true,
     "fastdefuse": 20,
     "fastplant": true,
-    "Gravity": 0.85,
+    "Gravity": 1.1,
     "InfiniteAmmo": {
       "Type": 1,
       "DisabledGuns": []
@@ -334,7 +331,7 @@
     "Zeus": true,
     "fastdefuse": 25,
     "fastplant": true,
-    "Gravity": 0.75,
+    "Gravity": 1.15,
     "InfiniteAmmo": {
       "Type": 1,
       "DisabledGuns": []
