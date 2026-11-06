@@ -1,8 +1,5 @@
 {
   "BRONZE": {
-    "flags": [
-      "@vip/vip"
-    ],
     "Money": "++1000",
     "Tag": [
       "BRONZE"
