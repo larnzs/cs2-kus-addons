@@ -22,7 +22,7 @@
   "MapChooser": {
     "GeneratePools": true,
     "TriggerSecondsBeforeEnd": 120,
-    "TriggerKillsBeforeEnd": 13,
+    "TriggerKillsBeforeEnd": 999,
     "ModesInVotes": false
   },
   "AdminPanel": {
@@ -85,12 +85,11 @@
   },
   "GameModes": {
     "Default": {
-      "Name": "Casual",
-      "Config": "casual.cfg",
+      "Name": "Casual Active",
+      "Config": "casuala.cfg",
       "DefaultMap": null,
       "MapGroups": [
-        "mg_active",
-        "mg_comp"
+        "mg_casuala"
       ]
     },
     "MapGroupFile": "gamemodes_server.txt",
