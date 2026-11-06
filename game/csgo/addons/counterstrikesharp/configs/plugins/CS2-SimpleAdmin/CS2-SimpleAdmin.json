@@ -493,12 +493,52 @@
     ],
     "AdminFlags": [
       {
-        "name": "CounterStrikeSharp Admin (@css/admin)",
-        "flag": "@css/admin"
+        "name": "Generic",
+        "flag": "@css/generic"
       },
       {
-        "name": "SimpleAdmin Admin (#css/admin)",
-        "flag": "#css/admin"
+        "name": "Chat",
+        "flag": "@css/chat"
+      },
+      {
+        "name": "Change Map",
+        "flag": "@css/changemap"
+      },
+      {
+        "name": "Slay",
+        "flag": "@css/slay"
+      },
+      {
+        "name": "Kick",
+        "flag": "@css/kick"
+      },
+      {
+        "name": "Ban",
+        "flag": "@css/ban"
+      },
+      {
+        "name": "Perm Ban",
+        "flag": "@css/permban"
+      },
+      {
+        "name": "Unban",
+        "flag": "@css/unban"
+      },
+      {
+        "name": "Show IP",
+        "flag": "@css/showip"
+      },
+      {
+        "name": "Cvar",
+        "flag": "@css/cvar"
+      },
+      {
+        "name": "Rcon",
+        "flag": "@css/rcon"
+      },
+      {
+        "name": "Root (all flags)",
+        "flag": "@css/root"
       }
     ]
   }
