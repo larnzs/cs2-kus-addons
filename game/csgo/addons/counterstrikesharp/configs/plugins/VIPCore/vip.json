@@ -4,7 +4,8 @@
     "TeammatesHeal": 100,
     "Tag": [
       "BRONZE"
-    ]
+    ],
+    "BuyTeamWeapon": false
   },
   "SILVER": {
     "Money": "++2000",
@@ -20,7 +21,13 @@
       "SILVER"
     ],
     "Vampirism": 3,
-    "Armor": 125
+    "Armor": 125,
+    "BuyTeamWeapon": false,
+    "Healthshot": 1,
+    "InfiniteAmmo": {
+      "Type": 1,
+      "DisabledGuns": []
+    }
   },
   "GOLD": {
     "Money": "++3000",
@@ -43,7 +50,13 @@
     "TeammatesHeal": 100,
     "Tag": [
       "GOLD"
-    ]
+    ],
+    "BuyTeamWeapon": false,
+    "Healthshot": 1,
+    "InfiniteAmmo": {
+      "Type": 1,
+      "DisabledGuns": []
+    }
   },
   "PLATINUM": {
     "Money": "++3000",
@@ -86,6 +99,13 @@
     "Jumps": {
       "Jumps": 1,
       "LimitPerRound": 5
+    },
+    "BuyTeamWeapon": true,
+    "DecoyTp": 1,
+    "Healthshot": 2,
+    "InfiniteAmmo": {
+      "Type": 1,
+      "DisabledGuns": []
     }
   },
   "EMERALD": {
@@ -105,7 +125,10 @@
     "fastdefuse": 20,
     "fastplant": true,
     "Gravity": 0.85,
-    "InfiniteAmmo": true,
+    "InfiniteAmmo": {
+      "Type": 1,
+      "DisabledGuns": []
+    },
     "HealthRegen": {
       "Health": 4,
       "Delay": 0,
@@ -290,7 +313,10 @@
     "Jumps": {
       "Jumps": 1,
       "LimitPerRound": 5
-    }
+    },
+    "BuyTeamWeapon": true,
+    "DecoyTp": 1,
+    "Healthshot": 2
   },
   "DIAMOND": {
     "Money": "++20000",
@@ -309,7 +335,10 @@
     "fastdefuse": 25,
     "fastplant": true,
     "Gravity": 0.75,
-    "InfiniteAmmo": true,
+    "InfiniteAmmo": {
+      "Type": 1,
+      "DisabledGuns": []
+    },
     "HealthRegen": {
       "Health": 15,
       "Delay": 0,
@@ -495,6 +524,9 @@
     "Jumps": {
       "Jumps": 1,
       "LimitPerRound": 5
-    }
+    },
+    "BuyTeamWeapon": true,
+    "DecoyTp": 2,
+    "Healthshot": 3
   }
 }
