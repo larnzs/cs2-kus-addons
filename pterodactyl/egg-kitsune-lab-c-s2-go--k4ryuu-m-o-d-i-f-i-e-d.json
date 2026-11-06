@@ -1,0 +1,353 @@
+{
+    "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - PTERODACTYL.IO",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": "https:\/\/raw.githubusercontent.com\/K4ryuu\/CS2-Egg-Go\/main\/pterodactyl\/kitsunelab-cs2-go-egg.json"
+    },
+    "exported_at": "2026-11-06T13:23:53+03:30",
+    "name": "KitsuneLab CS2 Go @ K4ryuu MODIFIED",
+    "author": "k4ryuu@icloud.com",
+    "description": "CS2 servers for Pterodactyl and Pelican with no shell in the image: one static Go binary boots the server, and an optional node daemon shares the game files, filters bot floods and caches workshop content. The successor of the bash KitsuneLab CS2 egg.",
+    "features": [],
+    "docker_images": {
+        "KitsuneLab CS2 Go - Stable": "ghcr.io\/k4ryuu\/cs2-egg-go:stable",
+        "KitsuneLab CS2 Go - Beta": "ghcr.io\/k4ryuu\/cs2-egg-go:beta"
+    },
+    "file_denylist": [],
+    "startup": "bash \/home\/container\/egg\/fragcity-payload\/sync-addon-payload-container.sh && .\/game\/cs2.sh {{CUSTOM_PARAMS}} -tickrate {{TICKRATE}} -dedicated +ip 0.0.0.0 -port {{SERVER_PORT}} +map {{SRCDS_MAP}} +mapgroup {{MAPGROUP}} -maxplayers {{SRCDS_MAXPLAYERS}} +sv_setsteamaccount {{STEAM_ACC}} +game_type {{GAME_TYPE}} +game_mode {{GAME_MODE}} -authkey {{AUTHKEY}} +sv_password {{PASSWORD}} +host_workshop_collection {{WORKSHOP}} disable_workshop_command_filtering",
+    "config": {
+        "files": "{}",
+        "startup": "{\r\n    \"done\": \"Source2Init OK\"\r\n}",
+        "logs": "{}",
+        "stop": "quit"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!\/bin\/bash\n# Dummy install script - actual installation happens on first startup\nexit 0",
+            "container": "ghcr.io\/pterodactyl\/installers:debian",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Allow Tokenless Servers",
+            "description": "Internal setting to allow servers to run without GSLT token.",
+            "env_variable": "ALLOW_TOKENLESS",
+            "default_value": "0",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Source AppID",
+            "description": "NOT VISIBLE TO USERS. DO NOT EDIT.",
+            "env_variable": "SRCDS_APPID",
+            "default_value": "730",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "required|numeric",
+            "field_type": "text"
+        },
+        {
+            "name": "Max Players",
+            "description": "The maximum number of players the server can host.",
+            "env_variable": "SRCDS_MAXPLAYERS",
+            "default_value": "32",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "required|numeric|max:64|min:5",
+            "field_type": "text"
+        },
+        {
+            "name": "Disable Updates",
+            "description": "Set to 1 to stop updates.",
+            "env_variable": "SRCDS_STOP_UPDATE",
+            "default_value": "0",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "required|numeric",
+            "field_type": "text"
+        },
+        {
+            "name": "Validate Install",
+            "description": "Toggles SteamCMD validation of game server files. Set to 0 to disable.",
+            "env_variable": "SRCDS_VALIDATE",
+            "default_value": "1",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "required|numeric",
+            "field_type": "text"
+        },
+        {
+            "name": "Game Server Login Token (GSLT)",
+            "description": "The Steam Game Server Login Token (GSLT) used to publicly list your server. Optional, but recommended for increased visibility and access to additional features. Learn more: https:\/\/steamcommunity.com\/dev\/managegameservers",
+            "env_variable": "STEAM_ACC",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "max:32|nullable",
+            "field_type": "text"
+        },
+        {
+            "name": "Map",
+            "description": "The default map for the server.",
+            "env_variable": "SRCDS_MAP",
+            "default_value": "de_dust2",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|alpha_dash",
+            "field_type": "text"
+        },
+        {
+            "name": "Game Type",
+            "description": "",
+            "env_variable": "GAME_TYPE",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|numeric|in:0,1,2,3,4,5,6",
+            "field_type": "text"
+        },
+        {
+            "name": "Game Mode",
+            "description": "",
+            "env_variable": "GAME_MODE",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|numeric|in:0,1,2,3,4",
+            "field_type": "text"
+        },
+        {
+            "name": "MetaMod:Source",
+            "description": "Base plugin framework required by CounterStrikeSharp. Compatible with all frameworks. Auto-enabled if CSS is selected. Automatically updates on server restart while enabled.",
+            "env_variable": "INSTALL_METAMOD",
+            "default_value": "1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "CounterStrikeSharp",
+            "description": "C# scripting platform for CS2 plugins. Requires MetaMod:Source (auto-enabled). Compatible with SwiftlyS2. Incompatible with ModSharp. Automatically updates on server restart while enabled.",
+            "env_variable": "INSTALL_CSS",
+            "default_value": "1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "SwiftlyS2",
+            "description": "Standalone C# framework for Source Engine 2 servers (no MetaMod required). Compatible with CSS. Incompatible with ModSharp. Automatically updates on server restart while enabled.",
+            "env_variable": "INSTALL_SWIFTLY",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": false,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "ModSharp",
+            "description": "Standalone C# scripting platform with .NET 9 runtime. Compatible with MetaMod only. Incompatible with CSS and SwiftlyS2 (auto-disabled if enabled). Automatically updates on server restart while enabled.",
+            "env_variable": "INSTALL_MODSHARP",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Allow Prerelease Updates",
+            "description": "Allow downloading prerelease\/beta versions of frameworks (CSS, SwiftlyS2, ModSharp) from GitHub. Warning: Prereleases may be unstable.",
+            "env_variable": "PRERELEASE",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Console Log Level",
+            "description": "Minimum level shown in the console: DEBUG, INFO, WARNING or ERROR. DEBUG shows what the egg decided and why. Overrides logging.json's console_level when set. Leave empty to use the config file's value.",
+            "env_variable": "CONSOLE_LOG_LEVEL",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|in:DEBUG,INFO,WARNING,ERROR",
+            "field_type": "text"
+        },
+        {
+            "name": "Console Filter",
+            "description": "Filter unwanted console messages. Configure filter patterns in \/egg\/configs\/console-filter.json",
+            "env_variable": "ENABLE_FILTER",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Bot Guard",
+            "description": "Behaviour-based connection defense against advertising\/console-spam bots. Detects clients that never finish signon yet act or persist, and temporarily blocks them. Starts in dry-run (log only); tune and enable blocking in \/egg\/configs\/guard.json.",
+            "env_variable": "ENABLE_GUARD",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": false,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Guard Action",
+            "description": "What Bot Guard does when a rule trips: log (dry-run, detect only), kick, or block (kick + temporary IP ban). Overrides guard.json's action when set, empty uses the file's value. Only matters with Bot Guard on.",
+            "env_variable": "GUARD_ACTION",
+            "default_value": "block",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|in:log,kick,block",
+            "field_type": "text"
+        },
+        {
+            "name": "Guard Ban Minutes",
+            "description": "How long a block lasts, in minutes, when Bot Guard's action is kick or block. Overrides guard.json's ban_minutes when set, empty uses the file's value. Only matters with Bot Guard on.",
+            "env_variable": "GUARD_BAN_MINUTES",
+            "default_value": "60",
+            "user_viewable": true,
+            "user_editable": false,
+            "rules": "nullable|numeric|min:1",
+            "field_type": "text"
+        },
+        {
+            "name": "Guard Whitelist SteamIDs",
+            "description": "Comma-separated SteamID64s Bot Guard never acts on. Overrides guard.json's whitelist_steamids when set, empty uses the file's value. Only matters with Bot Guard on.",
+            "env_variable": "GUARD_WHITELIST_STEAMIDS",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": false,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Guard Whitelist IPs",
+            "description": "Comma-separated IPs Bot Guard never acts on. Overrides guard.json's whitelist_ips when set, empty uses the file's value. Only matters with Bot Guard on.",
+            "env_variable": "GUARD_WHITELIST_IPS",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Custom Parameters",
+            "description": "Custom startup parameters to add to the command line.",
+            "env_variable": "CUSTOM_PARAMS",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "string|nullable",
+            "field_type": "text"
+        },
+        {
+            "name": "Auto Cleanup",
+            "description": "Automatically cleans up old logs, demos, and backup files. Configure cleanup intervals in \/egg\/configs\/cleanup.json",
+            "env_variable": "CLEANUP_ENABLED",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Log File Persistence",
+            "description": "Keeps the console tab's full output (this egg's own messages and the game server's own lines) past a restart. Requires the node daemon with the console-log module installed; saved on the node's host disk, not in this container. Does nothing on a server with no node.",
+            "env_variable": "ENABLE_LOG_FILES",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "GDB Remote Debug Port",
+            "description": "GDB remote debugging port for IDA. Specify port number (e.g., 27130) and allocate it in network settings. Connect: IDA \u2192 Debugger \u2192 Remote GDB debugger. Performance impact: ~5-10%. Leave empty to disable. Development only!",
+            "env_variable": "GDB_DEBUG_PORT",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "nullable|numeric",
+            "field_type": "text"
+        },
+        {
+            "name": "Server Tickrate",
+            "description": "",
+            "env_variable": "TICKRATE",
+            "default_value": "128",
+            "user_viewable": true,
+            "user_editable": false,
+            "rules": "required|numeric|in:64,128",
+            "field_type": "text"
+        },
+        {
+            "name": "Gamemode map group chooser",
+            "description": "+mapgroup",
+            "env_variable": "MAPGROUP",
+            "default_value": "mg_comp",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:mg_active,mg_comp,mg_gg,mg_dm,mg_wingman,mg_prefire,mg_retake,mg_executes,mg_awp,mg_1v1,mg_aim,mg_bhop,mg_surf,mg_kz,mg_ctf,mg_hns,mg_soccer,mg_course,mg_deathrun,mg_minigames,mg_scoutzknivez,mg_battle,mg_battleroyale,mg_casual-1.6,mg_valve_competitive,mg_valve_deathmatch,mg_valve_arms_race,mg_valve_wingman,mg_casualw,mg_casuala,mg_valve_retakes,mg_45",
+            "field_type": "text"
+        },
+        {
+            "name": "Auth key for downloading workshop maps on the server",
+            "description": "-authkey",
+            "env_variable": "AUTHKEY",
+            "default_value": "BC2425B4CA1497503CADDD26656EEC68",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "required|string|max:50",
+            "field_type": "text"
+        },
+        {
+            "name": "whether to kick out players with cooldown",
+            "description": "sv_kick_players_with_cooldown",
+            "env_variable": "COOLDOWN",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Server Password",
+            "description": "+sv_password",
+            "env_variable": "PASSWORD",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "max:16|nullable",
+            "field_type": "text"
+        },
+        {
+            "name": "Execute specific cfg related to the gamemode",
+            "description": "+exec",
+            "env_variable": "EXEC",
+            "default_value": "comp.cfg",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:1v1.cfg,45.cfg,aim.cfg,awp-aim.cfg,awp.cfg,battle.cfg,bhop.cfg,bots.cfg,br.cfg,Casual-1.6.cfg,casual-active.cfg,casual.cfg,casualw.cfg,cmds.cfg,comp.cfg,course.cfg,cs2-executes\/executes.cfg,cs2-retakes\/retakes.cfg,cs2ac.cfg,ctf.cfg,custom_1v1.cfg,custom_aim.cfg,custom_all.cfg,custom_awp.cfg,custom_battle.cfg,custom_bhop.cfg,custom_bots.cfg,custom_br.cfg,custom_casual.cfg,custom_casual1.6.cfg,custom_comp.cfg,custom_course.cfg,custom_ctf.cfg,custom_deathmatch.cfg,custom_deathrun.cfg,custom_executes.cfg,custom_ffamulti.cfg,custom_gg.cfg,custom_hns.cfg,custom_kz.cfg,custom_minigames.cfg,custom_oitc.cfg,custom_practice.cfg,custom_prefire.cfg,custom_retake.cfg,custom_scoutzknivez.cfg,custom_soccer.cfg,custom_surf.cfg,custom_valve-armsrace.cfg,custom_valve-competitive.cfg,custom_valve-deathmatch-freeforall.cfg,custom_valve-deathmatch.cfg,custom_valve-retake.cfg,custom_valve-wingman.cfg,custom_wingman.cfg,deathmatch.cfg,deathrun.cfg,dm-valve.cfg,dm.cfg,env.cfg,executes.cfg,gg.cfg,gungame\/gungame.disable_rtv.cfg,gungame\/gungame.gameend.cfg,gungame\/gungame.mapvote.cfg,gungame\/gungame.warmupend.cfg,gungame\/gungame.warmupstart.cfg,hns.cfg,kz.cfg,mapconfigs\/ar_dizzy.cfg,mapconfigs\/bhop_ragnarok.cfg,mapconfigs\/cs_italy.cfg,mapconfigs\/cs_office.cfg,mapconfigs\/de_ancient.cfg,mapconfigs\/de_anubis.cfg,mapconfigs\/de_dust2.cfg,mapconfigs\/de_inferno.cfg,mapconfigs\/de_mirage.cfg,mapconfigs\/de_nuke.cfg,mapconfigs\/de_overpass.cfg,mapconfigs\/de_vertigo.cfg,mapconfigs\/forced\/de_examplemap.cfg,mapconfigs\/fun_bounce.cfg,mapconfigs\/ka_soccer_2009.cfg,mapconfigs\/mg_acrophobia_run_v2.cfg,mapconfigs\/mg_alley_course_v2.cfg,mapconfigs\/mg_circle_course_v3.cfg,mapconfigs\/mg_glave_course_v2.cfg,mapconfigs\/mg_metal_course_v2.cfg,mapconfigs\/mg_metro_course_s2.cfg,mapconfigs\/mg_metro_course_v1.cfg,mapconfigs\/mg_office_course_v3.cfg,mapconfigs\/mg_simpsons_course_v2.cfg,mapconfigs\/mg_skeet_multigames_v7.cfg,mapconfigs\/mg_sky_realm_v3.cfg,mapconfigs\/mg_sonic_course_v2.cfg,mapconfigs\/mg_switch_course_v2.cfg,mapconfigs\/mg_warmcup_headshot.cfg,mapconfigs\/minus_denhet.cfg,mapconfigs\/only_up.cfg,mapconfigs\/prefixes\/aim_.cfg,mapconfigs\/prefixes\/awp_.cfg,mapconfigs\/prefixes\/ba_.cfg,mapconfigs\/prefixes\/bhop_.cfg,mapconfigs\/prefixes\/cr_.cfg,mapconfigs\/prefixes\/cs_.cfg,mapconfigs\/prefixes\/db_.cfg,mapconfigs\/prefixes\/de_.cfg,mapconfigs\/prefixes\/deathrun_.cfg,mapconfigs\/prefixes\/dm_.cfg,mapconfigs\/prefixes\/dz_.cfg,mapconfigs\/prefixes\/fy_.cfg,mapconfigs\/prefixes\/gg_.cfg,mapconfigs\/prefixes\/hns_.cfg,mapconfigs\/prefixes\/hs_.cfg,mapconfigs\/prefixes\/jb_.cfg,mapconfigs\/prefixes\/kz_.cfg,mapconfigs\/prefixes\/seek_.cfg,mapconfigs\/prefixes\/surf_.cfg,mapconfigs\/prefixes\/ttt_.cfg,mapconfigs\/prefixes\/ze_.cfg,mapconfigs\/prefixes\/zm_.cfg,mapconfigs\/scoutzknivez_pure_cs2.cfg,mapconfigs\/winterday_bs.cfg,MatchZy\/config.cfg,MatchZy\/dryrun.cfg,MatchZy\/knife.cfg,MatchZy\/live_override.cfg,MatchZy\/live_wingman_override.cfg,MatchZy\/live_wingman.cfg,MatchZy\/live.cfg,MatchZy\/override.cfg,MatchZy\/prac.cfg,MatchZy\/sleep.cfg,MatchZy\/warmup.cfg,MatchZy\/whitelist.cfg,minigames.cfg,mods.cfg,multiaddonmanager\/multiaddonmanager.cfg,oitc.cfg,on_boot.cfg,prac.cfg,practice.cfg,prefire.cfg,retake.cfg,scoutzknivez.cfg,server.cfg,settings\/alltalk_on.cfg,settings\/bhop_off.cfg,settings\/bhop_on.cfg,settings\/bots_ar.cfg,settings\/bots_buy.cfg,settings\/bots_dm.cfg,settings\/bots_dont_buy.cfg,settings\/course.cfg,settings\/disable_autobhop.cfg,settings\/disable_bhop.cfg,settings\/disable_bots.cfg,settings\/disable_buying.cfg,settings\/disable_course.cfg,settings\/disable_custom_player_models.cfg,settings\/disable_dice.cfg,settings\/disable_drop_weapons.cfg,settings\/disable_fun.cfg,settings\/disable_knifedrop.cfg,settings\/disable_map_voting.cfg,settings\/disable_movement_unlock.cfg,settings\/disable_one_round.cfg,settings\/disable_random_round.cfg,settings\/disable_random_spawns.cfg,settings\/disable_revive.cfg,settings\/disable_scoutz.cfg,settings\/disable_spectator_list.cfg,settings\/disable_surf.cfg,settings\/disable_teleport_kill.cfg,settings\/disable_warcraft.cfg,settings\/disable_weapon_speed.cfg,settings\/enable_alltalk.cfg,settings\/enable_autobhop.cfg,settings\/enable_bhop.cfg,settings\/enable_bots.cfg,settings\/enable_buying.cfg,settings\/enable_course.cfg,settings\/enable_custom_player_models.cfg,settings\/enable_dice.cfg,settings\/enable_fun.cfg,settings\/enable_knifedrop.cfg,settings\/enable_movement_unlock.cfg,settings\/enable_one_round.cfg,settings\/enable_random_round.cfg,settings\/enable_random_spawns.cfg,settings\/enable_revive.cfg,settings\/enable_scoutz.cfg,settings\/enable_spectator_list.cfg,settings\/enable_surf.cfg,settings\/enable_teleport_kill.cfg,settings\/enable_warcraft.cfg,settings\/enable_weapon_speed.cfg,settings\/inventory_simulator.cfg,settings\/kz_on.cfg,settings\/logging.cfg,settings\/map_voting.cfg,settings\/movement_restore.cfg,settings\/movement_unlock.cfg,settings\/no_bots.cfg,settings\/no_buying.cfg,settings\/no_drop_weapons.cfg,settings\/no_warmup.cfg,settings\/one_round.cfg,settings\/quake_sounds.cfg,settings\/random_spawns.cfg,settings\/surf_off.cfg,settings\/surf_on.cfg,SharpTimer\/example.config.cfg,SharpTimer\/example.custom_exec.cfg,SharpTimer\/MapData\/MapExecs\/example.bhop_.cfg,SharpTimer\/MapData\/MapExecs\/example.de_example.cfg,SharpTimer\/MapData\/MapExecs\/example.surf_.cfg,SharpTimer\/MapData\/MapExecs\/example.vnl_.cfg,soccer.cfg,surf.cfg,unload_plugins.cfg,valve-armsrace.cfg,valve-competitive.cfg,valve-deathmatch-freeforall.cfg,valve-deathmatch.cfg,valve-retake.cfg,valve-wingman.cfg,vip.cfg,warmup\/dm.cfg,warmup\/knives_only.cfg,warmup\/scoutz_only.cfg,wingman.cfg",
+            "field_type": "text"
+        },
+        {
+            "name": "Workshop Collection for loading up a server with specific workshop playlist",
+            "description": "+host_workshop_collection",
+            "env_variable": "WORKSHOP",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|numeric",
+            "field_type": "text"
+        }
+    ]
+}
