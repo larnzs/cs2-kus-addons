@@ -1,5 +1,8 @@
 {
   "BRONZE": {
+    "flags": [
+      "@vip/vip"
+    ],
     "Money": "++1000",
     "Tag": [
       "BRONZE"
@@ -7,6 +10,9 @@
     "BuyTeamWeapon": false
   },
   "SILVER": {
+    "flags": [
+      "@vip/vip"
+    ],
     "Money": "++2000",
     "Defuser": true,
     "SmokeColor": [
@@ -24,6 +30,9 @@
     "Healthshot": 0
   },
   "GOLD": {
+    "flags": [
+      "@vip/vip"
+    ],
     "Money": "++3000",
     "Health": 100,
     "Armor": 150,
@@ -48,6 +57,9 @@
     "Healthshot": 1
   },
   "PLATINUM": {
+    "flags": [
+      "@vip/vip"
+    ],
     "Money": "++3000",
     "Health": 150,
     "Defuser": true,
@@ -98,6 +110,9 @@
     }
   },
   "EMERALD": {
+    "flags": [
+      "@vip/vip"
+    ],
     "Money": "++5000",
     "Health": 180,
     "Defuser": true,
@@ -308,6 +323,9 @@
     "Healthshot": 2
   },
   "DIAMOND": {
+    "flags": [
+      "@vip/vip"
+    ],
     "Money": "++20000",
     "Health": 300,
     "Defuser": true,
