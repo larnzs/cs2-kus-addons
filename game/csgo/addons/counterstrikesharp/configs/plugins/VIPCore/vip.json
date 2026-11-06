@@ -21,11 +21,7 @@
     "Vampirism": 3,
     "Armor": 125,
     "BuyTeamWeapon": false,
-    "Healthshot": 0,
-    "InfiniteAmmo": {
-      "Type": 1,
-      "DisabledGuns": []
-    }
+    "Healthshot": 0
   },
   "GOLD": {
     "Money": "++3000",
@@ -49,11 +45,7 @@
       "GOLD"
     ],
     "BuyTeamWeapon": false,
-    "Healthshot": 1,
-    "InfiniteAmmo": {
-      "Type": 1,
-      "DisabledGuns": []
-    }
+    "Healthshot": 1
   },
   "PLATINUM": {
     "Money": "++3000",
