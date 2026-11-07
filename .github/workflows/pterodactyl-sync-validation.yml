@@ -88,9 +88,9 @@ jobs:
           grep -Fq 'First full game/ deployment completed and recorded' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'is_runtime_excluded_path()' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'Leaving K4ryuu-managed runtime path untouched' pterodactyl/sync-addon-payload-container.sh
-          grep -Fq 'Verified both subscribed_*_ids.txt seed files on the first install.' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'Required subscribed_*_ids.txt files were present and SHA-256 verified on the first full sync.' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'Required subscribed-ID file is missing or unsafe after sync' pterodactyl/sync-addon-payload-container.sh
-          grep -Fq 'First-install seed is pending' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'First full-payload sync is pending' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'FRAGCITY_BASELINE_SHA256' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'waiting up to 90 seconds for the host provisioner' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'GAME_SOURCE="$PAYLOAD_ROOT/game"' pterodactyl/sync-addon-payload-container.sh
