@@ -13,7 +13,7 @@ MOUNT_REFRESH_SECONDS="$(printenv FRAGCITY_STATUS_MOUNT_REFRESH_SECONDS 2>/dev/n
 [[ -n "$REPO_ROOT" ]] || REPO_ROOT="/opt/fragcity/cs2-kus-addons"
 [[ "$REFRESH_SECONDS" =~ ^[1-9][0-9]*$ ]] || REFRESH_SECONDS=5
 [[ "$MOUNT_REFRESH_SECONDS" =~ ^[5-9]$|^[1-9][0-9]+$ ]] || MOUNT_REFRESH_SECONDS=5
-UI_VERSION="6.2-manual-first-install-and-history-menu"
+UI_VERSION="6.3-continuous-config-sync"
 SELF_PATH="$(readlink -f -- "$0" 2>/dev/null || printf '%s' "$0")"
 
 if [[ "$(id -u)" -ne 0 ]]; then
@@ -285,7 +285,7 @@ render_mount_section() {
     "$MOUNT_CURRENT_PANEL" "$MOUNT_ELIGIBLE" "$MOUNT_ACTIVE_COUNT" "$MOUNT_INACTIVE_COUNT"
   printf '  Panel Mount ON/OFF: %s/%s  |  Docker Mount ON/OFF: %s/%s  |  no container: %s  |  unknown: %s\n' \
     "$MOUNT_PANEL_ON" "$MOUNT_PANEL_OFF" "$MOUNT_DOCKER_ON" "$MOUNT_DOCKER_OFF" "$MOUNT_CONTAINER_MISSING" "$MOUNT_UNKNOWN"
-  printf '  First seed: pending=%s missing=%s invalid=%s new/unregistered=%s attention=%s\n' \
+  printf '  First full sync: pending=%s missing=%s invalid=%s new/unregistered=%s attention=%s\n' \
     "$MOUNT_SEED_PENDING" "$MOUNT_SEED_MISSING" "$MOUNT_SEED_BAD" "$MOUNT_NEW_UNREGISTERED" "$MOUNT_ATTENTION_TOTAL"
   printf '  Mount #%s  |  baseline registry: %s  |  Docker scan: ' "$MOUNT_ID" "$MOUNT_REGISTRY"
   paint_switch "$MOUNT_DOCKER_SCAN"; printf '  |  target: %s\n' "$MOUNT_TARGET"
