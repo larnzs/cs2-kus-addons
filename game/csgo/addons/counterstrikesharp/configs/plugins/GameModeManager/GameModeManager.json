@@ -382,6 +382,14 @@
         "MapGroups": [
           "mg_rush"
         ]
+      },
+      {
+        "Name": "VIP",
+        "Config": "vip.cfg",
+        "DefaultMap": "3711701554",
+        "MapGroups": [
+          "mg_vip"
+        ]
       }
     ]
   }
