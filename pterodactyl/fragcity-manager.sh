@@ -742,7 +742,7 @@ manage_install_marks() {
 
     heading "FIRST FULL-SYNC STATE — $name"
     printf '  UUID: %s\n' "$uuid"
-    printf '  Current seed state: %s\n' "$seed"
+    printf '  Current first-sync state: %s\n' "$seed"
     printf '  Container: %s | Panel Mount: %s | Docker Mount: %s | Startup hook: %s\n' \
       "$container_state" "$panel_mount" "$docker_mount" "$startup"
     printf '\n'
