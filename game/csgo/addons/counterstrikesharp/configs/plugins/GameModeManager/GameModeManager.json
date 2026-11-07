@@ -86,7 +86,7 @@
   "GameModes": {
     "Default": {
       "Name": "Casual Active",
-      "Config": "casuala.cfg",
+      "Config": "casual-active.cfg",
       "DefaultMap": null,
       "MapGroups": [
         "mg_casuala"
@@ -156,6 +156,7 @@
         "DefaultMap": "de_dust2",
         "MapGroups": [
           "mg_active",
+          "mg_valve_casual",
           "mg_comp"
         ]
       },
