@@ -95,7 +95,7 @@ if [[ -f "$INITIAL_STATE" ]]; then
     elif grep -Fxq 'mode=pending' "$INITIAL_STATE"; then
         [[ -w "$INITIAL_STATE" ]] || die "Pending config-seed state is not writable; refusing to seed configs without recording completion."
         CONFIG_SEED_ACTIVE=1
-        log "First-install seed is pending; the complete repository game/ tree will be deployed, including configs."
+        log "First full-payload sync is pending; the complete repository game/ tree will be deployed and verified."
     else
         die "Initial-sync state has no recognized pending/completed mode."
     fi
@@ -152,7 +152,7 @@ if [[ "$CONFIG_SEED_STATE_MISSING" -eq 1 ]]; then
         if grep -Fxq 'mode=pending' "$INITIAL_STATE"; then
             [[ -w "$INITIAL_STATE" ]] || die "Pending config-seed state is not writable; refusing to seed configs without being able to record completion."
             CONFIG_SEED_ACTIVE=1
-            log "Host provisioner registered this new server; first-install config seeding is active."
+            log "Host provisioner registered this new server; its first full-payload sync is active."
         elif grep -Fxq 'mode=completed' "$INITIAL_STATE"; then
             log "Host provisioner reports the first full game/ sync is already completed; normal full-payload synchronization will continue."
         else
@@ -289,7 +289,7 @@ if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
         [[ "$actual_hash" == "${DESIRED_HASH[$required_seed_path]}" ]] \
             || die "First-install seed file failed SHA-256 verification: $required_seed_path"
     done
-    log "Verified both subscribed_*_ids.txt seed files on the first install."
+    log "Required subscribed_*_ids.txt files were present and SHA-256 verified on the first full sync."
 fi
 
 # Required Workshop list files must remain present after any sync. They are normal
