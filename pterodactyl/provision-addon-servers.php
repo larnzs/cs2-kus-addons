@@ -66,7 +66,7 @@ Safety model:
   * --server is a one-shot test override and requires a Panel name beginning "FragCity Payload Test".
   * --verify-server is read-only with respect to server files, mounts, startup settings, and Docker containers.
   * --set-config-seed changes only the selected eligible volume's first-install state file.
-  * Setting pending activates a full first-install sync on the next startup and may overwrite customer config paths; completed preserves those paths.
+  * Setting pending marks the first full-payload sync as pending; completed records it as done. Every startup syncs all published repository files, including configs, regardless of this marker.
   * Only stopped Docker containers named exactly after the server UUID may be removed.
   * Docker container removal never uses -v; the server volume is preserved.
 
@@ -633,8 +633,8 @@ function serverStartupPrefix(string $mountTarget): string
 
 /**
  * Record that a newly provisioned volume must complete its first full game/ sync.
- * The pending marker gates the one-time copy of customer config defaults: the first
- * successful startup seeds them, while later starts preserve per-server customization.
+ * The marker tracks first-start registration/completion only; it does not protect
+ * repository-managed configs from updates on later starts.
  * Keep the historical filename so existing volumes and the monitoring tool remain compatible.
  */
 function prepareConfigSeedMarker(string $volumePath, string $uuid, int $mountId, string $payloadCommit): void
@@ -680,12 +680,12 @@ function prepareConfigSeedMarker(string $volumePath, string $uuid, int $mountId,
 }
 
 /**
- * Manually set the first-install policy for one currently eligible server.
+ * Manually set first-full-sync tracking for one currently eligible server.
  *
  * This changes only .fragcity-config-seed-v1.state. Baseline UUIDs, processed markers,
  * Panel Mount relations, Startup commands and Docker containers remain untouched.
- * "pending" activates the next startup's first full deployment and config seeding;
- * "completed" skips the one-time seed and preserves customer config paths.
+ * The marker does not alter ongoing sync policy: every startup deploys all published
+ * repository-managed files, including configs, whether the mode is pending or completed.
  */
 function setManualConfigSeedState(
     Server $server,
@@ -771,11 +771,11 @@ function setManualConfigSeedState(
 
     if ($requestedMode === 'pending') {
         logLine(
-            'Manually marked ' . $uuid . ' as a new first-install sync. The next startup will deploy the full Payload and seed repository config defaults; existing customer config paths may be overwritten.'
+            'Manually marked ' . $uuid . ' as pending for its first full Payload sync. All repository-managed files, including configs, are synchronized on every startup regardless of this marker.'
         );
     } else {
         logLine(
-            'Manually marked ' . $uuid . ' as already installed. First-install config seeding is disabled; existing customer config paths will be preserved on startup.'
+            'Manually marked ' . $uuid . ' as already through its first full Payload sync. All repository-managed files, including configs, continue synchronizing on every startup.'
         );
     }
 }
@@ -1070,48 +1070,34 @@ test "$expected_game_files" -gt 0
 test "$(LC_ALL=C sort -u "$game_inventory" | awk 'END { print NR + 0 }')" -eq "$expected_game_files"
 test "$(find "$payload_game" -type f | wc -l)" -eq "$expected_game_files"
 
-# Customer-specific configs are seeded exactly once by the first-start sync. A
-# completed marker means compare only update-managed non-config payload files;
-# legacy volumes without a marker keep their current configs as well.
+# A present first-sync marker must be valid and completed. Legacy volumes without a
+# marker are accepted after their baseline classification; their repository-managed
+# files, including config paths, are still compared against the current payload.
 seed_state="/home/container/.fragcity-config-seed-v1.state"
 test ! -L "$seed_state" || {
-    printf 'Config-seed state file is a symlink: %s\n' "$seed_state" >&2
+    printf 'First-sync state file is a symlink: %s\n' "$seed_state" >&2
     exit 29
 }
-PRESERVE_CONFIGS=1
 if [[ -f "$seed_state" ]]; then
     grep -Fxq 'fragcity-config-seed-v1' "$seed_state" \
         && grep -Fxq "server_uuid=$P_SERVER_UUID" "$seed_state" || {
-        printf 'Config-seed state does not match this server UUID.\n' >&2
+        printf 'First-sync state does not match this server UUID.\n' >&2
         exit 29
     }
     if grep -Fxq 'mode=completed' "$seed_state"; then
-        printf 'PASS: first-install config seed completed; customer config paths will not be compared to repository defaults.\n'
+        printf 'PASS: first full-payload sync is complete; all repository-managed files continue syncing on every start.\n'
     elif grep -Fxq 'mode=pending' "$seed_state"; then
-        printf 'First-install config seed is still pending; startup sync did not complete.\n' >&2
+        printf 'First full-payload sync is still pending; startup sync did not complete.\n' >&2
         exit 30
     else
-        printf 'Config-seed state has no recognized mode.\n' >&2
+        printf 'First-sync state has no recognized mode.\n' >&2
         exit 31
     fi
 else
-    printf 'PASS: legacy volume has no seed marker; its customer config paths are preserved.\n'
+    printf 'PASS: legacy volume has no first-sync marker; all repository-managed files are still checked against the current payload.\n'
 fi
 
-is_customer_config_path() {
-    local path="$1"
-    case "$path" in
-        csgo/cfg/*|csgo/addons/counterstrikesharp/configs/*|\
-        csgo/gamemodes_server.txt|csgo/mapcycle.txt|csgo/mapcyclecustom.txt|\
-        csgo/subscribed_collection_ids.txt|csgo/subscribed_file_ids.txt)
-            return 0
-            ;;
-    esac
-    return 1
-}
-
 verified_game_files=0
-preserved_config_files=0
 while IFS= read -r relative_file || [[ -n "$relative_file" ]]; do
     [[ -n "$relative_file" && "$relative_file" != /* && "$relative_file" != *".."* && "$relative_file" != *"//"* ]] || {
         printf 'Unsafe deployable-game inventory path: %s\n' "$relative_file" >&2
@@ -1120,10 +1106,6 @@ while IFS= read -r relative_file || [[ -n "$relative_file" ]]; do
     payload_file="$payload_game/$relative_file"
     target_file="$target_game/$relative_file"
     test ! -L "$payload_file" && test -f "$payload_file"
-    if [[ "$PRESERVE_CONFIGS" -eq 1 ]] && is_customer_config_path "$relative_file"; then
-        preserved_config_files=$((preserved_config_files + 1))
-        continue
-    fi
     test ! -L "$target_file" && test -f "$target_file"
     IFS='/' read -r -a path_parts <<< "$relative_file"
     parent="$target_game"
@@ -1142,9 +1124,8 @@ while IFS= read -r relative_file || [[ -n "$relative_file" ]]; do
     fi
     verified_game_files=$((verified_game_files + 1))
 done < "$game_inventory"
-test "$verified_game_files" -eq "$((expected_game_files - preserved_config_files))"
-printf 'PASS: verified %d update-managed non-config file(s); preserved %d server-specific config file(s) without comparing them to repository defaults.\n' "$verified_game_files" "$preserved_config_files"
-
+test "$verified_game_files" -eq "$expected_game_files"
+printf 'PASS: verified all %d deployable game file(s) against the published repository payload, including config and CFG files.\n' "$verified_game_files"
 bash -n "$base/sync-addon-payload-container.sh"
 printf 'PASS: required commands available; read-only payload revision %s is valid.\n' "$commit"
 BASH;
