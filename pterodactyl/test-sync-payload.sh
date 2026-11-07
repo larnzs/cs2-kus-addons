@@ -170,12 +170,12 @@ if ! wait "$sync_pid"; then
     exit 1
 fi
 first_output="$(cat "$first_log")"
-grep -E 'Target server UUID|Using published payload revision|baseline|first-install config seeding|Sync completed successfully|Files copied:|ERROR' <<< "$first_output"
+grep -E 'Target server UUID|Using published payload revision|baseline|first full-payload sync|Sync completed successfully|Files copied:|ERROR' <<< "$first_output"
 grep -Fq "Target server UUID: $TEST_SERVER_UUID." <<< "$first_output"
 grep -Fq "Using published payload revision $commit." <<< "$first_output"
 grep -Fq "Loaded the complete deployable game/ inventory: $expected_count files; only the seven explicit K4ryuu runtime paths are excluded; all repository-managed files are synchronized on every start." <<< "$first_output"
 grep -Fq "Server UUID is not in the baseline; waiting up to 90 seconds for the host provisioner to register first-install state." <<< "$first_output"
-grep -Fq "Host provisioner registered this new server; first-install config seeding is active." <<< "$first_output"
+grep -Fq "Host provisioner registered this new server; its first full-payload sync is active." <<< "$first_output"
 grep -Fq "Sync completed successfully." <<< "$first_output"
 grep -Fq "First full game/ deployment completed and recorded; all repository-managed files, including configs, will continue updating on every start." <<< "$first_output"
 grep -Fxq "mode=completed" "$TEST_ROOT/.fragcity-config-seed-v1.state"
@@ -185,7 +185,7 @@ for rel in csgo/subscribed_collection_ids.txt csgo/subscribed_file_ids.txt; do
     [[ -f "$GAME_ROOT/$rel" && ! -L "$GAME_ROOT/$rel" ]]
     [[ "$(sha256sum -- "$SOURCE_GAME/$rel" | awk '{print $1}')" == "$(sha256sum -- "$GAME_ROOT/$rel" | awk '{print $1}')" ]]
 done
-grep -Fq "Verified both subscribed_*_ids.txt seed files on the first install." <<< "$first_output"
+grep -Fq "Required subscribed_*_ids.txt files were present and SHA-256 verified on the first full sync." <<< "$first_output"
 for rel in \
     csgo/addons/counterstrikesharp/api/runtime-fixture.txt \
     csgo/addons/counterstrikesharp/bin/runtime-fixture.txt \
@@ -292,4 +292,4 @@ for rel in csgo/subscribed_file_ids.txt csgo/subscribed_collection_ids.txt; do
     [[ "$(sha256sum -- "$SOURCE_GAME/csgo/$rel" | awk '{print $1}')" == "$(sha256sum -- "$GAME_ROOT/csgo/$rel" | awk '{print $1}')" ]]
 done
 [[ ! -e "$TEST_ROOT/.fragcity-config-seed-v1.state" ]]
-echo "PASS: subscribed-ID files seed on first install and remain untouched when present; absent required files are safely repaired; only exact K4ryuu runtime paths are excluded; disabled plugins and all other non-excluded payloads deploy intact."
+echo "PASS: first-sync tracking remains intact; every repository-managed config and CFG refreshes on every start for new, completed and legacy volumes; stale managed configs are cleaned up; only exact K4ryuu runtime paths are excluded."
