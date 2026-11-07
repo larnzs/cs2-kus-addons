@@ -578,7 +578,7 @@ render_server_mount_status() {
         printf '  Processed marker: '; status_badge "$f6"
         printf '  | Startup hook: '; status_badge "$f7"; printf '\n'
         printf '  Baseline: '; status_badge "$f8"
-        printf '  | First-install seed: '; status_badge "$f9"; printf '\n'
+        printf '  | First full sync: '; status_badge "$f9"; printf '\n'
         reason="$(fragcity_classify_server "$f3" "$f4" "$f5" "$f6" "$f7" "$f8" "$f9")"
         severity="$(fragcity_server_severity "$reason")"
         if [[ "$reason" == OK ]]; then
@@ -676,7 +676,7 @@ manage_install_marks() {
   while true; do
     MAIN_MOUNT_STATUS_CACHE_AT=0
     refresh_main_mount_status
-    heading "MANUAL FIRST-INSTALL MARKS"
+    heading "MANUAL FIRST-SYNC STATE"
 
     if [[ -z "$MAIN_MOUNT_STATUS_CACHE" ]]; then
       printf '\n%bCurrent server inventory is unavailable; no state can be changed.%b\n' "$R" "$Z"
@@ -740,20 +740,20 @@ manage_install_marks() {
     startup="${startups[$index]}"
     seed="${seeds[$index]}"
 
-    heading "FIRST-INSTALL STATE — $name"
+    heading "FIRST FULL-SYNC STATE — $name"
     printf '  UUID: %s\n' "$uuid"
     printf '  Current seed state: %s\n' "$seed"
     printf '  Container: %s | Panel Mount: %s | Docker Mount: %s | Startup hook: %s\n' \
       "$container_state" "$panel_mount" "$docker_mount" "$startup"
     printf '\n'
-    printf '  1) Mark as a new install (mode=pending; seed repository config defaults)\n'
-    printf '  2) Mark as installed (mode=completed; ignore server config seeding)\n'
+    printf '  1) Mark the first full Payload sync as pending (mode=pending)\n'
+    printf '  2) Mark the first full Payload sync as completed (mode=completed)\n'
     printf '  0) Back to server list\n\nAction: '
     read -r action
 
     case "$action" in
       1)
-        printf '\n%bWARNING%b: on the next startup, FragCity will run the full first-install Payload sync and copy repository config defaults. This can overwrite server-specific files under csgo/cfg/, CounterStrikeSharp configs/, gamemodes_server.txt, mapcycle files and subscribed-ID files.\n' "$Y" "$Z"
+        printf '\nThis changes first-sync tracking only. The next startup will run the full Payload sync and record its completion. All repository-managed CFGs and config files are refreshed on every startup, regardless of this marker.\n'
         printf 'This changes only the per-server seed-state file; it does not configure the Mount or Startup hook. The change takes effect on the next startup.\n'
         printf 'Are you sure? [y/n]: '
         read -r answer
@@ -775,7 +775,7 @@ manage_install_marks() {
         esac
         ;;
       2)
-        printf '\nThis marks initial config seeding as complete. The next startup will preserve existing server config paths; normal non-config payload syncing still runs.\n'
+        printf '\nThis records the first full Payload sync as complete. It does not preserve config files: all repository-managed CFGs and config files continue updating on every startup.\n'
         printf 'This changes only the per-server seed-state file; it does not configure the Mount or Startup hook.\n'
         printf 'Are you sure? [y/n]: '
         read -r answer
@@ -785,7 +785,7 @@ manage_install_marks() {
             rc=$?
             printf '\n%s\n' "$output"
             if (( rc == 0 )); then
-              printf '%bState updated: first-install config seeding is marked complete.%b\n' "$G" "$Z"
+              printf '%bState updated: first full Payload sync is marked complete.%b\n' "$G" "$Z"
               MAIN_MOUNT_STATUS_CACHE_AT=0
             else
               printf '%bState was not changed (exit %s).%b\n' "$R" "$Z" "$rc"
