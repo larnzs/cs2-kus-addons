@@ -374,6 +374,14 @@
         "MapGroups": [
           "mg_valve_retakes"
         ]
+      },
+      {
+        "Name": "Rush (Valve)",
+        "Config": "valve-rush.cfg",
+        "DefaultMap": "rush_001",
+        "MapGroups": [
+          "mg_rush"
+        ]
       }
     ]
   }
