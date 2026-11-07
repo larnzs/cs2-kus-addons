@@ -93,7 +93,7 @@ if [[ -f "$INITIAL_STATE" ]]; then
     if grep -Fxq 'mode=completed' "$INITIAL_STATE"; then
         log "First full game/ sync is complete; all repository-managed files continue syncing on every start."
     elif grep -Fxq 'mode=pending' "$INITIAL_STATE"; then
-        [[ -w "$INITIAL_STATE" ]] || die "Pending config-seed state is not writable; refusing to seed configs without recording completion."
+        [[ -w "$INITIAL_STATE" ]] || die "Pending first-sync state is not writable; refusing to report first-sync completion."
         CONFIG_SEED_ACTIVE=1
         log "First full-payload sync is pending; the complete repository game/ tree will be deployed and verified."
     else
@@ -118,13 +118,13 @@ PAYLOAD_ROOT="$PAYLOAD_BASE/revisions/$SOURCE_COMMIT"
 [[ "$(tr -d '\r\n' < "$PAYLOAD_ROOT/.source-commit")" == "$SOURCE_COMMIT" ]] || die "Revision marker does not match CURRENT_COMMIT."
 
 # If there is no per-volume state file yet, classify this UUID against the hashed
-# host baseline. UUIDs present at baseline time are legacy/existing and preserve configs.
+# host baseline. UUIDs present at baseline time are legacy/existing, but still receive current repository-managed configs.
 # A UUID absent from that baseline is new: wait for the host provisioner to create the
 # pending marker rather than accidentally launching CS2 without its first-install seed.
 if [[ "$CONFIG_SEED_STATE_MISSING" -eq 1 ]]; then
     BASELINE_HASHES="$PAYLOAD_BASE/FRAGCITY_BASELINE_SHA256"
     [[ -f "$BASELINE_HASHES" && ! -L "$BASELINE_HASHES" ]] \
-        || die "First-install state is missing and the baseline hash registry is unavailable; refusing to guess whether this server is new or legacy."
+        || die "First-sync state is missing and the baseline hash registry is unavailable; refusing to guess whether this server is new or legacy."
 
     while IFS= read -r baseline_hash || [[ -n "$baseline_hash" ]]; do
         [[ "$baseline_hash" =~ ^[0-9a-f]{64}$ ]] \
@@ -144,13 +144,13 @@ if [[ "$CONFIG_SEED_STATE_MISSING" -eq 1 ]]; then
 
         [[ ! -L "$INITIAL_STATE" ]] || die "Host provisioner created an unsafe symlink for initial-sync state."
         [[ -f "$INITIAL_STATE" ]] \
-            || die "New server UUID was not registered by the host provisioner within 90 seconds; refusing to launch CS2 without first-install config policy."
+            || die "New server UUID was not registered by the host provisioner within 90 seconds; refusing to launch CS2 without first-sync registration."
 
         grep -Fxq 'fragcity-config-seed-v1' "$INITIAL_STATE" \
             && grep -Fxq "server_uuid=$SERVER_UUID" "$INITIAL_STATE" \
             || die "New-server initial-sync state does not match this server UUID."
         if grep -Fxq 'mode=pending' "$INITIAL_STATE"; then
-            [[ -w "$INITIAL_STATE" ]] || die "Pending config-seed state is not writable; refusing to seed configs without being able to record completion."
+            [[ -w "$INITIAL_STATE" ]] || die "Pending first-sync state is not writable; refusing to record first-sync completion."
             CONFIG_SEED_ACTIVE=1
             log "Host provisioner registered this new server; its first full-payload sync is active."
         elif grep -Fxq 'mode=completed' "$INITIAL_STATE"; then
