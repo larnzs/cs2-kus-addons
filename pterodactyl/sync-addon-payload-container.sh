@@ -2,14 +2,15 @@
 # Full-tree FragCity game payload synchronizer for the custom K4ryuu/Pterodactyl Egg.
 #
 # The immutable host snapshot contains the complete deployable tree under repository game/,
-# excluding only the exact K4ryuu-managed runtime paths. A new volume with mode=pending
-# receives all staged files, including configs, at first startup. Later starts protect
-# exactly the customer-config paths while leaving excluded runtime files to the Egg.
+# excluding only the exact K4ryuu-managed runtime paths. Every deployable file, including
+# CFGs and plugin configs, is synchronized from the published revision on every startup.
+# The per-server first-sync marker is retained for new-server registration and completion
+# tracking; it does not protect config files from later updates.
 # If the state marker is absent, FRAGCITY_BASELINE_SHA256 distinguishes known legacy UUIDs
 # from new UUIDs. New UUIDs wait for host registration; CS2 is not launched before the
-# provisioner creates a matching pending marker. Known legacy configs remain untouched.
-# Files found only in the upstream CS2 installation remain intact. Stale cleanup may
-# remove only previously managed non-config files that disappeared from the repository.
+# provisioner creates a matching pending marker. Legacy volumes are also fully synchronized.
+# Files found only in the upstream CS2 installation remain intact. Stale cleanup may remove
+# previously managed files, including config files, when they disappear from the repository.
 set -Eeuo pipefail
 
 PAYLOAD_BASE="${FRAGCITY_PAYLOAD_BASE:-/home/container/egg/fragcity-payload}"
@@ -34,21 +35,6 @@ validate_relative_path() {
     for component in "${parts[@]}"; do
         [[ -n "$component" && "$component" != "." && "$component" != ".." ]] || return 1
     done
-}
-
-# These paths hold customer-specific server settings. They are populated from the
-# repository only during the one-time first-install seed; later starts never replace
-# or remove them, even if a later payload revision changes or removes its defaults.
-is_customer_config_path() {
-    local path="$1"
-    case "$path" in
-        csgo/cfg/*|csgo/addons/counterstrikesharp/configs/*|\
-        csgo/gamemodes_server.txt|csgo/mapcycle.txt|csgo/mapcyclecustom.txt|\
-        csgo/subscribed_collection_ids.txt|csgo/subscribed_file_ids.txt)
-            return 0
-            ;;
-    esac
-    return 1
 }
 
 # These exact runtime paths belong to the K4ryuu Egg. They must neither be copied
@@ -105,7 +91,7 @@ if [[ -f "$INITIAL_STATE" ]]; then
     # A completed state file contains both the pending line and the appended
     # completed line, so prefer completed when both are present.
     if grep -Fxq 'mode=completed' "$INITIAL_STATE"; then
-        log "First-install config seed is complete; customer config paths will be preserved."
+        log "First full game/ sync is complete; all repository-managed files continue syncing on every start."
     elif grep -Fxq 'mode=pending' "$INITIAL_STATE"; then
         [[ -w "$INITIAL_STATE" ]] || die "Pending config-seed state is not writable; refusing to seed configs without recording completion."
         CONFIG_SEED_ACTIVE=1
@@ -147,7 +133,7 @@ if [[ "$CONFIG_SEED_STATE_MISSING" -eq 1 ]]; then
 
     SERVER_UUID_HASH="$(printf '%s' "$SERVER_UUID" | sha256sum | awk '{print $1}')"
     if grep -Fxq "$SERVER_UUID_HASH" "$BASELINE_HASHES"; then
-        log "Server UUID belongs to the one-time baseline; treating this as an existing/legacy volume and preserving customer config paths."
+        log "Server UUID belongs to the one-time baseline; treating this as an existing/legacy volume and synchronizing all deployable repository files."
     else
         log "Server UUID is not in the baseline; waiting up to 90 seconds for the host provisioner to register first-install state."
         WAIT_ATTEMPT=0
@@ -168,7 +154,7 @@ if [[ "$CONFIG_SEED_STATE_MISSING" -eq 1 ]]; then
             CONFIG_SEED_ACTIVE=1
             log "Host provisioner registered this new server; first-install config seeding is active."
         elif grep -Fxq 'mode=completed' "$INITIAL_STATE"; then
-            log "Host provisioner reports first-install seeding already completed; customer config paths will be preserved."
+            log "Host provisioner reports the first full game/ sync is already completed; normal full-payload synchronization will continue."
         else
             die "New-server initial-sync state has no recognized pending/completed mode."
         fi
@@ -253,25 +239,11 @@ assert_no_symlink_parent_components() {
 COPIED=0
 UNCHANGED=0
 VERIFIED=0
-CONFIGS_PRESERVED=0
 log "Target server UUID: $SERVER_UUID."
 log "Using published payload revision $SOURCE_COMMIT."
-log "Loaded the complete deployable game/ inventory: $EXPECTED_SOURCE_COUNT files; only the seven explicit K4ryuu runtime paths are excluded; config seeding is controlled by per-server first-install state."
+log "Loaded the complete deployable game/ inventory: $EXPECTED_SOURCE_COUNT files; only the seven explicit K4ryuu runtime paths are excluded; all repository-managed files are synchronized on every start."
 
 for relative_path in "${!DESIRED_SOURCE[@]}"; do
-    if [[ "$CONFIG_SEED_ACTIVE" -ne 1 ]] && is_customer_config_path "$relative_path"; then
-        target_path="$GAME_ROOT/$relative_path"
-        # Workshop setup requires both subscribed-ID files. Existing contents remain
-        # customer-owned, but a missing file is repaired via create-if-absent.
-        if { [[ "$relative_path" == "csgo/subscribed_collection_ids.txt" ]] || [[ "$relative_path" == "csgo/subscribed_file_ids.txt" ]]; } \
-            && [[ ! -e "$target_path" ]]; then
-            log "Seeding missing subscribed-ID file without overwriting existing customer data: $relative_path"
-        else
-            CONFIGS_PRESERVED=$((CONFIGS_PRESERVED + 1))
-            [[ "$VERBOSE" != "1" ]] || log "Preserving customer config file without overwrite: $relative_path"
-            continue
-        fi
-    fi
     source_path="${DESIRED_SOURCE[$relative_path]}"
     expected_hash="${DESIRED_HASH[$relative_path]}"
     target_path="$GAME_ROOT/$relative_path"
@@ -306,8 +278,9 @@ for relative_path in "${!DESIRED_SOURCE[@]}"; do
     VERIFIED=$((VERIFIED + 1))
 done
 
-# First-install mode is not complete unless both subscribed-ID files were copied and
-# SHA-256 verified at their repository-defined paths. Empty files are valid seed files.
+# First-install mode is not complete unless both subscribed-ID files are present and
+# SHA-256 verified at their repository-defined paths. They are refreshed on every sync
+# like every other repository-managed file. Empty files are valid.
 if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
     for required_seed_path in csgo/subscribed_collection_ids.txt csgo/subscribed_file_ids.txt; do
         target_path="$GAME_ROOT/$required_seed_path"
@@ -319,8 +292,8 @@ if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
     log "Verified both subscribed_*_ids.txt seed files on the first install."
 fi
 
-# Required Workshop list files must remain present after any sync. On completed or
-# legacy volumes, the loop above recreates only a missing file and preserves existing data.
+# Required Workshop list files must remain present after any sync. They are normal
+# repository-managed files and are refreshed from the published revision every time.
 for required_seed_path in csgo/subscribed_collection_ids.txt csgo/subscribed_file_ids.txt; do
     target_path="$GAME_ROOT/$required_seed_path"
     [[ -f "$target_path" && ! -L "$target_path" ]] \
@@ -338,10 +311,6 @@ if [[ "$MANIFEST_PRESENT" -eq 1 ]]; then
             continue
         fi
         [[ -n "${DESIRED_SOURCE[$relative_path]+present}" ]] && continue
-        if [[ "$CONFIG_SEED_ACTIVE" -ne 1 ]] && is_customer_config_path "$relative_path"; then
-            log "Preserving stale customer config file after first install: $relative_path"
-            continue
-        fi
         target_path="$GAME_ROOT/$relative_path"
         assert_no_symlink_parent_components "$target_path"
         [[ ! -L "$target_path" ]] || die "Previously managed payload target is a symlink: $target_path"
@@ -368,14 +337,14 @@ mv -f -- "$manifest_tmp" "$MANAGED_MANIFEST" || die "Could not publish managed-p
 if [[ "$CONFIG_SEED_ACTIVE" -eq 1 ]]; then
     printf 'mode=completed\nsource_commit=%s\ncompleted_at_utc=%s\n' "$SOURCE_COMMIT" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$INITIAL_STATE" \
         || die "Could not record first-install completion; refusing to report a successful sync."
-    log "First-install full game/ deployment and config seed completed; future starts will preserve customer config paths."
+    log "First full game/ deployment completed and recorded; all repository-managed files, including configs, will continue updating on every start."
 elif [[ -f "$INITIAL_STATE" ]]; then
-    log "First-install config seed is not active; existing server config paths were preserved."
+    log "First-sync state is completed; the full repository-managed payload was synchronized."
 else
-    log "No first-install marker found; legacy server config paths were preserved."
+    log "No first-sync marker found; this legacy volume was classified through the baseline and its full repository-managed payload was synchronized."
 fi
 
 log "Sync completed successfully."
-log "Files copied: $COPIED; already matching SHA-256: $UNCHANGED; verified: $VERIFIED; configs preserved: $CONFIGS_PRESERVED; stale managed files removed: $DELETED."
-log "All deployable repository game/ files are inventoried; after first install only non-config payload files are updated."
-log "plugins/disabled/ and all other non-config subtrees are synchronized from the published payload."
+log "Files copied: $COPIED; already matching SHA-256: $UNCHANGED; verified: $VERIFIED; stale managed files removed: $DELETED."
+log "All deployable repository game/ files are inventoried and synchronized on every start, including configs and CFGs."
+log "The only excluded paths are the seven explicit K4ryuu-managed runtime paths; plugins/disabled/ remains managed payload."
