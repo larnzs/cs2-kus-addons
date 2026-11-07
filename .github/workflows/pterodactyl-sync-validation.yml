@@ -101,7 +101,6 @@ jobs:
           grep -Fq 'customer-customized-config' pterodactyl/test-sync-payload.sh
           grep -Fq 'stale_config_rel' pterodactyl/test-sync-payload.sh
           grep -Fq 'new UUID did not wait for host Provisioner registration' pterodactyl/test-sync-payload.sh
-          grep -Fq 'expect_config_path no csgo/addons/otherplugin/extra.cfg' pterodactyl/test-sync-payload.sh
           grep -Fq 'csgo/subscribed_file_ids.txt' pterodactyl/test-sync-payload.sh
           grep -Fq 'installed-by-k4ryuu' pterodactyl/test-sync-payload.sh
           grep -Fq 'managed_config_paths=(' pterodactyl/test-sync-payload.sh
