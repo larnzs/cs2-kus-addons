@@ -83,17 +83,16 @@ jobs:
           grep -Fq 'Required first-install seed file is missing' pterodactyl/sync-addon-payload-host.sh
           grep -Fq '.fragcity-game-files-v1.list' pterodactyl/sync-addon-payload-host.sh
           grep -Fq 'Loaded the complete deployable game/ inventory:' pterodactyl/sync-addon-payload-container.sh
-          grep -Fq 'is_customer_config_path()' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'all repository-managed files are synchronized on every start' pterodactyl/sync-addon-payload-container.sh
+          ! grep -Fq 'is_customer_config_path()' pterodactyl/sync-addon-payload-container.sh
+          grep -Fq 'First full game/ deployment completed and recorded' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'is_runtime_excluded_path()' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'Leaving K4ryuu-managed runtime path untouched' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'Verified both subscribed_*_ids.txt seed files on the first install.' pterodactyl/sync-addon-payload-container.sh
-          grep -Fq 'Seeding missing subscribed-ID file without overwriting existing customer data' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'Required subscribed-ID file is missing or unsafe after sync' pterodactyl/sync-addon-payload-container.sh
-          grep -Fq 'Preserving stale customer config file after first install' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'First-install seed is pending' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'FRAGCITY_BASELINE_SHA256' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'waiting up to 90 seconds for the host provisioner' pterodactyl/sync-addon-payload-container.sh
-          grep -Fq 'csgo/cfg/*|csgo/addons/counterstrikesharp/configs/*' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'GAME_SOURCE="$PAYLOAD_ROOT/game"' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'MANAGED_MANIFEST' pterodactyl/sync-addon-payload-container.sh
           grep -Fq 'Removing stale previously-managed payload file' pterodactyl/sync-addon-payload-container.sh
@@ -103,19 +102,19 @@ jobs:
           grep -Fq 'stale_config_rel' pterodactyl/test-sync-payload.sh
           grep -Fq 'new UUID did not wait for host Provisioner registration' pterodactyl/test-sync-payload.sh
           grep -Fq 'expect_config_path no csgo/addons/otherplugin/extra.cfg' pterodactyl/test-sync-payload.sh
-          grep -Fq 'customer-subscribed-file-ids' pterodactyl/test-sync-payload.sh
-          grep -Fq 'customer-subscribed-collection-ids' pterodactyl/test-sync-payload.sh
-          grep -Fq 'Repair only' pterodactyl/test-sync-payload.sh
           grep -Fq 'csgo/subscribed_file_ids.txt' pterodactyl/test-sync-payload.sh
           grep -Fq 'installed-by-k4ryuu' pterodactyl/test-sync-payload.sh
+          grep -Fq 'managed_config_paths=(' pterodactyl/test-sync-payload.sh
+          grep -Fq 'legacy-config-mismatch' pterodactyl/test-sync-payload.sh
+          grep -Fq 'The required Workshop ID files are refreshed on every sync' pterodactyl/test-sync-payload.sh
           grep -Fq 'FAIL: K4ryuu-managed runtime path was staged' pterodactyl/test-sync-payload.sh
           grep -Fq 'FRAGCITY_BASELINE_SHA256' pterodactyl/test-sync-payload.sh
           grep -Fq 'plugins/disabled' pterodactyl/test-sync-payload.sh
           grep -Fq 'CS2UpdateMonitor' pterodactyl/test-sync-payload.sh
           grep -Fq 'BotAI' pterodactyl/test-sync-payload.sh
           grep -Fq '.fragcity-game-files-v1.list' pterodactyl/provision-addon-servers.php
-          grep -Fq 'verified %d update-managed non-config file(s)' pterodactyl/provision-addon-servers.php
-          grep -Fq 'is_customer_config_path()' pterodactyl/provision-addon-servers.php
+          grep -Fq 'verified all %d deployable game file(s)' pterodactyl/provision-addon-servers.php
+          ! grep -Fq 'is_customer_config_path()' pterodactyl/provision-addon-servers.php
           grep -Fq 'prepareConfigSeedMarker' pterodactyl/provision-addon-servers.php
           grep -Fq 'setManualConfigSeedState(' pterodactyl/provision-addon-servers.php
           grep -Fq 'assertRunningPayloadMount(' pterodactyl/provision-addon-servers.php
@@ -131,7 +130,7 @@ jobs:
           grep -Fq "docker', 'ps', '-a'" pterodactyl/server-mount-status.php
           grep -Fq 'MOUNT_SEED_PENDING' pterodactyl/systemd/fragcity-status-dashboard.sh
           grep -Fq 'baseline registry:' pterodactyl/fragcity-manager.sh
-          grep -Fq 'First-install seed:' pterodactyl/fragcity-manager.sh
+          grep -Fq 'First full sync:' pterodactyl/fragcity-manager.sh
           grep -Fq 'publish_baseline_hash_registry()' pterodactyl/sync-addon-payload-host.sh
           grep -Fq -- '--publish-baseline-registry' pterodactyl/install-host-services.sh
           grep -Fq 'LIVE UPDATE DETECTED' pterodactyl/systemd/fragcity-status-dashboard.sh
