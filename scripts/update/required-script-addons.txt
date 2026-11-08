@@ -9,7 +9,6 @@ CS2Rcon
 SimpleAdmin
 AnnouncementBroadcaster
 CS2-PlayerModelChanger
-MapConfigurator
 STFixes
 CS2 Instadefuse
 CS2 Whitelist
