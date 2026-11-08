@@ -84,8 +84,9 @@ printf 'new-binary' > "$fixture/source/plugin.dll"
 printf 'operator-setting' > "$fixture/source/local.json"
 printf 'old-setting' > "$fixture/destination/local.json"
 printf 'keep-old-file' > "$fixture/destination/obsolete.dll"
-PLUGIN_PATHS=("$fixture/destination")
 DRY_RUN=0
+source scripts/update/lib.sh
+PLUGIN_PATHS=("$fixture/destination")
 source scripts/update/catalog-plugin.sh
 resolved="$(catalog_find_plugin_dir "$fixture/archive" "plugin.dll")"
 [ "$resolved" = "$fixture/archive/package" ] || fail "catalog helper resolved the wrong plugin directory: $resolved"
