@@ -57,7 +57,9 @@ fast_count=0
 while IFS= read -r name; do
     [[ -n "$name" ]] || continue
     [[ "${name:0:1}" = "#" ]] && continue
-    grep -Fqx -- "$name" scripts/update/required-script-addons.txt || fail "fast allowlist entry '$name' is not in required-script-addons.txt"
+    if ! grep -Fqx -- "$name" scripts/update/required-script-addons.txt; then
+        grep -Fqx -- "$name" scripts/update/future-release-addons.txt || fail "fast allowlist entry '$name' is neither required nor listed as awaiting its first release"
+    fi
     slug="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//')"
     script="scripts/update/plugins/$slug.sh"
     [ -f "$script" ] || fail "fast allowlist entry '$name' has no adapter: $script"
@@ -71,6 +73,29 @@ while IFS= read -r name; do
 done < scripts/update/fast-safe-addons.txt
 [ "$fast_count" -gt 0 ] || fail "no fast allowlist adapters were checked"
 pass "$fast_count 15-minute allowlist entries have required, loadable adapters and existing payload directories"
+
+# Future-release plugins remain covered even before upstream publishes its first release.
+[ -s scripts/update/future-release-addons.txt ] || fail "future-release-addons.txt is missing or empty"
+future_count=0
+while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    [[ "${name:0:1}" = "#" ]] && continue
+    if grep -Fqx -- "$name" scripts/update/required-script-addons.txt; then
+        fail "future-release add-on '$name' must not be required to resolve a non-existent release"
+    fi
+    slug="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//')"
+    script="scripts/update/plugins/$slug.sh"
+    [ -f "$script" ] || fail "future-release add-on '$name' has no adapter: $script"
+    bash -n "$script" || fail "syntax error in future-release adapter $script"
+    owned="$(bash -c 'set -Eeuo pipefail; exec 3>&1; source scripts/update/lib.sh; source "$1"; printf "%s" "${PLUGIN_PATHS[@]}"; plugin_assets >/dev/null' bash "$script")" || fail "could not load future-release adapter $script"
+    while IFS= read -r path; do
+        [[ -n "$path" ]] || continue
+        [ -d "$path" ] || fail "$script points to a missing payload directory: $path"
+    done <<< "$owned"
+    future_count=$((future_count + 1))
+done < scripts/update/future-release-addons.txt
+[ "$future_count" -gt 0 ] || fail "no future-release adapters were checked"
+pass "$future_count first-release adapters are covered without causing unknown-version failures"
 
 # Exercise the catalog helper against fixtures: unique DLL discovery, local-file
 # preservation, merge-only behavior, and bounded write destinations.
