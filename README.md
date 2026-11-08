@@ -222,7 +222,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | ServerListPlayersFix | Base native add-on | Script: `serverlistplayersfix.sh` |
 | MovementUnlocker | Base native add-on | Script: `movementunlocker.sh` |
 | CS2Fixes-RampbugFix | Base native add-on | No script; release updates are warned about and skipped |
-| CS2_ExecAfter | Default CounterStrikeSharp plugin | No script; release updates are warned about and skipped |
+| CS2_ExecAfter | Default CounterStrikeSharp plugin | Script: `cs2-execafter.sh` |
 | CS2 Remove Map Weapons | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | GameModeManager | Default CounterStrikeSharp plugin | Script: `gamemodemanager.sh`; owns all four bundled plugin folders and all three shared API folders from `addons/counterstrikesharp/`. Copies no `cfg/` or CounterStrikeSharp `configs/` content. |
 | Inventory Simulator | Default CounterStrikeSharp plugin | Script: `inventory-simulator.sh` |
@@ -230,8 +230,8 @@ The first table deliberately retains the updater-compatible three-column structu
 | MatchZy | Mode-specific plugin staged under `plugins/disabled/` | Script: `matchzy.sh` |
 | MapConfigurator | Default CounterStrikeSharp plugin | Script: `mapconfigurator.sh`; future-release adapter only because upstream currently has no GitHub Releases |
 | K4-DamageInfo | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
-| SimpleAdmin | Default CSS plugin; deliberately retained from KUS | No dedicated script; not automatically updated |
-| CS2Rcon | Default CounterStrikeSharp plugin | No script; release updates are warned about and skipped |
+| SimpleAdmin | Default CSS plugin; deliberately retained from KUS | Script: `simpleadmin.sh`; this is separate from the manifest-managed CS2-SimpleAdmin set |
+| CS2Rcon | Default CounterStrikeSharp plugin | Script: `cs2rcon.sh` |
 | cs2-tags | Active plugin at `plugins/cs2-tags/`, API at `shared/TagsApi/`, and example config at `configs/plugins/cs2-tags/` | Manifest adapter: `cs2-tags.sh`; only its sample-config folder is allowlisted |
 | SharpTimer | Mode-specific plugin staged under `plugins/disabled/SharpTimer/` | Manifest adapter: `sharptimer.sh`; `cfg/SharpTimer/` remains operator-managed |
 | STFixes | Mode-specific plugin staged under `plugins/disabled/` | Script: `stfixes.sh`; upstream currently marks the project archived |
@@ -243,12 +243,12 @@ The first table deliberately retains the updater-compatible three-column structu
 | CS2 Retakes Allocator | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | CS2 Whitelist | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-whitelist.sh`; preserves operator-managed `whitelist.txt` |
 | CS2 Executes | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-executes.sh`; selects the no-map-configs asset and preserves local map data |
-| CS2 Advertisement | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
+| CS2 Advertisement | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-advertisement.sh` |
 | CS2 Deathmatch | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-deathmatch.sh` |
 | OpenPrefirePrac | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
-| CS2-CustomVotes | Default CounterStrikeSharp plugin | No script; release updates are warned about and skipped |
+| CS2-CustomVotes | Default CounterStrikeSharp plugin | Script: `cs2-customvotes.sh` |
 | deathrun-manager | Mode-specific plugin staged under `plugins/disabled/` | Script: `deathrun-manager.sh` |
-| AnnouncementBroadcaster | Default CounterStrikeSharp plugin | No script; release updates are warned about and skipped |
+| AnnouncementBroadcaster | Default CounterStrikeSharp plugin | Script: `announcementbroadcaster.sh` |
 | CS2-GameModifiers | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | CS2FunMatchPlugin | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2funmatchplugin.sh`; selects the Linux release asset |
 | jRandomSkills | Expected `plugins/disabled/jRandomSkills` path is missing | Script `jrandomskills.sh` exists, but its preflight path needs fixing |
