@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SpectatorList-CS2; preserve translations and the locally staged PlayerSettings API.
+# SpectatorList-CS2; preserve local translations while refreshing bundled runtime files.
 source scripts/update/catalog-plugin.sh
 
 PLUGIN_PATHS=("game/csgo/addons/counterstrikesharp/plugins/disabled/SpectatorList")
