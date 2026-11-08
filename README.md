@@ -246,7 +246,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | CS2 Advertisement | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-advertisement.sh` |
 | CS2 Deathmatch | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-deathmatch.sh` |
 | OpenPrefirePrac | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
-| CS2-CustomVotes | Default CounterStrikeSharp plugin | Script: `cs2-customvotes.sh` |
+| CS2-CustomVotes | Default CounterStrikeSharp plugin | Script: `cs2-customvotes.sh`; repairs the main DLL, Shared assembly, `CSSharpUtils.dll` and `.deps.json` as one set; preserves `lang/` |
 | deathrun-manager | Mode-specific plugin staged under `plugins/disabled/` | Script: `deathrun-manager.sh` |
 | AnnouncementBroadcaster | Default CounterStrikeSharp plugin | Script: `announcementbroadcaster.sh` |
 | CS2-GameModifiers | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
