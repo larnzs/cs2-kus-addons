@@ -8,3 +8,15 @@ CS2_ExecAfter
 CS2Rcon
 SimpleAdmin
 AnnouncementBroadcaster
+CS2-PlayerModelChanger
+MapConfigurator
+STFixes
+CS2 Instadefuse
+CS2 Whitelist
+CS2 Executes
+CS2FunMatchPlugin
+CS2-MutualScoringPlayers
+SpectatorList-CS2
+SLAYER_Football
+SLAYER_Revive
+cs2-TeleportKill
