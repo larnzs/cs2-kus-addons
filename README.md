@@ -220,7 +220,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | MultiAddonManager | Base native add-on | Script: `multiaddonmanager.sh`; Pterodactyl Linux updates SteamRT3 `.so` and MetaMod VDF only. |
 | ServerListPlayersFix | Base native add-on | Script: `serverlistplayersfix.sh` |
 | MovementUnlocker | Base native add-on | Script: `movementunlocker.sh` |
-| CS2Fixes-RampbugFix | Base native add-on | No script; release updates are warned about and skipped |
+| CS2Fixes-RampbugFix | Base native add-on | `scripts/update/plugins/cs2fixes-rampbugfix.sh` updates Linux/Windows binaries and shared gamedata |
 | CS2_ExecAfter | Default CounterStrikeSharp plugin | Script: `cs2-execafter.sh` |
 | CS2 Remove Map Weapons | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | GameModeManager | Default CounterStrikeSharp plugin | Script: `gamemodemanager.sh`; owns all four bundled plugin folders and all three shared API folders from `addons/counterstrikesharp/`. Copies no `cfg/` or CounterStrikeSharp `configs/` content. |
