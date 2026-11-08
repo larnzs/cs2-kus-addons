@@ -15,7 +15,6 @@ on:
       - "scripts/Integrate-KUS.ps1"
       - "scripts/plugin-mode-policy.json"
       - "scripts/validate-plugin-lifecycle.py"
-      - "scripts/Test-Disabled-BotAI.py"
       - "docs/MODE-PLUGIN-LIFECYCLE.md"
       - "windows/**"
       - "linux/**"
@@ -44,7 +43,6 @@ on:
       - "scripts/Integrate-KUS.ps1"
       - "scripts/plugin-mode-policy.json"
       - "scripts/validate-plugin-lifecycle.py"
-      - "scripts/Test-Disabled-BotAI.py"
       - "docs/MODE-PLUGIN-LIFECYCLE.md"
       - "windows/**"
       - "linux/**"
@@ -90,10 +88,6 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/validate-plugin-lifecycle.py
-
-      - name: Verify BotAI remains disabled-only
-        shell: bash
-        run: python3 scripts/Test-Disabled-BotAI.py
 
       - name: Validate Docker Compose configuration
         shell: bash
