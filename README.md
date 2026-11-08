@@ -251,7 +251,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | AnnouncementBroadcaster | Default CounterStrikeSharp plugin | Script: `announcementbroadcaster.sh` |
 | CS2-GameModifiers | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | CS2FunMatchPlugin | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2funmatchplugin.sh`; selects the Linux release asset |
-| jRandomSkills | Expected `plugins/disabled/jRandomSkills` path is missing | Script `jrandomskills.sh` exists, but its preflight path needs fixing |
+| jRandomSkills | Mode-specific plugin staged under `plugins/disabled/jRandomSkills` | Script: `jrandomskills.sh`; preserves existing `configs/` and `languages/`, updates gamedata separately |
 | RollTheDice | Mode-specific plugin staged under `plugins/disabled/` | Script: `rollthedice.sh` |
 | CS2-FixRandomSpawn | Default CounterStrikeSharp plugin | Script: `cs2-fixrandomspawn.sh` |
 | CS2-MutualScoringPlayers | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-mutualscoringplayers.sh`; preserves local `lang/` |
@@ -268,7 +268,7 @@ The first table deliberately retains the updater-compatible three-column structu
 
 
 > [!NOTE]
-> The `jRandomSkills` updater currently expects `game/csgo/addons/counterstrikesharp/plugins/disabled/jRandomSkills`, but that directory is absent from the current tracked plugin listing. Its updater path needs to be reconciled before the next release of that plugin; the table flags this rather than implying the updater is ready.
+> The `jRandomSkills` updater uses a merge-only binary overlay. Existing `configs/config.json`, `configs/skillsInfo.json` and `languages/` are preserved; missing defaults are seeded only on first install. The top-level gamedata signature file is updated with the matching release.
 
 ## Updating the integrated repository and add-ons
 
