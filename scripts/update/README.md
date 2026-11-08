@@ -84,9 +84,9 @@ Checks against extracted archive contents cannot run in dry-run and are printed 
 
 The full repository workflow `.github/workflows/addon-updater.yml` runs **every 30 minutes at minutes 17 and 47 UTC** (`17,47 * * * *`). GitHub can delay scheduled jobs during busy periods, so this is a configured cadence, not a strict execution-time guarantee.
 
-A separate `.github/workflows/fast-safe-addon-updater.yml` checks the explicitly allowlisted, release-backed catalog plugins **every 15 minutes at minutes 7, 22, 37 and 52 UTC** (`7,22,37,52 * * * *`). It passes only the names in `fast-safe-addons.txt` to `update.sh --only`; it does not accelerate the full catalog pass. Both workflows share the `addon-updater` concurrency group so their commits to `integration/kus-monorepo` are serialized. GitHub scheduled jobs can still be delayed during busy periods.
+A separate `.github/workflows/fast-safe-addon-updater.yml` checks the explicitly allowlisted catalog plugins **every 15 minutes at minutes 7, 22, 37 and 52 UTC** (`7,22,37,52 * * * *`). It passes only the names in `fast-safe-addons.txt` to `update.sh --only`; it does not accelerate the full catalog pass. Both workflows share the `addon-updater` concurrency group so their commits to `integration/kus-monorepo` are serialized. GitHub scheduled jobs can still be delayed during busy periods.
 
-`MapConfigurator` has a required adapter but is not in the 15-minute list: its upstream repository currently publishes no GitHub releases. The adapter is prepared for a future ZIP release and fails closed unless exactly one `MapConfigurator.dll` is found in the archive. The current source repository is not configured as a reliable automated build input.
+`MapConfigurator` is monitored in the same 15-minute workflow and listed in `future-release-addons.txt`. Its upstream repository currently publishes no GitHub releases, so an empty release result is informational rather than a failed required-version check. The adapter is prepared for a future ZIP release and fails closed unless exactly one `MapConfigurator.dll` is found in the archive. The current source repository is not configured as a reliable automated build input.
 
 The workflow runs the same KUS updater described in this document, then a second pass for the Larnz-managed add-ons in `DEPENDENCIES.json`, then Windows validation:
 
@@ -357,6 +357,8 @@ downloadable asset (size `0` if unknown).
 - `catalog-plugin.sh` - fail-closed DLL discovery and merge-only overlays for
   catalog plugins, with per-plugin exclusions for operator-owned files.
 - `fast-safe-addons.txt` - allowlist for the separate 15-minute workflow.
+- `future-release-addons.txt` - adapters that are tested and polled but do not yet
+  have an upstream release tag, so a missing version is not treated as a hard failure.
 - `plugins/*.sh` - one script per mod (see above).
 - `../check-updates.sh` - unchanged behaviour when run directly. It gained a guard so it
   can be sourced, and `CHECK_UPDATES_README=<path>` to read a local README instead of
