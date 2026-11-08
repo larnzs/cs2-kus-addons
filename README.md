@@ -213,7 +213,7 @@ The first table deliberately retains the updater-compatible three-column structu
 
 ### Payload layout and updater coverage
 
-ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œMode-specificÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â means the plugin is staged under `plugins/disabled/` rather than loaded from the default plugin directory; KUS can enable such plugins for a game mode. ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œNo scriptÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â means the hourly updater can detect a newer release but warns and skips download/deployment. A script name indicates a dedicated updater under `scripts/update/plugins/`.
+ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œMode-specificÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â means the plugin is staged under `plugins/disabled/` rather than loaded from the default plugin directory; KUS can enable such plugins for a game mode. ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œNo scriptÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â means the 30-minute updater can detect a newer release but warns and skips download/deployment. A script name indicates a dedicated updater under `scripts/update/plugins/`.
 
 | Plugin | Payload placement / activation | Update automation |
 | --- | --- | --- |
@@ -274,9 +274,9 @@ The first table deliberately retains the updater-compatible three-column structu
 
 The important difference is **how each script updates files**. Routine runner maintenance uses overwrite-only file copies and never deletes runtime add-on files. `windows/win.bat` is a separate clean replacement/reset workflow that can remove files absent from the tracked payload; stop every CS2 instance before using it.
 
-### Hourly automatic update checks
+### Automatic update checks every 30 minutes
 
-GitHub Actions checks for new upstream add-on releases every hour at **minute 17 UTC**. It runs KUS's documented per-plugin `.sh` updater scripts first, then checks the enabled add-ons in `DEPENDENCIES.json`, commits successful changes to `integration/kus-monorepo`, and runs the Windows validation workflow. CI checks that every updater listed in `scripts/update/README.md` exists and that every installed, automation-enabled manifest entry has a matching script.
+GitHub Actions checks for new upstream add-on releases every 30 minutes at **minutes 17 and 47 UTC**. It runs KUS's documented per-plugin `.sh` updater scripts first, then checks the enabled add-ons in `DEPENDENCIES.json`, commits successful changes to `integration/kus-monorepo`, and runs the Windows validation workflow. CI checks that every updater listed in `scripts/update/README.md` exists and that every installed, automation-enabled manifest entry has a matching script.
 
 Coverage is enforced for every required KUS catalog add-on and every installed, automation-enabled manifest entry. `GameModeManager` and `MultiAddonManager` both have slug-matched updater adapters; optional catalog rows without adapters remain warning-only/skipped. `CS2-WeaponRestrict` remains excluded because it is not installed and automation is disabled.
 
