@@ -62,7 +62,7 @@ while IFS= read -r name; do
     script="scripts/update/plugins/$slug.sh"
     [ -f "$script" ] || fail "fast allowlist entry '$name' has no adapter: $script"
     bash -n "$script" || fail "syntax error in fast adapter $script"
-    owned="$(bash -c 'set -Eeuo pipefail; exec 3>&1; source scripts/update/lib.sh; source "$1"; printf "%s\\n" "${PLUGIN_PATHS[@]}"; plugin_assets >/dev/null' bash "$script")" || fail "could not load fast adapter $script"
+    owned="$(bash -c 'set -Eeuo pipefail; exec 3>&1; source scripts/update/lib.sh; source "$1"; printf "%s" "${PLUGIN_PATHS[@]}"; plugin_assets >/dev/null' bash "$script")" || fail "could not load fast adapter $script"
     while IFS= read -r path; do
         [[ -n "$path" ]] || continue
         [ -d "$path" ] || fail "$script points to a missing payload directory: $path"
