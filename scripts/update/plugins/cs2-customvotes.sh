@@ -1,27 +1,54 @@
 #!/usr/bin/env bash
 # Updater for imi-tat0r/CS2-CustomVotes.
-PLUGIN_PATHS=("game/csgo/addons/counterstrikesharp/plugins/CS2-CustomVotes")
+# Its release is a complete plugin folder: main DLL, Shared assembly, CSSharpUtils
+# and the dependency manifest must always travel together. Preserve local language files.
+source scripts/update/catalog-plugin.sh
+
+DESTINATION="game/csgo/addons/counterstrikesharp/plugins/CS2-CustomVotes"
+PLUGIN_PATHS=("$DESTINATION")
 
 plugin_assets() {
     echo "CS2-CustomVotes-${NEW_VERSION}-*.zip"
 }
 
+customvotes_payload_valid() {
+    local root="$1" deps="$1/CS2-CustomVotes.deps.json"
+    [[ -f "$root/CS2-CustomVotes.dll" ]] || return 1
+    [[ -f "$root/CS2-CustomVotes.Shared.dll" ]] || return 1
+    [[ -f "$root/CSSharpUtils.dll" ]] || return 1
+    [[ -f "$deps" ]] || return 1
+
+    jq -e '
+      .runtimeTarget.name as $target
+      | .targets[$target] as $assemblies
+      | ($assemblies | to_entries | map(select(.key | startswith("CS2-CustomVotes/"))) | first) as $plugin
+      | ($plugin.value.dependencies.CSSharpUtils // "") as $utilsVersion
+      | ($plugin.value.dependencies["CS2-CustomVotes.Shared"] // "") as $sharedVersion
+      | ($plugin.value.runtime | has("CS2-CustomVotes.dll"))
+        and ($utilsVersion != "")
+        and ($sharedVersion != "")
+        and (($assemblies["CSSharpUtils/" + $utilsVersion].runtime // {}) | has("lib/net8.0/CSSharpUtils.dll"))
+        and (($assemblies["CS2-CustomVotes.Shared/" + $sharedVersion].runtime // {}) | has("CS2-CustomVotes.Shared.dll"))
+    ' "$deps" >/dev/null 2>&1
+}
+
 plugin_needs_repair() {
-    [[ ! -f "game/csgo/addons/counterstrikesharp/plugins/CS2-CustomVotes/CS2-CustomVotes.dll" ]]
+    ! customvotes_payload_valid "$DESTINATION"
 }
 
 plugin_apply() {
-    local x file source
+    local archive source
+    archive="$(extract_asset "CS2-CustomVotes-${NEW_VERSION}-*.zip")"
+
     local -a matches=()
-    if is_dry; then
-        dry "extract the version-matched CS2-CustomVotes release and overlay only its plugin directory"
-        return 0
-    fi
-    x=$(extract_asset "CS2-CustomVotes-${NEW_VERSION}-*.zip")
-    while IFS= read -r -d '' file; do matches+=("$file"); done < <(find "$x" -type f -name 'CS2-CustomVotes.dll' -print0)
-    [[ ${#matches[@]} -eq 1 ]] || die "Expected exactly one CS2-CustomVotes.dll in release archive; found ${#matches[@]}."
-    source=$(dirname "${matches[0]}")
-    copy_dir "$source" "game/csgo/addons/counterstrikesharp/plugins/CS2-CustomVotes"
-    require_file "game/csgo/addons/counterstrikesharp/plugins/CS2-CustomVotes/CS2-CustomVotes.dll"
-    remove_extracted "$x"
+    while IFS= read -r -d '' file; do matches+=("$file"); done \
+      < <(find "$archive" -type f -name 'CS2-CustomVotes.dll' -print0)
+    [[ ${#matches[@]} -eq 1 ]] || die "Expected exactly one CS2-CustomVotes.dll in release archive, found ${#matches[@]}."
+    source="$(dirname "${matches[0]}")"
+
+    customvotes_payload_valid "$source" || die "Release archive is missing a consistent CS2-CustomVotes / CSSharpUtils dependency set."
+    catalog_overlay_plugin_dir "$source" "$DESTINATION" "lang/***"
+    customvotes_payload_valid "$DESTINATION" || die "CS2-CustomVotes dependency verification failed after overlay."
+
+    remove_extracted "$archive"
 }
