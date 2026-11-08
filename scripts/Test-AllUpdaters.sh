@@ -11,7 +11,7 @@ command -v bash >/dev/null || fail "bash is required"
 command -v jq >/dev/null || fail "jq is required"
 command -v sort >/dev/null || fail "sort is required"
 
-bash -n scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh scripts/update/manifest-addon.sh
+bash -n scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh scripts/update/manifest-addon.sh scripts/update/catalog-plugin.sh
 pass "core Bash updater syntax"
 
 manifest="$(jq -e '.addons | type == "array"' DEPENDENCIES.json)"
@@ -50,6 +50,58 @@ while IFS= read -r name; do
 done < scripts/update/required-script-addons.txt
 [ "$required_count" -gt 0 ] || fail "no required add-ons were checked"
 pass "$required_count required installed KUS add-ons have syntactically valid adapters and bounded paths"
+
+# Every entry in the 15-minute safe allowlist must also be mandatory coverage.
+fast_count=0
+[ -s scripts/update/fast-safe-addons.txt ] || fail "fast-safe-addons.txt is missing or empty"
+while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    [[ "${name:0:1}" = "#" ]] && continue
+    grep -Fqx -- "$name" scripts/update/required-script-addons.txt || fail "fast allowlist entry '$name' is not in required-script-addons.txt"
+    slug="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//')"
+    script="scripts/update/plugins/$slug.sh"
+    [ -f "$script" ] || fail "fast allowlist entry '$name' has no adapter: $script"
+    bash -n "$script" || fail "syntax error in fast adapter $script"
+    owned="$(bash -c 'set -Eeuo pipefail; exec 3>&1; source scripts/update/lib.sh; source "$1"; printf "%s\\n" "${PLUGIN_PATHS[@]}"; plugin_assets >/dev/null' bash "$script")" || fail "could not load fast adapter $script"
+    while IFS= read -r path; do
+        [[ -n "$path" ]] || continue
+        [ -d "$path" ] || fail "$script points to a missing payload directory: $path"
+    done <<< "$owned"
+    fast_count=$((fast_count + 1))
+done < scripts/update/fast-safe-addons.txt
+[ "$fast_count" -gt 0 ] || fail "no fast allowlist adapters were checked"
+pass "$fast_count 15-minute allowlist entries have required, loadable adapters and existing payload directories"
+
+# Exercise the catalog helper against fixtures: unique DLL discovery, local-file
+# preservation, merge-only behavior, and bounded write destinations.
+command -v rsync >/dev/null || fail "rsync is required for catalog helper tests"
+mkdir -p tmp
+fixture="$(mktemp -d tmp/catalog-updater-test.XXXXXX)"
+trap 'rm -rf "$fixture"' EXIT
+mkdir -p "$fixture/archive/package" "$fixture/source" "$fixture/destination"
+printf 'release-binary' > "$fixture/archive/package/plugin.dll"
+printf 'new-binary' > "$fixture/source/plugin.dll"
+printf 'operator-setting' > "$fixture/source/local.json"
+printf 'old-setting' > "$fixture/destination/local.json"
+printf 'keep-old-file' > "$fixture/destination/obsolete.dll"
+PLUGIN_PATHS=("$fixture/destination")
+DRY_RUN=0
+source scripts/update/catalog-plugin.sh
+resolved="$(catalog_find_plugin_dir "$fixture/archive" "plugin.dll")"
+[ "$resolved" = "$fixture/archive/package" ] || fail "catalog helper resolved the wrong plugin directory: $resolved"
+catalog_overlay_plugin_dir "$fixture/source" "$fixture/destination" "local.json"
+[ "$(cat "$fixture/destination/plugin.dll")" = "new-binary" ] || fail "catalog helper did not overlay the release binary"
+[ "$(cat "$fixture/destination/local.json")" = "old-setting" ] || fail "catalog helper overwrote an excluded local file"
+[ "$(cat "$fixture/destination/obsolete.dll")" = "keep-old-file" ] || fail "catalog helper unexpectedly deleted an existing file"
+mkdir -p "$fixture/ambiguous/a" "$fixture/ambiguous/b"
+: > "$fixture/ambiguous/a/duplicate.dll"
+: > "$fixture/ambiguous/b/duplicate.dll"
+if ( catalog_find_plugin_dir "$fixture/ambiguous" "duplicate.dll" >/dev/null 2>&1 ); then
+    fail "catalog helper accepted an ambiguous DLL sentinel"
+fi
+pass "catalog helper fails closed on ambiguous archives and preserves excluded/local files"
+rm -rf "$fixture"
+trap - EXIT
 
 # Every installed, automation-enabled manifest entry must have its own adapter.
 manifest_count=0
