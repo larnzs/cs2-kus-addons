@@ -11,6 +11,7 @@ on:
       - "scripts/update/fast-safe-addons.txt"
       - "scripts/update/required-script-addons.txt"
       - "scripts/Test-AllUpdaters.sh"
+      - "README.md"
       - "scripts/update/plugins/cs2-playermodelchanger.sh"
       - "scripts/update/plugins/stfixes.sh"
       - "scripts/update/plugins/cs2-instadefuse.sh"
