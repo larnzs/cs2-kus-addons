@@ -1,0 +1,105 @@
+name: Fast Safe Catalog Add-on Checks
+
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  push:
+    branches:
+      - integration/kus-monorepo
+    paths:
+      - "scripts/update/catalog-plugin.sh"
+      - "scripts/update/fast-safe-addons.txt"
+      - "scripts/update/plugins/cs2-playermodelchanger.sh"
+      - "scripts/update/plugins/stfixes.sh"
+      - "scripts/update/plugins/cs2-instadefuse.sh"
+      - "scripts/update/plugins/cs2-whitelist.sh"
+      - "scripts/update/plugins/cs2-executes.sh"
+      - "scripts/update/plugins/cs2funmatchplugin.sh"
+      - "scripts/update/plugins/cs2-mutualscoringplayers.sh"
+      - "scripts/update/plugins/spectatorlist-cs2.sh"
+      - "scripts/update/plugins/slayer-football.sh"
+      - "scripts/update/plugins/slayer-revive.sh"
+      - "scripts/update/plugins/cs2-teleportkill.sh"
+      - ".github/workflows/fast-safe-addon-updater.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Share the same lock as the full updater: both workflows write commits to one branch.
+concurrency:
+  group: addon-updater
+  cancel-in-progress: false
+
+jobs:
+  update-safe-catalog-addons:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout integration branch
+        uses: actions/checkout@v5
+        with:
+          ref: integration/kus-monorepo
+          fetch-depth: 0
+
+      - name: Install updater tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq unzip rsync
+
+      - name: Validate the fast updater set
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/update/lib.sh scripts/update/catalog-plugin.sh scripts/update/update.sh
+          while IFS= read -r addon; do
+            [[ -n "$addon" ]] || continue
+            [[ "$addon" == #* ]] && continue
+            slug="$(printf '%s' "$addon" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//')"
+            script="scripts/update/plugins/$slug.sh"
+            [[ -f "$script" ]] || { echo "Missing adapter: $script" >&2; exit 1; }
+            bash -n "$script"
+          done < scripts/update/fast-safe-addons.txt
+
+      - name: Check and update allowlisted catalog add-ons
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          args=()
+          while IFS= read -r addon; do
+            [[ -n "$addon" ]] || continue
+            [[ "$addon" == #* ]] && continue
+            args+=(--only "$addon")
+          done < scripts/update/fast-safe-addons.txt
+          [[ "${#args[@]}" -gt 0 ]] || { echo "Fast allowlist is empty." >&2; exit 1; }
+
+          bash scripts/update/update.sh "${args[@]}"
+
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "Updater left uncommitted changes:" >&2
+            git status --short >&2
+            exit 1
+          fi
+
+          pushed=false
+          for attempt in 1 2 3; do
+            echo "Publishing fast-updater commits, attempt $attempt/3..."
+            git fetch origin integration/kus-monorepo
+            if ! git rebase origin/integration/kus-monorepo; then
+              git rebase --abort || true
+              echo "Updater commits conflict with newer repository changes; refusing to force-push." >&2
+              exit 1
+            fi
+            if git push origin HEAD:refs/heads/integration/kus-monorepo; then
+              pushed=true
+              break
+            fi
+          done
+
+          [[ "$pushed" == true ]] || { echo "Could not publish updater commits after three attempts." >&2; exit 1; }
