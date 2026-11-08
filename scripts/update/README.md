@@ -96,6 +96,10 @@ The workflow runs the same KUS updater described in this document, then a second
 
 The fast workflow is intentionally narrower: it checks only `fast-safe-addons.txt`, validates each adapter, then commits and pushes any release updates to the same branch. It does not deploy to a running server; the provisioner must perform its next repository sync.
 
+The full README catalog can be audited with `python3 scripts/Test-CatalogCoverage.py --strict`. It verifies every catalog row's script/bundle mapping, sources each adapter and checks the declared `PLUGIN_PATHS` against the tracked payload, then separately checks the Manifest and 15-minute allowlist. It currently reports 36/48 catalog rows covered; the remaining rows are reported explicitly rather than being counted as automatic coverage.
+
+`CS2-CustomVotes` is a dependency-coupled package: its main DLL, `CS2-CustomVotes.Shared.dll`, `CSSharpUtils.dll` and `.deps.json` are validated and repaired together. Do not replace only the main plugin DLL.
+
 ### Coverage and its limits
 
 - Every required KUS catalog adapter (including GameModeManager and MultiAddonManager) and every installed/automated manifest adapter is documented below and checked by the updater hard tests.
