@@ -37,6 +37,9 @@ plugin_assets() {
 
 plugin_needs_repair() {
     [[ ! -f "game/csgo/addons/counterstrikesharp/plugins/disabled/jRandomSkills/jRandomSkills.dll" ||
+       ! -f "game/csgo/addons/counterstrikesharp/plugins/disabled/jRandomSkills/configs/config.json" ||
+       ! -f "game/csgo/addons/counterstrikesharp/plugins/disabled/jRandomSkills/configs/skillsInfo.json" ||
+       ! -d "game/csgo/addons/counterstrikesharp/plugins/disabled/jRandomSkills/languages" ||
        ! -f "game/csgo/addons/counterstrikesharp/gamedata/jRandomSkills.gamedata.json" ]]
 }
 
@@ -72,6 +75,12 @@ plugin_apply() {
     # Seed defaults only when this is a first install and the operator has no files yet.
     if [[ ! -d "$destination/configs" ]]; then
         copy_dir "$x/plugins/jRandomSkills/configs" "$destination/configs"
+    else
+        for config in config.json skillsInfo.json; do
+            if [[ ! -f "$destination/configs/$config" ]]; then
+                copy_file "$x/plugins/jRandomSkills/configs/$config" "$destination/configs/$config"
+            fi
+        done
     fi
     if [[ ! -d "$destination/languages" ]]; then
         copy_dir "$x/plugins/jRandomSkills/languages" "$destination/languages"
