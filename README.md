@@ -209,7 +209,6 @@ The first table deliberately retains the updater-compatible three-column structu
 | [SLAYER_Football](https://github.com/zakriamansoor47/SLAYER_Football) | `1.1` | Football in CS2. |
 | [SLAYER_Revive](https://github.com/zakriamansoor47/SLAYER_Revive) | `1.3.2` | Revive Your Teammates. |
 | [cs2-TeleportKill](https://github.com/rodopoulos1/cs2-TeleportKill) | `1.0.1` | Instantly teleport to the location of the enemy you kill. |
-| [CS2-BotAI](https://github.com/Austinbots/CS2-BotAI) | `1.0` | Decommissioned: retained only under `plugins/disabled/BotAI/`; not loaded or updated automatically. |
 
 ### Payload layout and updater coverage
 
@@ -264,7 +263,6 @@ The first table deliberately retains the updater-compatible three-column structu
 | SLAYER_Football | Mode-specific plugin staged under `plugins/disabled/` | Script: `slayer-football.sh`; updates only the plugin folder and preserves `lang/` |
 | SLAYER_Revive | Mode-specific plugin staged under `plugins/disabled/` | Script: `slayer-revive.sh`; preserves operator-managed `SLAYER_Revive.json` |
 | cs2-TeleportKill | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-teleportkill.sh`; preserves local `lang/` |
-| CS2-BotAI | Disabled payload retained under `plugins/disabled/BotAI/`; never load it by default | No updater by design; this plugin is decommissioned for this server |
 
 
 > [!NOTE]
