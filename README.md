@@ -274,9 +274,9 @@ The first table deliberately retains the updater-compatible three-column structu
 
 The important difference is **how each script updates files**. Routine runner maintenance uses overwrite-only file copies and never deletes runtime add-on files. `windows/win.bat` is a separate clean replacement/reset workflow that can remove files absent from the tracked payload; stop every CS2 instance before using it.
 
-### Automatic update checks every 10 minutes
+### Automatic update checks every 30 minutes
 
-GitHub Actions checks for new upstream add-on releases every 10 minutes. It runs KUS's documented per-plugin `.sh` updater scripts first, then checks the enabled add-ons in `DEPENDENCIES.json`, commits successful changes to `integration/kus-monorepo`, and runs the Windows validation workflow. CI checks that every updater listed in `scripts/update/README.md` exists and that every installed, automation-enabled manifest entry has a matching script.
+GitHub Actions checks for new upstream add-on releases every 30 minutes at **minutes 17 and 47 UTC**. It runs KUS's documented per-plugin `.sh` updater scripts first, then checks the enabled add-ons in `DEPENDENCIES.json`, commits successful changes to `integration/kus-monorepo`, and runs the Windows validation workflow. CI checks that every updater listed in `scripts/update/README.md` exists and that every installed, automation-enabled manifest entry has a matching script.
 
 Coverage is enforced for every required KUS catalog add-on and every installed, automation-enabled manifest entry. `GameModeManager` and `MultiAddonManager` both have slug-matched updater adapters; optional catalog rows without adapters remain warning-only/skipped. `CS2-WeaponRestrict` remains excluded because it is not installed and automation is disabled.
 
