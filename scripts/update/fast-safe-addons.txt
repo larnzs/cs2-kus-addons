@@ -1,0 +1,13 @@
+# Safe, release-backed catalog add-ons checked every 15 minutes.
+# MapConfigurator is intentionally excluded until upstream publishes a release.
+CS2-PlayerModelChanger
+STFixes
+CS2 Instadefuse
+CS2 Whitelist
+CS2 Executes
+CS2FunMatchPlugin
+CS2-MutualScoringPlayers
+SpectatorList-CS2
+SLAYER_Football
+SLAYER_Revive
+cs2-TeleportKill
