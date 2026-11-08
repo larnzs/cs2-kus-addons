@@ -9,6 +9,8 @@ on:
     paths:
       - "scripts/update/catalog-plugin.sh"
       - "scripts/update/fast-safe-addons.txt"
+      - "scripts/update/required-script-addons.txt"
+      - "scripts/Test-AllUpdaters.sh"
       - "scripts/update/plugins/cs2-playermodelchanger.sh"
       - "scripts/update/plugins/stfixes.sh"
       - "scripts/update/plugins/cs2-instadefuse.sh"
