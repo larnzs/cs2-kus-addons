@@ -274,11 +274,13 @@ The first table deliberately retains the updater-compatible three-column structu
 
 The important difference is **how each script updates files**. Routine runner maintenance uses overwrite-only file copies and never deletes runtime add-on files. `windows/win.bat` is a separate clean replacement/reset workflow that can remove files absent from the tracked payload; stop every CS2 instance before using it.
 
-### Automatic update checks every 30 minutes
+### Automatic update checks: 15-minute safe subset, 30-minute full sweep
 
-GitHub Actions checks for new upstream add-on releases every 30 minutes at **minutes 17 and 47 UTC**. It runs KUS's documented per-plugin `.sh` updater scripts first, then checks the enabled add-ons in `DEPENDENCIES.json`, commits successful changes to `integration/kus-monorepo`, and runs the Windows validation workflow. CI checks that every updater listed in `scripts/update/README.md` exists and that every installed, automation-enabled manifest entry has a matching script.
+The full GitHub Actions workflow checks the complete configured updater set every 30 minutes at **minutes 17 and 47 UTC**. It runs KUS per-plugin adapters, then installed automation-enabled manifest add-ons, commits successful changes to `integration/kus-monorepo`, and runs Windows validation.
 
-Coverage is enforced for every required KUS catalog add-on and every installed, automation-enabled manifest entry. `GameModeManager` and `MultiAddonManager` both have slug-matched updater adapters; optional catalog rows without adapters remain warning-only/skipped. `CS2-WeaponRestrict` remains excluded because it is not installed and automation is disabled.
+A separate **fast safe catalog workflow** runs every 15 minutes at **minutes 7, 22, 37 and 52 UTC**. Its exact scope is `scripts/update/fast-safe-addons.txt`; it invokes `update.sh --only` for that allowlist. Both workflows share one concurrency lock so they cannot race while committing to the same branch. GitHub may delay scheduled jobs, so these are polling intervals rather than exact execution-time guarantees.
+
+CI requires an adapter for every entry in `required-script-addons.txt`, every fast-allowlist entry, and every installed automation-enabled manifest entry. It also exercises the shared catalog helper to verify unique archive discovery, config-file preservation and merge-only behavior. `MapConfigurator` has a future-release adapter but is not in the 15-minute list because upstream currently publishes no GitHub release. Other optional catalog rows without an adapter remain warning-only/skipped.
 
 The external Instance folder has its own `update.bat` for shared maintenance. Run it manually with all CS2 processes stopped. Start `watchdog.bat` for normal operation: it keeps a visible CMD guardian running `run.vbs` through `cscript.exe`, and relaunches the VBS host if it terminates. Inside that guard, `run.vbs` invokes the runner through `cmd.exe`, waits for it to return, then retries **100 milliseconds** after exit code 100. The VBS/watchdog layers do not run maintenance; each new `run.bat` invocation copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` before starting CS2.
 
