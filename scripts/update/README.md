@@ -82,7 +82,7 @@ Checks against extracted archive contents cannot run in dry-run and are printed 
 
 ## Running it automatically (GitHub Actions)
 
-This private integrated repository runs `.github/workflows/addon-updater.yml` **once every hour at minute 17 UTC** (`17 * * * *`). GitHub can delay scheduled jobs during busy periods, but the configured polling cadence is hourly. The default branch is `integration/kus-monorepo`, so the scheduled workflow is present on the branch GitHub uses for cron.
+This integrated repository runs `.github/workflows/addon-updater.yml` **every 30 minutes at minutes 17 and 47 UTC** (`17,47 * * * *`). GitHub can delay scheduled jobs during busy periods, but the configured polling cadence is every 30 minutes. The default branch is `integration/kus-monorepo`, so the scheduled workflow is present on the branch GitHub uses for cron.
 
 The workflow runs the same KUS updater described in this document, then a second pass for the Larnz-managed add-ons in `DEPENDENCIES.json`, then Windows validation:
 
@@ -94,7 +94,7 @@ The workflow runs the same KUS updater described in this document, then a second
 
 - Every required KUS catalog adapter (including GameModeManager and MultiAddonManager) and every installed/automated manifest adapter is documented below and checked by the updater hard tests.
 - Every manifest entry marked `installed: true` with automation enabled has a matching `scripts/update/plugins/<slug>.sh` adapter; CI checks this coverage dynamically. MetaMod and CounterStrikeSharp use their dedicated KUS-style scripts.
-- Entries initially marked `installed: false` are bootstrap-installed by the PowerShell source/release updater. Once their files verify successfully, the manifest flips them to `installed: true`; the Bash adapters then track upstream release tags or branch commits on subsequent hourly runs.
+- Entries initially marked `installed: false` are bootstrap-installed by the PowerShell source/release updater. Once their files verify successfully, the manifest flips them to `installed: true`; the Bash adapters then track upstream release tags or branch commits on subsequent 30-minute runs.
 - `CS2-WeaponRestrict` is deliberately excluded because its manifest entry is `installed: false` and `automation_supported: false`.
 - KUS's own documentation says a catalog row **without** a `scripts/update/plugins/<slug>.sh` is reported as “no update script” and skipped; those optional catalog rows are not automatically installed or updated just because they appear in the version table. The CI coverage check prevents a documented script or an enabled manifest add-on from silently losing its script.
 
