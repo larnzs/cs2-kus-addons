@@ -29,6 +29,34 @@ on:
       - "docs/Unified-README-HEADER.md"
       - ".github/workflows/payload-layout-check.yml"
       - ".github/workflows/addon-updater.yml"
+  pull_request:
+    branches:
+      - integration/kus-monorepo
+    paths:
+      - "game/csgo/**"
+      - "scripts/Deploy-Runtime.ps1"
+      - "scripts/Patch-GameInfo.ps1"
+      - "scripts/Test-AddonOverlay.ps1"
+      - "scripts/Update-Addons.ps1"
+      - "scripts/Inspect-Releases.ps1"
+      - "scripts/Restructure-KUS-Payload.ps1"
+      - "scripts/Integrate-KUS.ps1"
+      - "scripts/plugin-mode-policy.json"
+      - "scripts/validate-plugin-lifecycle.py"
+      - "docs/MODE-PLUGIN-LIFECYCLE.md"
+      - "windows/**"
+      - "linux/**"
+      - "instance/**"
+      - "google/**"
+      - "docker/**"
+      - ".dockerignore"
+      - ".env.example"
+      - ".gitignore"
+      - "DEPENDENCIES.json"
+      - "README.md"
+      - "docs/Unified-README-HEADER.md"
+      - ".github/workflows/payload-layout-check.yml"
+      - ".github/workflows/addon-updater.yml"
   workflow_dispatch:
 
 permissions:
@@ -42,7 +70,7 @@ jobs:
       - name: Checkout the integration branch
         uses: actions/checkout@v5
         with:
-          ref: integration/kus-monorepo
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
           fetch-depth: 1
 
       - name: Validate shell syntax

@@ -19,3 +19,5 @@ SpectatorList-CS2
 SLAYER_Football
 SLAYER_Revive
 cs2-TeleportKill
+
+CS2Fixes-RampbugFix

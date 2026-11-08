@@ -209,7 +209,6 @@ The first table deliberately retains the updater-compatible three-column structu
 | [SLAYER_Football](https://github.com/zakriamansoor47/SLAYER_Football) | `1.1` | Football in CS2. |
 | [SLAYER_Revive](https://github.com/zakriamansoor47/SLAYER_Revive) | `1.3.2` | Revive Your Teammates. |
 | [cs2-TeleportKill](https://github.com/rodopoulos1/cs2-TeleportKill) | `1.0.1` | Instantly teleport to the location of the enemy you kill. |
-| [CS2-BotAI](https://github.com/Austinbots/CS2-BotAI) | `1.0` | Improves the built in bots AI and also makes them run with a gun intead of a knife or nade. |
 
 ### Payload layout and updater coverage
 
@@ -221,7 +220,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | MultiAddonManager | Base native add-on | Script: `multiaddonmanager.sh`; Pterodactyl Linux updates SteamRT3 `.so` and MetaMod VDF only. |
 | ServerListPlayersFix | Base native add-on | Script: `serverlistplayersfix.sh` |
 | MovementUnlocker | Base native add-on | Script: `movementunlocker.sh` |
-| CS2Fixes-RampbugFix | Base native add-on | No script; release updates are warned about and skipped |
+| CS2Fixes-RampbugFix | Base native add-on | `scripts/update/plugins/cs2fixes-rampbugfix.sh` updates Linux/Windows binaries and shared gamedata |
 | CS2_ExecAfter | Default CounterStrikeSharp plugin | Script: `cs2-execafter.sh` |
 | CS2 Remove Map Weapons | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
 | GameModeManager | Default CounterStrikeSharp plugin | Script: `gamemodemanager.sh`; owns all four bundled plugin folders and all three shared API folders from `addons/counterstrikesharp/`. Copies no `cfg/` or CounterStrikeSharp `configs/` content. |
@@ -264,7 +263,6 @@ The first table deliberately retains the updater-compatible three-column structu
 | SLAYER_Football | Mode-specific plugin staged under `plugins/disabled/` | Script: `slayer-football.sh`; updates only the plugin folder and preserves `lang/` |
 | SLAYER_Revive | Mode-specific plugin staged under `plugins/disabled/` | Script: `slayer-revive.sh`; preserves operator-managed `SLAYER_Revive.json` |
 | cs2-TeleportKill | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-teleportkill.sh`; preserves local `lang/` |
-| CS2-BotAI | Default CounterStrikeSharp plugin | No script; release updates are warned about and skipped |
 
 
 > [!NOTE]
