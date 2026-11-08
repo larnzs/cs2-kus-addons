@@ -9,6 +9,8 @@ on:
     paths:
       - "scripts/update/catalog-plugin.sh"
       - "scripts/update/fast-safe-addons.txt"
+      - "scripts/update/future-release-addons.txt"
+      - "scripts/update/plugins/mapconfigurator.sh"
       - "scripts/update/required-script-addons.txt"
       - "scripts/Test-AllUpdaters.sh"
       - "README.md"
