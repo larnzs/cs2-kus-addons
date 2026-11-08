@@ -55,7 +55,7 @@ jobs:
           bash -n scripts/update/lib.sh scripts/update/catalog-plugin.sh scripts/update/update.sh
           while IFS= read -r addon; do
             [[ -n "$addon" ]] || continue
-            [[ "$addon" == #* ]] && continue
+            [[ "${addon:0:1}" == "#" ]] && continue
             slug="$(printf '%s' "$addon" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//')"
             script="scripts/update/plugins/$slug.sh"
             [[ -f "$script" ]] || { echo "Missing adapter: $script" >&2; exit 1; }
@@ -74,7 +74,7 @@ jobs:
           args=()
           while IFS= read -r addon; do
             [[ -n "$addon" ]] || continue
-            [[ "$addon" == #* ]] && continue
+            [[ "${addon:0:1}" == "#" ]] && continue
             args+=(--only "$addon")
           done < scripts/update/fast-safe-addons.txt
           [[ "${#args[@]}" -gt 0 ]] || { echo "Fast allowlist is empty." >&2; exit 1; }
