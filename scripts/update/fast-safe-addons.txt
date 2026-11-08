@@ -1,5 +1,5 @@
-# Safe, release-backed catalog add-ons checked every 15 minutes.
-# MapConfigurator is intentionally excluded until upstream publishes a release.
+# Safe catalog add-ons checked every 15 minutes.
+# MapConfigurator is monitored for its first upstream release; see future-release-addons.txt.
 MapConfigurator
 CS2-PlayerModelChanger
 STFixes
