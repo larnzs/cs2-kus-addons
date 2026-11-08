@@ -3,29 +3,6 @@ name: Fast Safe Catalog Add-on Checks
 on:
   schedule:
     - cron: "7,22,37,52 * * * *"
-  push:
-    branches:
-      - integration/kus-monorepo
-    paths:
-      - "scripts/update/catalog-plugin.sh"
-      - "scripts/update/fast-safe-addons.txt"
-      - "scripts/update/future-release-addons.txt"
-      - "scripts/update/plugins/mapconfigurator.sh"
-      - "scripts/update/required-script-addons.txt"
-      - "scripts/Test-AllUpdaters.sh"
-      - "README.md"
-      - "scripts/update/plugins/cs2-playermodelchanger.sh"
-      - "scripts/update/plugins/stfixes.sh"
-      - "scripts/update/plugins/cs2-instadefuse.sh"
-      - "scripts/update/plugins/cs2-whitelist.sh"
-      - "scripts/update/plugins/cs2-executes.sh"
-      - "scripts/update/plugins/cs2funmatchplugin.sh"
-      - "scripts/update/plugins/cs2-mutualscoringplayers.sh"
-      - "scripts/update/plugins/spectatorlist-cs2.sh"
-      - "scripts/update/plugins/slayer-football.sh"
-      - "scripts/update/plugins/slayer-revive.sh"
-      - "scripts/update/plugins/cs2-teleportkill.sh"
-      - ".github/workflows/fast-safe-addon-updater.yml"
   workflow_dispatch:
 
 permissions:
