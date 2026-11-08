@@ -33,7 +33,7 @@ while IFS= read -r name; do
         source scripts/update/lib.sh
         source "$1"
         [ "${#PLUGIN_PATHS[@]}" -gt 0 ]
-        printf "%s\n" "${PLUGIN_PATHS[@]}"
+        printf "%s" "${PLUGIN_PATHS[@]}"
     ' bash "$script")" || fail "could not source $script or read PLUGIN_PATHS"
 
     while IFS= read -r path; do
