@@ -82,13 +82,19 @@ Checks against extracted archive contents cannot run in dry-run and are printed 
 
 ## Running it automatically (GitHub Actions)
 
-This integrated repository runs `.github/workflows/addon-updater.yml` **every 30 minutes at minutes 17 and 47 UTC** (`17,47 * * * *`). GitHub can delay scheduled jobs during busy periods, but the configured polling cadence is every 30 minutes. The default branch is `integration/kus-monorepo`, so the scheduled workflow is present on the branch GitHub uses for cron.
+The full repository workflow `.github/workflows/addon-updater.yml` runs **every 30 minutes at minutes 17 and 47 UTC** (`17,47 * * * *`). GitHub can delay scheduled jobs during busy periods, so this is a configured cadence, not a strict execution-time guarantee.
+
+A separate `.github/workflows/fast-safe-addon-updater.yml` checks the explicitly allowlisted, release-backed catalog plugins **every 15 minutes at minutes 7, 22, 37 and 52 UTC** (`7,22,37,52 * * * *`). It passes only the names in `fast-safe-addons.txt` to `update.sh --only`; it does not accelerate the full catalog pass. Both workflows share the `addon-updater` concurrency group so their commits to `integration/kus-monorepo` are serialized. GitHub scheduled jobs can still be delayed during busy periods.
+
+`MapConfigurator` has a required adapter but is not in the 15-minute list: its upstream repository currently publishes no GitHub releases. The adapter is prepared for a future ZIP release and fails closed unless exactly one `MapConfigurator.dll` is found in the archive. The current source repository is not configured as a reliable automated build input.
 
 The workflow runs the same KUS updater described in this document, then a second pass for the Larnz-managed add-ons in `DEPENDENCIES.json`, then Windows validation:
 
 1. KUS's `scripts/update/plugins/*.sh` scripts update the matching rows in the KUS catalog in `README.md`.
 2. The manifest pass checks installed add-ons marked for automation and uses their own KUS-style script. MetaMod and CounterStrikeSharp use their dedicated KUS scripts; other enabled manifest entries use the shared manifest adapter and a per-add-on `.sh`.
 3. Successful changes are committed and pushed directly to `integration/kus-monorepo`; the Windows CI job then validates payload layout, release mappings, protected configs and updater policy.
+
+The fast workflow is intentionally narrower: it checks only `fast-safe-addons.txt`, validates each adapter, then commits and pushes any release updates to the same branch. It does not deploy to a running server; the provisioner must perform its next repository sync.
 
 ### Coverage and its limits
 
@@ -330,12 +336,27 @@ downloadable asset (size `0` if unknown).
 | CS2-FixRandomSpawn | `plugins/cs2-fixrandomspawn.sh` | Asset renamed to `CS2-FixRandomSpawn.zip` in 1.2.0 (`FixRandomSpawn.zip` before). 1.2.0 also restructured the archive to `plugins/` + `gamedata/`, relative to `addons/counterstrikesharp/`; the older flat layout is not supported. Plugin lives at `plugins/FixRandomSpawn` (not disabled) and is replaced whole, which also drops the stale plugin-local `gamedata/` the flat archive left behind. The top-level `gamedata/FixRandomSpawn.json` is upstream signature data and is replaced, because 1.2.0 renamed its keys and it has to match the dll. |
 | jRandomSkills | `plugins/jrandomskills.sh` | Asset is `jRandomSkills.v<version>.zip`, archive laid out relative to `addons/counterstrikesharp/` (`plugins/` + `gamedata/`). Plugin lives at `plugins/disabled/jRandomSkills` and is replaced whole, which drops the two `.pdb` files that v1.2.4.b3 no longer ships. Its `configs/` are byte-identical to upstream, so they are replaced rather than protected. Release tags carry a `v` prefix, so the README row must hold the bare version. |
 | cs2-quake-sounds | `plugins/cs2-quake-sounds.sh` | Archive root `QuakeSounds/`; replaces `plugins/disabled/QuakeSounds` whole. `configs/plugins/QuakeSounds/` not touched. |
+| CS2-PlayerModelChanger | `plugins/cs2-playermodelchanger.sh` | Unique `PlayerModelChanger.dll` archive discovery; updates only the disabled plugin folder and preserves `lang/` plus the external operator config. |
+| MapConfigurator | `plugins/mapconfigurator.sh` | Future-release adapter; no upstream GitHub release currently exists. A ZIP must contain exactly one `MapConfigurator.dll`; the active plugin directory is merge-overlaid. |
+| STFixes | `plugins/stfixes.sh` | Matches `STFixes_*.zip`, discovers the unique `STFixes.dll`, and keeps the plugin disabled. Upstream currently marks the project archived. |
+| CS2 Instadefuse | `plugins/cs2-instadefuse.sh` | Matches the versioned release ZIP, locates `InstadefusePlugin.dll`, and preserves local `lang/`. |
+| CS2 Whitelist | `plugins/cs2-whitelist.sh` | Updates the disabled plugin folder but explicitly preserves operator-managed `whitelist.txt`. |
+| CS2 Executes | `plugins/cs2-executes.sh` | Selects the `no-map-configs` release asset and preserves local `map_config/`. |
+| CS2FunMatchPlugin | `plugins/cs2funmatchplugin.sh` | Selects the Linux release ZIP, discovers `FunMatchPlugin.dll`, and preserves local `lang/`. |
+| CS2-MutualScoringPlayers | `plugins/cs2-mutualscoringplayers.sh` | Updates the disabled plugin folder and preserves local `lang/`. |
+| SpectatorList-CS2 | `plugins/spectatorlist-cs2.sh` | Updates the plugin and bundled runtime dependencies from `SpectatorList.zip`; preserves local `lang/`. |
+| SLAYER_Football | `plugins/slayer-football.sh` | Updates only the disabled plugin folder; never copies the archive's `cfg/` tree and preserves local `lang/`. |
+| SLAYER_Revive | `plugins/slayer-revive.sh` | Preserves operator-managed `SLAYER_Revive.json` and local `lang/`. |
+| cs2-TeleportKill | `plugins/cs2-teleportkill.sh` | Discovers the unique `TeleportKill.dll` and preserves local `lang/`. |
 
 ## Files
 
 - `update.sh` - entry point: argument parsing, preflight, the per-mod loop, summary.
 - `lib.sh` - all shared functions (logging, path guards, GitHub/Metamod asset
   resolution, download/extract, repo write helpers, README bump, git commit).
+- `catalog-plugin.sh` - fail-closed DLL discovery and merge-only overlays for
+  catalog plugins, with per-plugin exclusions for operator-owned files.
+- `fast-safe-addons.txt` - allowlist for the separate 15-minute workflow.
 - `plugins/*.sh` - one script per mod (see above).
 - `../check-updates.sh` - unchanged behaviour when run directly. It gained a guard so it
   can be sourced, and `CHECK_UPDATES_README=<path>` to read a local README instead of
