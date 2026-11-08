@@ -16,6 +16,6 @@ plugin_apply() {
     archive="$(extract_asset "SpectatorList.zip")"
     source="$(catalog_find_plugin_dir "$archive" "SpectatorList.dll")"
     require_file "$source/SpectatorList.dll"
-    catalog_overlay_plugin_dir "$source" "$DESTINATION" "lang/***" "PlayerSettingsApi.dll"
+    catalog_overlay_plugin_dir "$source" "$DESTINATION" "lang/***"
     remove_extracted "$archive"
 }
