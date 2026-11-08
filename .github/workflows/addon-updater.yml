@@ -67,7 +67,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash -n scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh scripts/update/manifest-addon.sh scripts/update/plugins/*.sh
+          bash -n scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh scripts/update/manifest-addon.sh scripts/update/catalog-plugin.sh scripts/update/plugins/*.sh
 
           bash -euo pipefail <<'CONFIG_GUARD_TEST'
           exec 3>&1
