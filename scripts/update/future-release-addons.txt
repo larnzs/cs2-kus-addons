@@ -1,0 +1,3 @@
+# Installed catalog adapters whose upstream currently publishes no release.
+# Keep their scripts covered by tests and poll their release pages for a first asset.
+MapConfigurator
