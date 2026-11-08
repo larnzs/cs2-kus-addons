@@ -47,6 +47,11 @@ jobs:
         shell: bash
         run: bash scripts/Test-AllUpdaters.sh
 
+      - name: Hard-check every README catalog updater and payload path
+        shell: bash
+        continue-on-error: true
+        run: python3 scripts/Test-CatalogCoverage.py --strict
+
       - name: Test manifest updater helper behavior
         shell: bash
         run: |
