@@ -16,9 +16,9 @@ manifest_assert_automation_supported() {
 }
 
 manifest_addon_assets() {
-    local name="$1"
+    local name="$1" version="${NEW_VERSION:-}"
     manifest_assert_automation_supported "$name"
-    jq -r --arg name "$name" --arg version "$NEW_VERSION" '
+    jq -r --arg name "$name" --arg version "$version" '
         .addons[] | select(.name == $name) | .assets[]? | gsub("\\{version\\}"; $version)
     ' DEPENDENCIES.json
 }
