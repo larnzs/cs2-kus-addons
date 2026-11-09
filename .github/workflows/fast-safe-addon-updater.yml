@@ -1,9 +1,8 @@
-name: Fast Safe Catalog and Priority Add-on Checks
+name: Manual Priority Add-on Checks
 
 on:
-  schedule:
-    # Five-minute checks, offset away from the top of the hour.
-    - cron: "1-56/5 * * * *"
+  # The scheduled full updater checks every automated add-on. Keep this
+  # targeted priority workflow available for manual troubleshooting only.
   workflow_dispatch:
 
 permissions:
