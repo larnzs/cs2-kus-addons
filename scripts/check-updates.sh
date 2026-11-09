@@ -12,7 +12,7 @@ extract_mods() {
         curl -s "$README_URL"
     fi | awk '
         BEGIN { modsStarted = 0 }
-        $0 ~ /^[[:space:]]*[|]?[[:space:]]*Mod[[:space:]]*[|][[:space:]]*Version[^|]*[|][[:space:]]*(Why|Purpose)[[:space:]]*[|]?[[:space:]]*$/ { modsStarted = 1; next }  # Look for the specific header to start
+        $0 ~ /^[[:space:]]*[|]?[[:space:]]*Mod[[:space:]]*[|][[:space:]]*Version[^|]*[|][[:space:]]*(Why|Purpose)[[:space:]]*[|].*$/ { modsStarted = 1; next }  # First three columns identify the unified plugin catalog
         modsStarted == 1 && $0 ~ /^$/ { exit }  # Stop at the first empty line
         modsStarted == 1 && /^[[:space:]]*[|]?[[:space:]]*\[/ {
             # Extract mod name, URL, and version
