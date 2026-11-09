@@ -702,7 +702,7 @@
         "addons/counterstrikesharp/plugins/disabled/GunsMenu/GunsMenu.deps.json",
         "addons/counterstrikesharp/plugins/disabled/GunsMenu/lang/en.json"
       ],
-      "automation_supported": false
+      "automation_supported": true
     },
     {
       "order": 28,

@@ -147,12 +147,12 @@ def main() -> int:
         if not row_errors:
             covered_rows.append(row)
 
-    # Manifest completeness and path existence: all installed, automation-enabled entries.
+    # Manifest completeness and path existence: every automation-enabled entry, including bootstrap installs.
     manifest_path = ROOT / "DEPENDENCIES.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest_entries = [
         item for item in manifest.get("addons", [])
-        if item.get("installed") is True and item.get("automation_supported") is not False
+        if item.get("automation_supported") is not False
     ]
     manifest_ok = 0
     for item in manifest_entries:

@@ -239,7 +239,7 @@ manifest_update_version() {
         tag=$(printf '%s' "$version" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)-([0-9]+)$/\1.\2/')
         [ "$tag" != "$version" ] || die "could not derive the MetaMod release tag from version $version"
         jq --arg name "$name" --arg version "$version" --arg tag "$tag" '
-            (.addons[] | select(.name == $name)) |= (.version = $version | .release_tag = $tag)
+            (.addons[] | select(.name == $name)) |= (.version = $version | .release_tag = $tag | .installed = true)
         ' DEPENDENCIES.json > "$tmp" || die "could not update MetaMod manifest metadata"
     elif [ "$type" = "github_release" ]; then
         json=$(github_api "repos/$(github_repo_from_url "$repo")/releases?per_page=30") || die "could not confirm release tag for $name"
@@ -264,7 +264,7 @@ manifest_update_version() {
         ' DEPENDENCIES.json > "$tmp" || die "could not update manifest metadata for $name"
     else
         jq --arg name "$name" --arg version "$version" '
-            (.addons[] | select(.name == $name)) |= (.version = $version | .source_commit = $version)
+            (.addons[] | select(.name == $name)) |= (.version = $version | .source_commit = $version | .installed = true)
         ' DEPENDENCIES.json > "$tmp" || die "could not update source-build metadata for $name"
     fi
     mv "$tmp" DEPENDENCIES.json || die "could not replace manifest after updating $name"

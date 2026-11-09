@@ -67,10 +67,7 @@ jobs:
           # The generic helper must allow automated plugins and refuse only explicitly manual entries.
           manifest_assert_automation_supported "CS2-Playervotes"
           manifest_assert_automation_supported "SLAYER_Noscope"
-          if (manifest_assert_automation_supported "CS2-Gunsmenu" >/dev/null 2>&1); then
-            echo "ERROR: manual-only CS2-Gunsmenu was allowed through the updater guard." >&2
-            exit 1
-          fi
+          manifest_assert_automation_supported "CS2-Gunsmenu"
           if (manifest_assert_automation_supported "CS2-WeaponRestrict" >/dev/null 2>&1); then
             echo "ERROR: manual-only CS2-WeaponRestrict was allowed through the updater guard." >&2
             exit 1

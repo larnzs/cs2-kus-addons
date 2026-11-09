@@ -155,7 +155,7 @@ jobs:
               exit 1
             fi
             manifest_script_count=$((manifest_script_count + 1))
-          done < <(jq -r '.addons[] | select(.installed == true) | select(.automation_supported != false) | .name' DEPENDENCIES.json)
+          done < <(jq -r '.addons[] | select(.automation_supported != false) | .name' DEPENDENCIES.json)
 
           echo "Coverage passed: $kus_script_count KUS scripts documented; $manifest_script_count installed/automated manifest add-ons mapped to scripts."
           echo "All KUS and Larnz add-on shell scripts passed bash -n and special manifest-sync checks."
@@ -720,6 +720,9 @@ jobs:
             $isDisabledPath = $configuredInstall -match '(?i)(^|/)plugins/disabled/'
             if ([bool]$policy.disabled -ne [bool]$isDisabledPath) {
               throw "$($policy.name) is not placed in the requested active/disabled plugin path."
+            }
+            if ($policy.name -eq "CS2-Gunsmenu" -and -not [bool]$addon.automation_supported) {
+              throw "CS2-Gunsmenu is staged under plugins/disabled and must remain automation-enabled."
             }
             if ($policy.ContainsKey("framework") -and [string]$addon.target_framework -ne [string]$policy.framework) {
               throw "$($policy.name) must use target_framework '$($policy.framework)' for its source build."

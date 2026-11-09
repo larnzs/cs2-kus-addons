@@ -172,11 +172,18 @@ try {
     Assert-Condition ([bool]$slayerNoscope[0].automation_supported) "Installed SLAYER_Noscope must be automatically rebuilt from its upstream branch."
     Assert-Condition (Test-Path -LiteralPath (Join-Path $repoRoot "scripts/update/plugins/slayer-noscope.sh")) "SLAYER_Noscope's manifest updater adapter is missing."
 
-    foreach ($name in @("CS2-Gunsmenu", "CS2-WeaponRestrict")) {
-        $manual = @($manifest.addons | Where-Object { $_.name -eq $name })
-        Assert-Condition ($manual.Count -eq 1) "Expected exactly one manifest row for '$name'."
-        Assert-Condition (($manual[0].PSObject.Properties.Name -contains "automation_supported") -and (-not [bool]$manual[0].automation_supported)) "'$name' must remain explicitly manual while it is not installed."
-    }
+    $gunsMenu = @($manifest.addons | Where-Object { $_.name -eq "CS2-Gunsmenu" })
+    Assert-Condition ($gunsMenu.Count -eq 1) "Expected exactly one CS2-Gunsmenu manifest row."
+    Assert-Condition ([bool]$gunsMenu[0].automation_supported) "Staged CS2-Gunsmenu must bootstrap and auto-update from its upstream source branch."
+    Assert-Condition (Test-Path -LiteralPath (Join-Path $repoRoot "scripts/update/plugins/cs2-gunsmenu.sh")) "CS2-Gunsmenu updater adapter is missing."
+    Assert-Condition (Test-Path -LiteralPath (Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/plugins/disabled/GunsMenu/GunsMenu.dll")) "CS2-Gunsmenu must retain its mode-specific disabled payload path."
+
+    $weaponRestrict = @($manifest.addons | Where-Object { $_.name -eq "CS2-WeaponRestrict" })
+    Assert-Condition ($weaponRestrict.Count -eq 1) "Expected exactly one CS2-WeaponRestrict manifest row."
+    Assert-Condition (-not [bool]$weaponRestrict[0].installed -and -not [bool]$weaponRestrict[0].automation_supported) "CS2-WeaponRestrict must remain absent/manual while it has no staged payload."
+
+    $sourceUpdater = Get-Content -LiteralPath (Join-Path $PSScriptRoot "Update-Addons.ps1") -Raw
+    Assert-Condition ($sourceUpdater.Contains('if ([string]$Addon.name -eq "CS2-Gunsmenu")')) "PowerShell source-build updater must remove GunsMenu's stale private CounterStrikeSharp API copy."
 
     # Mode-specific plugins must be kept under disabled and loaded from cfg files.
     $inventoryUpdater = Get-Content -LiteralPath (Join-Path $PSScriptRoot "update/plugins/inventory-simulator.sh") -Raw

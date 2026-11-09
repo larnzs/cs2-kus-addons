@@ -91,7 +91,7 @@ A separate `.github/workflows/fast-safe-addon-updater.yml` checks the explicitly
 The workflow runs the same KUS updater described in this document, then a second pass for the Larnz-managed add-ons in `DEPENDENCIES.json`, then Windows validation:
 
 1. KUS's `scripts/update/plugins/*.sh` scripts update the matching rows in the KUS catalog in `README.md`.
-2. The manifest pass checks installed add-ons marked for automation and uses their own KUS-style script. MetaMod and CounterStrikeSharp use their dedicated KUS scripts; other enabled manifest entries use the shared manifest adapter and a per-add-on `.sh`.
+2. The manifest pass checks every add-on marked for automation, including entries not yet installed, and uses its own KUS-style script. MetaMod and CounterStrikeSharp use their dedicated KUS scripts; other enabled manifest entries use the shared manifest adapter and a per-add-on `.sh`.
 3. Successful changes are committed and pushed directly to `integration/kus-monorepo`; the Windows CI job then validates payload layout, release mappings, protected configs and updater policy.
 
 The fast workflow is intentionally narrower: it checks only `fast-safe-addons.txt`, validates each adapter, then commits and pushes any release updates to the same branch. It does not deploy to a running server; the provisioner must perform its next repository sync.
@@ -103,8 +103,8 @@ The full README catalog can be audited with `python3 scripts/Test-CatalogCoverag
 ### Coverage and its limits
 
 - Every required KUS catalog adapter (including GameModeManager and MultiAddonManager) and every installed/automated manifest adapter is documented below and checked by the updater hard tests.
-- Every manifest entry marked `installed: true` with automation enabled has a matching `scripts/update/plugins/<slug>.sh` adapter; CI checks this coverage dynamically. MetaMod and CounterStrikeSharp use their dedicated KUS-style scripts.
-- Entries initially marked `installed: false` are bootstrap-installed by the PowerShell source/release updater. Once their files verify successfully, the manifest flips them to `installed: true`; the Bash adapters then track upstream release tags or branch commits on subsequent 30-minute runs.
+- Every manifest entry with automation enabled has a matching `scripts/update/plugins/<slug>.sh` adapter, even when `installed: false` and awaiting its first bootstrap build; CI checks this coverage dynamically. MetaMod and CounterStrikeSharp use their dedicated KUS-style scripts.
+- Entries initially marked `installed: false` with automation enabled are bootstrap-installed by the Bash scheduled updater or the PowerShell runtime updater. Successful installation sets `installed: true`; subsequent runs track upstream Release tags or branch commits.
 - `CS2-WeaponRestrict` is deliberately excluded because its manifest entry is `installed: false` and `automation_supported: false`.
 - Every row in the 47-plugin KUS catalog is now backed by a dedicated `scripts/update/plugins/<slug>.sh` adapter or an explicit bundle owner. The strict catalog audit fails CI when a row has no adapter, points to a missing script, or declares a missing payload path.
 - Mode-specific plugins under `plugins/disabled/` remain fully update-managed. Their location and game-mode `css_plugins load` instructions are not changed by the updater; only the corresponding plugin payload is refreshed.

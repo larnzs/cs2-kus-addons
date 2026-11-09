@@ -129,7 +129,7 @@ pass "catalog helper fails closed on ambiguous archives and preserves excluded/l
 rm -rf "$fixture"
 trap - EXIT
 
-# Every installed, automation-enabled manifest entry must have its own adapter.
+# Every automation-enabled manifest entry, including bootstrap installs, must have its own adapter.
 manifest_count=0
 while IFS= read -r name; do
     [[ -n "$name" ]] || continue
@@ -138,7 +138,7 @@ while IFS= read -r name; do
     [ -f "$script" ] || fail "manifest add-on '$name' has no adapter: $script"
     bash -n "$script" || fail "syntax error in manifest adapter $script"
     manifest_count=$((manifest_count + 1))
-done < <(jq -r '.addons[] | select(.installed == true) | select(.automation_supported != false) | .name' DEPENDENCIES.json)
+done < <(jq -r '.addons[] | select(.automation_supported != false) | .name' DEPENDENCIES.json)
 pass "$manifest_count installed/automated manifest add-ons have adapter files"
 
 # These mode-specific plugins are disabled by default, not excluded from updating.

@@ -446,7 +446,7 @@ process_manifest_addons() {
             info "skipping $name: unsupported manifest type '$type'"
         fi
         MANIFEST_ADDON_ACTIVE=0
-    done < <(jq -c '.addons[] | select(.installed == true) | select(.name != "Metamod:Source")' DEPENDENCIES.json)
+    done < <(jq -c '.addons[] | select(.automation_supported != false) | select(.name != "Metamod:Source")' DEPENDENCIES.json)
 }
 
 # ----------------------------------------------------------------------------- main

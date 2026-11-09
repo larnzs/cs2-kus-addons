@@ -64,7 +64,7 @@ These add-ons are maintained by the Larnz manifest/updater in addition to the KU
 | [CS2-Antibait](https://github.com/NeuTroNBZh/CS2-Antibait) | `main@825f83202bdb` | Retake highlight utility; disabled for game-mode-specific activation |
 | [CS2-KillFeedFilter](https://github.com/abnerfs/cs2-killfeed-filter) | `1.0.1` | Killfeed filtering; disabled for game-mode-specific activation |
 | [AdvancedFriendlyFire](https://github.com/mister-keno/advanced-ff-cs2) | `main@ab332f0b5923` | Friendly-fire damage tracking and configured punishments; disabled for game-mode-specific activation |
-| [CS2-Gunsmenu](https://github.com/asapverneri/CS2-Gunsmenu) | `main@ec5dbdd99b23` | Player weapon-selection menus; disabled for game-mode-specific activation; not installed and marked manual in the Larnz manifest |
+| [CS2-Gunsmenu](https://github.com/asapverneri/CS2-Gunsmenu) | `main@ec5dbdd99b23` | Player weapon-selection menus; staged under `plugins/disabled/` and automatically source-built; game-mode activation remains in its CFG. |
 | [GG1MapChooser](https://github.com/ssypchenko/GG1MapChooser) | `bundled` | `GG1MapChooser` and `ggmcAPI` are shipped and updated only through the GameModeManager bundle. |
 | [cs2-tags](https://github.com/CounterStrike2-Plugins-Archive/cs2-tags) | `1.15` | Player score/chat tags and the shared TagsApi required by SharpTimer. |
 | [SharpTimer](https://github.com/SharpTimer/SharpTimer) | `0.4.2` | Surf/Bhop/Deathrun timer; staged under `plugins/disabled/SharpTimer` by default. |

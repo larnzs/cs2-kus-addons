@@ -985,6 +985,15 @@ function Install-SourceBuildAddon($Addon, $Commit) {
         # are required by some plugins. Existing files are overwritten in place;
         # files not present in the new build are never deleted.
         Merge-Directory $output $destination
+        if ([string]$Addon.name -eq "CS2-Gunsmenu") {
+            foreach ($apiFile in @("CounterStrikeSharp.API.dll", "CounterStrikeSharp.API.xml")) {
+                $legacyApi = Join-Path $destination $apiFile
+                if (Test-Path -LiteralPath $legacyApi -PathType Leaf) {
+                    Remove-Item -LiteralPath $legacyApi -Force
+                    Write-Info "Removed stale plugin-local $apiFile; CounterStrikeSharp supplies the runtime assembly."
+                }
+            }
+        }
         Write-Info "Merged complete build output into game\csgo\$installRelative"
     } else {
         $installRelative = ([string]$Addon.install_path) -replace '/', '\'
