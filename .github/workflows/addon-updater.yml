@@ -799,7 +799,7 @@ jobs:
               break
             }
           }
-          $table = $tableLines -join "\n"
+          $table = $tableLines -join [Environment]::NewLine
           $addons = @($manifest.addons)
           $linkedRows = [regex]::Matches($table, '(?m)^\|\s*\[[^\]]+\]\(https?://[^)]+\)\s*\|')
           if ($linkedRows.Count -ne 75) {
