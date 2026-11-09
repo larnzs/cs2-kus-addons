@@ -113,7 +113,7 @@ The plugin catalog has one combined table below. The updater keeps the two updat
 - `Metamod:Source` is the deliberate exception: its KUS-style updater also synchronizes its manifest version.
 - Manifest-owned rows are excluded from the KUS catalog pass, preventing duplicate release checks and conflicting commits.
 
-The full GitHub Actions updater checks the catalog on a 30-minute schedule. The fast-safe workflow checks its allowlist every 5 minutes; this includes `CS2FaceitLevels` so its release is normally detected within the next polling cycle. The fast-safe and full workflows share one concurrency lock, preventing competing commits to the same branch. GitHub may delay or drop scheduled workflows during busy periods, so five minutes is a target polling interval rather than a real-time guarantee. Successful updater commits are published to `integration/kus-monorepo`, after which node installers can deploy the committed payload using read-only Git access.
+The full GitHub Actions updater checks the entire KUS catalog and all automation-enabled `DEPENDENCIES.json` add-ons every 5 minutes at UTC minutes 2, 7, 12, 17, 22, 27, 32, 37, 42, 47, 52, and 57. The manual priority workflow remains available for targeted checks and troubleshooting, but does not run on a competing schedule. GitHub may delay or drop scheduled workflows during busy periods, so five minutes is a target polling interval rather than a real-time guarantee. Successful updater commits are published to `integration/kus-monorepo`, after which node installers can deploy the committed payload using read-only Git access.
 
 Useful maintainer commands:
 
@@ -158,7 +158,7 @@ The repository's GitHub Actions workflows validate more than shell syntax:
 
 - Every README catalog entry must have a source link and an updater/bundle mapping, except the explicitly documented not-installed manual entry.
 - Adapter scripts are sourced and their `PLUGIN_PATHS` are checked against real tracked payload paths.
-- All automated `DEPENDENCIES.json` entries, the 5-minute fast-safe allowlist, and first-release adapters are checked independently.
+- All automated `DEPENDENCIES.json` entries, the manual priority allowlist, and first-release adapters are checked independently.
 - Windows and Linux payload layout, Windows overlay behavior, required runtime files, and protected configuration boundaries are checked.
 - Plugin CFG load/unload paths and AFKManager mode policy are checked by `scripts/validate-plugin-lifecycle.py`.
 
