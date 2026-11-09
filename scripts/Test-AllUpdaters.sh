@@ -51,14 +51,16 @@ done < scripts/update/required-script-addons.txt
 [ "$required_count" -gt 0 ] || fail "no required add-ons were checked"
 pass "$required_count required installed KUS add-ons have syntactically valid adapters and bounded paths"
 
-# Every entry in the 15-minute safe allowlist must also be mandatory coverage.
+# Every entry in the 5-minute fast-safe allowlist must have a supported updater.
 fast_count=0
 [ -s scripts/update/fast-safe-addons.txt ] || fail "fast-safe-addons.txt is missing or empty"
 while IFS= read -r name; do
     [[ -n "$name" ]] || continue
     [[ "${name:0:1}" = "#" ]] && continue
-    if ! grep -Fqx -- "$name" scripts/update/required-script-addons.txt; then
-        grep -Fqx -- "$name" scripts/update/future-release-addons.txt || fail "fast allowlist entry '$name' is neither required nor listed as awaiting its first release"
+    if ! grep -Fqx -- "$name" scripts/update/required-script-addons.txt &&
+       ! grep -Fqx -- "$name" scripts/update/future-release-addons.txt; then
+        jq -e --arg name "$name" '.addons[] | select(.name == $name and .automation_supported != false)' DEPENDENCIES.json >/dev/null ||
+            fail "fast allowlist entry '$name' is not required, future-release, or an automated Manifest add-on"
     fi
     slug="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//')"
     script="scripts/update/plugins/$slug.sh"
@@ -67,12 +69,12 @@ while IFS= read -r name; do
     owned="$(bash -c 'set -Eeuo pipefail; exec 3>&1; source scripts/update/lib.sh; source "$1"; printf "%s" "${PLUGIN_PATHS[@]}"; plugin_assets >/dev/null' bash "$script")" || fail "could not load fast adapter $script"
     while IFS= read -r path; do
         [[ -n "$path" ]] || continue
-        [ -d "$path" ] || fail "$script points to a missing payload directory: $path"
+        [ -e "$path" ] || fail "$script points to a missing payload path: $path"
     done <<< "$owned"
     fast_count=$((fast_count + 1))
 done < scripts/update/fast-safe-addons.txt
 [ "$fast_count" -gt 0 ] || fail "no fast allowlist adapters were checked"
-pass "$fast_count 15-minute allowlist entries have required, loadable adapters and existing payload directories"
+pass "$fast_count 5-minute fast-safe allowlist entries have loadable adapters and existing payload paths"
 
 # Future-release plugins remain covered even before upstream publishes its first release.
 [ -s scripts/update/future-release-addons.txt ] || fail "future-release-addons.txt is missing or empty"
