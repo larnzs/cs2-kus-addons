@@ -113,7 +113,7 @@ The plugin catalog has one combined table below. The updater keeps the two updat
 - `Metamod:Source` is the deliberate exception: its KUS-style updater also synchronizes its manifest version.
 - Manifest-owned rows are excluded from the KUS catalog pass, preventing duplicate release checks and conflicting commits.
 
-The full GitHub Actions updater checks the catalog on a 30-minute schedule; a separate allowlisted workflow checks selected low-risk entries every 15 minutes. GitHub may delay scheduled workflows during busy periods. Successful updater commits are published to `integration/kus-monorepo`, after which node installers can deploy the committed payload using read-only Git access.
+The full GitHub Actions updater checks the catalog on a 30-minute schedule; a separate allowlisted workflow checks selected low-risk entries every 15 minutes. A dedicated priority workflow checks `CS2FaceitLevels` every 5 minutes and only updates that plugin. These workflows share one concurrency lock so they cannot write competing commits at the same time. GitHub may delay or drop scheduled workflows during busy periods, so the cron interval is a target cadence rather than a real-time guarantee. Successful updater commits are published to `integration/kus-monorepo`, after which node installers can deploy the committed payload using read-only Git access.
 
 Useful maintainer commands:
 
