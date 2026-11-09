@@ -1,452 +1,176 @@
-# Plugin update automation
+# Add-on updater and catalog automation
 
-Part of **Kus' modded Counter Strike 2 (CS2) Dedicated Server**:
-<https://github.com/kus/cs2-modded-server/>
+This documentation describes the updater maintained by **cs2-kus-addons**. It is not the upstream KUS installation guide.
 
-Automates the manual "check releases, download, copy into the repo, bump the README,
-commit" routine for the mods listed in this repo's root `README.md` version table
-(`Mod | Version | Why`). No AI involved, safe to re-run, and it refuses to act when
-anything looks off.
+The root [README.md](../../README.md) is the canonical, combined plugin catalog. Each row contains an upstream source link, displayed version/revision, payload location, activation behavior, and an updater or bundle link. The Bash catalog pass and the manifest pass share that table but do not process the same add-on twice.
 
-## Running it
+## Update domains
 
-Always run from a checkout of this repo (the script `cd`s to the repo root itself, so
-relative paths work from anywhere inside the repo):
+| Domain | Source of truth | Updater |
+| --- | --- | --- |
+| KUS-origin plugins and native add-ons | Root README catalog rows not owned by `DEPENDENCIES.json` (except Metamod, which has special manifest synchronization) | `scripts/update/update.sh` and `scripts/update/plugins/*.sh` |
+| Larnz release/source-build add-ons | `DEPENDENCIES.json` plus the corresponding row in root README | Manifest pass in `scripts/update/update.sh`, or `scripts/Update-Addons.ps1` on Windows |
+| Bundled components | Parent bundle entry in `DEPENDENCIES.json` | Parent adapter only; no standalone release tracking |
 
-```bash
-./scripts/update/update.sh --dry-run      # report only: what is outdated and exactly what would be done
-./scripts/update/update.sh                # apply every available update, one commit per mod
-./scripts/update/update.sh --only "Inventory Simulator" --only counterstrikesharp   # limit to some mods (name or slug)
-./scripts/update/update.sh --list         # mods, current versions, slugs and which have an update script
-./scripts/update/update.sh --no-pull      # skip the pull a local run starts with
-```
+The KUS parser reads the first `Mod | Version | Purpose` table in README. The combined catalog therefore keeps `Mod`, `Version / revision`, and `Purpose` as its first three columns. The orchestrator filters manifest-owned names out of the Bash catalog pass; the manifest pass processes them afterward. `Metamod:Source` remains in the Bash pass because its dedicated adapter also updates its manifest record.
 
-**A local run pulls first.** The GitHub Action commits mod updates straight to `stage`,
-so a local checkout goes stale fast. Before reading any version the script fetches and
-fast-forwards the current branch, otherwise it would read the stale README, decide mods
-are outdated when the Action has already done them, and redo the work. It only ever
-fast-forwards, never merges or rebases:
+## Running the updater
 
-| Situation | What happens |
-| --- | --- |
-| Up to date | Nothing, just says so |
-| Behind, clean tree | Fast-forwards, then carries on |
-| Behind, dirty tree | Warns that versions may be stale and does not pull (a real run stops on the dirty tree anyway) |
-| Diverged from the remote | Stops, so you resolve it by hand |
-| No upstream, or detached HEAD | Warns and carries on |
-| Inside GitHub Actions | Skipped; the runner already checked out the exact ref |
-
-`--no-pull` runs against the local checkout as-is, for working offline or on a branch
-you do not want moved.
-
-Requirements: `bash` (3.2+ is fine), `git`, `curl`, `jq`, `unzip`, `tar`, `rsync` and `python3`
-(macOS openrsync works). Python 3 is used by manifest-backed source compatibility patches. Source-built add-on updates also need the .NET SDK (this project uses SDK 8 and 10 side-by-side). A **clean working tree** is required for a real run because
-the tool commits; commit or stash first. The GitHub API is used only to list release
-assets of mods that need updating (one call per mod). Unauthenticated that is
-limited to 60 requests/hour; set `GITHUB_TOKEN`, or be logged in with `gh auth login`
-(the token is picked up automatically), to lift the limit.
-
-Exit code is `0` when nothing failed (up to date, updated, or only "no script"
-warnings) and `1` when any mod failed or the run was stopped.
-
-## What a run does
-
-For every row of the README version table, top to bottom, one mod at a time:
-
-1. **Check the latest version** with the same functions as `scripts/check-updates.sh`
-   (that script is sourced, not copied - the detection logic lives in one place).
-   The *local* `README.md` is the source of truth for the current version, so a mod you
-   just updated and committed is reported as up to date on the next run.
-2. Up to date -> `OK`, next mod. No releases / not detectable -> `?`, next mod.
-3. Update available and **no** `scripts/update/plugins/<slug>.sh` -> warning
-   `no update script`, listed in the summary, next mod. Nothing is downloaded.
-4. Update available and a script exists -> **plan phase** (nothing is changed yet):
-   syntax-check and load the script, fetch the release's asset list, match every glob
-   from `plugin_assets()` (each must match exactly one asset), run `plugin_preflight()`.
-   Any failure -> flagged, next mod.
-5. **Apply phase**: download the assets into `tmp/update/<slug>/<version>/` (cached and
-   size/integrity checked, so re-runs do not re-download), run `plugin_apply()` in an
-   isolated subshell where the first failing step aborts the plugin, verify that every
-   changed file is inside the script's `PLUGIN_PATHS`, bump the version in the README
-   table row (must be a single-line change), then
-   `git commit -m "- UPDATED: <Mod> <old> > <new>"` with only those paths staged.
-   Extracted folders are deleted; downloaded archives are kept in `tmp/` (git-ignored).
-6. If applying fails after files were touched, the run **stops** (later mods are not
-   processed) and the working tree is left as-is so you can inspect it. The message
-   tells you what was wrong and how to reset.
-
-`--dry-run` performs steps 1-4 fully (network reads only) and then prints every step
-of 5 as `[dry-run] would ...` without downloading, extracting, writing or committing.
-Checks against extracted archive contents cannot run in dry-run and are printed as
-`would verify ...`.
-
-## Running it automatically (GitHub Actions)
-
-The full repository workflow `.github/workflows/addon-updater.yml` runs **every 30 minutes at minutes 17 and 47 UTC** (`17,47 * * * *`). GitHub can delay scheduled jobs during busy periods, so this is a configured cadence, not a strict execution-time guarantee.
-
-A separate `.github/workflows/fast-safe-addon-updater.yml` checks the explicitly allowlisted catalog plugins **every 15 minutes at minutes 7, 22, 37 and 52 UTC** (`7,22,37,52 * * * *`). It passes only the names in `fast-safe-addons.txt` to `update.sh --only`; it does not accelerate the full catalog pass. Both workflows share the `addon-updater` concurrency group so their commits to `integration/kus-monorepo` are serialized. GitHub scheduled jobs can still be delayed during busy periods.
-
-`MapConfigurator` is monitored in the same 15-minute workflow and listed in `future-release-addons.txt`. Its upstream repository currently publishes no GitHub releases, so an empty release result is informational rather than a failed required-version check. The adapter is prepared for a future ZIP release and fails closed unless exactly one `MapConfigurator.dll` is found in the archive. The current source repository is not configured as a reliable automated build input.
-
-The workflow runs the same KUS updater described in this document, then a second pass for the Larnz-managed add-ons in `DEPENDENCIES.json`, then Windows validation:
-
-1. KUS's `scripts/update/plugins/*.sh` scripts update the matching rows in the KUS catalog in `README.md`.
-2. The manifest pass checks every add-on marked for automation, including entries not yet installed, and uses its own KUS-style script. MetaMod and CounterStrikeSharp use their dedicated KUS scripts; other enabled manifest entries use the shared manifest adapter and a per-add-on `.sh`.
-3. Successful changes are committed and pushed directly to `integration/kus-monorepo`; the Windows CI job then validates payload layout, release mappings, protected configs and updater policy.
-
-The fast workflow is intentionally narrower: it checks only `fast-safe-addons.txt`, validates each adapter, then commits and pushes any release updates to the same branch. It does not deploy to a running server; the provisioner must perform its next repository sync.
-
-The full README catalog can be audited with `python3 scripts/Test-CatalogCoverage.py --strict`. It verifies every catalog row's script/bundle mapping, sources each adapter and checks the declared `PLUGIN_PATHS` against the tracked payload, then separately checks the Manifest and 15-minute allowlist. It must report 47/47 catalog rows covered; `--strict` fails CI if any catalog plugin loses its updater or bundle mapping.
-
-`CS2-CustomVotes` is a dependency-coupled package: its main DLL, `CS2-CustomVotes.Shared.dll`, `CSSharpUtils.dll` and `.deps.json` are validated and repaired together. Do not replace only the main plugin DLL.
-
-### Coverage and its limits
-
-- Every required KUS catalog adapter (including GameModeManager and MultiAddonManager) and every installed/automated manifest adapter is documented below and checked by the updater hard tests.
-- Every manifest entry with automation enabled has a matching `scripts/update/plugins/<slug>.sh` adapter, even when `installed: false` and awaiting its first bootstrap build; CI checks this coverage dynamically. MetaMod and CounterStrikeSharp use their dedicated KUS-style scripts.
-- Entries initially marked `installed: false` with automation enabled are bootstrap-installed by the Bash scheduled updater or the PowerShell runtime updater. Successful installation sets `installed: true`; subsequent runs track upstream Release tags or branch commits.
-- `CS2-WeaponRestrict` is deliberately excluded because its manifest entry is `installed: false` and `automation_supported: false`.
-- Every row in the 47-plugin KUS catalog is now backed by a dedicated `scripts/update/plugins/<slug>.sh` adapter or an explicit bundle owner. The strict catalog audit fails CI when a row has no adapter, points to a missing script, or declares a missing payload path.
-- Mode-specific plugins under `plugins/disabled/` remain fully update-managed. Their location and game-mode `css_plugins load` instructions are not changed by the updater; only the corresponding plugin payload is refreshed.
-
-### Source-built manifest adapters
-
-Manifest entries with `type: github_source_build` are versioned by the full SHA of their configured upstream branch. Their per-add-on Bash wrapper uses the shared `manifest_source_build_apply()` helper in `manifest-addon.sh`, which downloads that exact source snapshot, builds its declared project with the .NET SDK, overlays the complete build output (including required `.deps.json` and private dependencies, excluding the server-provided `CounterStrikeSharp.API.dll/xml`), and applies any declared `source_mappings` for language files or sample data. The install directory remains the source of truth for whether the plugin is global or under `plugins/disabled/`.
-
-The source-build README version is displayed as `<branch>@<12-character-SHA>` even though the manifest records the full SHA. The shared README updater preserves this distinction when an upstream commit changes, including for the existing TeamLimiter source-build adapter.
-
-For upstream projects whose `.csproj` target framework lags behind their current CounterStrikeSharp API package, an optional manifest `target_framework` (for example, `net10.0`) overrides the framework during both PowerShell bootstrap builds and Bash source-build updates. The workflows install .NET 8 and 10 side-by-side so older plugins can continue targeting `net8.0`.
-
-The new adapters are `cs2-poor-mappropads.sh`, `cs2-playervotes.sh`, `slayer-noscope.sh`, `cs2-stafflist.sh`, `abs-mapcycle.sh`, `cs2-antibait.sh`, `advancedfriendlyfire.sh`, and `cs2-gunsmenu.sh`, and `cs2-tags.sh`. `cs2-killfeedfilter.sh` follows the tagged release asset instead.
-
-This differs from upstream KUS's original Action: this integration commits successful updates to the private `integration/kus-monorepo` branch, rather than opening a pull request into KUS's `master`.
-
-## Adding a plugin script
-
-The script file name is the **slug** of the mod name in the README table: lower-case,
-every run of non-alphanumerics replaced by `-`, trimmed. `--list` prints it for every
-mod, e.g. `Metamod:Source` -> `metamod-source.sh`, `CS2 Retakes` -> `cs2-retakes.sh`.
-
-Create `scripts/update/plugins/<slug>.sh` from this template. It is *sourced* by
-`update.sh`, so its top level must only set `PLUGIN_PATHS` and define functions.
-Before writing it, work through "Reconstructing the process for a mod from git history"
-and the gotchas list below, then test it as described in "Testing a new or changed script".
+Run from a clean checkout of this repository:
 
 ```bash
-#!/usr/bin/env bash
-# Project:           Kus' modded Counter Strike 2 (CS2) Dedicated Server - https://github.com/kus/cs2-modded-server/
-# Update script for: <Mod name exactly as in the README table>
-# README row:        [<name>](<url>)
-# Sourced by scripts/update/update.sh - do not run directly.
-#
-# Manual process this automates:
-#   1. ...
+# Inspect available changes without applying commits.
+bash scripts/update/update.sh --dry-run
 
-# Every repo path this update may create, change or delete (files or directories).
-# Used for: refusing deletes/writes elsewhere, verifying nothing else changed, git add.
-PLUGIN_PATHS=(
-    "game/csgo/addons/counterstrikesharp/plugins/<PluginDir>"
-)
+# List the KUS-origin rows handled by the Bash catalog pass.
+bash scripts/update/update.sh --list
 
-# One glob per line, matched against the release's asset file names. Each must match
-# exactly one asset. $NEW_VERSION is available (e.g. "Foo-v${NEW_VERSION}.zip").
-plugin_assets() {
-    echo "<Plugin>-*.zip"
-}
+# Apply all available KUS catalog and automated manifest updates.
+bash scripts/update/update.sh
 
-# Optional: checks on the repo before anything is downloaded or changed.
-plugin_preflight() {
-    require_dir "game/csgo/addons/counterstrikesharp/plugins"
-}
+# Restrict the run to one KUS catalog entry or manifest entry.
+bash scripts/update/update.sh --only "K4-Arenas"
+bash scripts/update/update.sh --only "CS2-Gunsmenu"
 
-# The steps. Use only the helpers below; each one aborts the plugin on failure.
-# Pattern: extract everything, verify the archive layout, then change the repo.
-plugin_apply() {
-    local x
-    x=$(extract_asset "<Plugin>-*.zip")
-    require_dir "$x/addons/counterstrikesharp/plugins/<PluginDir>"
-
-    remove_path "game/csgo/addons/counterstrikesharp/plugins/<PluginDir>"
-    copy_dir    "$x/addons/counterstrikesharp/plugins/<PluginDir>" \
-                "game/csgo/addons/counterstrikesharp/plugins/<PluginDir>"
-
-    remove_extracted "$x"
-}
+# Do not fast-forward from the remote first.
+bash scripts/update/update.sh --dry-run --no-pull
 ```
 
-Then test it: `./scripts/update/update.sh --dry-run --only <slug>` and, once happy,
-`./scripts/update/update.sh --only <slug>`. Check the commit with `git show --stat`.
+A local apply run needs a clean working tree. Each successful plugin update is committed separately. If one adapter fails after changing files, only that plugin's uncommitted changes are rolled back; subsequent plugins continue where safe. Successful earlier commits remain available for publishing. Never run shared payload updates while a CS2 instance is active.
 
-### Reconstructing the process for a mod from git history (do this BEFORE writing a script)
+The script uses GitHub release metadata and configured source snapshots. Set `GITHUB_TOKEN` to avoid unauthenticated API rate limits. Source-built Manifest entries require the .NET SDK declared by the repository workflows (currently SDK 8 and 10 side-by-side).
 
-Every existing script was derived this way. It takes ten minutes and avoids guessing.
+## Windows manifest maintenance
 
-1. **Find the manual updates**: `git log --oneline --grep="UPDATED: <Mod name>"`, then
-   `git show --name-status --format="" <sha>` for the last three. This tells you the real repo
-   paths (they are often NOT where you expect - many plugins live under
-   `plugins/disabled/` because they are off by default) and which files change per update.
-2. **Get the release layout**: list the assets with
-   `curl -s https://api.github.com/repos/<owner>/<repo>/releases/latest | jq -r '.assets[].name'`
-   (or `gh api`), download the one(s) the manual updates used, and list the archive
-   (`unzip -Z1 x.zip` / `tar -tzf x.tar.gz`). Note the root: `addons/...`, `csgo/addons/...`,
-   `<Name>/plugins/...`, `<Name>/...` - it differs per project. Ignore junk (`README-ME.txt`,
-   `logs/`, `-no-map-configs` variants, `-with-cssharp-*` bundles, `steamrt4` builds).
-3. **Diff the extracted archive against the repo** (the repo is normally at the latest
-   version): `diff -rq <extracted>/<dir> game/csgo/...`. Identical files = what the manual
-   process copies. Differing files = what it keeps (customised configs). Files only in the repo
-   = leftovers the manual process never deleted, or custom files.
-4. **Check the config history**: `git log --oneline -- game/csgo/cfg/<mod>` (and
-   `configs/plugins/<Mod>`). Commits that are not "UPDATED: <mod>" mean it is customised.
-   Customised config paths are NEVER written by a script (see the config policy below); use
-   `warn_cfg_dir_changes` / `warn_new_settings` instead.
-5. **Pick the copy style** from steps 1-3: "replace whole" (`remove_path` + `copy_dir`) when the
-   repo folder is byte-identical to the release; "merge" (`copy_dir` only) when the repo carries
-   leftovers the manual updates kept (MatchZy, GG2) or when a file name only differs by case.
-6. Write the script from the template, put the reconstructed manual process in its header
-   comment (that is the documentation of record), pin asset names with `${NEW_VERSION}` where
-   the name carries the version, and add `require_*` checks for the archive layout you saw.
+```bat
+windows\addons-update.bat -DryRun
+windows\addons-update.bat
+```
 
-### Gotchas seen so far (check the new mod against each)
+The PowerShell updater processes the Manifest entries and their release/source-build mappings. It verifies required files, preserves operator-managed configuration, and commits successful add-on changes. The Windows runtime updater can publish successful commits and then fast-forward the checkout before runtime deployment.
 
-- **Asset variants**: releases often ship several files; pin the exact one the manual updates
-  used (`steamrt3` not `steamrt4`, `with-runtime`, plain `MatchZy-<v>.zip`, full
-  `RetakesPlugin-<v>.zip` not `-no-map-configs`). A glob that matches 2 assets fails on purpose.
-- **Version in the name**: tags are normalised like `check-updates.sh` does (`v1.6` -> `1.6`,
-  `V0.5.1` -> `0.5.1`, Metamod `2.0.0.1469`/`git1469` -> `2.0.0-1469`), so `${NEW_VERSION}` is
-  the bare version. Some assets carry no version at all (`Deathmatch.zip`): use the exact name.
-- **Two-platform mods**: apply Windows first, then Linux, always. Both archives ship the same
-  config/vdf files and the Linux copies (LF endings, Linux paths) are the ones the repo keeps.
-  Only replace the binaries the manual updates replaced; the per-platform `.vdf`s in the repo
-  live elsewhere (`addons/windows/`, `addons/surf/`) and are managed by hand.
-- **Case-only renames** (now guarded, see `verify_no_case_duplicates`, so a run refuses to
-  commit one): the repo is updated on both macOS (`core.ignorecase=true`) and Linux
-  (the GitHub Action), so a file must only ever be tracked under one case. MatchZy renamed
-  `lang/pt-pt.json` to `lang/pt-PT.json`; the Action's merge-copy added `pt-PT.json` next to the
-  old file, and on macOS the two then fought over one path (a permanent "modified" file that
-  discard just flips). The stale `pt-pt.json` was untracked; check with
-  `git ls-files | sort -f | uniq -di` (must print nothing) and untrack the stale name with
-  `git rm --cached` (a plain `git rm` on macOS deletes the surviving file too).
-- **Same link text elsewhere in the README**: the version bump only matches the row in the
-  `Mod | Version | Why` table (anchored at line start), because e.g. the CounterStrikeSharp
-  link also appears in prose.
-- **Files inside plugin folders that look like config** (`map_config/`, `spawns/`, `lang/`) are
-  upstream-owned and byte-identical to the release here, so "replace whole" is fine - but check
-  step 3 before assuming that for a new mod.
-- **A leading `v` in the README version never matches**: detection strips non-digits from the
-  tag, so a row reading `` `v1.2.4.b3` `` compares against `1.2.4.b3` and reports an update
-  on every run, forever. jRandomSkills was the only row with a `v` and it did exactly that.
-  Keep the bare version in the table however upstream writes its tags.
-- **Trust the files, not the commit message, for what version the repo holds**: the
-  jRandomSkills row claimed `v1.2.4.b4`, a version that has never existed upstream, with no
-  such release or tag. Its binaries were byte-identical to v1.2.4.b3, so the label was simply
-  wrong and a run would have "updated" the repo backwards. Compare the tracked binaries
-  against the release before trusting a version string.
-- **A case-only rename that already reached a branch** must be undone on every branch, not
-  just the one you noticed it on. While `master` tracked both names and `stage` tracked one,
-  every macOS checkout of `master` showed a permanently modified file. Merging the fixed
-  branch in removes the stale entry, but since both names were one physical file the merge
-  deletes it from disk, so finish with `git checkout -- <surviving path>`. If the merge
-  refuses because the dirty file is the one being deleted, discard it first with
-  `git checkout -- <stale path>`, which flips the dirtiness onto the surviving name, then
-  merge. Verify with `git ls-files | sort -f | uniq -di`, which must print nothing.
-- **The archive root can move between versions**: CS2 Deathmatch shipped
-  `Deathmatch/{plugins,shared}/` up to 1.3.5 and the standard
-  `addons/counterstrikesharp/{plugins,shared}/` from 1.3.6, with identical file names
-  inside. The `require_*` checks caught it before anything was written, so the failure
-  was clean, but the run still stopped. Use `pick_dir` to accept both roots rather than
-  hard coding one, and keep the oldest supported root as the last candidate.
-- **A README bump done in a separate commit** (cs2-quake-sounds 26.08.1) means the manual
-  commit's file set lacks `README.md`; the script always bumps it in the same commit.
+## Scheduled automation
 
-### Testing a new or changed script
+- Full updater: every 30 minutes at UTC minutes 17 and 47.
+- Fast-safe allowlist: every 15 minutes at UTC minutes 7, 22, 37, and 52.
+- Both workflows serialize writes to `integration/kus-monorepo`.
+- GitHub may delay scheduled jobs; the cron schedule is not an exact execution-time guarantee.
+- The workflows update the tracked repository payload. They do not modify files inside an already-running CS2 server process.
 
-Never test on the real checkout; the tool commits. Use a throwaway local clone:
+## Catalog coverage and exceptions
+
+The root catalog currently has 75 rows:
+
+- 74 entries are mapped to a dedicated updater or a documented owning bundle.
+- 72 distinct adapter files are linked in the catalog; some adapters manage more than one row or bundle component.
+- `MenuManagerCS2` and `GG1MapChooser` are bundled by GameModeManager and do not receive independent release adapters.
+- `CS2-WeaponRestrict` is not installed or staged and is explicitly manual-only.
+- Plugins under `plugins/disabled/` remain update-managed; only their runtime loading is controlled by game-mode CFGs.
+
+The strict check is:
 
 ```bash
-git clone -q --local --branch stage . /tmp/cs2-test && cd /tmp/cs2-test
-git revert --no-edit <sha of the mod's last "UPDATED:" commit>   # makes the update pending again
-# if the revert conflicts on README.md context, instead: git checkout <sha>~1 -- <the mod's paths>,
-# set the README row back by hand with sed, and commit
-./scripts/update/update.sh --dry-run --only <slug>
-./scripts/update/update.sh --only <slug>
-git show --name-status --format="" HEAD | sort > /tmp/new.txt
-git show --name-status --format="" <sha> | sort > /tmp/old.txt && diff /tmp/old.txt /tmp/new.txt   # expect no diff
-./scripts/update/update.sh --only <slug>      # second run must report "OK <mod> <version>" and change nothing
+python3 scripts/Test-CatalogCoverage.py --strict
 ```
 
-Downloads are cached under `tmp/update/<slug>/<version>/`; copy archives there from another
-checkout to avoid re-downloading. Delete the clone afterwards.
+It checks that every catalog row has an upstream link, no duplicate plugin name exists, every updater link resolves to a real script, each script can be sourced, all declared payload paths exist, all automated Manifest entries are covered, and the updater's KUS/Manifest partition does not overlap. It also validates the 15-minute and first-release adapter lists.
 
-### Variables available in a plugin script
+## Adapter rules
 
-| Variable | Meaning |
-| --- | --- |
-| `PLUGIN_NAME`, `PLUGIN_URL` | Name and URL from the README row |
-| `OLD_VERSION`, `NEW_VERSION` | Version in the README and the detected latest version |
-| `PLUGIN_SLUG` | The slug (also the script's base name) |
-| `DOWNLOAD_DIR`, `EXTRACT_DIR` | `tmp/update/<slug>/<version>` and `.../extracted` |
-| `DRY_RUN` | `1` in dry-run (helpers already honour it; `is_dry` is the test) |
-
-### Helpers (all honour `--dry-run`; all abort the plugin on failure)
-
-| Helper | Does |
-| --- | --- |
-| `extract_asset <glob>` | Extracts the matched archive into a fresh `EXTRACT_DIR/<archive name>/` and prints that path |
-| `asset_path <glob>` | Prints the path of the downloaded archive |
-| `pick_dir <dir> [dir...]` | Prints the first candidate that exists, for releases whose archive root moves between versions. Dies if none do, so a third layout is still caught. In dry-run it assumes the first. |
-| `remove_extracted <dir>` | Deletes a directory made by `extract_asset` |
-| `require_dir <path>`, `require_file <path>` | Fail unless it exists (reported as `would verify` for extracted paths in dry-run) |
-| `plugin_needs_repair` (optional) | When defined, return success if the installed payload is incomplete; the updater reapplies the current upstream release even when the version matches. |
-| `sync_dir <src> <dest>` | `rsync -rhavz --exclude "._*" --exclude ".DS_Store" --partial --stats src/ dest/` (merge, never deletes at dest) |
-| `copy_dir <src> <dest>` | Copy a directory to `<dest>` (created if missing; same rsync excludes) |
-| `copy_file <src> <dest>` | Copy one file (parent directory created) |
-| `empty_dir <dir>` | Delete everything inside `<dir>`, keep the directory |
-| `remove_path <path>` | Delete a file or directory; no error if already absent |
-| `verify_no_case_duplicates` | Run automatically after every plugin's apply: fails the run before committing if two paths differ only in case. Not called from plugin scripts. |
-| `warn_cfg_dir_changes <archive dir> <repo dir> [existing-only]` | Heads-up only: lists new upstream config files, repo files upstream no longer ships, and new settings in files present on both sides. Writes nothing. |
-| `plugins/<slug>.ignore` (file, optional) | One setting key per line (`#` comments allowed). Keys listed here are never reported by the two helpers above - add a key once it has been reviewed (ported, or removed from your config on purpose) so it stops showing up on every update. |
-| `warn_new_settings <archive file> <repo file>` | Heads-up only: lists setting keys (`.cfg` first tokens / JSON keys) present upstream but missing from the repo's customised copy |
-| `info`, `step`, `warn`, `err`, `die` | Logging; `die` aborts the plugin with a message |
-
-Deletes (`empty_dir`, `remove_path`) are only allowed *inside* a `PLUGIN_PATHS` entry.
-Writes are allowed inside an entry or to an ancestor of one (so `sync_dir "$x/addons/"
-"game/csgo/addons/"` works); anything that ends up changed outside `PLUGIN_PATHS` is
-caught after `plugin_apply` and blocks the commit.
-
-Sources other than GitHub releases and the Metamod:Source download page need
-`plugin_resolve_assets()` in the script, printing one `name<TAB>url<TAB>size` line per
-downloadable asset (size `0` if unknown).
+- Each script lives under `scripts/update/plugins/<slug>.sh`, where slug is the lower-case name with non-alphanumeric runs replaced by hyphens.
+- A script declares every path it can write in `PLUGIN_PATHS`.
+- Release adapters match exact upstream asset patterns and fail closed on missing or ambiguous archives.
+- Source-built Manifest entries use the shared helper in `scripts/update/manifest-addon.sh` and record full commit SHA values in `DEPENDENCIES.json`; README displays `branch@12-character-SHA`.
+- Preserve local configuration/data explicitly. Never widen a plugin's write scope merely to make an archive fit.
+- Mode-specific payloads remain in their tracked disabled folders. Do not edit CFG activation commands as part of an update.
 
 ## Existing plugin scripts
 
-| Mod | Script | Notes |
-| --- | --- | --- |
-| Metamod:Source | `plugins/metamod-source.sh` | Assets come from the dev downloads page quick-download links. Windows zip is applied before the Linux tar.gz on purpose: both ship `metamod.vdf`, `metamod_x64.vdf`, `metaplugins.ini`, `README.txt`; the Linux copies (LF endings, `linux64` server path) are what the repo keeps. |
-| CS2FaceitLevels | `plugins/cs2faceitlevels.sh` | Single release ZIP contains both platform binaries. Updates only `addons/CS2FaceitLevels/bin/`, `workshop.gamedata.json` and `addons/metamod/CS2FaceitLevels.vdf`; the runtime-generated `CS2FaceitLevels.json` (including `faceit_api_key`) is deliberately excluded. |
-| VIPCore | `plugins/vipcore.sh` | Tracks `VIPCore.zip` and `VipCoreApi`; verifies Core runtime dependencies and repairs missing same-version files. |
-| VIPCore Modules | `plugins/vipcore-modules.sh` | Tracks the newest non-draft release carrying `VIP_Modules.zip`, including module-only `latest=false` releases; updates the 45 declared `VIP_*` directories from the archive root. |
-| CounterStrikeSharp | `plugins/counterstrikesharp.sh` | Uses the `with-runtime` Windows and Linux zips. Windows first, then Linux rsync; the Windows overlay only merges `api/ bin/ dotnet/`. The shared and Windows `counterstrikesharp/configs/` paths are manual-only and excluded from release syncs. |
-| GameModeManager | `plugins/gamemodemanager.sh` | Tracks `GameModeManager_v{version}.zip` with the official archive root `addons/counterstrikesharp/`; overlays `GameModeManager`, `GG1MapChooser`, `MenuManagerCore`, `PMM_GG1MapChooser`, and shared `GameModeManager.Shared`, `ggmcAPI`, `MenuManagerApi`. GG1MapChooser and MenuManagerCS2 have no standalone updaters. Only these seven directories are copied; `cfg/`, CounterStrikeSharp `configs/`, and generated configuration files remain untouched. |
-| Inventory Simulator | `plugins/inventory-simulator.sh` | Replaces the plugin directory and the `inventory-simulator.json` gamedata file. |
-| MultiAddonManager | `plugins/multiaddonmanager.sh` | Uses `architecture.pterodactyl_linux_runtime` from `DEPENDENCIES.json` (SteamRT3). Updates only `addons/multiaddonmanager/bin/multiaddonmanager.so` and `addons/metamod/multiaddonmanager.vdf`; no `cfg/` payload is copied. |
-| ServerListPlayersFix | `plugins/serverlistplayersfix.sh` | Windows zip + Linux `steamrt3` tar.gz. Replaces only `bin/win64/*.dll` and `bin/linuxsteamrt64/*.so`; the repo's per-platform `.vdf` copies are left alone. |
-| MovementUnlocker | `plugins/movementunlocker.sh` | Windows zip + Linux `steamrt3` tar.gz. Replaces only `bin/win64/*.dll` and `bin/linuxsteamrt64/*.so`; the `.vdf` copies under `addons/surf/` are left alone. |
-| CS2 Retakes | `plugins/cs2-retakes.sh` | Uses the full `RetakesPlugin-<v>.zip` (not the `-no-map-configs` one). Replaces `plugins/disabled/RetakesPlugin` (the plugin is kept disabled in this repo, so it is NOT at `plugins/RetakesPlugin`) and `shared/RetakesPluginShared`. |
-| MatchZy | `plugins/matchzy.sh` | Plain `MatchZy-<v>.zip` (not the `-with-cssharp-*` bundles). Merge-copies the plugin folder over `plugins/disabled/MatchZy` (nothing deleted). `game/csgo/cfg/MatchZy/` and `custom_files_example/cfg/MatchZy/` are customised and never written; new upstream files/settings are only reported for a manual port. |
-| GunGame | `plugins/gungame.sh` | Merge-copies `plugins/disabled/GG2` and `shared/GunGameAPI` (old leftovers like `Dapper.dll`/`runtimes/` are kept, as the manual updates did). `game/csgo/cfg/gungame/` is customised and never written; new upstream files, removed files and new settings are reported for a manual port. |
-| GG1MapChooser | Bundled component | Supplied with `ggmcAPI` by GameModeManager; tracked as a bundle-only dependency in `DEPENDENCIES.json` and updated only by `plugins/gamemodemanager.sh`. |
-| CS2 Deathmatch | `plugins/cs2-deathmatch.sh` | Asset is always `Deathmatch.zip`. Archive root is `addons/counterstrikesharp/` from 1.3.6 and `Deathmatch/` before it; `pick_dir` accepts either. Replaces `plugins/disabled/Deathmatch` and `shared/DeathmatchAPI` whole. `configs/plugins/Deathmatch/` and `gamedata/Deathmatch.json` are not shipped and not touched. |
-| deathrun-manager | `plugins/deathrun-manager.sh` | Replaces `plugins/disabled/DeathrunManager` whole. The shipped `configs/plugins/DeathrunManager/DeathrunManager.json` is never written, only compared (new settings reported). Archive junk (`README-ME.txt`, `logs/`) ignored. |
-| RollTheDice | `plugins/rollthedice.sh` | Archive root `RollTheDice/`; replaces `plugins/disabled/RollTheDice` whole. `configs/plugins/RollTheDice/` not touched. |
-| CS2-FixRandomSpawn | `plugins/cs2-fixrandomspawn.sh` | Asset renamed to `CS2-FixRandomSpawn.zip` in 1.2.0 (`FixRandomSpawn.zip` before). 1.2.0 also restructured the archive to `plugins/` + `gamedata/`, relative to `addons/counterstrikesharp/`; the older flat layout is not supported. Plugin lives at `plugins/FixRandomSpawn` (not disabled) and is replaced whole, which also drops the stale plugin-local `gamedata/` the flat archive left behind. The top-level `gamedata/FixRandomSpawn.json` is upstream signature data and is replaced, because 1.2.0 renamed its keys and it has to match the dll. |
-| jRandomSkills | `plugins/jrandomskills.sh` | Asset is `jRandomSkills.v<version>.zip`, archive laid out relative to `addons/counterstrikesharp/` (`plugins/` + `gamedata/`). Merge-overlays plugin binaries and libraries, preserves operator-owned `configs/` and `languages/`, seeds missing defaults only, and updates the separate gamedata signature file. Release tags carry a `v` prefix, so the README row must hold the bare version. |
-| cs2-quake-sounds | `plugins/cs2-quake-sounds.sh` | Archive root `QuakeSounds/`; replaces `plugins/disabled/QuakeSounds` whole. `configs/plugins/QuakeSounds/` not touched. |
-| CS2-PlayerModelChanger | `plugins/cs2-playermodelchanger.sh` | Unique `PlayerModelChanger.dll` archive discovery; updates only the disabled plugin folder and preserves `lang/` plus the external operator config. |
-| MapConfigurator | `plugins/mapconfigurator.sh` | Future-release adapter; no upstream GitHub release currently exists. A ZIP must contain exactly one `MapConfigurator.dll`; the active plugin directory is merge-overlaid. |
-| STFixes | `plugins/stfixes.sh` | Matches `STFixes_*.zip`, discovers the unique `STFixes.dll`, and keeps the plugin disabled. Upstream currently marks the project archived. |
-| CS2 Instadefuse | `plugins/cs2-instadefuse.sh` | Matches the versioned release ZIP, locates `InstadefusePlugin.dll`, and preserves local `lang/`. |
-| CS2 Whitelist | `plugins/cs2-whitelist.sh` | Updates the disabled plugin folder but explicitly preserves operator-managed `whitelist.txt`. |
-| CS2 Executes | `plugins/cs2-executes.sh` | Selects the `no-map-configs` release asset and preserves local `map_config/`. |
-| CS2FunMatchPlugin | `plugins/cs2funmatchplugin.sh` | Selects the Linux release ZIP, discovers `FunMatchPlugin.dll`, and preserves local `lang/`. |
-| CS2-MutualScoringPlayers | `plugins/cs2-mutualscoringplayers.sh` | Updates the disabled plugin folder and preserves local `lang/`. |
-| SpectatorList-CS2 | `plugins/spectatorlist-cs2.sh` | Updates the plugin and bundled runtime dependencies from `SpectatorList.zip`; preserves local `lang/`. |
-| SLAYER_Football | `plugins/slayer-football.sh` | Updates only the disabled plugin folder; never copies the archive's `cfg/` tree and preserves local `lang/`. |
-| SLAYER_Revive | `plugins/slayer-revive.sh` | Preserves operator-managed `SLAYER_Revive.json` and local `lang/`. |
-| cs2-TeleportKill | `plugins/cs2-teleportkill.sh` | Discovers the unique `TeleportKill.dll` and preserves local `lang/`. |
+The following are the adapter entrypoints currently tracked in this repository.
 
-| CS2 Remove Map Weapons | `plugins/cs2-remove-map-weapons.sh` | Updates `plugins/disabled/CS2-Remove-Map-Weapons`; activation remains owned by game-mode CFGs. |
-| K4-DamageInfo | `plugins/k4-damageinfo.sh` | Updates the disabled plugin folder and preserves local `lang/`; K4 upstream is archived at its current release. |
-| K4-Arenas | `plugins/k4-arenas.sh` | Updates `K4-Arenas` plus `K4-Arenas-Bots`; resolves the newest available Bots ZIP independently when a release omits it. |
-| CS2 Retakes Allocator | `plugins/cs2-retakes-allocator.sh` | Updates the complete disabled plugin payload and runtime dependencies; preserves local `config/`, `gamedata/` and `lang/`. |
-| OpenPrefirePrac | `plugins/openprefireprac.sh` | Updates the disabled plugin binaries; preserves custom `maps/`, `resources/`, `default_cfg.json` and `lang/`. |
-| CS2-GameModifiers | `plugins/cs2-gamemodifiers.sh` | Updates the disabled plugin binaries; preserves the operator's `ModifierConfig/` and `ConVarModifiers/` presets. |
-| CS2WarcraftMod | `plugins/cs2warcraftmod.sh` | Updates the disabled plugin and bundled dependencies; excludes the runtime-supplied `CounterStrikeSharp.API.dll` and preserves `lang/`. |
-| cs2-advanced-weapon-system | `plugins/cs2-advanced-weapon-system.sh` | Updates the disabled plugin folder; does not touch the external TOML configuration. |
-| cs2-OneInTheChamber | `plugins/cs2-oneinthechamber.sh` | Updates the disabled plugin folder; mode-specific loading remains unchanged. |
-| CS2-WeaponSpeed | `plugins/cs2-weaponspeed.sh` | Updates the disabled plugin folder while leaving the external configuration untouched. |
+| Adapter path | |
+| --- | --- |
+| `plugins/abs-mapcycle.sh` | Tracked updater adapter |
+| `plugins/advancedfriendlyfire.sh` | Tracked updater adapter |
+| `plugins/afkmanager.sh` | Tracked updater adapter |
+| `plugins/announcementbroadcaster.sh` | Tracked updater adapter |
+| `plugins/anybaselibcs2.sh` | Tracked updater adapter |
+| `plugins/counterstrikesharp.sh` | Tracked updater adapter |
+| `plugins/cs2-advanced-weapon-system.sh` | Tracked updater adapter |
+| `plugins/cs2-advertisement.sh` | Tracked updater adapter |
+| `plugins/cs2-antibait.sh` | Tracked updater adapter |
+| `plugins/cs2-customvotes.sh` | Tracked updater adapter |
+| `plugins/cs2-deathmatch.sh` | Tracked updater adapter |
+| `plugins/cs2-execafter.sh` | Tracked updater adapter |
+| `plugins/cs2-executes.sh` | Tracked updater adapter |
+| `plugins/cs2-fixrandomspawn.sh` | Tracked updater adapter |
+| `plugins/cs2-gamemodifiers.sh` | Tracked updater adapter |
+| `plugins/cs2-gunsmenu.sh` | Tracked updater adapter |
+| `plugins/cs2-instadefuse.sh` | Tracked updater adapter |
+| `plugins/cs2-kill-plugin.sh` | Tracked updater adapter |
+| `plugins/cs2-killfeedfilter.sh` | Tracked updater adapter |
+| `plugins/cs2-mutualscoringplayers.sh` | Tracked updater adapter |
+| `plugins/cs2-oneinthechamber.sh` | Tracked updater adapter |
+| `plugins/cs2-playermodelchanger.sh` | Tracked updater adapter |
+| `plugins/cs2-playervotes.sh` | Tracked updater adapter |
+| `plugins/cs2-poor-mappropads.sh` | Tracked updater adapter |
+| `plugins/cs2-quake-sounds.sh` | Tracked updater adapter |
+| `plugins/cs2-ranks.sh` | Tracked updater adapter |
+| `plugins/cs2-remove-map-weapons.sh` | Tracked updater adapter |
+| `plugins/cs2-retakes-allocator.sh` | Tracked updater adapter |
+| `plugins/cs2-retakes.sh` | Tracked updater adapter |
+| `plugins/cs2-showdamage.sh` | Tracked updater adapter |
+| `plugins/cs2-simpleadmin.sh` | Tracked updater adapter |
+| `plugins/cs2-stafflist.sh` | Tracked updater adapter |
+| `plugins/cs2-tags.sh` | Tracked updater adapter |
+| `plugins/cs2-teamlimiter.sh` | Tracked updater adapter |
+| `plugins/cs2-teleportkill.sh` | Tracked updater adapter |
+| `plugins/cs2-weaponspeed.sh` | Tracked updater adapter |
+| `plugins/cs2-whitelist.sh` | Tracked updater adapter |
+| `plugins/cs2faceitlevels.sh` | Tracked updater adapter |
+| `plugins/cs2fixes-rampbugfix.sh` | Tracked updater adapter |
+| `plugins/cs2funmatchplugin.sh` | Tracked updater adapter |
+| `plugins/cs2rcon.sh` | Tracked updater adapter |
+| `plugins/cs2updatemonitor.sh` | Tracked updater adapter |
+| `plugins/cs2warcraftmod.sh` | Tracked updater adapter |
+| `plugins/deathrun-manager.sh` | Tracked updater adapter |
+| `plugins/game-mode-manager.sh` | Tracked updater adapter |
+| `plugins/gamemodemanager.sh` | Tracked updater adapter |
+| `plugins/gungame.sh` | Tracked updater adapter |
+| `plugins/inventory-simulator.sh` | Tracked updater adapter |
+| `plugins/jrandomskills.sh` | Tracked updater adapter |
+| `plugins/k4-arenas.sh` | Tracked updater adapter |
+| `plugins/k4-damageinfo.sh` | Tracked updater adapter |
+| `plugins/mapconfigurator.sh` | Tracked updater adapter |
+| `plugins/matchzy.sh` | Tracked updater adapter |
+| `plugins/metamod-source.sh` | Tracked updater adapter |
+| `plugins/movementunlocker.sh` | Tracked updater adapter |
+| `plugins/multiaddonmanager.sh` | Tracked updater adapter |
+| `plugins/openprefireprac.sh` | Tracked updater adapter |
+| `plugins/playersettingscs2.sh` | Tracked updater adapter |
+| `plugins/rollthedice.sh` | Tracked updater adapter |
+| `plugins/serverlistplayersfix.sh` | Tracked updater adapter |
+| `plugins/sharptimer.sh` | Tracked updater adapter |
+| `plugins/simpleadmin.sh` | Tracked updater adapter |
+| `plugins/simpleresetscore.sh` | Tracked updater adapter |
+| `plugins/slayer-anticamp.sh` | Tracked updater adapter |
+| `plugins/slayer-football.sh` | Tracked updater adapter |
+| `plugins/slayer-headshotonly.sh` | Tracked updater adapter |
+| `plugins/slayer-noscope.sh` | Tracked updater adapter |
+| `plugins/slayer-revive.sh` | Tracked updater adapter |
+| `plugins/spectatorlist-cs2.sh` | Tracked updater adapter |
+| `plugins/stfixes.sh` | Tracked updater adapter |
+| `plugins/vipcore-modules.sh` | Tracked updater adapter |
+| `plugins/vipcore.sh` | Tracked updater adapter |
+| `plugins/weaponpaints.sh` | Tracked updater adapter |
 
 ## Files
 
-- `update.sh` - entry point: argument parsing, preflight, the per-mod loop, summary.
-- `lib.sh` - all shared functions (logging, path guards, GitHub/Metamod asset
-  resolution, download/extract, repo write helpers, README bump, git commit).
-- `catalog-plugin.sh` - fail-closed DLL discovery and merge-only overlays for
-  catalog plugins, with per-plugin exclusions for operator-owned files.
-- `fast-safe-addons.txt` - allowlist for the separate 15-minute workflow.
-- `future-release-addons.txt` - adapters that are tested and polled but do not yet
-  have an upstream release tag, so a missing version is not treated as a hard failure.
-- `plugins/*.sh` - one script per mod (see above).
-- `../check-updates.sh` - unchanged behaviour when run directly. It gained a guard so it
-  can be sourced, and `CHECK_UPDATES_README=<path>` to read a local README instead of
-  the one on GitHub master (that is what `update.sh` sets).
-
-## Troubleshooting / messages you may see
-
-- `working tree is not clean` - commit or stash, then re-run.
-- `no update script for '<Mod>' - expected scripts/update/plugins/<slug>.sh` - create it (see above).
-- `asset pattern '<glob>' matched N assets` - the release's file names changed; the
-  message lists what is available, fix `plugin_assets()`.
-- `no release in <repo> has a tag matching version '<v>'` - the version scraped from the
-  GitHub releases page and the API disagree (e.g. a pre-release or a renamed tag). Look at
-  the release page.
-- `Metamod asset <name> is version ...` / `could not find the quick-download links` -
-  the metamodsource.net page layout changed; fix `metamod_release_assets` in `lib.sh`.
-- `expected directory does not exist: tmp/update/...` - the archive layout changed;
-  extract it by hand, compare, and adjust the plugin script.
-- `unexpected change outside the plugin's paths: <path>` - either add the path to
-  `PLUGIN_PATHS` (if the update legitimately owns it) or fix the script. Nothing was
-  committed; reset with `git checkout -- . && git clean -fd game/`.
-- `the update did not change any tracked file under PLUGIN_PATHS` - the release ships
-  identical files or the script copies to the wrong place. Nothing was committed.
-- `expected exactly one row in the README.md mod table starting with [<name>](<url>)` -
-  the README row was edited; the link text/URL must match the table row exactly.
-- `GitHub API error ... rate limit` - set `GITHUB_TOKEN` or `gh auth login`.
-
-## Notes for future maintenance (context for Claude / whoever comes back to this)
-
-- Two copy styles are in use on purpose: "replace whole" (`remove_path` + `copy_dir`) where the
-  repo folder is byte-identical to the release, and "merge" (`copy_dir` only) where the manual
-  history shows leftovers were never removed (MatchZy, GG2).
-- **CounterStrikeSharp configs are manual-only except for one sample folder.** The shared
-  `game/csgo/addons/counterstrikesharp/configs/` and Windows-overlay
-  `game/csgo/addons/windows/addons/counterstrikesharp/configs/` trees remain protected, except
-  the shared `plugins/cs2-tags/` folder for the upstream `cs2-tags-example.toml` sample.
-  This exception is explicit in both updater guards; the config snapshot excludes only that
-  exact sample file. All other CSS config paths remain blocked and protected against
-  parent-directory deletes. Operator-specific settings remain manual.
-- **Config policy for other add-ons:** plugin scripts never write config files that can be customised. Anything a
-  release ships under `cfg/` or `configs/` (MatchZy, GunGame, MultiAddonManager, deathrun-manager)
-  is only compared with `warn_cfg_dir_changes` / `warn_new_settings`, and new files, removed
-  files and new settings are printed for a manual port. The files that ARE overwritten are
-  upstream-owned data shipped inside the plugin/addon folders (Metamod's stock `metaplugins.ini`
-  and `.vdf`s, CounterStrikeSharp's `gamedata.json`, `*.example.json` and `lang/`, Retakes'
-  `map_config/`, Deathmatch's `spawns/`, Inventory Simulator's gamedata) - all byte-identical to
-  upstream in this repo. If one of those ever gets customised, move it out of the script's paths
-  or switch that script to a report-only check.
-- The new-settings report is a key-based heuristic (first token of a `.cfg` line, JSON keys)
-  on customised files, so it also lists upstream keys that were removed from the repo's copy
-  on purpose and upstream example values (e.g. example SteamIDs in MatchZy's `admins.json`).
-  Silence reviewed keys via `plugins/<slug>.ignore`; the file is not created automatically.
-- Design decisions: versions are read from the **local** README (idempotency); mods
-  without a script are only reported, nothing is downloaded for them; the run stops at
-  the first failure that left the tree dirty, but continues past failures that changed
-  nothing; exactly one commit per mod, message `- UPDATED: <Mod> <old> > <new>`, no
-  trailer/footer.
-- `run_isolated` in `lib.sh` exists because bash ignores `set -e` inside anything called
-  from an `if`/`||`/`&&` condition, including subshells that re-enable it. Never call
-  `process_mod`/`run_isolated` from such a context or a failing step would not abort
-  the plugin. Verified on bash 3.2 and 5.2.
-- Log output goes to fd 3 so helpers can print return values on stdout and be captured
-  with `$(...)`.
-- `extract_mods` (from `check-updates.sh`) is wrapped in `list_mods` with `pipefail` off:
-  its awk exits at the end of the table and the SIGPIPE on `cat` would otherwise abort
-  `update.sh` with exit 141.
-- The rsync flags are the ones from the manual process minus `--progress` (pure noise
-  for local copies).
-- Version strings are normalised exactly like `check-updates.sh` (`normalize_version`).
-  Metamod:Source `2.0.0-1469` corresponds to asset names `mmsource-2.0.0-git1469-*`.
-
-
-## Larnz integration policy
-
-These upstream KUS scripts target the tracked `game/csgo/` payload in this repository. Deployment is deliberately non-destructive: calls to `empty_dir` and `remove_path` retain installed content, and new release files are overlaid on top. Configurations are never replaced by the updater. If an upstream release removes or renames files, the old files are retained for manual review rather than automatically deleted.
+- `DEPENDENCIES.json` — Manifest source of truth.
+- `README.md` — unified plugin version and updater table.
+- `scripts/update/update.sh` — Bash orchestrator.
+- `scripts/update/lib.sh` — shared updater helpers and safety boundaries.
+- `scripts/update/manifest-addon.sh` — Manifest release/source-build helpers.
+- `scripts/update/catalog-plugin.sh` — catalog ZIP extraction and overlay helpers.
+- `scripts/Test-AllUpdaters.sh` — Bash updater hard checks.
+- `scripts/Test-CatalogCoverage.py` — README/Manifest/path coverage audit.
