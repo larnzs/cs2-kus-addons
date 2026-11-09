@@ -780,26 +780,29 @@ jobs:
             throw "The addon updater failed with exit code $LASTEXITCODE."
           }
 
-      - name: Validate README add-on links and versions against manifest
+      - name: Validate unified README catalog against manifest
         shell: pwsh
         run: |
-          $manifest = Get-Content -LiteralPath ".\DEPENDENCIES.json" -Raw | ConvertFrom-Json
-          $readme = Get-Content -LiteralPath ".\README.md" -Raw
-          $sectionMarker = "## Larnz-managed add-ons"
-          $sectionStart = $readme.IndexOf($sectionMarker, [StringComparison]::Ordinal)
-          if ($sectionStart -lt 0) {
-            throw "README is missing the Larnz-managed add-ons section."
+          $manifest = Get-Content -LiteralPath ".\\DEPENDENCIES.json" -Raw | ConvertFrom-Json
+          $readme = Get-Content -LiteralPath ".\\README.md" -Raw
+          $header = "| Mod | Version / revision | Purpose | Payload placement / activation | Update automation |"
+          $tableStart = $readme.IndexOf($header, [StringComparison]::Ordinal)
+          if ($tableStart -lt 0) {
+            throw "README is missing the unified plugin catalog table."
           }
-          $tailStart = $sectionStart + $sectionMarker.Length
-          $tail = $readme.Substring($tailStart)
-          $nextHeading = [regex]::Match($tail, "(?m)^##\s")
-          $sectionEnd = if ($nextHeading.Success) { $tailStart + $nextHeading.Index } else { $readme.Length }
-          $section = $readme.Substring($sectionStart, $sectionEnd - $sectionStart)
-
-          $addons = @($manifest.addons | Where-Object { [string]$_.name -ne "Metamod:Source" })
-          $linkedRows = [regex]::Matches($section, '(?m)^\|\s*\[[^\]]+\]\(https?://[^)]+\)\s*\|')
-          if ($linkedRows.Count -ne $addons.Count) {
-            throw "README Larnz add-on row count ($($linkedRows.Count)) does not match manifest count ($($addons.Count))."
+          $tableLines = New-Object System.Collections.Generic.List[string]
+          foreach ($line in ($readme.Substring($tableStart) -split "`r?`n")) {
+            if ($line.StartsWith("|")) {
+              $tableLines.Add($line)
+            } elseif ($tableLines.Count -gt 0) {
+              break
+            }
+          }
+          $table = $tableLines -join "`n"
+          $addons = @($manifest.addons)
+          $linkedRows = [regex]::Matches($table, '(?m)^\\|\\s*\\[[^\\]]+\\]\\(https?://[^)]+\\)\\s*\\|')
+          if ($linkedRows.Count -ne 75) {
+            throw "Unified README catalog should have 75 linked plugin rows; found $($linkedRows.Count)."
           }
 
           foreach ($addon in $addons) {
@@ -813,15 +816,15 @@ jobs:
               $expectedVersion = "$([string]$addon.branch)@$shortCommit"
             }
             $versionCell = [string][char]96 + $expectedVersion + [string][char]96
-            $rowPattern = '^\|\s*\[' + [regex]::Escape([string]$addon.name) + '\]\(' +
-              [regex]::Escape([string]$addon.repository) + '\)\s*\|\s*' +
-              [regex]::Escape($versionCell) + '\s*\|'
-            $matches = [regex]::Matches($section, $rowPattern, [System.Text.RegularExpressions.RegexOptions]::Multiline)
+            $rowPattern = '^\\|\\s*\\[' + [regex]::Escape([string]$addon.name) + '\\]\\(' +
+              [regex]::Escape([string]$addon.repository) + '\\)\\s*\\|\\s*' +
+              [regex]::Escape($versionCell) + '\\s*\\|'
+            $matches = [regex]::Matches($table, $rowPattern, [System.Text.RegularExpressions.RegexOptions]::Multiline)
             if ($matches.Count -ne 1) {
               throw "README row must link $($addon.name) to its manifest repository and show version '$expectedVersion'."
             }
           }
-          Write-Host "Validated $($addons.Count) linked Larnz add-on rows against DEPENDENCIES.json."
+          Write-Host "Validated $($addons.Count) Manifest rows inside the unified 75-row README plugin catalog." 
 
       - name: Verify all installed addon files and protected configs
         shell: pwsh
