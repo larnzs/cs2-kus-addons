@@ -1,4 +1,4 @@
-# Safe catalog and priority Manifest add-ons checked every 5 minutes.
+# Manual priority add-ons for workflow_dispatch; the scheduled full updater checks every automation-enabled add-on.
 # MapConfigurator is monitored for its first upstream release; see future-release-addons.txt.
 MapConfigurator
 CS2-PlayerModelChanger
