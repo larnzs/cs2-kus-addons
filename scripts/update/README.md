@@ -51,10 +51,9 @@ The PowerShell updater processes the Manifest entries and their release/source-b
 
 ## Scheduled automation
 
-- Priority FACEIT updater: every 5 minutes at UTC minutes 1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, and 56. It processes only `CS2FaceitLevels`.
+- Fast-safe allowlist: every 5 minutes at UTC minutes 1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, and 56. This includes `CS2FaceitLevels`.
 - Full updater: every 30 minutes at UTC minutes 17 and 47.
-- Fast-safe allowlist: every 15 minutes at UTC minutes 7, 22, 37, and 52.
-- All updater workflows serialize writes to `integration/kus-monorepo` using the shared `addon-updater` concurrency group.
+- Both workflows serialize writes to `integration/kus-monorepo` using the shared `addon-updater` concurrency group.
 - GitHub may delay scheduled jobs; the cron schedule is not an exact execution-time guarantee.
 - The workflows update the tracked repository payload. They do not modify files inside an already-running CS2 server process.
 
@@ -74,7 +73,7 @@ The strict check is:
 python3 scripts/Test-CatalogCoverage.py --strict
 ```
 
-It checks that every catalog row has an upstream link, no duplicate plugin name exists, every updater link resolves to a real script, each script can be sourced, all declared payload paths exist, all automated Manifest entries are covered, and the updater's KUS/Manifest partition does not overlap. It also validates the 15-minute and first-release adapter lists.
+It checks that every catalog row has an upstream link, no duplicate plugin name exists, every updater link resolves to a real script, each script can be sourced, all declared payload paths exist, all automated Manifest entries are covered, and the updater's KUS/Manifest partition does not overlap. It also validates the 5-minute fast-safe and first-release adapter lists.
 
 ## Adapter rules
 
