@@ -51,9 +51,10 @@ The PowerShell updater processes the Manifest entries and their release/source-b
 
 ## Scheduled automation
 
+- Priority FACEIT updater: every 5 minutes at UTC minutes 1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, and 56. It processes only `CS2FaceitLevels`.
 - Full updater: every 30 minutes at UTC minutes 17 and 47.
 - Fast-safe allowlist: every 15 minutes at UTC minutes 7, 22, 37, and 52.
-- Both workflows serialize writes to `integration/kus-monorepo`.
+- All updater workflows serialize writes to `integration/kus-monorepo` using the shared `addon-updater` concurrency group.
 - GitHub may delay scheduled jobs; the cron schedule is not an exact execution-time guarantee.
 - The workflows update the tracked repository payload. They do not modify files inside an already-running CS2 server process.
 
