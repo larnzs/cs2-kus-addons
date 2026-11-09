@@ -1,3 +1,6 @@
+> [!WARNING]
+> **Historical document — superseded.** This file describes the former add-on-layer layout and commands. Do not use its separate-repository paths or installer instructions for the current integrated repository. The canonical guide is [../README.md](../README.md).
+
 # CS2 KUS Addons
 
 Additional plugins and libraries for [KUS/cs2-modded-server](https://github.com/kus/cs2-modded-server).
