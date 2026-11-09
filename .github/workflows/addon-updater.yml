@@ -21,7 +21,8 @@ on:
       - "game/csgo/**"
       - "README.md"
   schedule:
-    - cron: "17,47 * * * *"
+    # Check the complete KUS catalog and every automated Manifest add-on every five minutes.
+    - cron: "2-57/5 * * * *"
   workflow_dispatch:
     inputs:
       only:
