@@ -51,7 +51,7 @@ done < scripts/update/required-script-addons.txt
 [ "$required_count" -gt 0 ] || fail "no required add-ons were checked"
 pass "$required_count required installed KUS add-ons have syntactically valid adapters and bounded paths"
 
-# Every entry in the 5-minute fast-safe allowlist must have a supported updater.
+# Every entry in the manual priority allowlist must have a supported updater.
 fast_count=0
 [ -s scripts/update/fast-safe-addons.txt ] || fail "fast-safe-addons.txt is missing or empty"
 while IFS= read -r name; do
@@ -74,7 +74,7 @@ while IFS= read -r name; do
     fast_count=$((fast_count + 1))
 done < scripts/update/fast-safe-addons.txt
 [ "$fast_count" -gt 0 ] || fail "no fast allowlist adapters were checked"
-pass "$fast_count 5-minute fast-safe allowlist entries have loadable adapters and existing payload paths"
+pass "$fast_count manual priority allowlist entries have loadable adapters and existing payload paths"
 
 # Future-release plugins remain covered even before upstream publishes its first release.
 [ -s scripts/update/future-release-addons.txt ] || fail "future-release-addons.txt is missing or empty"
