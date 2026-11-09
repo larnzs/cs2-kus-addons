@@ -28,7 +28,7 @@ def slugify(name: str) -> str:
 
 def catalog_rows() -> list[dict[str, str]]:
     lines = (ROOT / "README.md").read_text(encoding="utf-8-sig").splitlines()
-    header = "| Plugin / component | Version / revision | Purpose | Payload placement / activation | Update automation |"
+    header = "| Mod | Version / revision | Purpose | Payload placement / activation | Update automation |"
     try:
         start = lines.index(header) + 2
     except ValueError as exc:
@@ -184,6 +184,30 @@ def main() -> int:
         if not path_errors:
             manifest_ok += 1
 
+    # The combined README table is partitioned into KUS catalog rows and Manifest rows.
+    # Metamod is intentionally kept in the KUS pass because its adapter synchronizes DEPENDENCIES.json.
+    manifest_names = {item["name"] for item in manifest.get("addons", [])}
+    expected_kus_names = {
+        row["name"] for row in rows
+        if row["name"] == "Metamod:Source" or row["name"] not in manifest_names
+    }
+    listed = run(["bash", "scripts/update/update.sh", "--list"])
+    if listed.returncode != 0:
+        errors.append("KUS updater --list failed: " + (listed.stderr.strip() or listed.stdout.strip()))
+    else:
+        listed_names = {
+            line[:28].strip()
+            for line in listed.stdout.splitlines()[1:]
+            if line[:28].strip()
+        }
+        if listed_names != expected_kus_names:
+            errors.append(
+                "KUS/Manifest updater partition mismatch: "
+                f"expected {len(expected_kus_names)} KUS rows, got {len(listed_names)}; "
+                f"missing={sorted(expected_kus_names - listed_names)}; "
+                f"unexpected={sorted(listed_names - expected_kus_names)}"
+            )
+
     # The fast list and first-release list have independent real-path checks.
     fast_names = read_names(ROOT / "scripts" / "update" / "fast-safe-addons.txt")
     future_names = read_names(ROOT / "scripts" / "update" / "future-release-addons.txt")
@@ -236,7 +260,7 @@ def main() -> int:
     except (OSError, KeyError, StopIteration, json.JSONDecodeError) as exc:
         errors.append(f"CS2-CustomVotes: could not verify runtime dependency set: {exc}")
 
-    print("=== README catalog hard-check ===")
+    print("=== Unified README plugin catalog hard-check ===")
     print(f"Catalog rows: {len(rows)}")
     print(f"Rows mapped to an existing updater/bundle script and real payload paths: {len(covered_rows)}")
     print(f"Rows without a dedicated updater or bundle mapping: {len(uncovered_rows)}")
