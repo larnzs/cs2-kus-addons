@@ -167,10 +167,15 @@ try {
     Assert-Condition $thrown "Multiple markers were silently accepted."
     Assert-Condition (([IO.File]::ReadAllText($case5)) -ceq $fixture5) "Ambiguous-marker file was modified."
 
-    foreach ($name in @("SLAYER_Noscope", "CS2-Gunsmenu")) {
+    $slayerNoscope = @($manifest.addons | Where-Object { $_.name -eq "SLAYER_Noscope" })
+    Assert-Condition ($slayerNoscope.Count -eq 1) "Expected exactly one SLAYER_Noscope manifest row."
+    Assert-Condition ([bool]$slayerNoscope[0].automation_supported) "Installed SLAYER_Noscope must be automatically rebuilt from its upstream branch."
+    Assert-Condition (Test-Path -LiteralPath (Join-Path $repoRoot "scripts/update/plugins/slayer-noscope.sh")) "SLAYER_Noscope's manifest updater adapter is missing."
+
+    foreach ($name in @("CS2-Gunsmenu", "CS2-WeaponRestrict")) {
         $manual = @($manifest.addons | Where-Object { $_.name -eq $name })
         Assert-Condition ($manual.Count -eq 1) "Expected exactly one manifest row for '$name'."
-        Assert-Condition (($manual[0].PSObject.Properties.Name -contains "automation_supported") -and (-not [bool]$manual[0].automation_supported)) "'$name' must remain non-automated."
+        Assert-Condition (($manual[0].PSObject.Properties.Name -contains "automation_supported") -and (-not [bool]$manual[0].automation_supported)) "'$name' must remain explicitly manual while it is not installed."
     }
 
     # Mode-specific plugins must be kept under disabled and loaded from cfg files.

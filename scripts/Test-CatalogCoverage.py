@@ -44,7 +44,13 @@ def catalog_rows() -> list[dict[str, str]]:
         linked = re.match(r"^\[([^\]]+)\]\((https?://[^)]+)\)$", cells[0])
         name = linked.group(1) if linked else cells[0].strip("`")
         url = linked.group(2) if linked else ""
-        scripts = re.findall(r"`([^ `]+\.sh)`", cells[2])
+        raw_scripts = re.findall(r"`([^ `]+\.sh)`", cells[2])
+        scripts = [
+            script.removeprefix("scripts/update/plugins/")
+            if script.startswith("scripts/update/plugins/")
+            else script
+            for script in raw_scripts
+        ]
         bundled = "bundled with" in cells[2].lower() or "updated through" in cells[2].lower()
         rows.append({
             "name": name,

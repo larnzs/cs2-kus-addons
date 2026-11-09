@@ -96,7 +96,7 @@ The workflow runs the same KUS updater described in this document, then a second
 
 The fast workflow is intentionally narrower: it checks only `fast-safe-addons.txt`, validates each adapter, then commits and pushes any release updates to the same branch. It does not deploy to a running server; the provisioner must perform its next repository sync.
 
-The full README catalog can be audited with `python3 scripts/Test-CatalogCoverage.py --strict`. It verifies every catalog row's script/bundle mapping, sources each adapter and checks the declared `PLUGIN_PATHS` against the tracked payload, then separately checks the Manifest and 15-minute allowlist. It currently reports 36/48 catalog rows covered; the remaining rows are reported explicitly rather than being counted as automatic coverage.
+The full README catalog can be audited with `python3 scripts/Test-CatalogCoverage.py --strict`. It verifies every catalog row's script/bundle mapping, sources each adapter and checks the declared `PLUGIN_PATHS` against the tracked payload, then separately checks the Manifest and 15-minute allowlist. It must report 47/47 catalog rows covered; `--strict` fails CI if any catalog plugin loses its updater or bundle mapping.
 
 `CS2-CustomVotes` is a dependency-coupled package: its main DLL, `CS2-CustomVotes.Shared.dll`, `CSSharpUtils.dll` and `.deps.json` are validated and repaired together. Do not replace only the main plugin DLL.
 
@@ -106,7 +106,8 @@ The full README catalog can be audited with `python3 scripts/Test-CatalogCoverag
 - Every manifest entry marked `installed: true` with automation enabled has a matching `scripts/update/plugins/<slug>.sh` adapter; CI checks this coverage dynamically. MetaMod and CounterStrikeSharp use their dedicated KUS-style scripts.
 - Entries initially marked `installed: false` are bootstrap-installed by the PowerShell source/release updater. Once their files verify successfully, the manifest flips them to `installed: true`; the Bash adapters then track upstream release tags or branch commits on subsequent 30-minute runs.
 - `CS2-WeaponRestrict` is deliberately excluded because its manifest entry is `installed: false` and `automation_supported: false`.
-- KUS's own documentation says a catalog row **without** a `scripts/update/plugins/<slug>.sh` is reported as “no update script” and skipped; those optional catalog rows are not automatically installed or updated just because they appear in the version table. The CI coverage check prevents a documented script or an enabled manifest add-on from silently losing its script.
+- Every row in the 47-plugin KUS catalog is now backed by a dedicated `scripts/update/plugins/<slug>.sh` adapter or an explicit bundle owner. The strict catalog audit fails CI when a row has no adapter, points to a missing script, or declares a missing payload path.
+- Mode-specific plugins under `plugins/disabled/` remain fully update-managed. Their location and game-mode `css_plugins load` instructions are not changed by the updater; only the corresponding plugin payload is refreshed.
 
 ### Source-built manifest adapters
 
@@ -352,6 +353,17 @@ downloadable asset (size `0` if unknown).
 | SLAYER_Football | `plugins/slayer-football.sh` | Updates only the disabled plugin folder; never copies the archive's `cfg/` tree and preserves local `lang/`. |
 | SLAYER_Revive | `plugins/slayer-revive.sh` | Preserves operator-managed `SLAYER_Revive.json` and local `lang/`. |
 | cs2-TeleportKill | `plugins/cs2-teleportkill.sh` | Discovers the unique `TeleportKill.dll` and preserves local `lang/`. |
+
+| CS2 Remove Map Weapons | `plugins/cs2-remove-map-weapons.sh` | Updates `plugins/disabled/CS2-Remove-Map-Weapons`; activation remains owned by game-mode CFGs. |
+| K4-DamageInfo | `plugins/k4-damageinfo.sh` | Updates the disabled plugin folder and preserves local `lang/`; K4 upstream is archived at its current release. |
+| K4-Arenas | `plugins/k4-arenas.sh` | Updates `K4-Arenas` plus `K4-Arenas-Bots`; resolves the newest available Bots ZIP independently when a release omits it. |
+| CS2 Retakes Allocator | `plugins/cs2-retakes-allocator.sh` | Updates the complete disabled plugin payload and runtime dependencies; preserves local `config/`, `gamedata/` and `lang/`. |
+| OpenPrefirePrac | `plugins/openprefireprac.sh` | Updates the disabled plugin binaries; preserves custom `maps/`, `resources/`, `default_cfg.json` and `lang/`. |
+| CS2-GameModifiers | `plugins/cs2-gamemodifiers.sh` | Updates the disabled plugin binaries; preserves the operator's `ModifierConfig/` and `ConVarModifiers/` presets. |
+| CS2WarcraftMod | `plugins/cs2warcraftmod.sh` | Updates the disabled plugin and bundled dependencies; excludes the runtime-supplied `CounterStrikeSharp.API.dll` and preserves `lang/`. |
+| cs2-advanced-weapon-system | `plugins/cs2-advanced-weapon-system.sh` | Updates the disabled plugin folder; does not touch the external TOML configuration. |
+| cs2-OneInTheChamber | `plugins/cs2-oneinthechamber.sh` | Updates the disabled plugin folder; mode-specific loading remains unchanged. |
+| CS2-WeaponSpeed | `plugins/cs2-weaponspeed.sh` | Updates the disabled plugin folder while leaving the external configuration untouched. |
 
 ## Files
 

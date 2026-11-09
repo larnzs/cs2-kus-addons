@@ -582,7 +582,7 @@
         "addons/counterstrikesharp/plugins/SLAYER_Noscope/SLAYER_Noscope.dll",
         "addons/counterstrikesharp/plugins/SLAYER_Noscope/lang/en.json"
       ],
-      "automation_supported": false
+      "automation_supported": true
     },
     {
       "order": 23,

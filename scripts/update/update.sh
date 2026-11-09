@@ -182,6 +182,24 @@ fail_mod() {   # $1 message  (records failure, adds a flag)
     RES_FAILED+=("$PLUGIN_NAME $OLD_VERSION > ${NEW_VERSION:-?}: $1")
     add_flag "$PLUGIN_NAME: $1"
 }
+rollback_failed_addon() {
+    # The updater starts from a clean tree and commits each successful add-on.
+    # Therefore HEAD is the last good state; reset only uncommitted work from this
+    # failed add-on, then continue with the next catalog/manifest entry.
+    warn "rolling back partial files from '$PLUGIN_NAME'; remaining add-ons will still be checked"
+    if ! git reset --hard HEAD >/dev/null 2>&1; then
+        err "could not roll back '$PLUGIN_NAME'; stopping to protect the repository state"
+        STOP_RUN=1
+        return 1
+    fi
+    if ! git clean -fd >/dev/null 2>&1; then
+        err "could not remove untracked partial files from '$PLUGIN_NAME'; stopping to protect the repository state"
+        STOP_RUN=1
+        return 1
+    fi
+    STOP_RUN=0
+    return 0
+}
 
 # This is the explicit list of installed KUS catalog add-ons that must never be
 # treated as "up to date" or "optional" without a dedicated updater adapter.
@@ -303,37 +321,47 @@ process_mod() {   # $1 name, $2 url, $3 current version
 
     run_isolated plugin_apply
     if [ "$ISOLATED_RC" -ne 0 ]; then
-        fail_mod "plugin_apply failed - the working tree may be partially updated. Inspect with 'git status'; reset with 'git checkout -- . && git clean -fd game/' and fix the plugin script."
-        STOP_RUN=1; return 0
+        fail_mod "plugin_apply failed; partial files will be rolled back before continuing."
+        rollback_failed_addon || return 0
+        return 0
     fi
 
     if ! verify_containment; then
-        fail_mod "the update changed files outside PLUGIN_PATHS - not committing. Inspect with 'git status', then either extend PLUGIN_PATHS in $script or reset with 'git checkout -- . && git clean -fd game/'."
-        STOP_RUN=1; return 0
+        fail_mod "the update changed files outside PLUGIN_PATHS; partial files will be rolled back before continuing."
+        rollback_failed_addon || return 0
+        return 0
     fi
 
     if ! verify_no_case_duplicates; then
-        fail_mod "the update produced paths differing only in case - not committing, because that breaks every macOS checkout of the branch. Delete the stale name, then re-run. Reset with 'git checkout -- . && git clean -fd game/'."
-        STOP_RUN=1; return 0
+        fail_mod "the update produced paths differing only in case; partial files will be rolled back before continuing."
+        rollback_failed_addon || return 0
+        return 0
     fi
 
     if ! plugin_files_changed; then
-        fail_mod "the update did not change any tracked file under PLUGIN_PATHS ($(_owned_paths_str)) - the release may ship identical files, or the plugin script copies to the wrong place. Nothing committed."
+        fail_mod "the update did not change any tracked file under PLUGIN_PATHS ($(_owned_paths_str)); rolling back any untracked partial files."
+        rollback_failed_addon || return 0
         return 0
     fi
 
     run_isolated readme_set_version "$PLUGIN_NAME" "$PLUGIN_URL" "$OLD_VERSION" "$NEW_VERSION"
     if [ "$ISOLATED_RC" -ne 0 ]; then
-        fail_mod "README.md could not be updated - files are updated but not committed. Fix README.md line for $PLUGIN_NAME manually, then commit with: git add -A -- ${PLUGIN_PATHS[*]} README.md && git commit -m \"- UPDATED: $PLUGIN_NAME $OLD_VERSION > $NEW_VERSION\""
-        STOP_RUN=1; return 0
+        fail_mod "README.md could not be updated; rolling back this add-on and continuing."
+        rollback_failed_addon || return 0
+        return 0
     fi
     if [ "$OLD_VERSION" != "$NEW_VERSION" ] && ! verify_readme_diff; then
-        fail_mod "README.md change is not the expected single-line version bump - not committing. Inspect with 'git diff README.md'."
-        STOP_RUN=1; return 0
+        fail_mod "README.md change is not the expected single-line version bump; rolling back this add-on and continuing."
+        rollback_failed_addon || return 0
+        return 0
     fi
 
     run_isolated commit_update
-    if [ "$ISOLATED_RC" -ne 0 ]; then fail_mod "git commit failed - inspect with 'git status'"; STOP_RUN=1; return 0; fi
+    if [ "$ISOLATED_RC" -ne 0 ]; then
+        fail_mod "git commit failed; rolling back this add-on and continuing."
+        rollback_failed_addon || return 0
+        return 0
+    fi
 
     rm -rf "$EXTRACT_DIR"
     RES_UPDATED+=("$PLUGIN_NAME $OLD_VERSION > $NEW_VERSION ($(git rev-parse --short HEAD))")

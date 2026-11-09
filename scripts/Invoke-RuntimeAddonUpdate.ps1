@@ -26,6 +26,7 @@ $OriginalGitCommitterName = $env:GIT_COMMITTER_NAME
 $OriginalGitCommitterEmail = $env:GIT_COMMITTER_EMAIL
 $WorktreeCreated = $false
 $ExitCode = 0
+$UpdaterExitCode = 0
 
 function Invoke-GitCapture {
     param(
@@ -196,9 +197,9 @@ try {
     Write-Host ""
     Write-Host "Checking upstream releases and building any configured source add-ons..."
     & $powershell -NoProfile -ExecutionPolicy Bypass -File $updaterPath
-    $updaterExitCode = $LASTEXITCODE
-    if ($updaterExitCode -ne 0) {
-        throw "scripts\Update-Addons.ps1 failed with exit code $updaterExitCode."
+    $UpdaterExitCode = [int]$LASTEXITCODE
+    if ($UpdaterExitCode -ne 0) {
+        Write-Warning "The add-on updater reported one or more failures (exit $UpdaterExitCode). Successful commits will still be published."
     }
 
     $worktreeStatus = @(Invoke-Git -Path $WorktreeRoot -GitArgs @("status", "--porcelain", "--untracked-files=all"))
@@ -252,6 +253,11 @@ try {
         }
 
         Write-Host "Upstream add-on updates were published successfully."
+    }
+
+    if ($UpdaterExitCode -ne 0) {
+        $ExitCode = $UpdaterExitCode
+        Write-Warning "Successful add-on commits were published; the exit code remains non-zero because some add-ons failed."
     }
 }
 catch {

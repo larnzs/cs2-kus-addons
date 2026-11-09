@@ -1356,6 +1356,7 @@ foreach ($bundledAddon in @($addons | Where-Object {
 }
 
 
+$selectedAddonNames = $null
 if ($Only) {
     $selected = @(
         $addons | Where-Object {
@@ -1370,6 +1371,7 @@ if ($Only) {
         throw "No addon matched -Only: $($Only -join ', ')"
     }
 
+    $selectedAddonNames = @($selected | ForEach-Object { [string]$_.name })
     $addons = $selected
 }
 
@@ -1383,7 +1385,9 @@ if ($DryRun) {
 }
 Write-Host ""
 
-foreach ($addon in $addons) {
+$addonFailures = New-Object System.Collections.Generic.List[string]
+for ($addonIndex = 0; $addonIndex -lt $addons.Count; $addonIndex++) {
+    $addon = $addons[$addonIndex]
     Write-Host "[$($addon.order)] $($addon.name)" -ForegroundColor White
 
     if ($addon.PSObject.Properties.Name -contains "automation_supported" -and
@@ -1486,8 +1490,32 @@ foreach ($addon in $addons) {
         }
     }
     catch {
-        Write-Host "  ERROR $($_.Exception.Message)" -ForegroundColor Red
-        exit 1
+        $failureMessage = "{0}: {1}" -f [string]$addon.name, $_.Exception.Message
+        Write-Host "  ERROR $failureMessage" -ForegroundColor Red
+        $addonFailures.Add($failureMessage)
+
+        if (-not $DryRun) {
+            # Every successful add-on has its own commit. Reset only the current
+            # uncommitted attempt to the last good HEAD, then continue the queue.
+            & git -C $RepoRoot reset --hard HEAD
+            if ($LASTEXITCODE -ne 0) {
+                throw "Could not roll back the failed add-on '$($addon.name)'; stopping to protect the repository."
+            }
+            & git -C $RepoRoot clean -fd -- game/csgo
+            if ($LASTEXITCODE -ne 0) {
+                throw "Could not remove partial payload files for '$($addon.name)'; stopping to protect the repository."
+            }
+
+            # Save-Manifest may have changed in-memory objects before a commit
+            # failed. Reload the last committed state before processing dependents.
+            $manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
+            $allAddons = @($manifest.addons | Sort-Object order)
+            if ($selectedAddonNames) {
+                $addons = @($allAddons | Where-Object { $selectedAddonNames -contains [string]$_.name })
+            } else {
+                $addons = $allAddons
+            }
+        }
     }
 }
 
@@ -1529,4 +1557,10 @@ Write-Host ""
 Write-Host "Done." -ForegroundColor Cyan
 if (-not $DryRun) {
     Write-Host "Review changes with: git status" -ForegroundColor DarkGray
+}
+if ($addonFailures.Count -gt 0) {
+    Write-Host ""
+    Write-Host ("Completed with {0} add-on failure(s); successful add-on commits were retained:" -f $addonFailures.Count) -ForegroundColor Yellow
+    foreach ($failure in $addonFailures) { Write-Host ("  - " + $failure) -ForegroundColor Red }
+    exit 1
 }

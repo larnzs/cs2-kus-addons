@@ -241,10 +241,14 @@ jobs:
             echo "ERROR: Could not publish updater commits after three safe attempts." >&2
             exit 1
           fi
+          if [[ "$updater_status" -ne 0 ]]; then
+            echo "Updater reported failures (exit $updater_status); successful add-on commits were published." >&2
+            exit "$updater_status"
+          fi
 
   update:
     needs: update-kus-addons
-    if: always() && github.actor != 'github-actions[bot]' && (needs.update-kus-addons.result == 'success' || needs.update-kus-addons.result == 'skipped')
+    if: always() && github.actor != 'github-actions[bot]' && needs.update-kus-addons.result != 'cancelled'
     runs-on: windows-latest
     timeout-minutes: 60
 

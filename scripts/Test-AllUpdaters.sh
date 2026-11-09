@@ -141,6 +141,36 @@ while IFS= read -r name; do
 done < <(jq -r '.addons[] | select(.installed == true) | select(.automation_supported != false) | .name' DEPENDENCIES.json)
 pass "$manifest_count installed/automated manifest add-ons have adapter files"
 
+# These mode-specific plugins are disabled by default, not excluded from updating.
+# Their adapters must keep targeting the exact plugins/disabled payload folders.
+mode_plugins=(
+    "CS2 Remove Map Weapons"
+    "K4-DamageInfo"
+    "K4-Arenas"
+    "CS2 Retakes Allocator"
+    "OpenPrefirePrac"
+    "CS2-GameModifiers"
+    "CS2WarcraftMod"
+    "cs2-advanced-weapon-system"
+    "cs2-OneInTheChamber"
+    "CS2-WeaponSpeed"
+)
+mode_count=0
+for name in "${mode_plugins[@]}"; do
+    grep -Fqx -- "$name" scripts/update/required-script-addons.txt || fail "disabled mode plugin '$name' is not mandatory updater coverage"
+    slug="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//')"
+    script="scripts/update/plugins/$slug.sh"
+    [ -f "$script" ] || fail "disabled mode plugin '$name' has no updater: $script"
+    paths="$(bash -c 'set -Eeuo pipefail; exec 3>&1; source scripts/update/lib.sh; source "$1"; printf "%s\n" "${PLUGIN_PATHS[@]}"' bash "$script")" || fail "could not inspect disabled plugin paths for '$name'"
+    while IFS= read -r path; do
+        [[ -n "$path" ]] || continue
+        [[ "$path" == game/csgo/addons/counterstrikesharp/plugins/disabled/* ]] || fail "$name updater escapes plugins/disabled: $path"
+    done <<< "$paths"
+    mode_count=$((mode_count + 1))
+done
+[ "$mode_count" -eq 10 ] || fail "expected exactly 10 disabled mode-plugin adapters, checked $mode_count"
+pass "$mode_count disabled mode-specific plugins have required adapters and preserve their disabled payload locations"
+
 # GG1MapChooser and MenuManagerCS2 are supplied by the GameModeManager release,
 # so neither component may have an independent release tracker or updater adapter.
 for bundled_name in "GG1MapChooser" "MenuManagerCS2"; do

@@ -21,3 +21,13 @@ SLAYER_Revive
 cs2-TeleportKill
 
 CS2Fixes-RampbugFix
+CS2 Remove Map Weapons
+K4-DamageInfo
+K4-Arenas
+CS2 Retakes Allocator
+OpenPrefirePrac
+CS2-GameModifiers
+CS2WarcraftMod
+cs2-advanced-weapon-system
+cs2-OneInTheChamber
+CS2-WeaponSpeed

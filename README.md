@@ -177,12 +177,12 @@ The first table deliberately retains the updater-compatible three-column structu
 | [CS2-PlayerModelChanger](https://github.com/samyycX/CS2-PlayerModelChanger) | `1.8.6` | A lightweighted counterstrikesharp plugin to change player model. [How?](#model-changer) |
 | [MatchZy](https://github.com/shobhit-pathak/MatchZy) | `0.9.2` | MatchZy is a plugin for CS2 for running and managing practice/pugs/scrims/matches with easy configuration! |
 | [MapConfigurator](https://github.com/ManifestManah/MapConfigurator) | `1.0.2` | Allows you to quick and easily create unique configuration files for each map on your server. |
-| [K4-DamageInfo](https://github.com/KitsuneLab-Development/K4-DamageInfo) | `2.4.0` | Displays the amount of damage players have inflicted on the victim's HP and Armor, as well as the hit groups they have hit. |
+| [K4-DamageInfo](https://github.com/K4ryuu/K4-DamageInfo) | `2.4.0` | Displays the amount of damage players have inflicted on the victim's HP and Armor, as well as the hit groups they have hit. |
 | [SimpleAdmin](https://github.com/connercsbn/SimpleAdmin/) | `0.1.2` | Adds basic administrator functions |
 | [CS2Rcon](https://github.com/LordFetznschaedl/CS2Rcon) | `1.2.0` | This is a rudimentary implementation of a RCON plugin for CS2 using CounterStrikeSharp as RCON does not work whilst connected to the server |
 | [STFixes](https://github.com/rcnoob/STFixes) | `1.0.5` | A CounterStrikeSharp plugin with common fixes and features for SharpTimer servers |
 | [GunGame](https://github.com/ssypchenko/cs2-gungame) | `1.2.4` | GunGame mode on Counter Strike Sharp |
-| [K4-Arenas](https://github.com/KitsuneLab-Development/K4-Arenas) | `2.0.8` | All in one arena plugin, that you can use to have a ladder type gameplay. Support all map, 2v2/3v3/etc [Database setup](#setup-mysql-database) |
+| [K4-Arenas](https://github.com/K4ryuu/K4-Arenas) | `2.0.8` | All in one arena plugin, that you can use to have a ladder type gameplay. Support all map, 2v2/3v3/etc [Database setup](#setup-mysql-database) |
 | [CS2 Retakes](https://github.com/B3none/cs2-retakes) | `3.1.1` | CS2 implementation of retakes. Based on the version for CS:GO by Splewis. |
 | [CS2 Instadefuse](https://github.com/B3none/cs2-instadefuse) | `2.0.0` | Allows a CT to instantly defuse the bomb when nothing can prevent defusal. Written in C# for CounterStrikeSharp. |
 | [CS2 Retakes Allocator](https://github.com/yonilerner/cs2-retakes-allocator) | `2.4.2` | Advanced weapon allocation for B3none/cs2-retakes |
@@ -201,7 +201,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | [CS2-FixRandomSpawn](https://github.com/qstage/CS2-FixRandomSpawn) | `1.2.0` | Fixes ConVar `mp_randomspawn` for any game mode. |
 | [CS2-MutualScoringPlayers](https://github.com/qstage/CS2-MutualScoringPlayers) | `1.0.3` | Keeps score of kills between players. |
 | [CS2WarcraftMod](https://github.com/Wngui/CS2WarcraftMod) | `3.3.5` | An open-source Warcraft mod for CS2 featuring a fully-fledged RPG system. |
-| [cs2-advanced-weapon-system](https://github.com/schwarper/cs2-advanced-weapon-system) | `1.11` | An advanced weapon system that gives full control over weapon attributes, dynamic adjustments to weapon behaviour, restrictions and advanced customisation. |
+| [cs2-advanced-weapon-system](https://github.com/CounterStrike2-Plugins-Archive/cs2-advanced-weapon-system) | `1.11` | An advanced weapon system that gives full control over weapon attributes, dynamic adjustments to weapon behaviour, restrictions and advanced customisation. |
 | [cs2-OneInTheChamber](https://github.com/ShookEagle/cs2-OneInTheChamber) | `1.0.0` | One in the Chamber game mode. |
 | [cs2-quake-sounds](https://github.com/Kandru/cs2-quake-sounds) | `26.08.1` | Quake Sounds on multi kills. |
 | [CS2-WeaponSpeed](https://github.com/akanora/CS2-WeaponSpeed) | `1.3` | Gives players a speed boost when they fire specified weapons. |
@@ -222,13 +222,13 @@ The first table deliberately retains the updater-compatible three-column structu
 | MovementUnlocker | Base native add-on | Script: `movementunlocker.sh` |
 | CS2Fixes-RampbugFix | Base native add-on | `scripts/update/plugins/cs2fixes-rampbugfix.sh` updates Linux/Windows binaries and shared gamedata |
 | CS2_ExecAfter | Default CounterStrikeSharp plugin | Script: `cs2-execafter.sh` |
-| CS2 Remove Map Weapons | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
+| CS2 Remove Map Weapons | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-remove-map-weapons.sh`; updates the disabled plugin folder without changing mode activation. |
 | GameModeManager | Default CounterStrikeSharp plugin | Script: `gamemodemanager.sh`; owns all four bundled plugin folders and all three shared API folders from `addons/counterstrikesharp/`. Copies no `cfg/` or CounterStrikeSharp `configs/` content. |
 | Inventory Simulator | Default CounterStrikeSharp plugin | Script: `inventory-simulator.sh` |
 | CS2-PlayerModelChanger | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-playermodelchanger.sh`; preserves local `lang/` and external config |
 | MatchZy | Mode-specific plugin staged under `plugins/disabled/` | Script: `matchzy.sh` |
 | MapConfigurator | Default CounterStrikeSharp plugin | Script: `mapconfigurator.sh`; future-release adapter only because upstream currently has no GitHub Releases |
-| K4-DamageInfo | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
+| K4-DamageInfo | Mode-specific plugin staged under `plugins/disabled/` | Script: `k4-damageinfo.sh`; preserves local translations and external operator configuration. |
 | SimpleAdmin | Default CSS plugin; deliberately retained from KUS | Script: `simpleadmin.sh`; this is separate from the manifest-managed CS2-SimpleAdmin set |
 | CS2Rcon | Default CounterStrikeSharp plugin | Script: `cs2rcon.sh` |
 | cs2-tags | Active plugin at `plugins/cs2-tags/`, API at `shared/TagsApi/`, and example config at `configs/plugins/cs2-tags/` | Manifest adapter: `cs2-tags.sh`; only its sample-config folder is allowlisted |
@@ -236,29 +236,29 @@ The first table deliberately retains the updater-compatible three-column structu
 | STFixes | Mode-specific plugin staged under `plugins/disabled/` | Script: `stfixes.sh`; upstream currently marks the project archived |
 | GunGame | Mode-specific plugin staged under `plugins/disabled/` | Script: `gungame.sh` |
 | GG1MapChooser | Default CounterStrikeSharp plugin for RTV and map selection | Bundled with GameModeManager; updated through `gamemodemanager.sh`. |
-| K4-Arenas | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
+| K4-Arenas | Mode-specific plugin staged under `plugins/disabled/` | Script: `k4-arenas.sh`; updates both K4-Arenas and the separately packaged K4-Arenas-Bots companion. |
 | CS2 Retakes | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-retakes.sh` |
 | CS2 Instadefuse | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-instadefuse.sh`; preserves local `lang/` |
-| CS2 Retakes Allocator | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
+| CS2 Retakes Allocator | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-retakes-allocator.sh`; refreshes the plugin and bundled runtime dependencies while preserving local config, gamedata and translations. |
 | CS2 Whitelist | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-whitelist.sh`; preserves operator-managed `whitelist.txt` |
 | CS2 Executes | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-executes.sh`; selects the no-map-configs asset and preserves local map data |
 | CS2 Advertisement | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-advertisement.sh` |
 | CS2 Deathmatch | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-deathmatch.sh` |
-| OpenPrefirePrac | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
+| OpenPrefirePrac | Mode-specific plugin staged under `plugins/disabled/` | Script: `openprefireprac.sh`; preserves custom map profiles, resources and `default_cfg.json`. |
 | CS2-CustomVotes | Default CounterStrikeSharp plugin | Script: `cs2-customvotes.sh`; repairs the main DLL, Shared assembly, `CSSharpUtils.dll` and `.deps.json` as one set; preserves `lang/` |
 | deathrun-manager | Mode-specific plugin staged under `plugins/disabled/` | Script: `deathrun-manager.sh` |
 | AnnouncementBroadcaster | Default CounterStrikeSharp plugin | Script: `announcementbroadcaster.sh` |
-| CS2-GameModifiers | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
+| CS2-GameModifiers | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-gamemodifiers.sh`; preserves operator-owned `ModifierConfig/` and `ConVarModifiers/` presets. |
 | CS2FunMatchPlugin | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2funmatchplugin.sh`; selects the Linux release asset |
 | jRandomSkills | Mode-specific plugin staged under `plugins/disabled/jRandomSkills` | Script: `jrandomskills.sh`; preserves existing `configs/` and `languages/`, updates gamedata separately |
 | RollTheDice | Mode-specific plugin staged under `plugins/disabled/` | Script: `rollthedice.sh` |
 | CS2-FixRandomSpawn | Default CounterStrikeSharp plugin | Script: `cs2-fixrandomspawn.sh` |
 | CS2-MutualScoringPlayers | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-mutualscoringplayers.sh`; preserves local `lang/` |
-| CS2WarcraftMod | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
-| cs2-advanced-weapon-system | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
-| cs2-OneInTheChamber | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
+| CS2WarcraftMod | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2warcraftmod.sh`; preserves local languages and the server-supplied CounterStrikeSharp API. |
+| cs2-advanced-weapon-system | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-advanced-weapon-system.sh`; updates plugin runtime files without touching its external TOML config. |
+| cs2-OneInTheChamber | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-oneinthechamber.sh`; updates the disabled plugin folder while leaving game-mode loading unchanged. |
 | cs2-quake-sounds | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-quake-sounds.sh` |
-| CS2-WeaponSpeed | Mode-specific plugin staged under `plugins/disabled/` | No script; release updates are warned about and skipped |
+| CS2-WeaponSpeed | Mode-specific plugin staged under `plugins/disabled/` | Script: `cs2-weaponspeed.sh`; updates the plugin while preserving external operator configuration. |
 | SpectatorList-CS2 | Mode-specific plugin staged under `plugins/disabled/` | Script: `spectatorlist-cs2.sh`; preserves local `lang/` |
 | SLAYER_Football | Mode-specific plugin staged under `plugins/disabled/` | Script: `slayer-football.sh`; updates only the plugin folder and preserves `lang/` |
 | SLAYER_Revive | Mode-specific plugin staged under `plugins/disabled/` | Script: `slayer-revive.sh`; preserves operator-managed `SLAYER_Revive.json` |

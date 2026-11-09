@@ -61,7 +61,8 @@ jobs:
           done < scripts/update/fast-safe-addons.txt
           [[ "${#args[@]}" -gt 0 ]] || { echo "Fast allowlist is empty." >&2; exit 1; }
 
-          bash scripts/update/update.sh "${args[@]}"
+          updater_status=0
+          bash scripts/update/update.sh "${args[@]}" || updater_status=$?
 
           if [[ -n "$(git status --porcelain)" ]]; then
             echo "Updater left uncommitted changes:" >&2
@@ -85,3 +86,7 @@ jobs:
           done
 
           [[ "$pushed" == true ]] || { echo "Could not publish updater commits after three attempts." >&2; exit 1; }
+          if [[ "$updater_status" -ne 0 ]]; then
+            echo "Fast updater reported failures (exit $updater_status); successful commits were published." >&2
+            exit "$updater_status"
+          fi

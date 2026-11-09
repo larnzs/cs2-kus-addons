@@ -48,7 +48,7 @@ fetch_latest_release() {
 		# Use curl to fetch the releases page content
 		# Then use grep and sed to find and extract the latest release tag
 		# Finally, use sed to remove any characters that aren't numbers or full stops
-		local latest_release=$(curl -s "${url}/releases" | grep -m 1 -o 'href="[^"]*/releases/tag/[^"]*"' | sed 's/.*tag\/\([^"]*\)".*/\1/' | sed 's/^[^0-9]*//' | sed 's/[^0-9A-Za-z.-]//g')
+		local latest_release=$(curl -fsSL "${url%/}/releases" | grep -m 1 -o 'href="[^"]*/releases/tag/[^"]*"' | sed 's/.*tag\/\([^"]*\)".*/\1/' | sed 's/^[^0-9]*//' | sed 's/[^0-9A-Za-z.-]//g')
 
 		# Check if we found a release name
 		if [ -n "$latest_release" ]; then
@@ -78,7 +78,7 @@ fetch_last_updated() {
 
 	if [[ $url == *"github.com"* ]]; then
 		# Get last commit date
-		latest_release=$(curl -s "${url}/commits" | grep -m 1 -o '"commitGroups":\[{"title":"[^"]*"' | sed 's/.*"title":"\([^"]*\)".*/\1/' | sed 's/[^a-zA-Z 0-9]//g')
+		latest_release=$(curl -fsSL "${url%/}/commits" | grep -m 1 -o '"commitGroups":\[{"title":"[^"]*"' | sed 's/.*"title":"\([^"]*\)".*/\1/' | sed 's/[^a-zA-Z 0-9]//g')
 		if [ -n "$latest_release" ]; then
 			echo "$latest_release"
 		else
@@ -97,7 +97,7 @@ download_and_extract_latest_release() {
 	fi
 
 	local repo_name=$(echo "$repo_url" | awk -F'github.com/' '{print $2}')
-	local latest_release_urls=$(curl -s "https://api.github.com/repos/${repo_name}/releases/latest" | grep "browser_download_url" | cut -d '"' -f 4)
+	local latest_release_urls=$(curl -fsSL "https://api.github.com/repos/${repo_name}/releases/latest" | grep "browser_download_url" | cut -d '"' -f 4)
 
 	if [ -z "$latest_release_urls" ]; then
 		echo "No releases found for $repo_name"
