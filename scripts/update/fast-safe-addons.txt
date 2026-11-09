@@ -1,4 +1,4 @@
-# Safe catalog add-ons checked every 15 minutes.
+# Safe catalog and priority Manifest add-ons checked every 5 minutes.
 # MapConfigurator is monitored for its first upstream release; see future-release-addons.txt.
 MapConfigurator
 CS2-PlayerModelChanger
@@ -12,3 +12,4 @@ SpectatorList-CS2
 SLAYER_Football
 SLAYER_Revive
 cs2-TeleportKill
+CS2FaceitLevels
