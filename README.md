@@ -1,133 +1,182 @@
-# CS2 KUS Addons ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â Larnz Unified Server
+# CS2 KUS Addons — Larnz Unified Server
 
-A private, single-repository Counter-Strike 2 dedicated-server distribution. It combines the KUS server setup, its bundled plugins and dependency files with the Larnz-managed add-ons and configuration layout.
+A maintained, single-repository Counter-Strike 2 dedicated-server distribution. This project combines the KUS-based server payload with the plugins, dependencies, game-mode configuration, deployment tooling, and multi-instance runners maintained in this repository.
 
-**The repository follows KUS's staged payload model.** `game/csgo/` is the tracked source payload; `server/` is the local Windows SteamCMD installation and is ignored by Git. `windows/win.bat` deploys the tracked payload into `server/game/csgo/`, flattens `game/csgo/addons/windows/` on Windows, patches the installed `gameinfo.gi`, and verifies the deployed files. Linux and Docker now use the staged source layout but have not been live-tested.
+This is an integrated downstream project, **not an official KUS release**. The original upstream KUS guide is not copied into this README; upstream source material retained for provenance lives under [docs/upstream/](docs/upstream/).
 
-This README combines Larnz's manifest-managed add-ons with KUS's base plugins, game modes, configuration guidance, workshop-map catalog and troubleshooting notes. Historical source documents remain under `docs/upstream/`; where an archived guide differs from this file, the unified instructions here take precedence. The old dual-repository workflow in `docs/Larnz-Addons-README.md` is historical, not an active setup guide.
+## What this repository owns
 
-## Repository ownership and paths
+- The tracked CS2 runtime payload and its Windows-specific overlay.
+- The unified plugin catalog, upstream version tracking, and updater adapters.
+- Shared server configuration and game-mode plugin activation policy.
+- Windows, Linux, and Docker installation/update workflows.
+- Per-instance launch/watchdog templates for Windows and Linux.
+- CI checks for payload layout, updater coverage, plugin lifecycle, and runtime integrity.
+
+## Repository layout and sources of truth
 
 | Path | Purpose |
 | --- | --- |
-| `server/` | Local Windows SteamCMD installation root; ignored by Git. |
-| `windows/` | Windows BAT entrypoints plus the reusable external Instance runner template. |
-| `linux/` | Linux install/update tooling and shared-runtime per-instance server runners; only an Instance launches CS2. |
-| `docker/` | Dockerfile, Compose definition, Docker installer, and the legacy Kubernetes manifest. |
-| `.dockerignore` | Kept at the repository root because Docker uses the repository root as its build context. |
-| `game/csgo/addons/` | Tracked KUS and Larnz payload source, including platform-neutral/Linux files and the Windows overlay. |
-| `game/csgo/cfg/` | Manually managed shared configuration source. Add-on automation is blocked from changing this tree and CI verifies that protection. |
-| DEPENDENCIES.json | Larnz add-on updater manifest. |
-| scripts/update/ | Active KUS-style per-plugin automation; the same Bash updater also runs the Larnz manifest add-on scripts. |
-| windows/instance-template/ | Separate maintenance batch, launch runner, and VBS/CMD watchdog. `run.bat` copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` into the shared runtime before each launch. |
-| docs/upstream/ | Archived KUS source/docs and historical entrypoints. The completed one-time payload-migration workflow is archived here, not registered as an executable GitHub Actions workflow. |
+| `game/csgo/` | Canonical tracked CS2 payload source. Shared/Linux files live here. |
+| `game/csgo/addons/windows/` | Windows-only add-on overlay, flattened into the runtime during Windows deployment. |
+| `game/csgo/cfg/` | Operator-managed shared game-mode configuration. Updaters protect this tree. |
+| `DEPENDENCIES.json` | Manifest for release/source-built Larnz add-ons, dependencies, install mappings, and required runtime files. |
+| `README.md` | Unified plugin catalog and displayed version/revision index. |
+| `scripts/update/plugins/` | Per-plugin Bash adapters used by the scheduled catalog updater. |
+| `scripts/Update-Addons.ps1` | PowerShell manifest updater used by Windows maintenance. |
+| `server/` | Local Windows SteamCMD installation/runtime; ignored by Git and never part of the tracked payload. |
+| `windows/` | Windows installation, repository update, maintenance, and external Instance templates. |
+| `linux/` | Linux installation and repository update entrypoints plus per-instance templates. |
+| `docker/` | Docker image, Compose deployment, and host-side volume update workflow. |
+| `docs/` | Project documentation, lifecycle policy, and archived migration/upstream material. |
 
-The upstream `custom_files/` and `custom_files_example/` trees are intentionally not imported. On Windows, `CUSTOM_FOLDER` is an active copy source: before each launch, `run.bat` uses `xcopy` to copy its `cfg/` and `addons/` trees into the shared runtime. Matching files are overwritten; nothing is deleted. This is not per-instance isolation, so instances sharing `SERVER_DIR` can overwrite the same destination paths. Never store tokens, passwords or private database credentials in tracked files.
+The tracked payload is the source used by deployment tools. It is not a copy of a locally installed server. Runtime files absent from the tracked payload are not deleted by normal overwrite-only deployment.
 
-The tracked `game/csgo/cfg/` tree is operator-managed: both the manifest release updater and KUS shell updater explicitly protect it, and CI snapshots the complete tree before updater runs and fails if any file changes. Runtime deployment may copy tracked configs into `server/game/csgo/cfg/`; each Windows `run.bat` then overlays `CUSTOM_FOLDER/cfg/` into that runtime immediately before launch. These are one-way copies: neither updater copies runtime changes back into `game/csgo/cfg/` or into the source `CUSTOM_FOLDER/`.
+## Quick start
 
-## Windows installation and operation
+Choose one deployment method. The maintenance/install scripts **do not launch CS2**; launch is controlled by an Instance runner or the selected container deployment.
 
-1. Clone this private repository on the Windows server machine.
-2. Run `windows/install.bat`. It downloads SteamCMD if needed, installs/checks CS2 with SteamCMD, then prepares the runtime. It does not start the server.
-3. Copy the files in `windows/instance-template/` into an external Instance folder. Create `instance.ini` from `instance.example.ini` and set `SERVER_DIR` to the absolute path of this checkout's `server` folder (for example `W:\cs2-kus-addons\server` for the current machine). Also set the port/map/IP, GSLT, and strong RCON password. The example deliberately has a path placeholder and will not launch until you replace it. Run the instance-local updater separately with all CS2 processes stopped, then start `watchdog.bat`.
+### Windows host
 
-For the difference between each maintenance scriptÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Âand an important warning about manual deploymentÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Âsee [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons).
+1. Clone this repository and check out `integration/kus-monorepo`.
+2. Stop all running CS2 instances and watchdogs.
+3. Run:
 
-## Larnz-managed add-ons
+```bat
+windows\install.bat
+```
 
-The Larnz-managed plugins, shared libraries, and bundled components are included in the single [complete plugin catalog and updater table](#kus-bundled-and-optional-plugin-catalog) below. There is no separate add-on list to keep in sync.
-## Larnz plugin dependencies
+The installer fast-forwards the repository, runs the Windows add-on update/publish pipeline, installs or updates CS2 with SteamCMD, overlays the tracked payload, patches `gameinfo.gi`, and verifies the deployed files. It does not start the server.
 
-- CS2FaceitLevels depends only on MetaMod:Source. Its API-key file is generated at runtime at `game/csgo/addons/CS2FaceitLevels/CS2FaceitLevels.json`; the updater excludes that file and manages only the binaries, gamedata and MetaMod VDF.
-- CounterStrikeSharp provides the runtime required by the managed CounterStrikeSharp plugins.
-- AnyBaseLibCS2 and PlayerSettingsCS2 provide shared APIs; the MenuManager API is supplied by the GameModeManager bundle.
-- The release updater keeps the manifest, versions and runtime file layout synchronized. Fixed configuration paths are deliberately protected from incoming add-on release archives.
-- `game/csgo/addons/counterstrikesharp/configs/` (and the matching Windows-overlay path) remains manually managed, except for the narrowly allowlisted `plugins/cs2-tags/` sample-config directory. The updater may overlay the upstream `cs2-tags-example.toml` there; all other CSS configs stay protected and are checked by CI.
+To update only the repository, use `windows\update.bat`. To inspect or update Larnz manifest add-ons separately, use `windows\addons-inspect.bat` or `windows\addons-update.bat`.
 
-## Project provenance
+For a server instance, copy the files from `windows/instance-template/` into an external Instance directory. Copy `instance.example.ini` to `instance.ini`, set `SERVER_DIR` to the absolute path of this repository's `server\` folder, configure a unique port and credentials, then start `watchdog.bat`. Keep the Instance directory and its secrets outside Git. See [the Windows entrypoint guide](windows/README.md) and [the Instance template guide](windows/instance-template/README.md).
 
-The base project is [kus/cs2-modded-server](https://github.com/kus/cs2-modded-server). This private integrated distribution is not an official KUS release. The upstream LGPL-3.0 license is retained in `LICENSE`; each third-party plugin remains subject to its own license. Original KUS notes and installer workflows are archived in `docs/upstream/` for provenance, not as active installation instructions.
+### Linux host
 
-## Quick navigation
+Run from a clean clone owned by a non-root operator, with all CS2 processes stopped:
 
-- [Windows setup and maintenance](#running-on-windows)
-- [Server capabilities and game modes](#server-capabilities-and-game-modes)
-- [KUS bundled plugin catalog](#kus-bundled-and-optional-plugin-catalog)
-- [Update responsibilities](#updating-the-integrated-repository-and-add-ons)
-- [Configuration and per-instance overrides](#configuration-and-per-instance-overrides)
-- [Online, LAN and server settings](#creating-an-online-server)
-- [Workshop maps and map groups](#playing-workshop-mapscollections)
-- [Deployment status for all platforms](#deployment-status)
-- [FAQ and troubleshooting](#faq)
+```bash
+sudo -E bash ./linux/install.sh
+```
 
-## Compatibility after CS2 updates
+The installer fast-forwards the active branch using the checkout owner's Git credentials, installs/updates Steam Linux Runtime and CS2, deploys the committed payload, and patches `gameinfo.gi`. It does not run upstream release discovery, push to GitHub, or launch CS2.
 
-> [!IMPORTANT]
-> **Are we broken?**
->
-> If there has been a recent big CS2 update and your server is broken. We need to wait for the community to update their signatures and mods.
-> This isn't a quick process. Valve gives no notice. People do this in their free time.
->
-> If you go [here](https://github.com/ianlucas/cs2-signatures) and **CounterStrikeSharp** does not have two green ticks it's likely your server will not work and you need to wait for an update. Please do not make an issue, there is literally nothing I can do.
+Create an Instance from the template and protect its configuration:
 
-If you are looking for the CS:GO version you can still access that [here](https://github.com/kus/csgo-modded-server/tree/csgo).
+```bash
+cp -a linux/instances/instance-template linux/instances/aim
+cp linux/instances/aim/instance.example.env linux/instances/aim/instance.env
+sudo chmod 600 linux/instances/aim/instance.env
+sudo chown -R steam:steam linux/instances/aim
+sudo -u steam bash linux/instances/aim/watchdog.sh
+```
 
-## Server capabilities and game modes
+Only the Instance runner launches CS2. Use `linux/instances/aim/stop.sh` to stop that instance. See [Linux entrypoints](linux/README.md) and [Linux multi-instance setup](linux/instances/README.md).
 
-A single modded Counter-Strike 2 (CS2) Modded Dedicated Server that you can [change the active mod](#changing-game-modes) on the server from chat or server console. [Maps are preconfigured per game mode](#what-maps-are-preconfigured-with-each-mode) and change when the game mode changes.
+### Docker
 
-Each game mode has a hand full of maps preset so you are ready to go and it's [easy to add more](#setting-maps-for-different-game-modes).
+Create the local environment file, review every value, and keep real credentials out of Git:
 
-- Competitive (using [MatchZy](https://github.com/shobhit-pathak/MatchZy#usage-commands))
-- Practice (record grenade throws etc) (using [MatchZy](https://github.com/shobhit-pathak/MatchZy#usage-commands))
-- Wingman (allows more than 4 players) ([Steam API key](#playing-workshop-mapscollections) required)
-- GunGame ([Steam API key](#playing-workshop-mapscollections) required)
-- Custom Deathmatch ([Steam API key](#playing-workshop-mapscollections) required)
-- Prefire practice
-- Retakes
-- Executes
-- [Capture The Flag](https://www.youtube.com/watch?v=d9Vo8waxBzA) ([Steam API key](#playing-workshop-mapscollections) required)
-- One In The Chamber
-- 1v1 (with arenas) ([Steam API key](#playing-workshop-mapscollections) required)
-- ScoutzKnivez ([Steam API key](#playing-workshop-mapscollections) required)
-- KZ ([Steam API key](#playing-workshop-mapscollections) required)
-- BHop ([Steam API key](#playing-workshop-mapscollections) required)
-- Surf ([Steam API key](#playing-workshop-mapscollections) required)
-- Mini Games ([Steam API key](#playing-workshop-mapscollections) required)
-- Deathrun ([Steam API key](#playing-workshop-mapscollections) required)
-- Course format (tests players with different traps, kz, surf, bhop) ([Steam API key](#playing-workshop-mapscollections) required)
-- Hide n Seek ([Steam API key](#playing-workshop-mapscollections) required)
-- Battle Royale ([Steam API key](#playing-workshop-mapscollections) required)
-- [Soccer](https://www.youtube.com/watch?v=yfltZoMH2Ts) ([Steam API key](#playing-workshop-mapscollections) required)
-- Battle Ball ([Steam API key](#playing-workshop-mapscollections) required)
+```bash
+cp .env.example .env
+# Edit .env before starting the container.
+docker compose -f docker/docker-compose.yml up --build
+```
 
-You can also enable modifiers in game modes from the `!settings` menu in chat i.e. Competitive with random rounds like [NadeKings video](https://www.youtube.com/watch?v=OQQBUFB56Iw).
+For maintenance, stop the running CS2 container and run:
 
-- [Random Rounds](https://www.youtube.com/watch?v=OQQBUFB56Iw) - CS2, but every round is a SURPRISE.
-- [WarcraftMod](https://www.youtube.com/watch?v=Z9HdF47zPss) - An open-source Warcraft mod for CS2 featuring a fully-fledged RPG system.
-- Roll The Dice - Roll the dice to get either a positive or negative effect for the current round.
-- Bunny hopping
+```bash
+bash ./docker/update.sh
+```
 
-> [!IMPORTANT]
-> Using RCON whilst connected to the server does not work. See discussion [here](https://www.reddit.com/r/GlobalOffensive/comments/167spzi/cs2_rcon/).
-> The current work arounds are:
->
-> - I have included [CS2Rcon](https://github.com/LordFetznschaedl/CS2Rcon) which allows admins to use !rcon in chat.
-> - You can disconnect from the server and use `rcon_address IP:PORT` in console and you can use rcon commands.
-> - Use an external RCON program which has implemented the RCON protocol such as [this](https://github.com/fpaezf/CS2-RCON-Tool-V2).
+The maintenance path updates the checkout/plugin payload, rebuilds the image, and runs a one-shot container to update the persistent game volume. It does not launch the game server. The Kubernetes manifest under `docker/kubernetes/` is retained as legacy reference and is not the maintained deployment path. See [Docker deployment notes](docker/README.md).
 
-## First-start verification
+## Maintenance and update responsibilities
 
-After the server is running, use the server console to check `meta list` for Metamod and the expected native plugins, then run `css_plugins list` to inspect CounterStrikeSharp plugins. CounterStrikeSharp should load with its bundled .NET runtime; the CI validation checks the runtime files but does not replace a real server-load smoke test.
+These commands intentionally have different scopes:
 
-The list below records the KUS catalog plus explicitly maintained Larnz integrations when this runtime snapshot was imported. These version labels are reference metadata, not a promise that every optional module is enabled or current. CounterStrikeSharp is intentionally documented only in the Larnz-managed table above: this branch installs the Windows **with-runtime** archive and rejects the no-runtime asset. The KUS SimpleAdmin and the Larnz-managed CS2-SimpleAdmin are distinct projects and are kept separately.
+| Command | What it changes | Starts CS2? |
+| --- | --- | --- |
+| `windows/update.bat` | Git checkout only; fast-forward pull of `integration/kus-monorepo`. | No |
+| `bash linux/update.sh` | Git checkout only; fast-forward pull of the currently checked-out branch. | No |
+| `windows/install.bat` | Repository, managed add-ons, SteamCMD CS2 install, tracked runtime overlay, and `gameinfo.gi`. | No |
+| `sudo -E bash linux/install.sh` | Repository, Steam Linux Runtime, CS2 install, tracked runtime overlay, and `gameinfo.gi`. | No |
+| `windows/addons-update.bat` | Larnz manifest-managed upstream add-ons in the tracked payload. | No |
+| `bash scripts/update/update.sh --dry-run` | Checks the README catalog and manifest updater plan without committing payload changes. | No |
+| `bash docker/update.sh` | Docker checkout/plugin update, image rebuild, and persistent-volume maintenance. | No |
 
-## KUS bundled and optional plugin catalog
+The plugin catalog has one combined table below. The updater keeps the two update domains separate internally:
 
-This is the single source of truth for the complete plugin and runtime add-on inventory: KUS base plugins, Larnz-managed plugins/libraries, and bundled components. Every plugin/component name links to its upstream project. Paths are relative to `game/csgo/`; mode-specific plugins intentionally remain under `plugins/disabled/` and are activated only by the relevant game-mode CFG. An updater link means the adapter is checked against the real payload paths by the catalog CI test. Bundled components are updated by their parent bundle, not by a competing standalone updater.
+- KUS-origin catalog entries are read from the unified table and handled by their per-plugin adapters under `scripts/update/plugins/`.
+- Manifest-owned add-ons are processed from `DEPENDENCIES.json`; their release/source-build mapping and verification paths are not inferred from the KUS updater.
+- `Metamod:Source` is the deliberate exception: its KUS-style updater also synchronizes its manifest version.
+- Manifest-owned rows are excluded from the KUS catalog pass, preventing duplicate release checks and conflicting commits.
 
-| Plugin / component | Version / revision | Purpose | Payload placement / activation | Update automation |
+The full GitHub Actions updater checks the catalog on a 30-minute schedule; a separate allowlisted workflow checks selected low-risk entries every 15 minutes. GitHub may delay scheduled workflows during busy periods. Successful updater commits are published to `integration/kus-monorepo`, after which node installers can deploy the committed payload using read-only Git access.
+
+Useful maintainer commands:
+
+```bash
+# Preview catalog and manifest update work.
+bash scripts/update/update.sh --dry-run
+
+# List only the KUS-origin rows handled by the Bash catalog pass.
+bash scripts/update/update.sh --list
+
+# Preview/update the Windows PowerShell manifest updater.
+windows\addons-update.bat -DryRun
+windows\addons-update.bat
+```
+
+The Bash updater requires a clean working tree for an apply run because each successful add-on is committed separately. For full behavior, flags, adapter conventions, and rollback rules, see [scripts/update/README.md](scripts/update/README.md).
+
+## Plugin activation and configuration ownership
+
+### Mode-specific plugins
+
+A plugin stored below `plugins/disabled/` is not abandoned or excluded from updates. That location prevents automatic loading by CounterStrikeSharp; the relevant game-mode CFG explicitly loads it when required. The updater refreshes the payload in place and does not rewrite the game's activation commands.
+
+The lifecycle rules are documented in [MODE-PLUGIN-LIFECYCLE.md](docs/MODE-PLUGIN-LIFECYCLE.md). Every mode switch uses the central `unload_plugins.cfg` reset and mode-specific CFGs load only the DLLs required by that mode. Keep those exact DLL paths synchronized when adding or moving a mode plugin.
+
+### Protected configuration
+
+The updater and deployment workflows distinguish plugin binaries from operator-owned configuration:
+
+- `game/csgo/cfg/` is manually managed and protected from upstream plugin release archives.
+- `game/csgo/addons/counterstrikesharp/configs/` is manually managed, except for the narrowly allowlisted `cs2-tags` sample configuration.
+- Plugin-local settings, language files, map profiles, and data are preserved by the relevant adapter where required.
+- Deployment is an overwrite-only overlay. Files not present in the tracked payload are not purged from the runtime.
+
+### Instance-local configuration
+
+Windows `instance.ini` and Linux `instance.env` hold per-server ports, map settings, RCON passwords, GSLTs, and other secrets. Do not commit them. Instance `CUSTOM_FOLDER` content is copied into the shared runtime before launch. This is an additive file overlay, **not isolated per-instance storage**: if multiple instances target the same runtime path, the last copy can overwrite matching files for every instance using that runtime. Avoid conflicting custom files between simultaneously running instances.
+
+## Validation and CI
+
+The repository's GitHub Actions workflows validate more than shell syntax:
+
+- Every README catalog entry must have a source link and an updater/bundle mapping, except the explicitly documented not-installed manual entry.
+- Adapter scripts are sourced and their `PLUGIN_PATHS` are checked against real tracked payload paths.
+- All automated `DEPENDENCIES.json` entries, the 15-minute allowlist, and first-release adapters are checked independently.
+- Windows and Linux payload layout, Windows overlay behavior, required runtime files, and protected configuration boundaries are checked.
+- Plugin CFG load/unload paths and AFKManager mode policy are checked by `scripts/validate-plugin-lifecycle.py`.
+
+Run the main catalog checks locally:
+
+```bash
+bash scripts/Test-AllUpdaters.sh
+python3 scripts/Test-CatalogCoverage.py --strict
+python3 scripts/validate-plugin-lifecycle.py
+```
+
+The current catalog contains **75 entries**: 74 are covered by an automatic updater or an owning bundle, and one is explicitly manual-only because it is not installed. Two components, `MenuManagerCS2` and `GG1MapChooser`, are updated as part of the GameModeManager bundle; they must not have competing standalone updaters.
+
+## Plugin and runtime catalog
+
+This is the unified inventory of plugins, libraries, native add-ons, and bundled components used by this distribution. Every name links to its upstream project. Paths are relative to `game/csgo/`. The version column is the displayed catalog value; source-built Manifest entries are shown as `branch@short-commit`. Updater links point to scripts tracked in this repository.
+
+| Mod | Version / revision | Purpose | Payload placement / activation | Update automation |
 | --- | --- | --- | --- | --- |
 | [ABS_MapCycle](https://github.com/Austinbots/cs2-Change-Map-Rotation-Using-Text-File) | `main@7d71a7bf29bb` | Text-file map rotation; disabled for game-mode-specific activation | Mode-specific payload: `game/csgo/addons/counterstrikesharp/plugins/disabled/ABS_MapCycle` (kept disabled; game-mode CFG controls loading) | [`abs-mapcycle.sh`](scripts/update/plugins/abs-mapcycle.sh) |
 | [AdvancedFriendlyFire](https://github.com/mister-keno/advanced-ff-cs2) | `main@ab332f0b5923` | Friendly-fire damage tracking and configured punishments; disabled for game-mode-specific activation | Mode-specific payload: `game/csgo/addons/counterstrikesharp/plugins/disabled/advanced_friendlyfire` (kept disabled; game-mode CFG controls loading) | [`advancedfriendlyfire.sh`](scripts/update/plugins/advancedfriendlyfire.sh) |
@@ -206,631 +255,8 @@ This is the single source of truth for the complete plugin and runtime add-on in
 | [WeaponPaints](https://github.com/Nereziel/cs2-WeaponPaints) | `472` | Player-side weapon customization | Plugin/runtime payload: `game/csgo/addons/counterstrikesharp/plugins/WeaponPaints` | [`weaponpaints.sh`](scripts/update/plugins/weaponpaints.sh) |
 
 > [!NOTE]
-> `CS2-WeaponRestrict` is intentionally listed as manual-only because it is not staged in the payload. `MenuManagerCS2` and `GG1MapChooser` are not independently updated; GameModeManager supplies their plugin folders and shared APIs. A plugin being placed under `plugins/disabled/` controls loading only and does not disable its updater.
+> `CS2-WeaponRestrict` is intentionally not installed or staged, so it remains manual-only. `MenuManagerCS2` and `GG1MapChooser` are bundled with GameModeManager and are updated through its adapter. A plugin being stored under `plugins/disabled/` controls loading only; it does not disable update automation.
 
-## Updating the integrated repository and add-ons
+## Project provenance and license
 
-The important difference is **how each script updates files**. Routine runner maintenance uses overwrite-only file copies and never deletes runtime add-on files. `windows/win.bat` is a separate clean replacement/reset workflow that can remove files absent from the tracked payload; stop every CS2 instance before using it.
-
-### Automatic update checks: 15-minute safe subset, 30-minute full sweep
-
-The full GitHub Actions workflow checks the complete configured updater set every 30 minutes at **minutes 17 and 47 UTC**. It runs KUS per-plugin adapters, then installed automation-enabled manifest add-ons, commits successful changes to `integration/kus-monorepo`, and runs Windows validation.
-
-A separate **fast safe catalog workflow** runs every 15 minutes at **minutes 7, 22, 37 and 52 UTC**. Its exact scope is `scripts/update/fast-safe-addons.txt`; it invokes `update.sh --only` for that allowlist. Both workflows share one concurrency lock so they cannot race while committing to the same branch. GitHub may delay scheduled jobs, so these are polling intervals rather than exact execution-time guarantees.
-
-CI requires an adapter for every entry in `required-script-addons.txt`, every fast-allowlist entry, every future-release entry, and every installed automation-enabled manifest entry. It also exercises the shared catalog helper to verify unique archive discovery, config-file preservation and merge-only behavior. `MapConfigurator` is in the 15-minute watchlist and `future-release-addons.txt`; it is polled for its first upstream GitHub Release without failing while no release exists. Other optional catalog rows without an adapter remain warning-only/skipped.
-
-The external Instance folder has its own `update.bat` for shared maintenance. Run it manually with all CS2 processes stopped. Start `watchdog.bat` for normal operation: it keeps a visible CMD guardian running `run.vbs` through `cscript.exe`, and relaunches the VBS host if it terminates. Inside that guard, `run.vbs` invokes the runner through `cmd.exe`, waits for it to return, then retries **100 milliseconds** after exit code 100. The VBS/watchdog layers do not run maintenance; each new `run.bat` invocation copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` before starting CS2.
-
-The instance updater refuses to modify the shared runtime while any `cs2.exe` is active. A shared lock also prevents a waiting launch-only batch from opening CS2 while maintenance is in progress; stale locks are checked against the owner PID before being removed. The five-minute success marker only suppresses duplicate updater work if you run it repeatedly; it does not select a different runner.
-
-#### A. Soft reset of the installed runtime ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â `windows/win.bat`
-
-**Source:** `game/csgo/` ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ **Runtime:** `server/game/csgo/`
-
-`windows/win.bat` runs `scripts/Deploy-Runtime.ps1`. That script prepares the current repository payload, backs up the installed `server/game/csgo/addons/` directory, and replaces it with the staged `addons/` tree. After a successful deploy, the temporary backup is removed. This means files that existed only in the installed runtime are removed instead of being left behind.
-
-This is useful as a **runtime add-on soft reset** when you suspect that the deployed copy of a plugin is damaged or has leftover files. It restores the runtime add-on directory to what is currently present in the repository payload.
-
-There are two important limits:
-
-- `windows/win.bat` deploys the payload already in the local checkout. It does **not** fetch upstream releases, pull Git, or update CS2 through SteamCMD by itself.
-- It does not clean the repository payload first. If an obsolete or unwanted file is still under `game/csgo/addons/`, the soft reset can copy that file back into the runtime.
-
-The live CounterStrikeSharp `configs/` tree and the specifically preserved `cfg/settings/` files are handled separately. However, runtime-only add-ons that are absent from the tracked payload can be removed by this replacement.
-
-#### B. Non-destructive overlay ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â `windows/addons-update.bat` and `run.bat`
-
-These two use overlay-style copying, but they operate at different stages:
-
-- **`windows/addons-update.bat` updates the repository payload.** It checks configured upstream add-on releases and copies their files into `game/csgo/`. Existing files at matching paths are overwritten and new files are added, but files that the new release no longer contains are **not** removed from the payload. The updater also protects designated configuration paths. Use `windows/addons-update.bat -Force` to re-download/reapply managed add-ons even when their recorded versions already match; this is still an overlay, not a clean-directory reinstall.
-- **The instance-template `run.bat` is the launch runner.** It waits for the shared-maintenance lock, copies the configured `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` into the shared runtime using `xcopy`, then launches CS2. The instance-local `update.bat` performs shared maintenance only. Custom-folder copies overwrite matching paths without deleting unrelated files, but they are shared across all instances pointing at the same `SERVER_DIR`.
-
-**Why this distinction matters:** if a plugin's old extra file remains in the repository payload after an overlay update, `windows/win.bat` will deploy that file again. If an old extra file exists only in the live runtime, `windows/win.bat`'s clean replacement removes it, while `run.bat`'s overlay leaves it in place.
-
-### What each batch file does
-
-| File | Main job | How it updates add-on files | Updates CS2 through SteamCMD? | Starts the server? |
-| --- | --- | --- | --- | --- |
-| `windows/install.bat` | Initial install/check of SteamCMD and CS2, then calls `windows/win.bat`. | Clean-replaces the runtime `addons/` tree through `windows/win.bat`. | Yes | No |
-| `windows/game-update.bat` | Checks that no `cs2.exe` is running, updates CS2, then calls `windows/win.bat`. | Clean-replaces the runtime `addons/` tree through `windows/win.bat`. | Yes | No |
-| `windows/update.bat` | Requires a clean Git checkout, pulls the configured branch with `git pull --ff-only`, then calls `windows/win.bat`. | Clean-replaces the runtime `addons/` tree through `windows/win.bat`. | No | No |
-| `windows/win.bat` | Deploys the current tracked payload, patches `gameinfo.gi` for MetaMod, and verifies required files. | **Clean replacement / soft reset** of runtime `addons/`. | No | No |
-| `windows/addons-update.bat` | Checks upstream releases and updates manifest-managed add-ons in the repository payload. | **Non-destructive overlay** into `game/csgo/`; it does not remove stale files omitted from a release. | No | No |
-| `windows/addons-inspect.bat` | Inspects configured upstream release assets without installing them. | Inspection only; no payload or runtime deployment. | No | No |
-| `windows/instance-template/update.bat` | Instance-local one-shot maintenance pipeline, copied beside the launch runner. | **Overwrite-only overlay**; does not delete existing add-on files. | Yes, only when no other `cs2.exe` is active | No |
-| `windows/instance-template/run.bat` | Reads `instance.ini`, waits for the maintenance lock, copies `CUSTOM_FOLDER\cfg` and `CUSTOM_FOLDER\addons` into the runtime, then launches one CS2 process. | Overwrite-only `xcopy`; no deletions. | Yes, when the custom folder has matching files | Yes |
-
-`windows/update.bat` at the repository root is a separate KUS-style Git/payload entrypoint. `windows/instance-template/update.bat` is copied into each external Instance folder and is the instance-local maintenance pipeline described above. Do not overwrite the repository-root script with the template copy. The destructive Windows entrypoints now check for a running `cs2.exe`: `windows/install.bat`, `windows/update.bat`, `windows/game-update.bat`, and `windows/win.bat` stop before SteamCMD or runtime deployment when any instance is active. The separate `windows/addons-update.bat` updates only the tracked `game/csgo/` source payload and may run while CS2 is active; it does not deploy that payload into the live runtime.
-
-> [!WARNING]
-> Do not run repository-root install/update/deploy paths (`windows/install.bat`, `windows/game-update.bat`, `windows/update.bat`, or `windows/win.bat`) while any Instance uses the shared CS2 installation. Stop all CS2 processes first. Run the instance-local updater when maintenance is needed, then start `windows/instance-template/watchdog.bat`; its CMD guardian restarts the VBS host if needed, while VBS only retries the instance runner and never performs shared maintenance.
-
-### Which tool should I use to troubleshoot a broken plugin?
-### Which tool should I use to troubleshoot a broken plugin?
-
-- **The deployed runtime copy may be damaged, but the repository payload is trusted:** stop every CS2 instance, then run `windows/win.bat`. It recreates the runtime add-on tree from the current payload. It does not fetch newer upstream releases.
-- **The repository payload needs fresh files from the configured upstream release:** run `windows/addons-update.bat -Force` (or `windows/addons-update.bat -Only CounterStrikeSharp -Force` for that managed add-on). This re-applies the release files to the payload, but it does not remove old extra files absent from the release.
-- **You suspect obsolete extra files are the cause:** remember that `-Force` does not delete those files from the payload. The affected add-on's stale files must be cleaned from the source payload as a targeted operation before deploying it again. Do not delete the whole shared runtime `addons/` tree manually while any CS2 instance is running.
-
-For CounterStrikeSharp, `windows/addons-inspect.bat -Only CounterStrikeSharp` can inspect an upstream release archive without installing it. The `DEPENDENCIES.json` rule requires the Windows with-runtime archive, and the updater validates the required plugin and .NET runtime files.
-
-KUS base plugins that are not listed as automated add-ons remain tracked under `game/csgo/` and are deployed by the runtime. Do not run the old KUS Bash release updater on Windows; its historical notes remain in `docs/upstream/KUS-README.md`.
-
-### Why MetaMod uses a special release selector
-
-GitHub's generic `/releases/latest` endpoint can return MetaMod's legacy `1.12.0` release line. The updater therefore lists recent releases and selects the newest non-draft tag matching `2.0.0.<build>`, which is the CS2 development line tracked by KUS. A release that does not match that pattern is ignored rather than installed.
-
-## Share the love
-
-If you appreciate the project then please take the time to star the repository ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â
-
-<img alt="Star the project" src="https://github.com/kus/cs2-modded-server/blob/assets/assets/star.png?raw=true&sanitize=true">
-
-## Stay up to date
-
-Subscribe to release notifications and stay up to date with the latest features and patches:
-
-<img alt="Subscribe to updates" src="https://github.com/kus/cs2-modded-server/blob/assets/assets/watch.png?raw=true&sanitize=true">
-
-## Configuration and per-instance overrides
-
-This unified repository deliberately does **not** use the upstream KUS `custom_files/` or `custom_files_example/` overlay. Those directories and the old startup-time rebuild workflow were not imported.
-
-### Shared configuration
-
-Tracked shared files live under game/csgo/ and are deployed into the SteamCMD runtime:
-
-- `game/csgo/cfg/` ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â server and game-mode configuration.
-- `game/csgo/addons/counterstrikesharp/configs/` ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â CounterStrikeSharp admins, groups and plugin configuration.
-- `game/csgo/gamemodes_server.txt` and `game/csgo/subscribed_file_ids.txt` ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â shared map-group and Workshop subscription configuration when those files exist in the runtime tree.
-
-Changes made directly to tracked files become local Git changes. Commit them intentionally if they should be part of this private repo. `windows/update.bat` refuses to pull when local or untracked changes exist, rather than silently overwriting your work.
-
-### Per-instance overrides on Windows
-
-`CUSTOM_FOLDER` is a copy source, not a per-instance filesystem mount. Before every launch, `run.bat` copies any existing `CUSTOM_FOLDER\cfg\` tree into `server\game\csgo\cfg\` and `CUSTOM_FOLDER\addons\` into `server\game\csgo\addons\` using `xcopy`. Existing matching files are overwritten, new files are added, unrelated files remain, and nothing is deleted. Missing `cfg\` or `addons\` subfolders are skipped. Keep this folder outside the repository if it contains private values, for example:
-
-```text
-<instance-folder>/
-  instance.ini
-  run.bat
-  update.bat
-  run.vbs
-  watchdog.bat
-  aim/
-    cfg/
-      custom_dm.cfg
-    addons/
-      counterstrikesharp/
-        configs/
-          plugins/
-            ...
-```
-
-**Important limitation:** these copies write to the shared runtime. If multiple instances point at the same `SERVER_DIR` and contain different files at matching paths, the most recent runner to copy wins for those destinations. This also applies to files below `CUSTOM_FOLDER\addons\counterstrikesharp\configs\`; those files will be copied if present, so only include them when you intend to overwrite the live configuration.
-
-CounterStrikeSharp resolves its config files from the server's physical game-directory path. Copying the selected files into that path is why this method works, but it does not create separate config trees for simultaneous instances. Put per-instance `.cfg` files under `CUSTOM_FOLDER\cfg\` and ensure the relevant mode config executes them. Root-level files such as `gamemodes_server.txt` are not copied by this runner; they remain managed by repository deployment scripts.
-### Plugin-generated configuration files
-
-The Instance-local `update.bat` performs shared runtime maintenance only; `run.bat` applies `CUSTOM_FOLDER` overrides immediately before each server launch. Repository-root `windows/win.bat` may replace runtime-managed paths and preserves its designated configuration paths during its own deployment; the subsequent `CUSTOM_FOLDER` xcopy can still overwrite matching files supplied by that folder. Do not run repository-root deployment while any Instance is using the shared installation.
-
-**Do not commit real secrets.** Keep `instance.ini`, API keys, Game Server Login Tokens, RCON passwords and database credentials out of tracked files.
-
-## Creating an online server
-
-For a public server, create a Steam [Game Server Login Token](https://steamcommunity.com/dev/managegameservers) and store it in the private `STEAM_ACCOUNT` field of `windows/instance-template/instance.ini`. The Windows runner passes that value to CS2 only when non-empty.
-
-Create a [Steam Web API key](https://steamcommunity.com/dev/apikey) and set `API_KEY` in the same private INI if the server needs to download Workshop content. Set `IP` to the reachable public address if the server needs an explicit advertised address; `BIND_IP=0.0.0.0` controls the local listen address.
-
-Allow the selected game port (default `27085` in the current example INI) through Windows Firewall and your router/cloud firewall. Use the same port when connecting from the internet. Keep the Game Server Login Token, API key and RCON password private.
-
-## Creating a LAN server
-
-For a LAN-only Windows instance, set `LAN=1` in `windows/instance-template/instance.ini`. You can leave `STEAM_ACCOUNT` empty for a private LAN server unless your intended server registration setup requires otherwise.
-
-If the LAN server needs Workshop downloads, set `API_KEY` in the private INI. Ensure the host firewall allows the selected port from the local network.
-
-## Windows runner settings
-
-The active Windows runner reads `windows/instance-template/instance.ini`, not environment variables and not `win.ini`. Copy `instance.example.ini` to `instance.ini`; the latter is excluded by Git.
-
-| Setting | Example default | Purpose |
-| --- | --- | --- |
-| `SERVER_DIR` | `C:\REPLACE_ME\cs2-kus-addons\server` | **Required:** replace with the absolute path to the SteamCMD game installation used by this external Instance. |
-| `IP` | empty | Optional public address passed as `+net_public_adr`. |
-| `BIND_IP` | `0.0.0.0` | Local listen address. |
-| `CUSTOM_FOLDER` | `aim` | External folder whose `cfg\` and `addons\` trees are copied into the shared runtime before each launch. Not isolated from other instances sharing `SERVER_DIR`. |
-| `PORT` | `27085` | Player connection port in the current example. |
-| `TICKRATE` | `128` | Requested tickrate in the example; use a value supported by the installed server and plugins. |
-| `MAXPLAYERS` | `64` | Per-instance capacity, passed through `-maxplayers_override`; `sv_visiblemaxplayers` only controls the browser-displayed count. |
-| `LAN` | `0` | `0` for public/internet mode; `1` for LAN-only mode. |
-| `STEAM_ACCOUNT` | empty | Game Server Login Token; required for normal public-server registration. |
-| `API_KEY` | empty | Optional Steam Web API key for Workshop operations. |
-| `SERVER_PASSWORD` | empty | Optional join password. |
-| `RCON_PASSWORD` | placeholder | Replace with a strong private value before exposing the server. |
-| `EXEC` | `aim.cfg` | Config file requested at launch. |
-| `MAPGROUP` | `mg_aim` | Map group requested at launch. |
-| `MAP` | `de_mirage` | Initial map requested at launch. |
-| `WORKSHOP_COLLECTION` | empty | Optional Workshop collection ID. |
-
-`run.vbs` invokes the runner through `cmd.exe /d /s /c`, waits for its exit code, and retries after 100 ms on exit code 100. `watchdog.bat` runs VBS under `cscript.exe` and relaunches the host if it exits; run the instance-local updater separately when all shared CS2 processes are stopped. Neither watchdog calls `update.bat`. `run.bat` waits on the maintenance lock before starting CS2. After shared maintenance succeedsÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âor is skipped because another instance completed it recentlyÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âthe instance-local `update.bat` refreshes existing `run.bat`, `run.vbs`, and `watchdog.bat` files from `windows/instance-template/`. It never overwrites private `instance.ini`. If no standard `run.bat` exists, a deliberately named custom `*_run.bat` runner is left untouched; when `run.bat` does exist, it is considered managed and will be overwritten with the current template.
-
-## Playing workshop maps/collections
-
-To download maps from the Workshop, the server needs a Steam Web API key. Generate one [here](https://steamcommunity.com/dev/apikey) and put it in the private `API_KEY` field of `windows/instance-template/instance.ini`. For a Workshop collection, set its ID in `WORKSHOP_COLLECTION`.
-
-The console command for hosting a workshop map is `host_workshop_map fileid` where `fileid` is the number that comes after `?id=` in the workshop URL for example: [https://steamcommunity.com/sharedfiles/filedetails/?id=2433686680](https://steamcommunity.com/sharedfiles/filedetails/?id=2433686680)
-
-The console command for hosting a workshop collection is `host_workshop_collection collectionid` where `collectionid` is the number that comes after `?id=` in the workshop URL for example: [https://steamcommunity.com/sharedfiles/filedetails/?id=1092904694](https://steamcommunity.com/sharedfiles/filedetails/?id=1092904694). This command will then download all maps in the collection and create a mapgroup out of them, then host it.
-
-## Setting maps for different game modes
-
-Add maps by editing the tracked `game/csgo/gamemodes_server.txt` and selecting the relevant mode's map group. `windows/win.bat` deploys this root-level file as part of the source payload; the per-instance runner only overlays `cfg/` and `addons/`.
-
-For Workshop maps, add their file IDs to the canonical `game/csgo/subscribed_file_ids.txt` when that file is used by your setup. Commit shared changes to this private repo so they can be reproduced on a clean checkout.
-
-Add a map to the tracked game mode payload with `python scripts/add-map.py <group_name> <map_name> [workshop_id]`.
-
-## Deployment status
-
-The Windows deployment path is CI-checked. The local Linux installer and Docker entrypoints have been aligned to KUS's tracked `game/csgo/` payload model, but neither has been live-tested. Google Cloud still needs an end-to-end VM/metadata check; Kubernetes remains unmaintained.
-
-### Running on Google Cloud
-
-`linux/install-from-gcp.sh` is the metadata-backed bootstrap wrapper. For full maintenance without launching CS2, use `linux/install.sh` on Linux or `google/update.sh` on Google Cloud. These paths update the repository/plugin payload and CS2, then deploy using overwrite-only overlays. `linux/update.sh` is repository-only, matching `windows/update.bat`. The full VM provisioning, firewall, disk, metadata, and secrets lifecycle still needs an end-to-end test. See [the archived KUS guide](docs/upstream/KUS-README.md#running-on-google-cloud) for historical context.
-
-When GCP support is migrated, this section will document the VM image, disk, firewall, metadata/secrets and game update handoff. For historical VM lifecycle commands, see [the archived KUS guide](docs/upstream/KUS-README.md#running-on-google-cloud); treat it as reference only.
-
-### Running on Linux
-
-`linux/install.sh` is the unified Linux install/update entrypoint, matching `windows/install.bat`. It updates the repository and managed plugin payloads, updates Steam Linux Runtime and CS2 through SteamCMD, overlays tracked files without deleting runtime-only files, patches `gameinfo.gi`, and always exits without launching CS2. `linux/update.sh` only updates the Git branch, matching `windows/update.bat`. `linux/setup.sh` is the internal host/runtime provisioning worker, and `linux/install-from-gcp.sh` invokes the same no-launch install/update workflow on Google Cloud. On Linux, the only script that launches the CS2 process is `linux/instances/<name>/run.sh`; start the instance's `watchdog.sh` for crash recovery instead of launching `run.sh` directly. Keep all server settings and secrets in the instance's private `instance.env`. The Linux scripts have not yet been runtime-tested on a live host. Run only scripts from this private checkout, not archived commands that download public KUS scripts over them.
-
-The tracked source payload is `game/csgo/`; the actual Linux runtime is `<install-root>/game/csgo/`. See [the archived Linux guide](docs/upstream/KUS-README.md#running-on-linux) for historical context.
-
-### Running in Docker
-
-`docker/Dockerfile`, `docker/install_docker.sh`, `docker/update.sh`, and `docker/docker-compose.yml` use the tracked `game/csgo/` payload and keep the installed CS2 game in the persistent volume. Run `bash docker/update.sh` from the repository root to update plugins and the game without launching CS2; the maintenance container refuses to run while the service container is active. The Docker path has not been live-tested. See [the archived Docker guide](docs/upstream/KUS-README.md#running-in-docker) for historical context.
-
-First run `cp .env.example .env`, then edit `.env`: set a valid `STEAM_ACCOUNT` (GSLT) for public hosting and replace `RCON_PASSWORD` with a strong, unique value. `API_KEY` is optional. `.env` is ignored by Git and must never be committed. Build from the repository root with `docker compose -f docker/docker-compose.yml up --build`. Compose expects that root `.env` to exist because it is declared as an `env_file`. This uses the root `.dockerignore`; the Docker image is still not live-tested. The historical KUS container notes remain in [the archived Docker guide](docs/upstream/KUS-README.md#running-in-docker).
-
-### Running in Kubernetes
-
-Kubernetes deployment is not currently maintained for the unified distribution. The upstream manifest uses the previous container and `custom_files` layout; do not apply it directly to this branch. Consult [the archived Kubernetes notes](docs/upstream/KUS-README.md#running-in-kubernetes) for provenance only.
-
-## Running on Windows
-
-Use a Windows x64 server with Git installed and at least 60 GB of free disk space. This is a private repository, so authenticate to GitHub before cloning it.
-
-### 1. Clone and install
-
-```bat
-git clone --branch integration/kus-monorepo https://github.com/larnzs/cs2-kus-addons.git
-cd cs2-kus-addons
-windows/install.bat
-```
-
-`windows/install.bat` downloads SteamCMD if needed and runs KUS-style `app_update 730` in `server/`, then calls `windows/win.bat` to deploy `game/csgo/`, patch the installed `gameinfo.gi`, and verify the runtime. It does not start the server or pass SteamCMD's optional `validate` flag.
-
-### 2. Configure and run an instance
-
-Copy the contents of `windows/instance-template/` into your external Instance folder, then copy `instance.example.ini` to `instance.ini` there. Set `SERVER_DIR` to the absolute path of this checkout's `server` folder (for example `W:\cs2-kus-addons\server` on this machine), then edit the port, map/map group, reachable public IP (optional), Game Server Login Token, and a strong RCON password. Keep `instance.ini` private; it is excluded from Git.
-
-Run the instance-local `update.bat` manually while every CS2 process is stopped. Then launch `windows/instance-template/watchdog.bat`; it supervises the VBS host, and VBS retries only the runner after a CS2 exit.
-
-### Maintenance commands
-
-See [Maintenance scripts and update responsibilities](#updating-the-integrated-repository-and-add-ons) for safe deployment details. The files in `windows/instance-template/` belong together in each external Instance folder, beside its private `instance.ini`. Run the instance-local updater separately with all CS2 processes stopped; watchdogs do not run maintenance, and `run.bat` applies the custom-file copies before each launch.
-
-Allow the selected game port through Windows Firewall and the router/cloud firewall. Use a valid Game Server Login Token for a public server. Keep API keys, login tokens, RCON passwords, and instance-specific settings out of tracked files.
-
-## FAQ
-
-### Player commands
-
-#### !rtv
-
-Players can start a vote to change the map in the current mod by typing `!rtv` in chat.
-
-<img alt="Vote to change map" src="https://github.com/kus/cs2-modded-server/blob/assets/assets/rtv.png?raw=true&sanitize=true">
-
-#### !gamemode
-
-Players can start a vote to change the game mode by typing `!gamemode` in chat.
-
-<img alt="Vote to change game mode" src="https://github.com/kus/cs2-modded-server/blob/assets/assets/vote-gamemode.png?raw=true&sanitize=true">
-
-You can also start a specific game mode vote by typing `!comp`, `!wingman`, `!dm`, `!gg`, `!1v1`, `!awp`, `!aim`, `!prefire`, `!executes`, `!retake`, `!prac`, `!bhop`, `!kz`, `!surf`, `!minigames`, `!deathrun`, `!course`, `!scoutzknivez`, `!hns`, `!br`, `!soccer`, `!1.6`.
-
-### I want MatchZy to record demos automatically
-
-SourceTV is disabled by default for compatibility with a wider range of setups. The per-instance file can be placed at `<CUSTOM_FOLDER>/cfg/custom_all.cfg`; `run.bat` copies it into the shared runtime before launch. The relevant mode config still needs to execute the file. The config command is:
-
-```cfg
-tv_enable 1
-```
-
-The runner overlays that `cfg/` directory before launching the server. You can review the available server commands in the [KUS server.cfg reference](https://github.com/kus/cs2-modded-server/blob/master/game/csgo/cfg/server.cfg). For MatchZy demos, leave `tv_autorecord 0` because MatchZy manages recording start and stop.
-
-Check SourceTV with `tv_status` from the server console. You can also test with `tv_record <filename>` and stop with `tv_stoprecord`.
-
-### What maps are preconfigured with each mode?
-
-#### mg_active
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_ancient.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_ancient<br><sup><sub>changelevel de_ancient</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_anubis.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_anubis<br><sup><sub>changelevel de_anubis</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_inferno.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_inferno<br><sup><sub>changelevel de_inferno</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mirage.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_mirage<br><sup><sub>changelevel de_mirage</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_nuke.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_nuke<br><sup><sub>changelevel de_nuke</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_dust2.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_dust2<br><sup><sub>changelevel de_dust2</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_overpass.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_overpass<br><sup><sub>changelevel de_overpass</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_valve_competitive
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_dust2.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_dust2<br><sup><sub>changelevel de_dust2</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mirage.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_mirage<br><sup><sub>changelevel de_mirage</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_inferno.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_inferno<br><sup><sub>changelevel de_inferno</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_ancient_night.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_ancient_night<br><sup><sub>changelevel de_ancient_night</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_nuke.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_nuke<br><sup><sub>changelevel de_nuke</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_train.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_train<br><sup><sub>changelevel de_train</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_overpass.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_overpass<br><sup><sub>changelevel de_overpass</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_anubis.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_anubis<br><sup><sub>changelevel de_anubis</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_vertigo.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_vertigo<br><sup><sub>changelevel de_vertigo</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_warden.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_warden<br><sup><sub>changelevel de_warden</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_stronghold.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_stronghold<br><sup><sub>changelevel de_stronghold</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_alpine.jpg?raw=true&sanitize=true"></td></tr><tr><td>cs_alpine<br><sup><sub>changelevel cs_alpine</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_office.jpg?raw=true&sanitize=true"></td></tr><tr><td>cs_office<br><sup><sub>changelevel cs_office</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_italy.jpg?raw=true&sanitize=true"></td></tr><tr><td>cs_italy<br><sup><sub>changelevel cs_italy</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_valve_wingman
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_sanctum.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_sanctum<br><sup><sub>changelevel de_sanctum</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_poseidon.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_poseidon<br><sup><sub>changelevel de_poseidon</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_overpass.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_overpass<br><sup><sub>changelevel de_overpass</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_vertigo.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_vertigo<br><sup><sub>changelevel de_vertigo</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_nuke.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_nuke<br><sup><sub>changelevel de_nuke</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_inferno.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_inferno<br><sup><sub>changelevel de_inferno</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_valve_casual
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_dust2.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_dust2<br><sup><sub>changelevel de_dust2</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mirage.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_mirage<br><sup><sub>changelevel de_mirage</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_inferno.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_inferno<br><sup><sub>changelevel de_inferno</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_ancient_night.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_ancient_night<br><sup><sub>changelevel de_ancient_night</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_nuke.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_nuke<br><sup><sub>changelevel de_nuke</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_train.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_train<br><sup><sub>changelevel de_train</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_overpass.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_overpass<br><sup><sub>changelevel de_overpass</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_anubis.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_anubis<br><sup><sub>changelevel de_anubis</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_vertigo.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_vertigo<br><sup><sub>changelevel de_vertigo</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_warden.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_warden<br><sup><sub>changelevel de_warden</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_stronghold.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_stronghold<br><sup><sub>changelevel de_stronghold</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_alpine.jpg?raw=true&sanitize=true"></td></tr><tr><td>cs_alpine<br><sup><sub>changelevel cs_alpine</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_office.jpg?raw=true&sanitize=true"></td></tr><tr><td>cs_office<br><sup><sub>changelevel cs_office</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_italy.jpg?raw=true&sanitize=true"></td></tr><tr><td>cs_italy<br><sup><sub>changelevel cs_italy</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_valve_deathmatch
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_dust2.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_dust2<br><sup><sub>changelevel de_dust2</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mirage.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_mirage<br><sup><sub>changelevel de_mirage</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_inferno.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_inferno<br><sup><sub>changelevel de_inferno</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_ancient_night.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_ancient_night<br><sup><sub>changelevel de_ancient_night</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_nuke.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_nuke<br><sup><sub>changelevel de_nuke</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_train.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_train<br><sup><sub>changelevel de_train</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_overpass.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_overpass<br><sup><sub>changelevel de_overpass</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_anubis.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_anubis<br><sup><sub>changelevel de_anubis</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_vertigo.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_vertigo<br><sup><sub>changelevel de_vertigo</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_warden.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_warden<br><sup><sub>changelevel de_warden</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_stronghold.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_stronghold<br><sup><sub>changelevel de_stronghold</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_alpine.jpg?raw=true&sanitize=true"></td></tr><tr><td>cs_alpine<br><sup><sub>changelevel cs_alpine</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_office.jpg?raw=true&sanitize=true"></td></tr><tr><td>cs_office<br><sup><sub>changelevel cs_office</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_italy.jpg?raw=true&sanitize=true"></td></tr><tr><td>cs_italy<br><sup><sub>changelevel cs_italy</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_valve_arms_race
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_baggage.jpg?raw=true&sanitize=true"></td></tr><tr><td>ar_baggage<br><sup><sub>changelevel ar_baggage</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_shoots.jpg?raw=true&sanitize=true"></td></tr><tr><td>ar_shoots<br><sup><sub>changelevel ar_shoots</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_shoots_night.jpg?raw=true&sanitize=true"></td></tr><tr><td>ar_shoots_night<br><sup><sub>changelevel ar_shoots_night</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_pool_day.jpg?raw=true&sanitize=true"></td></tr><tr><td>ar_pool_day<br><sup><sub>changelevel ar_pool_day</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_valve_retakes
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_dust2.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_dust2<br><sup><sub>changelevel de_dust2</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mirage.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_mirage<br><sup><sub>changelevel de_mirage</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_inferno.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_inferno<br><sup><sub>changelevel de_inferno</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_ancient_night.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_ancient_night<br><sup><sub>changelevel de_ancient_night</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_nuke.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_nuke<br><sup><sub>changelevel de_nuke</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_train.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_train<br><sup><sub>changelevel de_train</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_overpass.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_overpass<br><sup><sub>changelevel de_overpass</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_anubis.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_anubis<br><sup><sub>changelevel de_anubis</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_vertigo.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_vertigo<br><sup><sub>changelevel de_vertigo</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_comp
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_dust2.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_dust2<br><sup><sub>changelevel de_dust2</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mirage.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_mirage<br><sup><sub>changelevel de_mirage</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_inferno.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_inferno<br><sup><sub>changelevel de_inferno</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_ancient_night.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_ancient_night<br><sup><sub>changelevel de_ancient_night</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_nuke.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_nuke<br><sup><sub>changelevel de_nuke</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_train.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_train<br><sup><sub>changelevel de_train</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_overpass.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_overpass<br><sup><sub>changelevel de_overpass</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_anubis.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_anubis<br><sup><sub>changelevel de_anubis</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_vertigo.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_vertigo<br><sup><sub>changelevel de_vertigo</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_warden.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_warden<br><sup><sub>changelevel de_warden</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_stronghold.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_stronghold<br><sup><sub>changelevel de_stronghold</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_alpine.jpg?raw=true&sanitize=true"></td></tr><tr><td>cs_alpine<br><sup><sub>changelevel cs_alpine</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_office.jpg?raw=true&sanitize=true"></td></tr><tr><td>cs_office<br><sup><sub>changelevel cs_office</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_italy.jpg?raw=true&sanitize=true"></td></tr><tr><td>cs_italy<br><sup><sub>changelevel cs_italy</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_golden.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3286163323">de_golden</a><br><sup><sub>host_workshop_map 3286163323</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_palacio.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3249860053">de_palacio</a><br><sup><sub>host_workshop_map 3249860053</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_agency.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3339983232">cs_agency</a><br><sup><sub>host_workshop_map 3339983232</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_basalt.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3329258290">de_basalt</a><br><sup><sub>host_workshop_map 3329258290</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_edin.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3328169568">de_edin</a><br><sup><sub>host_workshop_map 3328169568</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_assembly.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3071005299">de_assembly</a><br><sup><sub>host_workshop_map 3071005299</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_cbble.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3329387648">de_cbble</a><br><sup><sub>host_workshop_map 3329387648</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_cache.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3437809122">de_cache</a><br><sup><sub>host_workshop_map 3437809122</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_splinter.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3691046714">de_splinter</a><br><sup><sub>host_workshop_map 3691046714</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_biome.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3075706807">de_biome</a><br><sup><sub>host_workshop_map 3075706807</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mp_raid.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070346180">mp_raid</a><br><sup><sub>host_workshop_map 3070346180</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mutiny.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070766070">de_mutiny</a><br><sup><sub>host_workshop_map 3070766070</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_assault.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3694043544">cs_assault</a><br><sup><sub>host_workshop_map 3694043544</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_ruins_d_prefab.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3072352643">de_ruins_d_prefab</a><br><sup><sub>host_workshop_map 3072352643</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_militia.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3089953774">cs_militia</a><br><sup><sub>host_workshop_map 3089953774</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_aztec_hr.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3079692971">de_aztec_hr</a><br><sup><sub>host_workshop_map 3079692971</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_akiba.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3108513658">de_akiba</a><br><sup><sub>host_workshop_map 3108513658</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/factory.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3681322159">factory</a><br><sup><sub>host_workshop_map 3681322159</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_insertion2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3236615060">cs_insertion2</a><br><sup><sub>host_workshop_map 3236615060</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mills.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3152430710">de_mills</a><br><sup><sub>host_workshop_map 3152430710</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_thera.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3121217565">de_thera</a><br><sup><sub>host_workshop_map 3121217565</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_season.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3073892687">de_season</a><br><sup><sub>host_workshop_map 3073892687</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_ema.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3386116667">de_ema</a><br><sup><sub>host_workshop_map 3386116667</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/twofort_cs2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3345551391">twofort_cs2</a><br><sup><sub>host_workshop_map 3345551391</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_rats_remake.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3460962520">de_rats_remake</a><br><sup><sub>host_workshop_map 3460962520</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mirage_bricks.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3464733042">de_mirage_bricks</a><br><sup><sub>host_workshop_map 3464733042</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/project_phoenix.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3683699332">project_phoenix</a><br><sup><sub>host_workshop_map 3683699332</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ultimate_free_nuke.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3687298714">ultimate_free_nuke</a><br><sup><sub>host_workshop_map 3687298714</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_retake
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_ancient.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_ancient<br><sup><sub>changelevel de_ancient</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_anubis.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_anubis<br><sup><sub>changelevel de_anubis</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_inferno.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_inferno<br><sup><sub>changelevel de_inferno</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mirage.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_mirage<br><sup><sub>changelevel de_mirage</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_nuke.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_nuke<br><sup><sub>changelevel de_nuke</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_dust2.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_dust2<br><sup><sub>changelevel de_dust2</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_train.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_train<br><sup><sub>changelevel de_train</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_overpass.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_overpass<br><sup><sub>changelevel de_overpass</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_vertigo.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_vertigo<br><sup><sub>changelevel de_vertigo</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_prefire
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_ancient.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_ancient<br><sup><sub>changelevel de_ancient</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_anubis.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_anubis<br><sup><sub>changelevel de_anubis</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_inferno.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_inferno<br><sup><sub>changelevel de_inferno</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mirage.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_mirage<br><sup><sub>changelevel de_mirage</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_nuke.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_nuke<br><sup><sub>changelevel de_nuke</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_dust2.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_dust2<br><sup><sub>changelevel de_dust2</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_train.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_train<br><sup><sub>changelevel de_train</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_overpass.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_overpass<br><sup><sub>changelevel de_overpass</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_vertigo.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_vertigo<br><sup><sub>changelevel de_vertigo</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_executes
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mirage.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_mirage<br><sup><sub>changelevel de_mirage</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_wingman
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_sanctum.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_sanctum<br><sup><sub>changelevel de_sanctum</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_poseidon.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_poseidon<br><sup><sub>changelevel de_poseidon</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_overpass.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_overpass<br><sup><sub>changelevel de_overpass</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_vertigo.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_vertigo<br><sup><sub>changelevel de_vertigo</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_nuke.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_nuke<br><sup><sub>changelevel de_nuke</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_inferno.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_inferno<br><sup><sub>changelevel de_inferno</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_pool_day.jpg?raw=true&sanitize=true"></td></tr><tr><td>ar_pool_day<br><sup><sub>changelevel ar_pool_day</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_rooftop.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3536622725">de_rooftop</a><br><sup><sub>host_workshop_map 3536622725</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_splat.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3439120481">de_splat</a><br><sup><sub>host_workshop_map 3439120481</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_dust2_wingman.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3413800427">de_dust2_wingman</a><br><sup><sub>host_workshop_map 3413800427</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mirage_d.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3402437047">de_mirage_d</a><br><sup><sub>host_workshop_map 3402437047</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_palais.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3257582863">de_palais</a><br><sup><sub>host_workshop_map 3257582863</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_whistle.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3308613773">de_whistle</a><br><sup><sub>host_workshop_map 3308613773</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/gd_rialto.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3085490518">gd_rialto</a><br><sup><sub>host_workshop_map 3085490518</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_safehouse.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070550406">de_safehouse</a><br><sup><sub>host_workshop_map 3070550406</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_lake.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070563536">de_lake</a><br><sup><sub>host_workshop_map 3070563536</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_bank.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070581293">de_bank</a><br><sup><sub>host_workshop_map 3070581293</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_shortdust.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070612859">de_shortdust</a><br><sup><sub>host_workshop_map 3070612859</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_assembly.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3071005299">de_assembly</a><br><sup><sub>host_workshop_map 3071005299</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_cbble.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3329387648">de_cbble</a><br><sup><sub>host_workshop_map 3329387648</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_cache.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3437809122">de_cache</a><br><sup><sub>host_workshop_map 3437809122</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_biome.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3075706807">de_biome</a><br><sup><sub>host_workshop_map 3075706807</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mp_raid.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070346180">mp_raid</a><br><sup><sub>host_workshop_map 3070346180</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mutiny.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070766070">de_mutiny</a><br><sup><sub>host_workshop_map 3070766070</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_assault.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070594412">cs_assault</a><br><sup><sub>host_workshop_map 3070594412</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_ruins_d_prefab.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3072352643">de_ruins_d_prefab</a><br><sup><sub>host_workshop_map 3072352643</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_sakura.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3082340867">de_sakura</a><br><sup><sub>host_workshop_map 3082340867</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_memento.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3165559377">de_memento</a><br><sup><sub>host_workshop_map 3165559377</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/skatepark.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3309665004">skatepark</a><br><sup><sub>host_workshop_map 3309665004</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_ema.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3386116667">de_ema</a><br><sup><sub>host_workshop_map 3386116667</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/paintit.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3360723913">paintit</a><br><sup><sub>host_workshop_map 3360723913</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mirage_bricks.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3464733042">de_mirage_bricks</a><br><sup><sub>host_workshop_map 3464733042</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_dm
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_vertigo.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_vertigo<br><sup><sub>changelevel de_vertigo</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_dust2.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_dust2<br><sup><sub>changelevel de_dust2</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_inferno.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_inferno<br><sup><sub>changelevel de_inferno</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mirage.jpg?raw=true&sanitize=true"></td></tr><tr><td>de_mirage<br><sup><sub>changelevel de_mirage</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_gg
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_shoots.jpg?raw=true&sanitize=true"></td></tr><tr><td>ar_shoots<br><sup><sub>changelevel ar_shoots</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_shoots_night.jpg?raw=true&sanitize=true"></td></tr><tr><td>ar_shoots_night<br><sup><sub>changelevel ar_shoots_night</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_baggage.jpg?raw=true&sanitize=true"></td></tr><tr><td>ar_baggage<br><sup><sub>changelevel ar_baggage</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_pool_day.jpg?raw=true&sanitize=true"></td></tr><tr><td>ar_pool_day<br><sup><sub>changelevel ar_pool_day</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/speedball.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3443206318">speedball</a><br><sup><sub>host_workshop_map 3443206318</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/aim_plywood.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3118710028">aim_plywood</a><br><sup><sub>host_workshop_map 3118710028</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/gg_lego_arena.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3267768230">gg_lego_arena</a><br><sup><sub>host_workshop_map 3267768230</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_indoor.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3535917558">de_indoor</a><br><sup><sub>host_workshop_map 3535917558</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_assembly.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3071005299">de_assembly</a><br><sup><sub>host_workshop_map 3071005299</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/fy_iceworld.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070238628">fy_iceworld</a><br><sup><sub>host_workshop_map 3070238628</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/daymare.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3072640420">daymare</a><br><sup><sub>host_workshop_map 3072640420</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mcdonalds.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3134466699">mcdonalds</a><br><sup><sub>host_workshop_map 3134466699</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/aim_theorem.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070348309">aim_theorem</a><br><sup><sub>host_workshop_map 3070348309</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_safehouse.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070550406">de_safehouse</a><br><sup><sub>host_workshop_map 3070550406</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_lake.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070563536">de_lake</a><br><sup><sub>host_workshop_map 3070563536</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_bank.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070581293">de_bank</a><br><sup><sub>host_workshop_map 3070581293</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/fun_bounce.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3088183343">fun_bounce</a><br><sup><sub>host_workshop_map 3088183343</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/1v1aim_map_longdustversion_d.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3082605693">1v1aim_map_longdustversion_d</a><br><sup><sub>host_workshop_map 3082605693</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_churches_s2r.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070291913">ar_churches_s2r</a><br><sup><sub>host_workshop_map 3070291913</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/aim_ag_texture_city_advanced.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3082113929">aim_ag_texture_city_advanced</a><br><sup><sub>host_workshop_map 3082113929</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/trainingoutside.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3475270536">trainingoutside</a><br><sup><sub>host_workshop_map 3475270536</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/shipment_version_1_0.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3086555291">shipment_version_1_0</a><br><sup><sub>host_workshop_map 3086555291</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/aim_ag_texture2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3074961197">aim_ag_texture2</a><br><sup><sub>host_workshop_map 3074961197</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/aim_ag_texture_jungle.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3095778105">aim_ag_texture_jungle</a><br><sup><sub>host_workshop_map 3095778105</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs2_bloodstrike.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3071890065">cs2_bloodstrike</a><br><sup><sub>host_workshop_map 3071890065</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/gg_simpsons_vs_flanders_v2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3109232789">gg_simpsons_vs_flanders_v2</a><br><sup><sub>host_workshop_map 3109232789</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/school_d_environment_prefab.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3343693110">school_d_environment_prefab</a><br><sup><sub>host_workshop_map 3343693110</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_ema.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3386116667">de_ema</a><br><sup><sub>host_workshop_map 3386116667</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/twofort_cs2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3345551391">twofort_cs2</a><br><sup><sub>host_workshop_map 3345551391</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/paintit.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3360723913">paintit</a><br><sup><sub>host_workshop_map 3360723913</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/kloce.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3248340515">kloce</a><br><sup><sub>host_workshop_map 3248340515</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/gulag.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3326465469">gulag</a><br><sup><sub>host_workshop_map 3326465469</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_rats_remake.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3460962520">de_rats_remake</a><br><sup><sub>host_workshop_map 3460962520</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mirage_bricks.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3464733042">de_mirage_bricks</a><br><sup><sub>host_workshop_map 3464733042</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_splat.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3439120481">de_splat</a><br><sup><sub>host_workshop_map 3439120481</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/1v1v1v1beta04.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3433012420">1v1v1v1beta04</a><br><sup><sub>host_workshop_map 3433012420</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/gg_festspeedball.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3111527644">gg_festspeedball</a><br><sup><sub>host_workshop_map 3111527644</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_blue_arena.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3361478861">ar_blue_arena</a><br><sup><sub>host_workshop_map 3361478861</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/gg_strafe_gg1.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3331570055">gg_strafe_gg1</a><br><sup><sub>host_workshop_map 3331570055</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/aim_shotty2_gg1.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3360120483">aim_shotty2_gg1</a><br><sup><sub>host_workshop_map 3360120483</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/fy_hangemhigh.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3437226954">fy_hangemhigh</a><br><sup><sub>host_workshop_map 3437226954</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_combat_arena.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3455068243">ar_combat_arena</a><br><sup><sub>host_workshop_map 3455068243</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_ds_cornered_gg1.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3329405459">ar_ds_cornered_gg1</a><br><sup><sub>host_workshop_map 3329405459</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/awp_lego_2_destructible.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3706720942">awp_lego_2_destructible</a><br><sup><sub>host_workshop_map 3706720942</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_1v1
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/aim_redline_fp.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070253400">aim_redline_fp</a><br><sup><sub>host_workshop_map 3070253400</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_bhop
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/bhop_at_night.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3077211069">bhop_at_night</a><br><sup><sub>host_workshop_map 3077211069</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/bhop_ragnarok.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3077153735">bhop_ragnarok</a><br><sup><sub>host_workshop_map 3077153735</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/bhop_zunron.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3077475505">bhop_zunron</a><br><sup><sub>host_workshop_map 3077475505</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/bhop_1derland.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3077596014">bhop_1derland</a><br><sup><sub>host_workshop_map 3077596014</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/bhop_whiteshit.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3078523849">bhop_whiteshit</a><br><sup><sub>host_workshop_map 3078523849</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/bhop_cherryblossom.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3082038560">bhop_cherryblossom</a><br><sup><sub>host_workshop_map 3082038560</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/bhop_arcturus.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3088973190">bhop_arcturus</a><br><sup><sub>host_workshop_map 3088973190</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/bhop_kiwi_cwfx.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3095219437">bhop_kiwi_cwfx</a><br><sup><sub>host_workshop_map 3095219437</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_kz
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/only_up.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3074758439">only_up</a><br><sup><sub>host_workshop_map 3074758439</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/kz_dima.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3343029934">kz_dima</a><br><sup><sub>host_workshop_map 3343029934</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ewii_challenge.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3170668869">ewii_challenge</a><br><sup><sub>host_workshop_map 3170668869</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/hellcasecyrilchallenge.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3145779590">hellcasecyrilchallenge</a><br><sup><sub>host_workshop_map 3145779590</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/kz_checkmate.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070194623">kz_checkmate</a><br><sup><sub>host_workshop_map 3070194623</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/kz_victoria.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3086304337">kz_victoria</a><br><sup><sub>host_workshop_map 3086304337</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/kz_rc_stonehenge.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3072219045">kz_rc_stonehenge</a><br><sup><sub>host_workshop_map 3072219045</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/kz_sxb2_cxz.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3083714192">kz_sxb2_cxz</a><br><sup><sub>host_workshop_map 3083714192</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/kz_rc_twotowers.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3083509404">kz_rc_twotowers</a><br><sup><sub>host_workshop_map 3083509404</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/kz_simplyhard.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3078311932">kz_simplyhard</a><br><sup><sub>host_workshop_map 3078311932</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/kz_nomibo.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3077122656">kz_nomibo</a><br><sup><sub>host_workshop_map 3077122656</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/kz_sxb2_biewan.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3076000218">kz_sxb2_biewan</a><br><sup><sub>host_workshop_map 3076000218</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/kz_ggsh.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3072744536">kz_ggsh</a><br><sup><sub>host_workshop_map 3072744536</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/kz_ltt.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3072699538">kz_ltt</a><br><sup><sub>host_workshop_map 3072699538</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_surf
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/surf_kitsune.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3076153623">surf_kitsune</a><br><sup><sub>host_workshop_map 3076153623</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/surf_utopia_njv.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3073875025">surf_utopia_njv</a><br><sup><sub>host_workshop_map 3073875025</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/surf_beginner.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070321829">surf_beginner</a><br><sup><sub>host_workshop_map 3070321829</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/surf_mesa_revo.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3076980482">surf_mesa_revo</a><br><sup><sub>host_workshop_map 3076980482</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/surf_deathstar.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3080544577">surf_deathstar</a><br><sup><sub>host_workshop_map 3080544577</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/surf_rookie.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3082548297">surf_rookie</a><br><sup><sub>host_workshop_map 3082548297</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/surf_benevolent.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3098972556">surf_benevolent</a><br><sup><sub>host_workshop_map 3098972556</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/surf_ace.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3088413071">surf_ace</a><br><sup><sub>host_workshop_map 3088413071</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/surf_boreas.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3133346713">surf_boreas</a><br><sup><sub>host_workshop_map 3133346713</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/surf_nyx.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3129698096">surf_nyx</a><br><sup><sub>host_workshop_map 3129698096</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/surf_whiteout.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3296258256">surf_whiteout</a><br><sup><sub>host_workshop_map 3296258256</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/surf_ski_2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3079877518">surf_ski_2</a><br><sup><sub>host_workshop_map 3079877518</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_minigames
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mg_skeet_multigames_v7.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3082120895">mg_skeet_multigames_v7</a><br><sup><sub>host_workshop_map 3082120895</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mg_lego_course_2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3202752274">mg_lego_course_2</a><br><sup><sub>host_workshop_map 3202752274</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mg_warmcup_headshot.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3076765511">mg_warmcup_headshot</a><br><sup><sub>host_workshop_map 3076765511</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_battleroyale
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/br_t2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3462095803">br_t2</a><br><sup><sub>host_workshop_map 3462095803</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/br_electrified.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3330484099">br_electrified</a><br><sup><sub>host_workshop_map 3330484099</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/br_stacks.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3297489255">br_stacks</a><br><sup><sub>host_workshop_map 3297489255</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/br_flood.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3267454508">br_flood</a><br><sup><sub>host_workshop_map 3267454508</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/minecraft.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3186779271">minecraft</a><br><sup><sub>host_workshop_map 3186779271</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/minecraft_hungergame.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3240933254">minecraft_hungergame</a><br><sup><sub>host_workshop_map 3240933254</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_deathrun
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/deathrun_playground.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3164611860">deathrun_playground</a><br><sup><sub>host_workshop_map 3164611860</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/deathrun_egypt.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3311285877">deathrun_egypt</a><br><sup><sub>host_workshop_map 3311285877</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/deathrun_civilization.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3188021118">deathrun_civilization</a><br><sup><sub>host_workshop_map 3188021118</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/deathrun_iceworld_cs2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3083325292">deathrun_iceworld_cs2</a><br><sup><sub>host_workshop_map 3083325292</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_course
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cr_devisland_p1_v1.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3076483842">cr_devisland_p1_v1</a><br><sup><sub>host_workshop_map 3076483842</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mg_switch_course_v2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070439729">mg_switch_course_v2</a><br><sup><sub>host_workshop_map 3070439729</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cr_minecraft_jb_v2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070896876">cr_minecraft_jb_v2</a><br><sup><sub>host_workshop_map 3070896876</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mg_metro_course_v1.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070463151">mg_metro_course_v1</a><br><sup><sub>host_workshop_map 3070463151</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mg_alley_course_v2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070455802">mg_alley_course_v2</a><br><sup><sub>host_workshop_map 3070455802</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mg_glave_course_v2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070445185">mg_glave_course_v2</a><br><sup><sub>host_workshop_map 3070445185</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mg_office_course_v3.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070459211">mg_office_course_v3</a><br><sup><sub>host_workshop_map 3070459211</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mg_metal_course_v2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070464208">mg_metal_course_v2</a><br><sup><sub>host_workshop_map 3070464208</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mg_acrophobia_run_v2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070463620">mg_acrophobia_run_v2</a><br><sup><sub>host_workshop_map 3070463620</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mg_metro_course_s2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3071040020">mg_metro_course_s2</a><br><sup><sub>host_workshop_map 3071040020</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mg_circle_course_v3.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070434475">mg_circle_course_v3</a><br><sup><sub>host_workshop_map 3070434475</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mg_simpsons_course_v2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070447697">mg_simpsons_course_v2</a><br><sup><sub>host_workshop_map 3070447697</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mg_sonic_course_v2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070452642">mg_sonic_course_v2</a><br><sup><sub>host_workshop_map 3070452642</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/mg_sky_realm_v3.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070451616">mg_sky_realm_v3</a><br><sup><sub>host_workshop_map 3070451616</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_scoutzknivez
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/scoutzknivez_pure_cs2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3073929825">scoutzknivez_pure_cs2</a><br><sup><sub>host_workshop_map 3073929825</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_dizzy.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3070553020">ar_dizzy</a><br><sup><sub>host_workshop_map 3070553020</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_hns
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_nuke_prophunt.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3366748499">de_nuke_prophunt</a><br><sup><sub>host_workshop_map 3366748499</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_overpass_prophunt.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3382166635">de_overpass_prophunt</a><br><sup><sub>host_workshop_map 3382166635</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_inferno_prophunt.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3348038890">de_inferno_prophunt</a><br><sup><sub>host_workshop_map 3348038890</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_vertigo_prophunt.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3292648008">de_vertigo_prophunt</a><br><sup><sub>host_workshop_map 3292648008</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mirage_prophunt.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3287578956">de_mirage_prophunt</a><br><sup><sub>host_workshop_map 3287578956</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_soccer
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/field.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3238565662">field</a><br><sup><sub>host_workshop_map 3238565662</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_awp
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/awp_bhop_rocket.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3142070597">awp_bhop_rocket</a><br><sup><sub>host_workshop_map 3142070597</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/bump_arena.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3679420050">bump_arena</a><br><sup><sub>host_workshop_map 3679420050</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_battle
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/battleball.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3280650663">battleball</a><br><sup><sub>host_workshop_map 3280650663</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_aim
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/aim_map.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3084291314">aim_map</a><br><sup><sub>host_workshop_map 3084291314</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/gg_festspeedball.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3111527644">gg_festspeedball</a><br><sup><sub>host_workshop_map 3111527644</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/aim_plywood.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3118710028">aim_plywood</a><br><sup><sub>host_workshop_map 3118710028</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/freebet_aim_map.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3146122036">freebet_aim_map</a><br><sup><sub>host_workshop_map 3146122036</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_pool_day.jpg?raw=true&sanitize=true"></td></tr><tr><td>ar_pool_day<br><sup><sub>changelevel ar_pool_day</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/aim_ak-colt_CS2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3078701726">aim_ak-colt_CS2</a><br><sup><sub>host_workshop_map 3078701726</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/aim_usp.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3085962528">aim_usp</a><br><sup><sub>host_workshop_map 3085962528</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/aim_deagle.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3075996446">aim_deagle</a><br><sup><sub>host_workshop_map 3075996446</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/1v1aim_map_longdustversion_d.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3082605693">1v1aim_map_longdustversion_d</a><br><sup><sub>host_workshop_map 3082605693</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_splat.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3439120481">de_splat</a><br><sup><sub>host_workshop_map 3439120481</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/1v1v1v1beta04.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3433012420">1v1v1v1beta04</a><br><sup><sub>host_workshop_map 3433012420</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_blue_arena.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3361478861">ar_blue_arena</a><br><sup><sub>host_workshop_map 3361478861</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/gg_strafe_gg1.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3331570055">gg_strafe_gg1</a><br><sup><sub>host_workshop_map 3331570055</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/aim_shotty2_gg1.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3360120483">aim_shotty2_gg1</a><br><sup><sub>host_workshop_map 3360120483</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/fy_hangemhigh.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3437226954">fy_hangemhigh</a><br><sup><sub>host_workshop_map 3437226954</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_combat_arena.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3455068243">ar_combat_arena</a><br><sup><sub>host_workshop_map 3455068243</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ar_ds_cornered_gg1.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3329405459">ar_ds_cornered_gg1</a><br><sup><sub>host_workshop_map 3329405459</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/speedball.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3443206318">speedball</a><br><sup><sub>host_workshop_map 3443206318</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_indoor.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3535917558">de_indoor</a><br><sup><sub>host_workshop_map 3535917558</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/daymare.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3072640420">daymare</a><br><sup><sub>host_workshop_map 3072640420</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/aim_ag_texture_city_advanced.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3082113929">aim_ag_texture_city_advanced</a><br><sup><sub>host_workshop_map 3082113929</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/trainingoutside.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3475270536">trainingoutside</a><br><sup><sub>host_workshop_map 3475270536</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/shipment_version_1_0.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3086555291">shipment_version_1_0</a><br><sup><sub>host_workshop_map 3086555291</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/aim_ag_texture2.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3074961197">aim_ag_texture2</a><br><sup><sub>host_workshop_map 3074961197</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/aim_ag_texture_jungle.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3095778105">aim_ag_texture_jungle</a><br><sup><sub>host_workshop_map 3095778105</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs2_bloodstrike.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3071890065">cs2_bloodstrike</a><br><sup><sub>host_workshop_map 3071890065</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_casual16
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/as_oilrig.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3104677430">as_oilrig</a><br><sup><sub>host_workshop_map 3104677430</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_assult_classic.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3215705579">cs_assult_classic</a><br><sup><sub>host_workshop_map 3215705579</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_aztec_classic.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3213800338">de_aztec_classic</a><br><sup><sub>host_workshop_map 3213800338</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_dust_classic.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3078095785">de_dust_classic</a><br><sup><sub>host_workshop_map 3078095785</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_dust2_classic.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3201205818">de_dust2_classic</a><br><sup><sub>host_workshop_map 3201205818</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_italy_classic.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3212419403">cs_italy_classic</a><br><sup><sub>host_workshop_map 3212419403</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_militia_classic.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3144773563">cs_militia_classic</a><br><sup><sub>host_workshop_map 3144773563</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_nuke_classic.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3205793205">de_nuke_classic</a><br><sup><sub>host_workshop_map 3205793205</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/cs_office_classic.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3216844784">cs_office_classic</a><br><sup><sub>host_workshop_map 3216844784</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_survivor_classic_m.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3217247541">de_survivor_classic_m</a><br><sup><sub>host_workshop_map 3217247541</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_45
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_vertigo_45.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3276886893">de_vertigo_45</a><br><sup><sub>host_workshop_map 3276886893</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_anubis_silly.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3245985233">de_anubis_silly</a><br><sup><sub>host_workshop_map 3245985233</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_overpass_45.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3270066070">de_overpass_45</a><br><sup><sub>host_workshop_map 3270066070</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_nuke_silly.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3245245780">de_nuke_silly</a><br><sup><sub>host_workshop_map 3245245780</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_mirage45.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3270516952">de_mirage45</a><br><sup><sub>host_workshop_map 3270516952</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/de_train_twyxe.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3406937162">de_train_twyxe</a><br><sup><sub>host_workshop_map 3406937162</sub></sup></td></tr></table></td></tr></table>
-
-#### mg_ctf
-
-<table><tr><td><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ctf_2fort.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3555531615">ctf_2fort</a><br><sup><sub>host_workshop_map 3555531615</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ctf_doublecross.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3555532817">ctf_doublecross</a><br><sup><sub>host_workshop_map 3555532817</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ctf_turbine.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3555534037">ctf_turbine</a><br><sup><sub>host_workshop_map 3555534037</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ctf_sawmill.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3611854449">ctf_sawmill</a><br><sup><sub>host_workshop_map 3611854449</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ctf_applejack.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3611844411">ctf_applejack</a><br><sup><sub>host_workshop_map 3611844411</sub></sup></td></tr></table><table align="left"><tr><td><img src="https://github.com/kus/cs2-modded-server/blob/assets/images/ctf_landfall.jpg?raw=true&sanitize=true"></td></tr><tr><td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3611843310">ctf_landfall</a><br><sup><sub>host_workshop_map 3611843310</sub></sup></td></tr></table></td></tr></table>
-
-### How do I connect to RCON remotely?
-
-[Download SourceAdminTool](https://nightly.link/Drifter321/admintool/workflows/build/master) ([source](https://github.com/Drifter321/admintool)) for your OS (you can read about it [here](https://forums.alliedmods.net/showthread.php?t=289370)) and click `Servers > Add Servers` and put in the `<IP>:27015` and when you see the server show in the list, down the bottom left type in your RCON password and click `Login` and you should be able to execute commands from the bottom text box i.e. `exec dm.cfg`
-
-**For a public server, connect to its reachable public IP and port. If autodetection or NAT is an issue, configure the advertised `IP` in the private Windows `instance.ini` and confirm that the router/cloud firewall forwards the selected port.**
-
-### Accessing the admin menu
-
-Admins are managed by CounterStrikeSharp's [Admin Framework](https://docs.cssharp.dev/docs/admin-framework/defining-admins.html). The canonical file is `game/csgo/addons/counterstrikesharp/configs/admins.json`.
-
-The per-instance admin path can be `<CUSTOM_FOLDER>/addons/counterstrikesharp/configs/admins.json`; the runner copies that file into the shared runtime before launch. Because this is a shared physical path, do not expect different admin files to remain isolated between simultaneous instances. The [KUS example admins.json](https://github.com/kus/cs2-modded-server/blob/master/custom_files_example/addons/counterstrikesharp/configs/admins.json) remains a reference example only.
-
-Ensure JSON files are valid. On startup, look for the admin-loading message in the server log. If you modify admin settings while the server is running, use `css_admins_reload` and `css_groups_reload`; inspect the result with `css_admins_list` and `css_groups_list`.
-
-### Use number keys to operate menu instead of typing !1 in chat
-
-If you don't like having to type in chat !number every time you want to use a menu item; you can use this trick to bind the corresponding !number command to the number key. So when you press 1 it will select the 1 option:
-
-_Note: This is assuming you are using the standard binds. You can change accordingly for your own setup._
-
-```
-bind "1" "slot1; css_1"
-bind "2" "slot2; css_2"
-bind "3" "slot3; css_3"
-bind "4" "slot4; css_4"
-bind "5" "slot5; css_5"
-bind "6" "slot6; css_6"
-bind "7" "slot7; css_7"
-bind "8" "slot8; css_8"
-bind "9" "slot9; css_9"
-bind "0" "slot10; css_0"
-```
-
-### Changing maps
-
-<img alt="Admin change map menu" src="https://github.com/kus/cs2-modded-server/blob/assets/assets/admin-maps.png?raw=true&sanitize=true">
-
-Admins can type `!maps` in chat and it will bring up a menu of all the maps for the current mod. When a map is selected it will change the map straight away.
-
-At the end of the map (if time runs out or win conditions are met) it a vote will show to choose a map from the current mod.
-
-### Changing settings
-
-Admins can type `!settings` in chat and it will bring up a menu of all the settings you can enable or disable. i.e.: Bunnyhopping, fun mode etc.
-
-### Changing game modes
-
-<img alt="Admin change game mode menu" src="https://github.com/kus/cs2-modded-server/blob/assets/assets/admin-modes.png?raw=true&sanitize=true">
-
-Admins can type `!modes` in chat and it will bring up a menu of all the game modes. Simply choose one and it will switch to that game mode and change to a default map for that game mode.
-
-The maps in `!maps` will also update to the new game mode when it has changed.
-
-Changing between gamemodes multiple times is not recommended, and it is better if you restart the CS2 server in-between.
-
-To view what other commands are available view the plugins documentation at the top of the page.
-
-### RCON doesn't work
-
-Using RCON whilst connected to the server does not work. See discussion [here](https://www.reddit.com/r/GlobalOffensive/comments/167spzi/cs2_rcon/).
-The current work arounds are:
-
-- I have included [CS2Rcon](https://github.com/LordFetznschaedl/CS2Rcon) which allows admins to use !rcon in chat.
-- You can disconnect from the server and use `rcon_address IP:PORT` in console and you can use rcon commands.
-- Use an external RCON program which has implemented the RCON protocol such as [this](https://github.com/fpaezf/CS2-RCON-Tool-V2).
-
-If it still doesn't work, make sure you try connect from CS2 outside of a game via console:
-
-**For a public server, connect to the reachable public IP and port. Configure the advertised `IP` in `instance.ini` if needed, and verify firewall/NAT forwarding.**
-
-```bash
-rcon_address ip:port
-rcon_password "password"
-rcon say "hi"
-```
-
-And check the ports cs2 is using on your OS i.e. on Ubuntu `sudo lsof -i -P -n | head -n 1; sudo lsof -i -P -n | grep cs2`.
-
-### My server has run out of space!
-
-Workshop maps take up a lot of space! If you want to delete all your workshop maps so the server can run again (it will download the maps you want to play). Stop the server, delete the `workshop` and start the server again:
-
-Linux:
-
-```
-df -h -x tmpfs -x devtmpfs # Get total and free space (generally /dev/root)
-cd /home/steam/cs2/game/bin/linuxsteamrt64/steamapps
-ls -lah # You should see a workshop folder
-du -sh workshop # To get the size of it
-rm -rf workshop # Delete the workshop folder
-```
-
-Windows:
-
-- Browse to where ever you are running your server from
-- Open `game/bin/win64/steamapps/` and you should see a workshop folder
-- Delete the workshop folder
-
-### How do I add more bots?
-
-By default, bots are enabled in deathmatch, gungame, gungame FFA, retakes, scoutsknives and wingman. The default behavior adds one bot when only one human is present and removes the need for bots when two or more humans join.
-
-The per-instance bot override can be placed at `<CUSTOM_FOLDER>/cfg/custom_bots.cfg`; the runner copies it into the shared runtime before launch. The upstream starting point is [custom_bots.cfg](https://github.com/kus/cs2-modded-server/blob/master/game/csgo/cfg/custom_bots.cfg).
-
-You can also manage bots through RCON with `bot_add_ct`, `bot_add_t` and `bot_kick`.
-
-### Why can't I set the server to start automatically with a mod loaded
-
-Because the way the server is setup with several mods it's not possible. You can't use `+exec` in the server launcher as that executes to quick before SourceMod is loaded. You can monitor the server once it's started (via RCON) and then load a mod i.e. `exec dm.cfg`.
-
-### Updating Metamod:Source and CounterStrikeSharp
-
-CounterStrikeSharp is managed by `DEPENDENCIES.json` and the Windows `windows/addons-update.bat` workflow. Preview and update it with:
-
-```bat
-windows/addons-update.bat -DryRun -Only CounterStrikeSharp
-windows/addons-update.bat -Only CounterStrikeSharp
-```
-
-The manifest requires the Windows **with-runtime** archive and CI checks that .NET runtime files are present. Do not manually copy a no-runtime CSS archive over this runtime tree.
-
-Metamod:Source is now managed by `DEPENDENCIES.json` and the same release updater as the other add-ons. The updater selects the current CS2 `2.0.0.<build>` release line (not the unrelated legacy `1.12.0` stable line), downloads the Windows ZIP first, then the Linux TAR.GZ, and overlays both into `game/csgo/` as KUS does. CounterStrikeSharp remains on the official latest release and now updates both with-runtime platform archives: Windows files are also staged under `game/csgo/addons/windows/`, while Linux/shared files remain in `game/csgo/addons/`. The normal runner then overlays these tracked files into `server/game/csgo/`.
-
-### Quake Sounds
-
-Quake Sounds is disabled by default and can be toggled by players with `!qs` when enabled. To enable it for a Windows instance:
-
-1. Put the override at `<CUSTOM_FOLDER>/cfg/multiaddonmanager/multiaddonmanager.cfg`; the runner copies it into the shared runtime before launch.
-2. Put the override at `<CUSTOM_FOLDER>/cfg/settings/quake_sounds.cfg`; the runner also copies this file into the shared runtime. The config line to uncomment is `css_plugins load "plugins/disabled/QuakeSounds/QuakeSounds.dll"`.
-3. Ensure MultiAddonManager is enabled as described below, then restart that instance.
-
-### Skin changer
-
-On your server your players will have the ability to change the following:
-
-- Weapon
-  - Paint Kit, Wear, Seed, Name tag, StatTrak (with increment), and Stickers.
-- Knife
-  - Paint Kit, Wear, Seed, Name tag, and StatTrak (with increment).
-- Gloves
-  - Paint Kit, Wear, Seed.
-- Agent
-  - Patches.
-- Music Kit
-  - StatTrak (with increment). 
-- Pin
-- Graffiti
-
-Go to [https://inventory.cstrike.app](https://inventory.cstrike.app/) and click `Sign-in to sync` and log in with Steam (this needs to be the same Steam account you are playing on).
-
-Click `Craft Item` and create the items you want. You need to right click them and "Equip" them like you do in-game.
-
-On the server type `!ws` and it should update your skins to what you have set.
-
-> [!CAUTION]  
-> Your server can be banned by Valve for using this plugin (see their [server guidelines](https://blog.counter-strike.net/index.php/server_guidelines)). Use at your own risk.
-
-If you **DO NOT** want to use this plugin; change `FollowCS2ServerGuidelines` to `true` in `addons/counterstrikesharp/configs/core.json`. It is recommended to do this via [per-instance overrides](#configuration-and-per-instance-overrides).
-
-### I want to permanently enable Multi Addon Manager
-
-The KUS runtime includes MultiAddonManager, but its Metamod auto-load entry is optional. To enable it for one Windows instance, copy:
-
-```text
-server/game/csgo/addons/multiaddonmanager/multiaddonmanager.vdf
-```
-
-to:
-
-```text
-<CUSTOM_FOLDER>/addons/metamod/multiaddonmanager.vdf
-```
-
-The runner overlays that file at the Metamod configuration path on startup. To check whether it loaded, run `meta list` in the server console and look for MultiAddonManager.
-
-### Model changer
-
-Custom player models can be enabled in `!settings` under the custom player-model option. You also need a Workshop addon containing the model files; the KUS guide links [one example Workshop addon](https://steamcommunity.com/sharedfiles/filedetails/?id=3163629484).
-
-Add the Workshop ID to the shared `game/csgo/cfg/multiaddonmanager/multiaddonmanager.cfg`. The alternative path under `<CUSTOM_FOLDER>/cfg/` is copied into the shared runtime before launch. Configure model entries in the live CounterStrikeSharp config path; a custom-folder copy of that file will overwrite the matching runtime file on each runner invocation.
-
-To inspect assets in a Workshop addon, subscribe to it in the CS2 client and use [Source 2 Viewer](https://valveresourceformat.github.io/) to browse the downloaded content.
-
-### I run a Surf/KZ/Bhop server and want MovementUnlocker and CS2Fixes-RampbugFix permanently enabled
-
-The tracked source payload includes Windows/Linux files for [MovementUnlocker](https://github.com/Source2ZE/MovementUnlocker) and [CS2Fixes-RampbugFix](https://github.com/Interesting-exe/CS2Fixes-RampbugFix). Their platform-specific Metamod VDF files are under `game/csgo/addons/surf/`.
-
-Metamod overrides can be placed under `<CUSTOM_FOLDER>/addons/metamod/`; `run.bat` copies those files into the shared runtime before each launch.
-
-For an ad-hoc mode, the KUS game-mode menu can enable the surf settings using `!settings`; follow with `!maps` to select the desired map.
-
-### Setup MySQL database
-
-Database hosting is outside the scope of this repository. Plugin configuration files are generally under `game/csgo/addons/counterstrikesharp/configs/plugins/`.
-
-K4-Arenas configuration is typically at `game/csgo/addons/counterstrikesharp/configs/plugins/K4-Arenas/K4-Arenas.json`. The equivalent path under `<CUSTOM_FOLDER>/addons/` is copied into the shared runtime before each launch, overwriting matching files. If the live config does not exist, check for the plugin's `.example` template before creating one.
-
-Never commit database passwords, connection strings or other credentials.
-
-### Enable advertisements
-
-The Advertisement plugin is disabled by default. To load it, add this command to the relevant shared mode config. A `<CUSTOM_FOLDER>/cfg/custom_all.cfg` override is copied to the shared runtime before launch; the relevant mode config must execute it:
-
-```cfg
-css_plugins load "plugins/disabled/Advertisement/Advertisement.dll"
-```
-
-Its settings file is under `game/csgo/addons/counterstrikesharp/plugins/disabled/Advertisement/advertisement.json`. The matching relative path below `<CUSTOM_FOLDER>/addons/` is copied into the shared runtime before launch, overwriting a matching file.
-
-### Enable Whitelist so only a list of people can play
-
-The Whitelist plugin is disabled by default. To load it, add this command to the relevant shared mode config. A `<CUSTOM_FOLDER>/cfg/custom_all.cfg` override is copied to the shared runtime before launch; the relevant mode config must execute it:
-
-```cfg
-css_plugins load "plugins/disabled/WhiteList/WhiteList.dll"
-```
-
-Its settings file is `game/csgo/addons/counterstrikesharp/plugins/disabled/WhiteList/whitelist.txt`. The matching relative path below `<CUSTOM_FOLDER>/addons/` is copied into the shared runtime before launch, overwriting a matching file.
-
-### Failed to open libtier0.so
-
-`Failed to open libtier0.so (/home/steam/cs2/bin/libgcc_s.so.1: version 'GCC_7.0.0' not found (required by /lib/i386-linux-gnu/libstdc++.so.6))`
-
-This is because Valve ships their own copies of those libraries. As modern systems will have newer versions, you can safely delete the listed file from the server install. Do not delete the file in the system path (usually lib or lib32)[*](https://wiki.alliedmods.net/Installing_metamod:source).
-
-`cd /home/steam/cs2/bin/` and `rm libgcc_s.so.1` and restart the server.
-
-## License
-
-See `LICENSE` for more details.
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=kus/cs2-modded-server)](https://star-history.com/#kus/cs2-modded-server)
+The base server project is [kus/cs2-modded-server](https://github.com/kus/cs2-modded-server). This repository carries a downstream integrated payload and its own automation/configuration; it is not an official KUS release. The upstream KUS license is retained in [LICENSE](LICENSE), and each third-party plugin remains subject to its own license.
