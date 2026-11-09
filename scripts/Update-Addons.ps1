@@ -1138,28 +1138,10 @@ function Update-ReadmeVersion([string]$Name, [string]$Repository, [string]$Displ
     $replacement = "| [$Name]($Repository) | $backtick$DisplayVersion$backtick |"
     $newText = [regex]::Replace($text, $pattern, $replacement, 1)
 
-    # Support legacy plain-text rows while migrating them to repository links.
-    # The full table is also reconciled against DEPENDENCIES.json after the update pass.
     if ($newText -eq $text) {
-        $sectionMarker = "## Larnz-managed add-ons"
-        $sectionStart = $text.IndexOf($sectionMarker, [StringComparison]::Ordinal)
-        if ($sectionStart -ge 0) {
-            $tailStart = $sectionStart + $sectionMarker.Length
-            $tail = $text.Substring($tailStart)
-            $nextHeading = [regex]::Match($tail, "(?m)^##\s")
-            $sectionEnd = if ($nextHeading.Success) { $tailStart + $nextHeading.Index } else { $text.Length }
-            $section = $text.Substring($sectionStart, $sectionEnd - $sectionStart)
-            $plainPattern = "(?m)^\|\s*$escapedName\s*\|[^|\r\n]*\|"
-            $plainReplacement = "| [$Name]($Repository) | $backtick$DisplayVersion$backtick |"
-            $updatedSection = [regex]::Replace($section, $plainPattern, $plainReplacement, 1)
-            if ($updatedSection -ne $section) {
-                $newText = $text.Substring(0, $sectionStart) + $updatedSection + $text.Substring($sectionEnd)
-            }
-        }
-    }
-
-    if ($newText -eq $text) {
-        Write-Warn "README row not updated for $Name"
+        # The final manifest reconciliation below can normalize the repository
+        # link and version in the unified table; do not search a removed section.
+        Write-Warn "README catalog row will be reconciled for $Name"
         return
     }
 
@@ -1169,7 +1151,6 @@ function Update-ReadmeVersion([string]$Name, [string]$Repository, [string]$Displ
         (New-Object System.Text.UTF8Encoding($false))
     )
 }
-
 
 function Sync-ReadmeAddonTable() {
     if (-not (Test-Path -LiteralPath $ReadmePath) -or $DryRun) {
@@ -1183,78 +1164,36 @@ function Sync-ReadmeAddonTable() {
         [string][char]10
     }
     $lines = [regex]::Split($text, "\r\n|\n")
-    $sectionStart = -1
-    for ($i = 0; $i -lt $lines.Length; $i++) {
-        if ($lines[$i].Trim() -eq "## Larnz-managed add-ons") {
-            $sectionStart = $i
-            break
-        }
-    }
-    if ($sectionStart -lt 0) {
-        throw "README is missing the Larnz-managed add-ons section."
-    }
-
-    $sectionEnd = $lines.Length
-    for ($i = $sectionStart + 1; $i -lt $lines.Length; $i++) {
-        if ($lines[$i] -match "^##\s") {
-            $sectionEnd = $i
-            break
-        }
-    }
-
+    $header = "| Mod | Version / revision | Purpose | Payload placement / activation | Update automation |"
     $headerIndex = -1
-    for ($i = $sectionStart + 1; $i -lt $sectionEnd; $i++) {
-        if ($lines[$i].Trim() -eq "| Add-on | Version | Purpose |") {
+    for ($i = 0; $i -lt $lines.Length; $i++) {
+        if ($lines[$i].Trim() -eq $header) {
             $headerIndex = $i
             break
         }
     }
-    if ($headerIndex -lt 0 -or $headerIndex + 1 -ge $sectionEnd -or
-        $lines[$headerIndex + 1].Trim() -ne "| --- | --- | --- |") {
-        throw "README Larnz add-on table header is missing or malformed."
+    if ($headerIndex -lt 0 -or $headerIndex + 1 -ge $lines.Length -or
+        $lines[$headerIndex + 1].Trim() -ne "| --- | --- | --- | --- | --- |") {
+        throw "README unified plugin catalog header is missing or malformed."
     }
 
+    # Find the contiguous data rows for the one combined KUS + Manifest catalog.
     $dataStart = $headerIndex + 2
     $dataEnd = $dataStart
-    while ($dataEnd -lt $sectionEnd -and $lines[$dataEnd] -match "^\s*\|.*\|\s*$") {
+    while ($dataEnd -lt $lines.Length -and $lines[$dataEnd] -match "^\s*\|.*\|\s*$") {
         $dataEnd++
     }
 
-    $purposes = @{}
-    $rowPattern = "^\|\s*(?<label>.*?)\s*\|\s*(?<version>.*?)\s*\|\s*(?<purpose>.*?)\s*\|\s*$"
-    for ($i = $dataStart; $i -lt $dataEnd; $i++) {
-        $rowMatch = [regex]::Match($lines[$i], $rowPattern)
-        if ($rowMatch.Success) {
-            $label = $rowMatch.Groups["label"].Value.Trim()
-            $purpose = $rowMatch.Groups["purpose"].Value.Trim()
-            if ($label -match "^\[(?<linkedName>[^\]]+)\]\([^)]+\)$") {
-                $label = $Matches["linkedName"]
-            }
-            if (-not [string]::IsNullOrWhiteSpace($label)) {
-                $purposes[$label] = $purpose
-            }
-        }
-    }
-
-    # Metamod is already documented in the KUS catalog table, so avoid duplicating it.
-    $tableAddons = @(
-        $manifest.addons |
-            Where-Object { [string]$_.name -ne "Metamod:Source" } |
-            Sort-Object { [int]$_.order }
-    )
-    if ($tableAddons.Count -eq 0) {
-        throw "DEPENDENCIES.json contains no Larnz-managed add-ons to document."
-    }
-
     $backtick = [string][char]96
-    $newRows = [System.Collections.Generic.List[string]]::new()
-    foreach ($addon in $tableAddons) {
+    $tableNames = @{}
+    foreach ($addon in @($manifest.addons | Sort-Object { [int]$_.order })) {
         $name = [string]$addon.name
         $repository = [string]$addon.repository
         $displayVersion = [string]$addon.version
-        if ([string]::IsNullOrWhiteSpace($name) -or [string]::IsNullOrWhiteSpace($repository) -or
+        if ([string]::IsNullOrWhiteSpace($name) -or
+            [string]::IsNullOrWhiteSpace($repository) -or
             [string]::IsNullOrWhiteSpace($displayVersion)) {
-            throw "A Larnz-managed manifest entry is missing name, repository, or version."
+            throw "A Manifest entry is missing name, repository, or version."
         }
 
         if ([string]$addon.type -eq "github_source_build" -and
@@ -1263,13 +1202,30 @@ function Sync-ReadmeAddonTable() {
             $displayVersion = "$([string]$addon.branch)@$shortCommit"
         }
 
-        if ($purposes.ContainsKey($name)) {
-            $purpose = [string]$purposes[$name]
-        } else {
-            $purpose = "Manifest-managed add-on."
+        $escapedName = [regex]::Escape($name)
+        $rowPattern = "^\|\s*\[$escapedName\]\(https?://[^)]+\)\s*\|"
+        $matches = @()
+        for ($i = $dataStart; $i -lt $dataEnd; $i++) {
+            if ($lines[$i] -match $rowPattern) {
+                $matches += $i
+            }
+        }
+        if ($matches.Count -ne 1) {
+            throw "Expected exactly one unified README row for Manifest add-on '$name'; found $($matches.Count)."
         }
 
-        # Derive install status from the manifest rather than freezing it into prose.
+        $rowIndex = [int]$matches[0]
+        $cells = @($lines[$rowIndex].Trim().Trim('|').Split('|') | ForEach-Object { $_.Trim() })
+        if ($cells.Count -ne 5) {
+            throw "README row for '$name' must contain all five unified catalog columns."
+        }
+
+        # Preserve project-owned purpose, placement, and updater documentation.
+        # Only normalize the source link/version and the installed/manual suffix.
+        $cells[0] = "[$name]($repository)"
+        $cells[1] = $backtick + $displayVersion + $backtick
+
+        $purpose = [string]$cells[2]
         $purpose = $purpose -replace "(?i);\s*not installed and marked manual in the Larnz manifest$", ""
         $purpose = $purpose -replace "(?i);\s*not installed$", ""
         $manualEntry = $false
@@ -1278,35 +1234,25 @@ function Sync-ReadmeAddonTable() {
         }
         if ([bool]$addon.installed -eq $false) {
             if ($manualEntry) {
-                $purpose += "; not installed and marked manual in the Larnz manifest"
+                $purpose += "; not installed and marked manual in the Manifest"
             } elseif ($purpose -notmatch "(?i)\bnot installed\b") {
                 $purpose += "; not installed"
             }
         }
+        $cells[2] = $purpose
 
-        $versionCell = $backtick + $displayVersion + $backtick
-        $newRows.Add("| [$name]($repository) | $versionCell | $purpose |")
-    }
-
-    $updatedLines = [System.Collections.Generic.List[string]]::new()
-    for ($i = 0; $i -lt $dataStart; $i++) {
-        $updatedLines.Add($lines[$i])
-    }
-    foreach ($row in $newRows) {
-        $updatedLines.Add($row)
-    }
-    for ($i = $dataEnd; $i -lt $lines.Length; $i++) {
-        $updatedLines.Add($lines[$i])
+        $lines[$rowIndex] = "| " + ($cells -join " | ") + " |"
+        $tableNames[$name] = $true
     }
 
-    $newText = [string]::Join($newline, $updatedLines.ToArray())
+    $newText = [string]::Join($newline, $lines)
     if ($newText -ne $text) {
         [IO.File]::WriteAllText(
             $ReadmePath,
             $newText,
             (New-Object System.Text.UTF8Encoding($false))
         )
-        Write-Info "Synchronized the Larnz add-on links and versions from DEPENDENCIES.json."
+        Write-Info "Synchronized all $($tableNames.Count) Manifest rows in the unified README catalog."
     }
 }
 
