@@ -180,9 +180,9 @@ function Get-ReleaseAssets($Release, $Addon) {
         $resolved = ([string]$pattern).Replace("{version}", (Get-AddonVersion -Addon $Addon -Tag $Release.tag_name))
         $matches = @($Release.assets | Where-Object { $_.name -like $resolved })
 
-        if ($matches.Count -ne 1) {
+        if ($matchingIndexes.Count -ne 1) {
             $names = ($Release.assets | ForEach-Object { $_.name }) -join ", "
-            throw "Asset pattern '$resolved' for '$($Addon.name)' matched $($matches.Count) assets. Available: $names"
+            throw "Asset pattern '$resolved' for '$($Addon.name)' matched $($matchingIndexes.Count) assets. Available: $names"
         }
 
         $selected += $matches[0]
@@ -245,7 +245,7 @@ function Get-AddonMissingFiles($Addon) {
 
             $pattern = Join-Path $PayloadRoot $relative
             $matches = @(Get-ChildItem -Path $pattern -File -ErrorAction SilentlyContinue)
-            if ($matches.Count -eq 0) {
+            if ($matchingIndexes.Count -eq 0) {
                 [void]$missing.Add("game/csgo/$relative (no file matched runtime requirement)")
             }
         }
@@ -1204,17 +1204,17 @@ function Sync-ReadmeAddonTable() {
 
         $escapedName = [regex]::Escape($name)
         $rowPattern = "^\|\s*\[$escapedName\]\(https?://[^)]+\)\s*\|"
-        $matches = @()
+        $matchingIndexes = @()
         for ($i = $dataStart; $i -lt $dataEnd; $i++) {
             if ($lines[$i] -match $rowPattern) {
-                $matches += $i
+                $matchingIndexes += $i
             }
         }
-        if ($matches.Count -ne 1) {
-            throw "Expected exactly one unified README row for Manifest add-on '$name'; found $($matches.Count)."
+        if ($matchingIndexes.Count -ne 1) {
+            throw "Expected exactly one unified README row for Manifest add-on '$name'; found $($matchingIndexes.Count)."
         }
 
-        $rowIndex = [int]$matches[0]
+        $rowIndex = [int]$matchingIndexes[0]
         $cells = @($lines[$rowIndex].Trim().Trim('|').Split('|') | ForEach-Object { $_.Trim() })
         if ($cells.Count -ne 5) {
             throw "README row for '$name' must contain all five unified catalog columns."
