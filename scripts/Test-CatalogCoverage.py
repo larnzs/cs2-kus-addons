@@ -41,21 +41,14 @@ def catalog_rows() -> list[dict[str, str]]:
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if len(cells) != 5 or cells[0].startswith("---"):
             continue
-        linked = re.match(r"^\\[([^\\]]+)\\]\\((https?://[^)]+)\\)$", cells[0])
-        name = linked.group(1) if linked else cells[0].strip("`")
+        linked = re.match(r"^\[([^\]]+)\]\((https?://[^)]+)\)$", cells[0])
+        name = linked.group(1) if linked else cells[0].strip(chr(96))
         url = linked.group(2) if linked else ""
 
         linked_scripts = re.findall(
-            r"\\]\\(scripts/update/plugins/([^)/]+\\.sh)\\)", cells[4]
+            r"\]\(scripts/update/plugins/([^)/]+\.sh)\)", cells[4]
         )
-        raw_scripts = re.findall(r"`([^ `]+\\.sh)`", cells[4])
-        scripts = list(dict.fromkeys(
-            [name for name in linked_scripts] +
-            [
-                script.removeprefix("scripts/update/plugins/").split("/")[-1]
-                for script in raw_scripts
-            ]
-        ))
+        scripts = list(dict.fromkeys(linked_scripts))
         manual = "manual-only" in cells[4].lower() and "not installed" in cells[4].lower()
         rows.append({
             "name": name,
