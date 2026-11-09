@@ -200,11 +200,12 @@ jobs:
               bundle_missing=1
             fi
           done
+          updater_status=0
           if [[ "$bundle_missing" -eq 1 ]]; then
             echo "GameModeManager bundle is incomplete; repairing all bundled components."
-            bash scripts/update/update.sh --only gamemodemanager
+            bash scripts/update/update.sh --only gamemodemanager || updater_status=$?
           else
-            bash scripts/update/update.sh
+            bash scripts/update/update.sh || updater_status=$?
           fi
 
           # The shell updater creates local commits before publishing. Compare the
