@@ -33,7 +33,7 @@ while IFS= read -r name; do
         source scripts/update/lib.sh
         source "$1"
         [ "${#PLUGIN_PATHS[@]}" -gt 0 ]
-        printf "%s" "${PLUGIN_PATHS[@]}"
+        printf "%s\\n" "${PLUGIN_PATHS[@]}"
     ' bash "$script")" || fail "could not source $script or read PLUGIN_PATHS"
 
     while IFS= read -r path; do
@@ -66,7 +66,7 @@ while IFS= read -r name; do
     script="scripts/update/plugins/$slug.sh"
     [ -f "$script" ] || fail "fast allowlist entry '$name' has no adapter: $script"
     bash -n "$script" || fail "syntax error in fast adapter $script"
-    owned="$(bash -c 'set -Eeuo pipefail; exec 3>&1; source scripts/update/lib.sh; source "$1"; printf "%s" "${PLUGIN_PATHS[@]}"; plugin_assets >/dev/null' bash "$script")" || fail "could not load fast adapter $script"
+    owned="$(bash -c 'set -Eeuo pipefail; exec 3>&1; source scripts/update/lib.sh; source "$1"; printf "%s\\n" "${PLUGIN_PATHS[@]}"; plugin_assets >/dev/null' bash "$script")" || fail "could not load fast adapter $script"
     while IFS= read -r path; do
         [[ -n "$path" ]] || continue
         [ -e "$path" ] || fail "$script points to a missing payload path: $path"
@@ -89,10 +89,10 @@ while IFS= read -r name; do
     script="scripts/update/plugins/$slug.sh"
     [ -f "$script" ] || fail "future-release add-on '$name' has no adapter: $script"
     bash -n "$script" || fail "syntax error in future-release adapter $script"
-    owned="$(bash -c 'set -Eeuo pipefail; exec 3>&1; source scripts/update/lib.sh; source "$1"; printf "%s" "${PLUGIN_PATHS[@]}"; plugin_assets >/dev/null' bash "$script")" || fail "could not load future-release adapter $script"
+    owned="$(bash -c 'set -Eeuo pipefail; exec 3>&1; source scripts/update/lib.sh; source "$1"; printf "%s\\n" "${PLUGIN_PATHS[@]}"; plugin_assets >/dev/null' bash "$script")" || fail "could not load future-release adapter $script"
     while IFS= read -r path; do
         [[ -n "$path" ]] || continue
-        [ -d "$path" ] || fail "$script points to a missing payload directory: $path"
+        [ -e "$path" ] || fail "$script points to a missing payload path: $path"
     done <<< "$owned"
     future_count=$((future_count + 1))
 done < scripts/update/future-release-addons.txt
