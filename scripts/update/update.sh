@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Kus' modded Counter Strike 2 (CS2) Dedicated Server
-# https://github.com/kus/cs2-modded-server/
+# CS2 KUS Addons — Larnz Unified Server
+# https://github.com/larnzs/cs2-kus-addons
 #
-# scripts/update/update.sh - automated plugin (mod) updater for this repo
+# scripts/update/update.sh - unified catalog and Manifest add-on updater
 #
 #   ./scripts/update/update.sh              apply every available update (one at a time, README order)
 #   ./scripts/update/update.sh --dry-run    only report what would happen (no downloads, no changes)
@@ -41,9 +41,25 @@ set -u
 PLUGIN_SCRIPT_DIR="scripts/update/plugins"
 TMP_ROOT="tmp/update"
 
-# extract_mods pipes the README through an awk that exits early; without pipefail
-# disabled the resulting SIGPIPE on cat would abort this script (exit 141).
-list_mods() { ( set +o pipefail; extract_mods ); }
+# README.md has one combined plugin table. Manifest-owned rows are processed by
+# process_manifest_addons() and must not be checked a second time by the KUS
+# catalog updater. Metamod is the one exception: its KUS adapter also synchronizes
+# the special MetaMod manifest record, so it remains in this pass.
+#
+# extract_mods pipes the README through awk; keep pipefail disabled around that
+# parser, then filter the rows owned by DEPENDENCIES.json.
+list_mods() {
+    local parsed name url version
+    parsed=$(set +o pipefail; extract_mods)
+    while IFS='|' read -r name url version; do
+        [ -n "$name" ] || continue
+        if [ "$name" != "Metamod:Source" ] &&
+           jq -e --arg name "$name" '.addons[] | select(.name == $name)' DEPENDENCIES.json >/dev/null 2>&1; then
+            continue
+        fi
+        printf '%s|%s|%s\n' "$name" "$url" "$version"
+    done <<< "$parsed"
+}
 
 # ----------------------------------------------------------------------------- args
 DRY_RUN=0
@@ -141,7 +157,7 @@ sync_with_remote() {
 preflight() {
     require_tools bash git curl jq unzip tar rsync awk sed grep find cut python3
     [ -f README.md ] || die "README.md not found in $(pwd)"
-    grep -Eq '^[[:space:]]*[|]?[[:space:]]*Mod[[:space:]]*[|][[:space:]]*Version[^|]*[|][[:space:]]*(Why|Purpose)[[:space:]]*[|]?[[:space:]]*$' README.md || die "README.md: could not find the 'Mod | Version | Why' table header"
+    grep -Eq '^[[:space:]]*[|]?[[:space:]]*Mod[[:space:]]*[|][[:space:]]*Version[^|]*[|][[:space:]]*Purpose[[:space:]]*[|]' README.md || die "README.md: could not find the unified 'Mod | Version | Purpose' plugin table"
     [ -d "$PLUGIN_SCRIPT_DIR" ] || die "missing directory $PLUGIN_SCRIPT_DIR"
     git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "$(pwd) is not a git repository"
     [ "$(git rev-parse --show-toplevel)" = "$(pwd -P)" ] || die "must run from the repo root ($(git rev-parse --show-toplevel))"
