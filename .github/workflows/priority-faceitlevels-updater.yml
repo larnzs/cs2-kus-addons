@@ -1,0 +1,105 @@
+name: Priority FACEIT Levels Updater
+
+on:
+  schedule:
+    # Five-minute polling, offset away from the top of the hour.
+    - cron: "1-56/5 * * * *"
+  push:
+    branches:
+      - integration/kus-monorepo
+    paths:
+      - ".github/workflows/priority-faceitlevels-updater.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Serialize with the full and fast-safe updaters. This job changes the same
+# branch and uses the same per-plugin commit/rollback pipeline.
+concurrency:
+  group: addon-updater
+  cancel-in-progress: false
+
+jobs:
+  update-faceitlevels:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout latest integration branch
+        uses: actions/checkout@v5
+        with:
+          ref: integration/kus-monorepo
+          fetch-depth: 0
+
+      - name: Install updater tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq unzip rsync
+
+      - name: Validate FACEIT updater and manifest entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh scripts/update/manifest-addon.sh scripts/update/plugins/cs2faceitlevels.sh
+          jq -e '.addons[] | select(.name == "CS2FaceitLevels" and .installed == true and .automation_supported != false and .type == "github_release")' DEPENDENCIES.json >/dev/null
+          grep -Fq '[CS2FaceitLevels](https://github.com/Staaar0/cs2-FaceitLevels)' README.md
+          test -f game/csgo/addons/CS2FaceitLevels/bin/CS2FaceitLevels.so
+          test -f game/csgo/addons/CS2FaceitLevels/bin/CS2FaceitLevels.dll
+
+      - name: Check and update CS2FaceitLevels only
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          protected_paths=(
+            "game/csgo/cfg"
+            "game/csgo/addons/counterstrikesharp/configs"
+            "game/csgo/addons/windows/addons/counterstrikesharp/configs"
+          )
+          git ls-tree -r HEAD -- "${protected_paths[@]}" | sort > "$RUNNER_TEMP/protected-before.txt"
+
+          updater_status=0
+          bash scripts/update/update.sh --only CS2FaceitLevels || updater_status=$?
+
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "Updater left uncommitted changes:" >&2
+            git status --short >&2
+            exit 1
+          fi
+
+          git ls-tree -r HEAD -- "${protected_paths[@]}" | sort > "$RUNNER_TEMP/protected-after.txt"
+          if ! diff -u "$RUNNER_TEMP/protected-before.txt" "$RUNNER_TEMP/protected-after.txt"; then
+            echo "FACEIT updater changed protected config paths." >&2
+            exit 1
+          fi
+
+          pushed=false
+          for attempt in 1 2 3; do
+            echo "Publishing FACEIT updater commits, attempt $attempt/3..."
+            if ! git fetch origin integration/kus-monorepo; then
+              echo "ERROR: Could not fetch the latest integration branch." >&2
+              exit 1
+            fi
+            if ! git rebase origin/integration/kus-monorepo; then
+              git rebase --abort || true
+              echo "ERROR: FACEIT update conflicts with newer repository changes; refusing to force-push." >&2
+              exit 1
+            fi
+            if git push origin HEAD:refs/heads/integration/kus-monorepo; then
+              pushed=true
+              break
+            fi
+          done
+          if [[ "$pushed" != "true" ]]; then
+            echo "ERROR: Could not publish FACEIT updater commits." >&2
+            exit 1
+          fi
+          if [[ "$updater_status" -ne 0 ]]; then
+            echo "FACEIT updater reported failures (exit $updater_status); any successful commit was published." >&2
+            exit "$updater_status"
+          fi
