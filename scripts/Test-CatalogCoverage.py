@@ -216,10 +216,10 @@ def main() -> int:
         script_name = f"{slugify(name)}.sh"
         paths, error = source_adapter(script_name)
         if error:
-            errors.append(f"15-minute {name}: {error}")
+            errors.append(f"5-minute {name}: {error}")
             continue
         path_errors = check_paths(script_name, paths)
-        errors.extend(f"15-minute {name}: {entry}" for entry in path_errors)
+        errors.extend(f"5-minute {name}: {entry}" for entry in path_errors)
         if not path_errors:
             fast_ok += 1
 
@@ -267,7 +267,7 @@ def main() -> int:
     print(f"Explicit manual-only rows (not installed): {len(manual_rows)}")
     print(f"Unique scripts referenced by catalog rows: {len(referenced_scripts)}")
     print(f"Manifest automation entries with valid scripts and paths: {manifest_ok}/{len(manifest_entries)}")
-    print(f"15-minute allowlist entries with valid scripts and paths: {fast_ok}/{len(fast_names)}")
+    print(f"5-minute allowlist entries with valid scripts and paths: {fast_ok}/{len(fast_names)}")
     print(f"Future-release adapters with valid scripts and paths: {future_ok}/{len(future_names)}")
     print(f"Other hard-check failures: {len(errors)}")
 
