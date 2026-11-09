@@ -172,7 +172,7 @@ The first table deliberately retains the updater-compatible three-column structu
 | [CS2Fixes-RampbugFix](https://github.com/Interesting-exe/CS2Fixes-RampbugFix) | `5-1` | Minimizes rampbugs (needs to be enabled via `!settings` [How?](#i-run-a-surfkzbhop-server-and-want-movementunlocker-and-cs2fixes-rampbugfix-permanently-enabled)) |
 | [CS2_ExecAfter](https://github.com/kus/CS2_ExecAfter) | `1.0.0` | Executes a command after server event (i.e. OnMapStart) or a delay. |
 | [CS2 Remove Map Weapons](https://github.com/kus/CS2-Remove-Map-Weapons) | `1.0.1` | Remove weapons from the map in CS2 as `mp_weapons_allow_map_placed 0` does not work. |
-| [GameModeManager](https://github.com/nickj609/GameModeManager) | `2.3.0` | Configurable game modes, settings, map groups and rotations; its release bundles GG1MapChooser, MenuManagerCore, PMM_GG1MapChooser and all three shared APIs. |
+| [GameModeManager](https://github.com/nickj609/GameModeManager) | `2.3.1` | Configurable game modes, settings, map groups and rotations; its release bundles GG1MapChooser, MenuManagerCore, PMM_GG1MapChooser and all three shared APIs. |
 | [Inventory Simulator](https://github.com/ianlucas/cs2-css-inventory-simulator) | `3.8.1` | Use any Weapon, Knife, Gloves, Agent, Music Kit, Pin or Graffiti. [How?](#skin-changer) |
 | [CS2-PlayerModelChanger](https://github.com/samyycX/CS2-PlayerModelChanger) | `1.8.6` | A lightweighted counterstrikesharp plugin to change player model. [How?](#model-changer) |
 | [MatchZy](https://github.com/shobhit-pathak/MatchZy) | `0.9.2` | MatchZy is a plugin for CS2 for running and managing practice/pugs/scrims/matches with easy configuration! |
