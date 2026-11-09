@@ -1,8 +1,9 @@
-name: Fast Safe Catalog Add-on Checks
+name: Fast Safe Catalog and Priority Add-on Checks
 
 on:
   schedule:
-    - cron: "7,22,37,52 * * * *"
+    # Five-minute checks, offset away from the top of the hour.
+    - cron: "1-56/5 * * * *"
   workflow_dispatch:
 
 permissions:
