@@ -28,40 +28,47 @@ def slugify(name: str) -> str:
 
 def catalog_rows() -> list[dict[str, str]]:
     lines = (ROOT / "README.md").read_text(encoding="utf-8-sig").splitlines()
-    header = "| Plugin | Payload placement / activation | Update automation |"
+    header = "| Plugin / component | Version / revision | Purpose | Payload placement / activation | Update automation |"
     try:
         start = lines.index(header) + 2
     except ValueError as exc:
-        raise RuntimeError("README.md catalog table header was not found") from exc
+        raise RuntimeError("README.md unified plugin catalog table header was not found") from exc
 
     rows: list[dict[str, str]] = []
     for line in lines[start:]:
         if not line.startswith("|"):
             break
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if len(cells) != 3 or cells[0].startswith("---"):
+        if len(cells) != 5 or cells[0].startswith("---"):
             continue
-        linked = re.match(r"^\[([^\]]+)\]\((https?://[^)]+)\)$", cells[0])
+        linked = re.match(r"^\\[([^\\]]+)\\]\\((https?://[^)]+)\\)$", cells[0])
         name = linked.group(1) if linked else cells[0].strip("`")
         url = linked.group(2) if linked else ""
-        raw_scripts = re.findall(r"`([^ `]+\.sh)`", cells[2])
-        scripts = [
-            script.removeprefix("scripts/update/plugins/")
-            if script.startswith("scripts/update/plugins/")
-            else script
-            for script in raw_scripts
-        ]
-        bundled = "bundled with" in cells[2].lower() or "updated through" in cells[2].lower()
+
+        linked_scripts = re.findall(
+            r"\\]\\(scripts/update/plugins/([^)/]+\\.sh)\\)", cells[4]
+        )
+        raw_scripts = re.findall(r"`([^ `]+\\.sh)`", cells[4])
+        scripts = list(dict.fromkeys(
+            [name for name in linked_scripts] +
+            [
+                script.removeprefix("scripts/update/plugins/").split("/")[-1]
+                for script in raw_scripts
+            ]
+        ))
+        manual = "manual-only" in cells[4].lower() and "not installed" in cells[4].lower()
         rows.append({
             "name": name,
             "url": url,
-            "placement": cells[1],
-            "automation": cells[2],
+            "version": cells[1],
+            "purpose": cells[2],
+            "placement": cells[3],
+            "automation": cells[4],
             "scripts": scripts,
-            "bundled": "1" if bundled else "0",
+            "bundled": "1" if "bundled" in cells[4].lower() else "0",
+            "manual": "1" if manual else "0",
         })
     return rows
-
 
 def source_adapter(script_name: str) -> tuple[list[str], str | None]:
     script_path = PLUGIN_DIR / script_name
@@ -125,11 +132,22 @@ def main() -> int:
     referenced_scripts: dict[str, list[str]] = {}
     covered_rows: list[dict[str, str]] = []
     uncovered_rows: list[dict[str, str]] = []
+    manual_rows: list[dict[str, str]] = []
+    catalog_names: set[str] = set()
 
     for row in rows:
         names = row["scripts"]
+        if not row["url"].startswith(("https://github.com/", "https://www.metamodsource.net/")):
+            errors.append(f"{row['name']}: missing or unsupported upstream source link: {row['url']!r}")
+        normalized = slugify(row["name"])
+        if normalized in catalog_names:
+            errors.append(f"{row['name']}: duplicate plugin catalog row")
+        catalog_names.add(normalized)
         if not names:
-            uncovered_rows.append(row)
+            if row["manual"] == "1":
+                manual_rows.append(row)
+            else:
+                uncovered_rows.append(row)
             continue
 
         row_errors = False
@@ -147,9 +165,15 @@ def main() -> int:
         if not row_errors:
             covered_rows.append(row)
 
-    # Manifest completeness and path existence: every automation-enabled entry, including bootstrap installs.
+    # Every manifest component must also be represented in the single README catalog.
     manifest_path = ROOT / "DEPENDENCIES.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    catalog_display_names = {row["name"] for row in rows}
+    for item in manifest.get("addons", []):
+        if item["name"] not in catalog_display_names:
+            errors.append(f"Manifest {item['name']}: missing from the README plugin catalog")
+
+    # Manifest completeness and path existence: every automation-enabled entry, including bootstrap installs.
     manifest_entries = [
         item for item in manifest.get("addons", [])
         if item.get("automation_supported") is not False
@@ -223,11 +247,17 @@ def main() -> int:
     print(f"Catalog rows: {len(rows)}")
     print(f"Rows mapped to an existing updater/bundle script and real payload paths: {len(covered_rows)}")
     print(f"Rows without a dedicated updater or bundle mapping: {len(uncovered_rows)}")
+    print(f"Explicit manual-only rows (not installed): {len(manual_rows)}")
     print(f"Unique scripts referenced by catalog rows: {len(referenced_scripts)}")
     print(f"Manifest automation entries with valid scripts and paths: {manifest_ok}/{len(manifest_entries)}")
     print(f"15-minute allowlist entries with valid scripts and paths: {fast_ok}/{len(fast_names)}")
     print(f"Future-release adapters with valid scripts and paths: {future_ok}/{len(future_names)}")
     print(f"Other hard-check failures: {len(errors)}")
+
+    if manual_rows:
+        print("\nEXPLICIT MANUAL-ONLY README CATALOG ROWS:")
+        for row in manual_rows:
+            print(f" - {row['name']}: {row['placement']}")
 
     if uncovered_rows:
         print("\nUNCOVERED README CATALOG ROWS:")
