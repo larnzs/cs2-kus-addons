@@ -689,7 +689,7 @@
       "project": "src/GunsMenu.csproj",
       "output_file": "GunsMenu.dll",
       "install_directory": "addons/counterstrikesharp/plugins/disabled/GunsMenu",
-      "installed": false,
+      "installed": true,
       "source_commit": "ec5dbdd99b2345f0e80410ac950ea1a0d2de7cdb",
       "source_mappings": [
         {
