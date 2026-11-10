@@ -40,15 +40,15 @@
     "MinutesExtendTimeLimitToRoundEnd": 3
   },
   "PoolVoteSettings": {
-    "Enable": false,
-    "DefaultPool": "Casual",
+    "Enable": true,
+    "DefaultPool": "Casual Active",
     "DelayFromStart": 90,
     "IntervalBetweenVotes": 120,
     "VotesToWin": 0,
     "VotingTime": 20,
     "BlockBeforeMapVoteSeconds": 30,
     "BlockBeforeMapVoteRounds": 1,
-    "MenuMode": ""
+    "MenuMode": "wasd"
   },
   "DiscordSettings": {
     "DiscordWebhook": "",
@@ -76,7 +76,7 @@
     "RandomMapOnStart": false,
     "RandomMapOnStartDelay": 40,
     "LastDisconnectedChangeMap": false,
-    "WorkshopMapProblemCheck": true,
+    "WorkshopMapProblemCheck": false,
     "TvStopRecord": true,
     "DefaultMapWeight": 1,
     "LowPlayerMaxPlayers": 8,
