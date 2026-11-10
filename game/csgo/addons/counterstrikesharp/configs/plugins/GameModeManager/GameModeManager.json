@@ -22,7 +22,7 @@
   "MapChooser": {
     "GeneratePools": true,
     "TriggerSecondsBeforeEnd": 120,
-    "TriggerKillsBeforeEnd": 999,
+    "TriggerKillsBeforeEnd": 13,
     "ModesInVotes": false
   },
   "AdminPanel": {
