@@ -30,7 +30,7 @@ esac
 BACKUP_ROOT="/var/backups/fragcity"
 RETENTION_DAYS=14
 MIN_FREE_SPACE_MB=2048
-BACKUP_PATHS=(etc var/www opt/fragcity/cs2-kus-addons usr/local/bin usr/local/sbin usr/local/libexec)
+BACKUP_PATHS=(etc var/www opt/fragcity/cs2-kus-addons var/lib/pterodactyl/fragcity-addon-provisioner usr/local/bin usr/local/sbin usr/local/libexec)
 EXTRA_BACKUP_PATHS=()
 MARIADB_ARGS=()
 REDIS_CLI_ARGS=()
@@ -84,6 +84,57 @@ if [[ "$BACKUP_ENCRYPTION" == "1" ]]; then
 fi
 if [[ "$MODE" == "--check-config" ]]; then
   log "Config valid; destination=$BACKUP_ROOT retention=$RETENTION_DAYS days."
+  exit 0
+fi
+
+verify_archive_core() {
+  local archive="$1" temp_dir payload
+  [[ -f "$archive" && ! -L "$archive" ]] || die "Archive is missing or unsafe: $archive"
+  temp_dir="$(mktemp -d /var/tmp/fragcity-backup-verify.XXXXXX)" || die "Cannot create verification temp directory."
+  payload="$temp_dir/backup.tar.gz"
+  if [[ "$archive" == *.gpg ]]; then
+    [[ "$BACKUP_ENCRYPTION" == "1" && -n "$GPG_PASSPHRASE_FILE" ]] || { rm -rf -- "$temp_dir"; die "Encrypted archive; configure its root-only GPG passphrase file first."; }
+    if ! gpg --batch --quiet --no-symkey-cache --pinentry-mode loopback --passphrase-file "$GPG_PASSPHRASE_FILE" --decrypt "$archive" > "$payload"; then
+      rm -rf -- "$temp_dir"; die "GPG decryption/integrity check failed."
+    fi
+  else
+    if ! cp -- "$archive" "$payload"; then rm -rf -- "$temp_dir"; die "Could not stage archive for verification."; fi
+  fi
+  if ! gzip -t "$payload"; then rm -rf -- "$temp_dir"; die "Outer gzip integrity check failed."; fi
+  mkdir -p "$temp_dir/extracted"
+  if ! tar -xzf "$payload" --no-same-owner --no-same-permissions -C "$temp_dir/extracted"; then
+    rm -rf -- "$temp_dir"; die "Could not extract backup for verification."
+  fi
+  if ! (
+    cd "$temp_dir/extracted"
+    sha256sum -c metadata/SHA256SUMS
+    gzip -t databases/mariadb-all.sql.gz
+    tar -tzf files/platform-files.tar.gz >/dev/null
+  ); then
+    rm -rf -- "$temp_dir"; die "Nested archive/checksum verification failed."
+  fi
+  if command -v redis-check-rdb >/dev/null 2>&1; then
+    if ! redis-check-rdb "$temp_dir/extracted/databases/redis.rdb" >/dev/null 2>&1; then
+      rm -rf -- "$temp_dir"; die "Redis RDB validation failed."
+    fi
+  fi
+  rm -rf -- "$temp_dir"
+}
+
+# Verification is intentionally independent of the live MariaDB, Redis and Git checkout.
+if [[ "$MODE" == "--verify" ]]; then
+  for cmd in tar gzip sha256sum mktemp cp mkdir rm; do
+    command -v "$cmd" >/dev/null 2>&1 || die "Required verification command missing: $cmd"
+  done
+  if [[ "$VERIFY_TARGET" == *.gpg ]]; then
+    command -v gpg >/dev/null 2>&1 || die "gpg is required to verify this encrypted archive."
+  fi
+  [[ -n "$VERIFY_TARGET" ]] || die "--verify requires an archive path."
+  if [[ -f "$VERIFY_TARGET.sha256" ]]; then
+    (cd "$(dirname -- "$VERIFY_TARGET")" && sha256sum -c "$(basename -- "$VERIFY_TARGET").sha256") || die "Outer SHA-256 sidecar check failed."
+  fi
+  verify_archive_core "$VERIFY_TARGET"
+  log "VERIFIED: $VERIFY_TARGET"
   exit 0
 fi
 
@@ -147,56 +198,6 @@ if [[ "$MODE" == "--dry-run" ]]; then
   exit 0
 fi
 
-verify_archive_core() {
-  local archive="$1" temp_dir payload
-  [[ -f "$archive" && ! -L "$archive" ]] || die "Archive is missing or unsafe: $archive"
-  temp_dir="$(mktemp -d /var/tmp/fragcity-backup-verify.XXXXXX)" || die "Cannot create verification temp directory."
-  payload="$temp_dir/backup.tar.gz"
-  if [[ "$archive" == *.gpg ]]; then
-    [[ "$BACKUP_ENCRYPTION" == "1" && -n "$GPG_PASSPHRASE_FILE" ]] || { rm -rf -- "$temp_dir"; die "Encrypted archive; configure its root-only GPG passphrase file first."; }
-    if ! gpg --batch --quiet --no-symkey-cache --pinentry-mode loopback --passphrase-file "$GPG_PASSPHRASE_FILE" --decrypt "$archive" > "$payload"; then
-      rm -rf -- "$temp_dir"; die "GPG decryption/integrity check failed."
-    fi
-  else
-    if ! cp -- "$archive" "$payload"; then rm -rf -- "$temp_dir"; die "Could not stage archive for verification."; fi
-  fi
-  if ! gzip -t "$payload"; then rm -rf -- "$temp_dir"; die "Outer gzip integrity check failed."; fi
-  mkdir -p "$temp_dir/extracted"
-  if ! tar -xzf "$payload" --no-same-owner --no-same-permissions -C "$temp_dir/extracted"; then
-    rm -rf -- "$temp_dir"; die "Could not extract backup for verification."
-  fi
-  if ! (
-    cd "$temp_dir/extracted"
-    sha256sum -c metadata/SHA256SUMS
-    gzip -t databases/mariadb-all.sql.gz
-    tar -tzf files/platform-files.tar.gz >/dev/null
-  ); then
-    rm -rf -- "$temp_dir"; die "Nested archive/checksum verification failed."
-  fi
-  if command -v redis-check-rdb >/dev/null 2>&1; then
-    if ! redis-check-rdb "$temp_dir/extracted/databases/redis.rdb" >/dev/null 2>&1; then
-      rm -rf -- "$temp_dir"; die "Redis RDB validation failed."
-    fi
-  fi
-  rm -rf -- "$temp_dir"
-}
-
-# Verification is intentionally independent of the live MariaDB, Redis and Git checkout.
-if [[ "$MODE" == "--verify" ]]; then
-  for cmd in tar gzip sha256sum mktemp cp mkdir rm; do
-    command -v "$cmd" >/dev/null 2>&1 || die "Required verification command missing: $cmd"
-  done
-  if [[ "$VERIFY_TARGET" == *.gpg ]]; then
-    command -v gpg >/dev/null 2>&1 || die "gpg is required to verify this encrypted archive."
-  fi
-  [[ -n "$VERIFY_TARGET" ]] || die "--verify requires an archive path."
-  if [[ -f "$VERIFY_TARGET.sha256" ]]; then
-    (cd "$(dirname -- "$VERIFY_TARGET")" && sha256sum -c "$(basename -- "$VERIFY_TARGET").sha256") || die "Outer SHA-256 sidecar check failed."
-  fi
-  verify_archive_core "$VERIFY_TARGET"
-  log "VERIFIED: $VERIFY_TARGET"
-  exit 0
-fi
 
 exec 8>/run/lock/fragcity-backuper.lock
 flock -n 8 || die "Another backup run is active."
