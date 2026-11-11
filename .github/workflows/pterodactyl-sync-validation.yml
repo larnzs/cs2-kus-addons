@@ -59,6 +59,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          bash pterodactyl/backuper/test-backuper.sh
           bash -n \
             pterodactyl/sync-addon-payload-host.sh \
             pterodactyl/sync-addon-payload-container.sh \
@@ -67,7 +68,10 @@ jobs:
             pterodactyl/systemd/fragcity-status-dashboard.sh \
             pterodactyl/fragcity-manager.sh \
             pterodactyl/fragcity-monitor-model.sh \
-            pterodactyl/test-monitoring.sh
+            pterodactyl/test-monitoring.sh \
+            pterodactyl/backuper/fragcity-backuper.sh \
+            pterodactyl/backuper/install.sh \
+            pterodactyl/backuper/test-backuper.sh
 
           grep -Fq 'publish_status_dashboard' pterodactyl/sync-addon-payload-host.sh
           grep -Fq 'copy_tree "$REPO_GAME_ROOT" "$STAGING_GAME"' pterodactyl/sync-addon-payload-host.sh

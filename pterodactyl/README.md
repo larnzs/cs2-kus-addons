@@ -2,6 +2,14 @@
 
 This integration connects the existing “Update CS2 Addons” GitHub Actions workflow to newly created servers using the custom K4ryuu/FragCity CS2 Egg. The Git checkout and updater credentials are never mounted into customer containers. The provisioner must not touch eligible servers that existed when its one-time baseline was recorded.
 
+## Independent platform backup
+
+The separate [Backuper module](backuper/README.md) creates scheduled, verified backups of MariaDB (Paymenter, Pterodactyl Panel and GLOBAL databases), Redis, website files, system configuration and the host-side Provisioner checkout. Install it independently with:
+
+    sudo bash pterodactyl/backuper/install.sh
+
+It uses its own daily systemd timer and does not alter the existing addon Provisioner or payload-sync timers. The host publisher fast-forwards the complete checkout, so the Backuper script itself is automatically updated with the repository. The Backuper coordinates with the publisher using the existing Git lock to avoid archiving a checkout during an update. Keep the full VMware clone as the complete-machine recovery image; see the Backuper README for included/excluded paths and off-host storage guidance.
+
 ## Architecture at a glance
 
 1. The existing GitHub Actions workflow remains the only source of truth for plugin updates on integration/kus-monorepo.

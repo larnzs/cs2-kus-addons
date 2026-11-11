@@ -1,0 +1,30 @@
+# Installed as /etc/fragcity/backuper.conf (root:root, mode 0600).
+# Never put actual passwords or passphrases into this Git-tracked example.
+
+BACKUP_ROOT="/var/backups/fragcity"
+RETENTION_DAYS=14
+MIN_FREE_SPACE_MB=2048
+
+# Paths are relative to /. This includes website projects, config, certificates,
+# service units, the full Provisioner checkout and local management scripts.
+BACKUP_PATHS=(
+  "etc"
+  "var/www"
+  "opt/fragcity/cs2-kus-addons"
+  "usr/local/bin"
+  "usr/local/sbin"
+  "usr/local/libexec"
+)
+EXTRA_BACKUP_PATHS=()
+
+# Empty arrays use default local client connections.
+# Examples:
+# MARIADB_ARGS=(--socket=/run/mysqld/mysqld.sock)
+# REDIS_CLI_ARGS=(-s /run/redis/redis-server.sock)
+MARIADB_ARGS=()
+REDIS_CLI_ARGS=()
+REDIS_PASSWORD_FILE=""
+
+# Optional GPG symmetric encryption. Keep an offline copy of the passphrase.
+BACKUP_ENCRYPTION=0
+GPG_PASSPHRASE_FILE=""

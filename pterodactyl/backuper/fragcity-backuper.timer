@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the FragCity platform backup once per day
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=15min
+AccuracySec=1min
+Unit=fragcity-backuper.service
+
+[Install]
+WantedBy=timers.target
