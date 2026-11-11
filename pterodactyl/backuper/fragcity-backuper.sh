@@ -141,7 +141,7 @@ if [[ "$MODE" == "--verify" ]]; then
 fi
 
 [[ "$(id -u)" -eq 0 ]] || die "Run as root."
-for cmd in mariadb mariadb-dump redis-cli tar gzip sha256sum flock findmnt df stat git; do
+for cmd in mariadb mariadb-dump redis-cli tar gzip sha256sum flock findmnt df stat git dpkg-query systemctl; do
   command -v "$cmd" >/dev/null 2>&1 || die "Required command missing: $cmd"
 done
 if [[ "$BACKUP_ENCRYPTION" == "1" ]]; then command -v gpg >/dev/null 2>&1 || die "gpg is required for encryption."; fi
@@ -280,9 +280,15 @@ flock -u 9
 exec 9>&-
 tar -tzf "$STAGE/files/platform-files.tar.gz" >/dev/null || die "Platform archive failed tar validation."
 log "Platform files archived."
+
+dpkg-query -W -f='${binary:Package}\\t${Version}\\n' > "$STAGE/metadata/dpkg-packages.txt" \
+  || die "Could not capture installed Debian package versions."
+systemctl list-unit-files --state=enabled --no-pager > "$STAGE/metadata/systemd-enabled-units.txt" 2>&1 \
+  || die "Could not capture enabled systemd units."
 {
   printf 'FragCity Platform Backup\ncreated_utc=%s\n' "$STAMP"
   printf 'hostname=%s\n' "$(hostname -f 2>/dev/null || hostname)"
+  printf 'os_release=%s\n' "$(. /etc/os-release 2>/dev/null; printf '%s' "${PRETTY_NAME:-unknown}")"
   printf 'kernel=%s\n' "$(uname -r)"
   printf 'repository_branch=integration/kus-monorepo\nrepository_commit=%s\n' "$GIT_COMMIT"
   printf 'mariadb_version=%s\n' "$(mariadb --version)"
@@ -295,7 +301,8 @@ log "Platform files archived."
 } > "$STAGE/metadata/manifest.txt"
 (
   cd "$STAGE"
-  sha256sum databases/mariadb-all.sql.gz databases/redis.rdb files/platform-files.tar.gz > metadata/SHA256SUMS
+  sha256sum databases/mariadb-all.sql.gz databases/redis.rdb files/platform-files.tar.gz \
+    metadata/mariadb-databases.txt metadata/dpkg-packages.txt metadata/systemd-enabled-units.txt > metadata/SHA256SUMS
 )
 tar -czf "$PLAIN_TMP" -C "$STAGE" metadata databases files
 gzip -t "$PLAIN_TMP" || die "Final package gzip check failed."
