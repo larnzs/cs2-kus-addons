@@ -11,9 +11,9 @@ User=root
 Group=root
 WorkingDirectory=/opt/fragcity/cs2-kus-addons
 Environment=FRAGCITY_BACKUP_CONFIG=/etc/fragcity/backuper.conf
-# Shared lock coordinates with the publisher's exclusive Git lock. Auto-update
-# waits rather than changing the checkout while it is being archived.
-ExecStart=/usr/bin/flock --shared /opt/fragcity/cs2-kus-addons/.git/fragcity-payload-stage.lock /usr/bin/bash /opt/fragcity/cs2-kus-addons/pterodactyl/backuper/fragcity-backuper.sh --run
+# The script itself takes the shared Git lock only while archiving the checkout.
+# This avoids nested flock locks while still keeping the updater out of the tar window.
+ExecStart=/usr/bin/bash /opt/fragcity/cs2-kus-addons/pterodactyl/backuper/fragcity-backuper.sh --run
 TimeoutStartSec=6h
 Nice=10
 IOSchedulingClass=idle
