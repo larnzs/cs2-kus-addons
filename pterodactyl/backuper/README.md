@@ -8,7 +8,7 @@ Each successful run publishes one verified archive containing:
 
 - **MariaDB logical dump:** all actual databases returned by MariaDB, including mysql, panel, paymenter, sys and all GLOBAL_* databases. Runtime-only information_schema and performance_schema are excluded. Tables, routines, events, triggers and binary columns are included.
 - **Redis RDB snapshot:** exported from the running Redis instance with redis-cli --rdb, including keyspaces across Redis databases.
-- **Platform files:** /etc, all of /var/www, the complete /opt/fragcity/cs2-kus-addons checkout (including Git metadata), the Provisioner's safety-critical state at /var/lib/pterodactyl/fragcity-addon-provisioner (baseline UUIDs and processed markers), and /usr/local/bin, /usr/local/sbin, /usr/local/libexec.
+- **Platform files:** /etc, all of /var/www, the complete /opt/fragcity/cs2-kus-addons checkout (including Git metadata), the Provisioner's safety-critical state at /var/lib/pterodactyl/fragcity-addon-provisioner (baseline UUIDs and processed markers), and /usr/local/bin, /usr/local/sbin.
 - **Recovery inventory:** installed Debian package names/versions and enabled systemd unit files, so a rebuilt node can be compared with the original host.
 - **Integrity metadata:** host/OS/kernel, repository commit, database list, SHA-256 checksums and an outer SHA-256 sidecar.
 
