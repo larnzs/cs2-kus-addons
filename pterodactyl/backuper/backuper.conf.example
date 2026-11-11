@@ -4,6 +4,8 @@
 BACKUP_ROOT="/var/backups/fragcity"
 RETENTION_DAYS=14
 MIN_FREE_SPACE_MB=2048
+# Refuse backups on the root filesystem by default. Mount a separate disk/NAS first.
+REQUIRE_SEPARATE_DESTINATION=1
 
 # Paths are relative to /. This includes website projects, config, certificates,
 # service units, the full Provisioner checkout and local management scripts.
