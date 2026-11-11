@@ -8,14 +8,14 @@ Each successful run publishes one verified archive containing:
 
 - **MariaDB logical dump:** all actual databases returned by MariaDB, including mysql, panel, paymenter, sys and all GLOBAL_* databases. Runtime-only information_schema and performance_schema are excluded. Tables, routines, events, triggers and binary columns are included.
 - **Redis RDB snapshot:** exported from the running Redis instance with redis-cli --rdb, including keyspaces across Redis databases.
-- **Platform files:** /etc, all of /var/www, the complete /opt/fragcity/cs2-kus-addons checkout (including Git metadata), and /usr/local/bin, /usr/local/sbin, /usr/local/libexec.
+- **Platform files:** /etc, all of /var/www, the complete /opt/fragcity/cs2-kus-addons checkout (including Git metadata), the Provisioner's safety-critical state at /var/lib/pterodactyl/fragcity-addon-provisioner (baseline UUIDs and processed markers), and /usr/local/bin, /usr/local/sbin, /usr/local/libexec.
 - **Integrity metadata:** host/OS/kernel, repository commit, database list, SHA-256 checksums and an outer SHA-256 sidecar.
 
 Transient Laravel logs, sessions, views, caches, Bootstrap cache and Node node_modules are excluded. Application code, Composer vendor directories, app storage data, .env files, TLS material and system configuration remain included.
 
 ## Deliberately excluded
 
-The platform backup does not include /srv (re-downloadable CS2/Workshop assets), /var/lib/pterodactyl/volumes (customer game-server volumes), or /var/lib/docker (rebuildable Docker layers). Keep the existing full VMware clone as the complete-machine recovery image.
+The platform backup does not include /srv (re-downloadable CS2/Workshop assets), /var/lib/pterodactyl/volumes (customer game-server volumes), /var/lib/pterodactyl/mounts (the immutable addon payload can be re-published from Git), or /var/lib/docker (rebuildable Docker layers). Keep the existing full VMware clone as the complete-machine recovery image.
 
 ## Install
 
@@ -34,14 +34,14 @@ Review the root-only config:
     sudo chmod 600 /etc/fragcity/backuper.conf
     sudo bash pterodactyl/backuper/fragcity-backuper.sh --dry-run
 
-The default uses local MariaDB root/socket authentication and the default local Redis CLI connection. Custom sockets can be set in MARIADB_ARGS and REDIS_CLI_ARGS. An optional REDIS_PASSWORD_FILE must be root-owned mode 0400 or 0600.
+The default uses local MariaDB root/socket authentication and the default local Redis CLI connection. Custom sockets can be set in MARIADB_ARGS and REDIS_CLI_ARGS. Optional REDIS_PASSWORD_FILE and GPG_PASSPHRASE_FILE must be root-owned, mode 0400 or 0600, and stored below /root/fragcity-backup-secrets/; the secret files are explicitly excluded from the archive. Keep a separate offline copy of the GPG passphrase.
 
 Start a backup after dry-run passes:
 
     sudo systemctl start fragcity-backuper.service
     sudo journalctl -u fragcity-backuper.service -n 100 --no-pager
 
-Verify a completed archive:
+Verify a completed archive. Verification does not require MariaDB, Redis or the provisioner Git checkout to be running, so it can be used during disaster recovery:
 
     sudo bash pterodactyl/backuper/fragcity-backuper.sh --verify /var/backups/fragcity/fragcity-platform-YYYYMMDDTHHMMSSZ.tar.gz
 
