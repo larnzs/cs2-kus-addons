@@ -281,7 +281,7 @@ exec 9>&-
 tar -tzf "$STAGE/files/platform-files.tar.gz" >/dev/null || die "Platform archive failed tar validation."
 log "Platform files archived."
 
-dpkg-query -W -f='${binary:Package}\\t${Version}\\n' > "$STAGE/metadata/dpkg-packages.txt" \
+dpkg-query -W -f='${binary:Package}\t${Version}\n' > "$STAGE/metadata/dpkg-packages.txt" \
   || die "Could not capture installed Debian package versions."
 systemctl list-unit-files --state=enabled --no-pager > "$STAGE/metadata/systemd-enabled-units.txt" 2>&1 \
   || die "Could not capture enabled systemd units."
