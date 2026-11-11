@@ -128,7 +128,7 @@ verify_archive_core() {
 
 # Verification is intentionally independent of the live MariaDB, Redis and Git checkout.
 if [[ "$MODE" == "--verify" ]]; then
-  for cmd in tar gzip sha256sum mktemp mkdir rm; do
+  for cmd in tar gzip sha256sum mktemp mkdir rm grep stat dirname basename; do
     command -v "$cmd" >/dev/null 2>&1 || die "Required verification command missing: $cmd"
   done
   if [[ "$VERIFY_TARGET" == *.gpg ]]; then
