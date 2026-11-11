@@ -63,9 +63,9 @@ Encrypted archives end in .tar.gz.gpg; configure the same passphrase file before
 
 ## Destination and off-host safety
 
-The default destination /var/backups/fragcity is on the current root filesystem. This creates a separate logical backup artifact, but it is not protection against loss of the same VMDK.
+The default destination path is /var/backups/fragcity, but the installer does not mount storage there. The scheduled backup refuses to run until a separate physical disk or network volume is mounted at that path; this prevents silently filling the root VMDK and falsely treating a same-disk copy as disaster recovery.
 
-For disaster recovery, mount a separate physical disk or network backup volume at exactly /var/backups/fragcity, then confirm with findmnt -T /var/backups/fragcity and df -h /var/backups/fragcity. The destination source must differ from the root filesystem. Keep another copy off the machine.
+For disaster recovery, mount a separate physical disk or network backup volume at exactly /var/backups/fragcity, then confirm with findmnt -T /var/backups/fragcity and df -h /var/backups/fragcity. The destination source must differ from the root filesystem. This is enforced by default through REQUIRE_SEPARATE_DESTINATION=1; set it to 0 only for an explicitly temporary local backup. Keep another copy off the machine.
 
 Archives contain database contents, API keys, .env files, certificates and private config. Optional GPG symmetric encryption is supported by setting BACKUP_ENCRYPTION=1 and GPG_PASSPHRASE_FILE in the root-only config; keep an offline copy of that passphrase.
 
