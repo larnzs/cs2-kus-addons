@@ -20,12 +20,14 @@ The platform backup does not include /srv (re-downloadable CS2/Workshop assets),
 
 ## Install
 
+Before installing, mount a separate physical disk or NAS volume at /var/backups/fragcity and confirm it is a different filesystem from /. The installer checks this and refuses to enable the timer if the destination is still on the root VMDK.
+
 Run on the Debian host from the auto-updated checkout:
 
     cd /opt/fragcity/cs2-kus-addons
     sudo bash pterodactyl/backuper/install.sh
 
-The installer creates /etc/fragcity/backuper.conf only if it does not already exist, installs one systemd service and timer, and enables only fragcity-backuper.timer. It does not call install-host-services.sh and does not change fragcity-addon-provision.timer or fragcity-addon-payload-sync.timer. An immediate backup is not started unless explicitly requested with FRAGCITY_BACKUP_RUN_NOW=1.
+The installer creates /etc/fragcity/backuper.conf only if it does not already exist, validates it, installs one systemd service and timer, and enables only fragcity-backuper.timer. It does not call install-host-services.sh and does not change fragcity-addon-provision.timer or fragcity-addon-payload-sync.timer. An immediate backup is not started unless explicitly requested with FRAGCITY_BACKUP_RUN_NOW=1.
 
 ## First run
 
