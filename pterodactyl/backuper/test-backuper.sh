@@ -36,7 +36,7 @@ tar -czf "$VERIFY_ROOT/input/files/platform-files.tar.gz" -C "$VERIFY_ROOT/sampl
 tar -czf "$VERIFY_ROOT/fragcity-test.tar.gz" -C "$VERIFY_ROOT/input" metadata databases files
 sha256sum "$VERIFY_ROOT/fragcity-test.tar.gz" | sed "s#  .*#  fragcity-test.tar.gz#" > "$VERIFY_ROOT/fragcity-test.tar.gz.sha256"
 mkdir -p "$VERIFY_ROOT/min-bin"
-for command_name in tar gzip sha256sum mktemp cp mkdir rm date dirname basename; do
+for command_name in tar gzip sha256sum mktemp cp mkdir rm date dirname basename grep; do
   ln -s "$(command -v "$command_name")" "$VERIFY_ROOT/min-bin/$command_name"
 done
 PATH="$VERIFY_ROOT/min-bin" FRAGCITY_BACKUP_CONFIG="$VERIFY_ROOT/no-config" \
