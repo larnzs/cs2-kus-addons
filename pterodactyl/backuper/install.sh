@@ -49,9 +49,9 @@ source "$CONFIG_FILE"
 install -d -o root -g root -m 0700 "$BACKUP_ROOT"
 if [[ "$REQUIRE_SEPARATE_DESTINATION" == "1" ]]; then
   command -v findmnt >/dev/null 2>&1 || die "findmnt is required to validate the backup mount."
-  root_source="$(findmnt -n -o SOURCE -T / 2>/dev/null || true)"
-  backup_source="$(findmnt -n -o SOURCE -T "$BACKUP_ROOT" 2>/dev/null || true)"
-  [[ -n "$root_source" && -n "$backup_source" && "$root_source" != "$backup_source" ]] || die "Refusing to enable the scheduler: mount a separate disk/NAS at $BACKUP_ROOT first."
+  root_device="$(stat -c '%d' /)"
+  backup_device="$(stat -c '%d' "$BACKUP_ROOT")"
+  [[ "$root_device" != "$backup_device" ]] || die "Refusing to enable the scheduler: mount a separate disk/NAS at $BACKUP_ROOT first."
 fi
 
 install -o root -g root -m 0644 "$SCRIPT_DIR/fragcity-backuper.service" /etc/systemd/system/fragcity-backuper.service
