@@ -30,6 +30,7 @@ esac
 BACKUP_ROOT="/var/backups/fragcity"
 RETENTION_DAYS=14
 MIN_FREE_SPACE_MB=2048
+REQUIRE_SEPARATE_DESTINATION=1
 BACKUP_PATHS=(etc var/www opt/fragcity/cs2-kus-addons var/lib/pterodactyl/fragcity-addon-provisioner usr/local/bin usr/local/sbin usr/local/libexec)
 EXTRA_BACKUP_PATHS=()
 MARIADB_ARGS=()
@@ -56,6 +57,7 @@ case "$BACKUP_ROOT/" in *"/../"*) die "BACKUP_ROOT cannot contain '..'." ;; esac
 [[ "$BACKUP_ROOT" != "/var/backups/" && ! -L "$BACKUP_ROOT" ]] || die "Unsafe BACKUP_ROOT."
 [[ "$RETENTION_DAYS" =~ ^[1-9][0-9]{0,3}$ ]] || die "RETENTION_DAYS must be 1..9999."
 [[ "$MIN_FREE_SPACE_MB" =~ ^[1-9][0-9]{0,7}$ ]] || die "MIN_FREE_SPACE_MB must be positive."
+[[ "$REQUIRE_SEPARATE_DESTINATION" == "0" || "$REQUIRE_SEPARATE_DESTINATION" == "1" ]] || die "REQUIRE_SEPARATE_DESTINATION must be 0 or 1."
 [[ "$BACKUP_ENCRYPTION" == "0" || "$BACKUP_ENCRYPTION" == "1" ]] || die "BACKUP_ENCRYPTION must be 0 or 1."
 for array_name in BACKUP_PATHS EXTRA_BACKUP_PATHS MARIADB_ARGS REDIS_CLI_ARGS; do
   declare -p "$array_name" 2>/dev/null | grep -q '^declare -a ' || die "$array_name must be a Bash array."
@@ -76,10 +78,10 @@ validate_secret_file() {
   secret_mode="$(stat -c '%a' "$secret_path")"
   [[ "$secret_mode" == "400" || "$secret_mode" == "600" ]] || die "$secret_label file must have mode 0400 or 0600."
 }
-if [[ -n "$REDIS_PASSWORD_FILE" ]]; then
+if [[ "$MODE" != "--verify" && -n "$REDIS_PASSWORD_FILE" ]]; then
   validate_secret_file "$REDIS_PASSWORD_FILE" "Redis password"
 fi
-if [[ "$BACKUP_ENCRYPTION" == "1" ]]; then
+if [[ "$BACKUP_ENCRYPTION" == "1" && ( "$MODE" != "--verify" || "$VERIFY_TARGET" == *.gpg ) ]]; then
   validate_secret_file "$GPG_PASSPHRASE_FILE" "GPG passphrase"
 fi
 if [[ "$MODE" == "--check-config" ]]; then
@@ -192,6 +194,11 @@ check_redis
 available_mb="$(df -Pm "$BACKUP_ROOT" | awk 'NR==2 {print $4}')"
 [[ "$available_mb" =~ ^[0-9]+$ ]] || die "Cannot determine free space at destination."
 ((available_mb >= MIN_FREE_SPACE_MB)) || die "Insufficient destination space."
+root_source="$(findmnt -n -o SOURCE -T / 2>/dev/null || true)"
+dest_source="$(findmnt -n -o SOURCE -T "$BACKUP_ROOT" 2>/dev/null || true)"
+if [[ "$REQUIRE_SEPARATE_DESTINATION" == "1" && -n "$root_source" && "$root_source" == "$dest_source" ]]; then
+  die "Backup destination is on the same filesystem as /. Mount a separate disk/NAS at $BACKUP_ROOT, or explicitly set REQUIRE_SEPARATE_DESTINATION=0 for a temporary local copy."
+fi
 if [[ "$MODE" == "--dry-run" ]]; then
   log "DRY RUN PASSED: MariaDB databases, Redis PONG, configured paths and storage check."
   log "No backup files were created."
@@ -313,10 +320,8 @@ find "$BACKUP_ROOT" -maxdepth 1 -type f \
   \( -name 'fragcity-platform-*.tar.gz' -o -name 'fragcity-platform-*.tar.gz.gpg' \
      -o -name 'fragcity-platform-*.tar.gz.sha256' -o -name 'fragcity-platform-*.tar.gz.gpg.sha256' \) \
   -mtime "+$RETENTION_DAYS" -delete
-ROOT_SOURCE="$(findmnt -n -o SOURCE -T / 2>/dev/null || true)"
-DEST_SOURCE="$(findmnt -n -o SOURCE -T "$BACKUP_ROOT" 2>/dev/null || true)"
-if [[ -n "$ROOT_SOURCE" && "$ROOT_SOURCE" == "$DEST_SOURCE" ]]; then
-  log "WARNING: destination is on the same filesystem as /. Mount independent storage at $BACKUP_ROOT for off-VM safety."
+if [[ -n "$root_source" && "$root_source" != "$dest_source" ]]; then
+  log "Independent backup filesystem detected: $dest_source"
 fi
 log "SUCCESS: $FINAL"
 log "SHA256: $HASH"
