@@ -199,7 +199,9 @@ available_mb="$(df -Pm "$BACKUP_ROOT" | awk 'NR==2 {print $4}')"
 ((available_mb >= MIN_FREE_SPACE_MB)) || die "Insufficient destination space."
 root_source="$(findmnt -n -o SOURCE -T / 2>/dev/null || true)"
 dest_source="$(findmnt -n -o SOURCE -T "$BACKUP_ROOT" 2>/dev/null || true)"
-if [[ "$REQUIRE_SEPARATE_DESTINATION" == "1" && -n "$root_source" && "$root_source" == "$dest_source" ]]; then
+root_device="$(stat -c '%d' /)"
+dest_device="$(stat -c '%d' "$BACKUP_ROOT")"
+if [[ "$REQUIRE_SEPARATE_DESTINATION" == "1" && "$root_device" == "$dest_device" ]]; then
   die "Backup destination is on the same filesystem as /. Mount a separate disk/NAS at $BACKUP_ROOT, or explicitly set REQUIRE_SEPARATE_DESTINATION=0 for a temporary local copy."
 fi
 if [[ "$MODE" == "--dry-run" ]]; then
