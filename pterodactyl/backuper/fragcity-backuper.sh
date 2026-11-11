@@ -38,14 +38,18 @@ REDIS_PASSWORD_FILE=""
 BACKUP_ENCRYPTION=0
 GPG_PASSPHRASE_FILE=""
 
-[[ -f "$CONFIG_FILE" && ! -L "$CONFIG_FILE" ]] || die "Missing or unsafe config: $CONFIG_FILE"
-if [[ "${FRAGCITY_BACKUP_TEST_MODE:-0}" != "1" ]]; then
-  [[ "$(stat -c '%u' "$CONFIG_FILE")" == "0" ]] || die "Config must be root-owned."
-  config_mode="$(stat -c '%a' "$CONFIG_FILE")"
-  [[ "$config_mode" == "400" || "$config_mode" == "600" ]] || die "Config must have mode 0400 or 0600."
+if [[ -e "$CONFIG_FILE" || -L "$CONFIG_FILE" ]]; then
+  [[ -f "$CONFIG_FILE" && ! -L "$CONFIG_FILE" ]] || die "Config path is not a safe regular file: $CONFIG_FILE"
+  if [[ "${FRAGCITY_BACKUP_TEST_MODE:-0}" != "1" ]]; then
+    [[ "$(stat -c '%u' "$CONFIG_FILE")" == "0" ]] || die "Config must be root-owned."
+    config_mode="$(stat -c '%a' "$CONFIG_FILE")"
+    [[ "$config_mode" == "400" || "$config_mode" == "600" ]] || die "Config must have mode 0400 or 0600."
+  fi
+  # shellcheck disable=SC1090
+  source "$CONFIG_FILE"
+elif [[ "$MODE" != "--verify" || "$VERIFY_TARGET" == *.gpg || "$MODE" == "--check-config" ]]; then
+  die "Missing config: $CONFIG_FILE"
 fi
-# shellcheck disable=SC1090
-source "$CONFIG_FILE"
 
 case "$BACKUP_ROOT/" in /var/backups/*) ;; *) die "BACKUP_ROOT must be below /var/backups." ;; esac
 case "$BACKUP_ROOT/" in *"/../"*) die "BACKUP_ROOT cannot contain '..'." ;; esac
@@ -64,11 +68,19 @@ validate_path() {
 for path in "${BACKUP_PATHS[@]}" "${EXTRA_BACKUP_PATHS[@]}"; do
   validate_path "$path" || die "Unsafe path in config: $path"
 done
+validate_secret_file() {
+  local secret_path="$1" secret_label="$2" secret_mode
+  [[ -n "$secret_path" && -f "$secret_path" && ! -L "$secret_path" ]] || die "$secret_label file is missing or unsafe."
+  case "$secret_path" in /root/fragcity-backup-secrets/*) ;; *) die "$secret_label file must be stored under /root/fragcity-backup-secrets/ so it cannot be included in the platform archive." ;; esac
+  [[ "$(stat -c '%u' "$secret_path")" == "0" ]] || die "$secret_label file must be root-owned."
+  secret_mode="$(stat -c '%a' "$secret_path")"
+  [[ "$secret_mode" == "400" || "$secret_mode" == "600" ]] || die "$secret_label file must have mode 0400 or 0600."
+}
+if [[ -n "$REDIS_PASSWORD_FILE" ]]; then
+  validate_secret_file "$REDIS_PASSWORD_FILE" "Redis password"
+fi
 if [[ "$BACKUP_ENCRYPTION" == "1" ]]; then
-  [[ -n "$GPG_PASSPHRASE_FILE" && -f "$GPG_PASSPHRASE_FILE" && ! -L "$GPG_PASSPHRASE_FILE" ]] || die "Set GPG_PASSPHRASE_FILE."
-  [[ "$(stat -c '%u' "$GPG_PASSPHRASE_FILE")" == "0" ]] || die "GPG passphrase file must be root-owned."
-  key_mode="$(stat -c '%a' "$GPG_PASSPHRASE_FILE")"
-  [[ "$key_mode" == "400" || "$key_mode" == "600" ]] || die "GPG passphrase file must have mode 0400 or 0600."
+  validate_secret_file "$GPG_PASSPHRASE_FILE" "GPG passphrase"
 fi
 if [[ "$MODE" == "--check-config" ]]; then
   log "Config valid; destination=$BACKUP_ROOT retention=$RETENTION_DAYS days."
@@ -138,30 +150,45 @@ fi
 verify_archive_core() {
   local archive="$1" temp_dir payload
   [[ -f "$archive" && ! -L "$archive" ]] || die "Archive is missing or unsafe: $archive"
-  temp_dir="$(mktemp -d /var/tmp/fragcity-backup-verify.XXXXXX)"
+  temp_dir="$(mktemp -d /var/tmp/fragcity-backup-verify.XXXXXX)" || die "Cannot create verification temp directory."
   payload="$temp_dir/backup.tar.gz"
   if [[ "$archive" == *.gpg ]]; then
-    [[ "$BACKUP_ENCRYPTION" == "1" ]] || { rm -rf "$temp_dir"; die "Encrypted archive; enable GPG config before verification."; }
-    gpg --batch --quiet --no-symkey-cache --pinentry-mode loopback --passphrase-file "$GPG_PASSPHRASE_FILE" --decrypt "$archive" > "$payload" \
-      || { rm -rf "$temp_dir"; die "GPG decryption/integrity check failed."; }
+    [[ "$BACKUP_ENCRYPTION" == "1" && -n "$GPG_PASSPHRASE_FILE" ]] || { rm -rf -- "$temp_dir"; die "Encrypted archive; configure its root-only GPG passphrase file first."; }
+    if ! gpg --batch --quiet --no-symkey-cache --pinentry-mode loopback --passphrase-file "$GPG_PASSPHRASE_FILE" --decrypt "$archive" > "$payload"; then
+      rm -rf -- "$temp_dir"; die "GPG decryption/integrity check failed."
+    fi
   else
-    cp -- "$archive" "$payload"
+    if ! cp -- "$archive" "$payload"; then rm -rf -- "$temp_dir"; die "Could not stage archive for verification."; fi
   fi
-  gzip -t "$payload" || { rm -rf "$temp_dir"; die "Outer gzip integrity check failed."; }
+  if ! gzip -t "$payload"; then rm -rf -- "$temp_dir"; die "Outer gzip integrity check failed."; fi
   mkdir -p "$temp_dir/extracted"
-  tar -xzf "$payload" --no-same-owner --no-same-permissions -C "$temp_dir/extracted" || { rm -rf "$temp_dir"; die "Could not extract backup for verification."; }
-  (
+  if ! tar -xzf "$payload" --no-same-owner --no-same-permissions -C "$temp_dir/extracted"; then
+    rm -rf -- "$temp_dir"; die "Could not extract backup for verification."
+  fi
+  if ! (
     cd "$temp_dir/extracted"
     sha256sum -c metadata/SHA256SUMS
     gzip -t databases/mariadb-all.sql.gz
     tar -tzf files/platform-files.tar.gz >/dev/null
-  ) || { rm -rf "$temp_dir"; die "Nested archive/checksum verification failed."; }
+  ); then
+    rm -rf -- "$temp_dir"; die "Nested archive/checksum verification failed."
+  fi
   if command -v redis-check-rdb >/dev/null 2>&1; then
-    redis-check-rdb "$temp_dir/extracted/databases/redis.rdb" >/dev/null 2>&1 || { rm -rf "$temp_dir"; die "Redis RDB validation failed."; }
+    if ! redis-check-rdb "$temp_dir/extracted/databases/redis.rdb" >/dev/null 2>&1; then
+      rm -rf -- "$temp_dir"; die "Redis RDB validation failed."
+    fi
   fi
   rm -rf -- "$temp_dir"
 }
+
+# Verification is intentionally independent of the live MariaDB, Redis and Git checkout.
 if [[ "$MODE" == "--verify" ]]; then
+  for cmd in tar gzip sha256sum mktemp cp mkdir rm; do
+    command -v "$cmd" >/dev/null 2>&1 || die "Required verification command missing: $cmd"
+  done
+  if [[ "$VERIFY_TARGET" == *.gpg ]]; then
+    command -v gpg >/dev/null 2>&1 || die "gpg is required to verify this encrypted archive."
+  fi
   [[ -n "$VERIFY_TARGET" ]] || die "--verify requires an archive path."
   if [[ -f "$VERIFY_TARGET.sha256" ]]; then
     (cd "$(dirname -- "$VERIFY_TARGET")" && sha256sum -c "$(basename -- "$VERIFY_TARGET").sha256") || die "Outer SHA-256 sidecar check failed."
@@ -220,18 +247,31 @@ exec 9>"$GIT_LOCK"
 flock -s 9
 TAR_PATHS=("${BACKUP_PATHS[@]}" "${EXTRA_BACKUP_PATHS[@]}")
 for path in "${TAR_PATHS[@]}"; do [[ -e "/$path" || -L "/$path" ]] || die "Backup path disappeared: /$path"; done
+TAR_EXCLUDES=(
+  --exclude='*/storage/logs/*'
+  --exclude='*/storage/framework/cache/*'
+  --exclude='*/storage/framework/sessions/*'
+  --exclude='*/storage/framework/views/*'
+  --exclude='*/bootstrap/cache/*'
+  --exclude='*/node_modules/*'
+)
+# Never put credential files configured above into the archive, even if an
+# administrator later adds /root or another secret directory to the include list.
+for secret_path in "$REDIS_PASSWORD_FILE" "$GPG_PASSPHRASE_FILE"; do
+  if [[ -n "$secret_path" ]]; then
+    secret_relative="${secret_path#/}"
+    TAR_EXCLUDES+=(--exclude="$secret_relative")
+  fi
+done
 tar --create --gzip --file="$STAGE/files/platform-files.tar.gz" \
   --numeric-owner --acls --xattrs --one-file-system \
-  --exclude='*/storage/logs/*' --exclude='*/storage/framework/cache/*' \
-  --exclude='*/storage/framework/sessions/*' --exclude='*/storage/framework/views/*' \
-  --exclude='*/bootstrap/cache/*' --exclude='*/node_modules/*' \
+  "${TAR_EXCLUDES[@]}" \
   --directory=/ -- "${TAR_PATHS[@]}" || die "Platform file archive failed."
+GIT_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 flock -u 9
 exec 9>&-
 tar -tzf "$STAGE/files/platform-files.tar.gz" >/dev/null || die "Platform archive failed tar validation."
 log "Platform files archived."
-
-GIT_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 {
   printf 'FragCity Platform Backup\ncreated_utc=%s\n' "$STAMP"
   printf 'hostname=%s\n' "$(hostname -f 2>/dev/null || hostname)"
