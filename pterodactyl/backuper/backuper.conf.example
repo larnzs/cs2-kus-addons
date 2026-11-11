@@ -11,6 +11,7 @@ BACKUP_PATHS=(
   "etc"
   "var/www"
   "opt/fragcity/cs2-kus-addons"
+  "var/lib/pterodactyl/fragcity-addon-provisioner"
   "usr/local/bin"
   "usr/local/sbin"
   "usr/local/libexec"
@@ -25,6 +26,8 @@ MARIADB_ARGS=()
 REDIS_CLI_ARGS=()
 REDIS_PASSWORD_FILE=""
 
-# Optional GPG symmetric encryption. Keep an offline copy of the passphrase.
+# Optional GPG symmetric encryption. Secret files must be root-owned 0400/0600
+# and stored under /root/fragcity-backup-secrets/ (never in the archive paths).
+# The same path policy applies to REDIS_PASSWORD_FILE.
 BACKUP_ENCRYPTION=0
 GPG_PASSPHRASE_FILE=""
