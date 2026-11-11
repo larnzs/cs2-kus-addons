@@ -16,7 +16,6 @@ BACKUP_PATHS=(
   "var/lib/pterodactyl/fragcity-addon-provisioner"
   "usr/local/bin"
   "usr/local/sbin"
-  "usr/local/libexec"
 )
 EXTRA_BACKUP_PATHS=()
 
