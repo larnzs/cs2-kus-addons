@@ -9,6 +9,7 @@ Each successful run publishes one verified archive containing:
 - **MariaDB logical dump:** all actual databases returned by MariaDB, including mysql, panel, paymenter, sys and all GLOBAL_* databases. Runtime-only information_schema and performance_schema are excluded. Tables, routines, events, triggers and binary columns are included.
 - **Redis RDB snapshot:** exported from the running Redis instance with redis-cli --rdb, including keyspaces across Redis databases.
 - **Platform files:** /etc, all of /var/www, the complete /opt/fragcity/cs2-kus-addons checkout (including Git metadata), the Provisioner's safety-critical state at /var/lib/pterodactyl/fragcity-addon-provisioner (baseline UUIDs and processed markers), and /usr/local/bin, /usr/local/sbin, /usr/local/libexec.
+- **Recovery inventory:** installed Debian package names/versions and enabled systemd unit files, so a rebuilt node can be compared with the original host.
 - **Integrity metadata:** host/OS/kernel, repository commit, database list, SHA-256 checksums and an outer SHA-256 sidecar.
 
 Transient Laravel logs, sessions, views, caches, Bootstrap cache and Node node_modules are excluded. Application code, Composer vendor directories, app storage data, .env files, TLS material and system configuration remain included.
@@ -86,6 +87,8 @@ Archive layout:
 - databases/redis.rdb
 - files/platform-files.tar.gz
 - metadata/manifest.txt
+- metadata/dpkg-packages.txt
+- metadata/systemd-enabled-units.txt
 - metadata/SHA256SUMS
 
 The full VMware clone remains the preferred one-step recovery for the exact original VM. This archive is the independent component-level recovery layer.
