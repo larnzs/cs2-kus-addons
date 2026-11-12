@@ -1152,6 +1152,747 @@ function Update-ReadmeVersion([string]$Name, [string]$Repository, [string]$Displ
     )
 }
 
+function Normalize-ManifestPurpose([string]$Purpose, $Addon) {
+    $purpose = [string]$Purpose
+    $purpose = $purpose -replace '(?i)(?:;\s*not installed and marked manual in the (?:Larnz )?Manifest)+\s*
+    if (-not (Test-Path -LiteralPath $ReadmePath) -or $DryRun) {
+        return
+    }
+
+    $text = Get-Content -LiteralPath $ReadmePath -Raw
+    $newline = if ($text.Contains(([string][char]13) + ([string][char]10))) {
+        ([string][char]13) + ([string][char]10)
+    } else {
+        [string][char]10
+    }
+    $lines = [regex]::Split($text, "\r\n|\n")
+    $header = "| Mod | Version / revision | Purpose | Payload placement / activation | Update automation |"
+    $headerIndex = -1
+    for ($i = 0; $i -lt $lines.Length; $i++) {
+        if ($lines[$i].Trim() -eq $header) {
+            $headerIndex = $i
+            break
+        }
+    }
+    if ($headerIndex -lt 0 -or $headerIndex + 1 -ge $lines.Length -or
+        $lines[$headerIndex + 1].Trim() -ne "| --- | --- | --- | --- | --- |") {
+        throw "README unified plugin catalog header is missing or malformed."
+    }
+
+    # Find the contiguous data rows for the one combined KUS + Manifest catalog.
+    $dataStart = $headerIndex + 2
+    $dataEnd = $dataStart
+    while ($dataEnd -lt $lines.Length -and $lines[$dataEnd] -match "^\s*\|.*\|\s*$") {
+        $dataEnd++
+    }
+
+    $backtick = [string][char]96
+    $tableNames = @{}
+    foreach ($addon in @($manifest.addons | Sort-Object { [int]$_.order })) {
+        $name = [string]$addon.name
+        $repository = [string]$addon.repository
+        $displayVersion = [string]$addon.version
+        if ([string]::IsNullOrWhiteSpace($name) -or
+            [string]::IsNullOrWhiteSpace($repository) -or
+            [string]::IsNullOrWhiteSpace($displayVersion)) {
+            throw "A Manifest entry is missing name, repository, or version."
+        }
+
+        if ([string]$addon.type -eq "github_source_build" -and
+            -not [string]::IsNullOrWhiteSpace([string]$addon.branch)) {
+            $shortCommit = $displayVersion.Substring(0, [Math]::Min(12, $displayVersion.Length))
+            $displayVersion = "$([string]$addon.branch)@$shortCommit"
+        }
+
+        $escapedName = [regex]::Escape($name)
+        $rowPattern = "^\|\s*\[$escapedName\]\(https?://[^)]+\)\s*\|"
+        $matchingIndexes = @()
+        for ($i = $dataStart; $i -lt $dataEnd; $i++) {
+            if ($lines[$i] -match $rowPattern) {
+                $matchingIndexes += $i
+            }
+        }
+        if ($matchingIndexes.Count -ne 1) {
+            throw "Expected exactly one unified README row for Manifest add-on '$name'; found $($matchingIndexes.Count)."
+        }
+
+        $rowIndex = [int]$matchingIndexes[0]
+        $cells = @($lines[$rowIndex].Trim().Trim('|').Split('|') | ForEach-Object { $_.Trim() })
+        if ($cells.Count -ne 5) {
+            throw "README row for '$name' must contain all five unified catalog columns."
+        }
+
+        # Preserve project-owned purpose, placement, and updater documentation.
+        # Only normalize the source link/version and the installed/manual suffix.
+        $cells[0] = "[$name]($repository)"
+        $cells[1] = $backtick + $displayVersion + $backtick
+
+        $cells[2] = Normalize-ManifestPurpose -Purpose ([string]$cells[2]) -Addon $addon
+
+        $lines[$rowIndex] = "| " + ($cells -join " | ") + " |"
+        $tableNames[$name] = $true
+    }
+
+    $newText = [string]::Join($newline, $lines)
+    if ($newText -ne $text) {
+        [IO.File]::WriteAllText(
+            $ReadmePath,
+            $newText,
+            (New-Object System.Text.UTF8Encoding($false))
+        )
+        Write-Info "Synchronized all $($tableNames.Count) Manifest rows in the unified README catalog."
+    }
+}
+
+if (-not (Test-Path $ManifestPath)) {
+    throw "Missing $ManifestPath"
+}
+
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    throw "git is required by the KUS-style updater."
+}
+
+if (-not (Test-Path (Join-Path $RepoRoot ".git"))) {
+    throw "$RepoRoot is not a Git working tree."
+}
+
+if (-not $DryRun) {
+    # This updater changes only the tracked source payload under game/csgo/ and
+    # README/manifest metadata. The live runtime is separate under server/game/csgo/,
+    # so fetching/committing release files is safe while CS2 instances are running.
+    # Runtime deployment and SteamCMD updates have their own active-process guards.
+    $status = @(& git -C $RepoRoot status --porcelain)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not read Git working tree status."
+    }
+    if ($status.Count -gt 0) {
+        throw ("Working tree is not clean. Commit/stash existing changes before running the updater:" + [Environment]::NewLine + ($status -join [Environment]::NewLine))
+    }
+}
+
+$manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
+$addons = @($manifest.addons | Sort-Object order)
+
+$available = @{}
+foreach ($addon in $addons) {
+    if (-not [bool]$addon.installed) {
+        $available[$addon.name] = $false
+    }
+    else {
+        $available[$addon.name] = $true
+    }
+}
+
+# Bundle-only entries are dependencies for other add-ons, not independent release
+# updates. Verify their owner-provided files before any -Only filtering takes place.
+foreach ($bundledAddon in @($addons | Where-Object {
+    $_.PSObject.Properties.Name -contains "bundled_by" -and
+    -not [string]::IsNullOrWhiteSpace([string]$_.bundled_by)
+})) {
+    $bundleMissingFiles = @(Get-AddonMissingFiles $bundledAddon)
+    $bundleAvailable = [bool]$bundledAddon.installed -and $bundleMissingFiles.Count -eq 0
+    $available[$bundledAddon.name] = $bundleAvailable
+    if (-not $bundleAvailable) {
+        Write-Warn ("Bundled dependency '{0}' from '{1}' is incomplete:" -f $bundledAddon.name, [string]$bundledAddon.bundled_by)
+        foreach ($missing in $bundleMissingFiles) { Write-Warn ("  " + $missing) }
+    }
+}
+
+
+$selectedAddonNames = $null
+if ($Only) {
+    $selected = @(
+        $addons | Where-Object {
+            $slug = (($_.name) -replace '[^A-Za-z0-9]+','-').Trim('-').ToLowerInvariant()
+            ($Only -contains $_.name) -or
+            ($Only -contains $slug) -or
+            ($Only -contains $_.repository)
+        }
+    )
+
+    if ($selected.Count -eq 0) {
+        throw "No addon matched -Only: $($Only -join ', ')"
+    }
+
+    $selectedAddonNames = @($selected | ForEach-Object { [string]$_.name })
+    $addons = $selected
+}
+
+if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $PayloadRoot | Out-Null }
+
+Write-Host ""
+Write-Host "CS2 KUS Addons updater" -ForegroundColor Cyan
+Write-Host "Target: $PayloadRoot"
+if ($DryRun) {
+    Write-Host "Mode: DRY RUN" -ForegroundColor Yellow
+}
+Write-Host ""
+
+$addonFailures = New-Object System.Collections.Generic.List[string]
+for ($addonIndex = 0; $addonIndex -lt $addons.Count; $addonIndex++) {
+    $addon = $addons[$addonIndex]
+    Write-Host "[$($addon.order)] $($addon.name)" -ForegroundColor White
+
+    if ($addon.PSObject.Properties.Name -contains "automation_supported" -and
+        -not [bool]$addon.automation_supported) {
+        if ($addon.PSObject.Properties.Name -contains "bundled_by" -and
+            -not [string]::IsNullOrWhiteSpace([string]$addon.bundled_by)) {
+            if (-not [bool]$available[$addon.name]) {
+                throw ("Bundled dependency '{0}' is incomplete. Run scripts/update/update.sh --only gamemodemanager before updating dependents." -f $addon.name)
+            }
+            Write-Info ("Verified {0} from bundled package '{1}'." -f $addon.name, [string]$addon.bundled_by)
+        }
+        else {
+            Write-Warn "This addon is tracked in the manifest but is not automated by this updater."
+        }
+        continue
+    }
+
+    foreach ($dependency in @($addon.depends_on)) {
+        if (-not $available.ContainsKey([string]$dependency) -or -not [bool]$available[[string]$dependency]) {
+            throw "$($addon.name) requires '$dependency'. Run the updater in dependency order or install that dependency first."
+        }
+    }
+
+    try {
+        if ($addon.type -eq "github_release") {
+            $release = Get-ReleaseForAddon $addon
+            $version = Get-AddonVersion -Addon $addon -Tag $release.tag_name
+
+            $missingFiles = @(Get-AddonMissingFiles $addon)
+            $needsRepair = $missingFiles.Count -gt 0
+            $needsUpdate = [bool]$Force -or
+                -not [bool]$addon.installed -or
+                ([string]$addon.version -ne $version) -or
+                $needsRepair
+
+            if (-not $needsUpdate) {
+                Write-Info "Already at $version; all required files are present."
+                continue
+            }
+            if ($needsRepair) {
+                Write-Warn ("Runtime requirements are missing; reinstalling {0} {1}:{2}{3}" -f $addon.name, $version, [Environment]::NewLine, ($missingFiles -join [Environment]::NewLine))
+            }
+
+            $newVersion = Install-ReleaseAddon $addon $release
+
+            if (-not $DryRun) {
+                $addon.installed = $true
+                $addon.version = $newVersion
+                $addon.release_tag = $release.tag_name
+            }
+
+            $readmeUrl = if ($addon.PSObject.Properties.Name -contains "readme_url" -and -not [string]::IsNullOrWhiteSpace([string]$addon.readme_url)) { [string]$addon.readme_url } else { [string]$addon.repository }
+            Update-ReadmeVersion $addon.name $readmeUrl $newVersion
+            Save-Manifest
+            Commit-AddonUpdate $addon.name $newVersion
+            $available[$addon.name] = $true
+            Write-Host "  OK $newVersion" -ForegroundColor Green
+        }
+        elseif ($addon.type -eq "github_source_build") {
+            $commit = Get-BranchCommit $addon
+            $version = $commit.sha
+            $missingFiles = @(Get-AddonMissingFiles $addon)
+            $needsRepair = $missingFiles.Count -gt 0
+
+            $needsUpdate = [bool]$Force -or
+                -not [bool]$addon.installed -or
+                ([string]$addon.version -ne $version) -or
+                $needsRepair
+
+            if (-not $needsUpdate) {
+                Write-Info "Already at $($version.Substring(0,12)); all required files are present."
+                continue
+            }
+            if ($needsRepair) {
+                Write-Warn ("Required files are missing; rebuilding {0} {1}:{2}{3}" -f $addon.name, $version, [Environment]::NewLine, ($missingFiles -join [Environment]::NewLine))
+            }
+
+            $newVersion = Install-SourceBuildAddon $addon $commit
+
+            if (-not $DryRun) {
+                $addon.installed = $true
+                $addon.version = $newVersion
+                if ($addon.PSObject.Properties.Name -contains "source_commit") {
+                    $addon.source_commit = $newVersion
+                }
+                else {
+                    Add-Member -InputObject $addon -MemberType NoteProperty -Name source_commit -Value $newVersion -Force
+                }
+            }
+
+            $display = "$($addon.branch)@$($newVersion.Substring(0,12))"
+            Update-ReadmeVersion $addon.name $addon.repository $display
+            Save-Manifest
+            Commit-AddonUpdate $addon.name $display
+            $available[$addon.name] = $true
+            Write-Host "  OK $display" -ForegroundColor Green
+        }
+        else {
+            throw "Unsupported addon type '$($addon.type)'."
+        }
+    }
+    catch {
+        $failureMessage = "{0}: {1}" -f [string]$addon.name, $_.Exception.Message
+        Write-Host "  ERROR $failureMessage" -ForegroundColor Red
+        $addonFailures.Add($failureMessage)
+
+        if (-not $DryRun) {
+            # Every successful add-on has its own commit. Reset only the current
+            # uncommitted attempt to the last good HEAD, then continue the queue.
+            & git -C $RepoRoot reset --hard HEAD
+            if ($LASTEXITCODE -ne 0) {
+                throw "Could not roll back the failed add-on '$($addon.name)'; stopping to protect the repository."
+            }
+            & git -C $RepoRoot clean -fd -- game/csgo
+            if ($LASTEXITCODE -ne 0) {
+                throw "Could not remove partial payload files for '$($addon.name)'; stopping to protect the repository."
+            }
+
+            # Save-Manifest may have changed in-memory objects before a commit
+            # failed. Reload the last committed state before processing dependents.
+            $manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
+            $allAddons = @($manifest.addons | Sort-Object order)
+            if ($selectedAddonNames) {
+                $addons = @($allAddons | Where-Object { $selectedAddonNames -contains [string]$_.name })
+            } else {
+                $addons = $allAddons
+            }
+        }
+    }
+}
+
+
+Sync-ReadmeAddonTable
+if (-not $DryRun) {
+    # If no release needed an update, the README may still need reconciliation.
+    # Commit only this expected documentation path, never unrelated working-tree files.
+    & git -C $RepoRoot diff --quiet -- README.md
+    $readmeDiffExit = $LASTEXITCODE
+    if ($readmeDiffExit -eq 1) {
+        & git -C $RepoRoot add -- README.md
+        if ($LASTEXITCODE -ne 0) {
+            throw "git add failed while staging README synchronization."
+        }
+
+        $stagedFiles = @(& git -C $RepoRoot diff --cached --name-only)
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not inspect staged README synchronization."
+        }
+        $unexpectedStaged = @($stagedFiles | Where-Object { $_ -ne "README.md" })
+        if ($unexpectedStaged.Count -gt 0) {
+            throw ("README synchronization found unexpected staged changes: " + ($unexpectedStaged -join ", "))
+        }
+        if ($stagedFiles -contains "README.md") {
+            & git -C $RepoRoot commit -m "Sync README add-on table from manifest"
+            if ($LASTEXITCODE -ne 0) {
+                throw "Could not commit README synchronization."
+            }
+            $short = (& git -C $RepoRoot rev-parse --short HEAD).Trim()
+            Write-Info "Committed README synchronization $short"
+        }
+    } elseif ($readmeDiffExit -ne 0) {
+        throw "Could not check README synchronization diff."
+    }
+}
+
+Write-Host ""
+Write-Host "Done." -ForegroundColor Cyan
+if (-not $DryRun) {
+    Write-Host "Review changes with: git status" -ForegroundColor DarkGray
+}
+if ($addonFailures.Count -gt 0) {
+    Write-Host ""
+    Write-Host ("Completed with {0} add-on failure(s); successful add-on commits were retained:" -f $addonFailures.Count) -ForegroundColor Yellow
+    foreach ($failure in $addonFailures) { Write-Host ("  - " + $failure) -ForegroundColor Red }
+    exit 1
+}
+, ''
+    $purpose = $purpose -replace '(?i)(?:;\s*not installed)+\s*
+    if (-not (Test-Path -LiteralPath $ReadmePath) -or $DryRun) {
+        return
+    }
+
+    $text = Get-Content -LiteralPath $ReadmePath -Raw
+    $newline = if ($text.Contains(([string][char]13) + ([string][char]10))) {
+        ([string][char]13) + ([string][char]10)
+    } else {
+        [string][char]10
+    }
+    $lines = [regex]::Split($text, "\r\n|\n")
+    $header = "| Mod | Version / revision | Purpose | Payload placement / activation | Update automation |"
+    $headerIndex = -1
+    for ($i = 0; $i -lt $lines.Length; $i++) {
+        if ($lines[$i].Trim() -eq $header) {
+            $headerIndex = $i
+            break
+        }
+    }
+    if ($headerIndex -lt 0 -or $headerIndex + 1 -ge $lines.Length -or
+        $lines[$headerIndex + 1].Trim() -ne "| --- | --- | --- | --- | --- |") {
+        throw "README unified plugin catalog header is missing or malformed."
+    }
+
+    # Find the contiguous data rows for the one combined KUS + Manifest catalog.
+    $dataStart = $headerIndex + 2
+    $dataEnd = $dataStart
+    while ($dataEnd -lt $lines.Length -and $lines[$dataEnd] -match "^\s*\|.*\|\s*$") {
+        $dataEnd++
+    }
+
+    $backtick = [string][char]96
+    $tableNames = @{}
+    foreach ($addon in @($manifest.addons | Sort-Object { [int]$_.order })) {
+        $name = [string]$addon.name
+        $repository = [string]$addon.repository
+        $displayVersion = [string]$addon.version
+        if ([string]::IsNullOrWhiteSpace($name) -or
+            [string]::IsNullOrWhiteSpace($repository) -or
+            [string]::IsNullOrWhiteSpace($displayVersion)) {
+            throw "A Manifest entry is missing name, repository, or version."
+        }
+
+        if ([string]$addon.type -eq "github_source_build" -and
+            -not [string]::IsNullOrWhiteSpace([string]$addon.branch)) {
+            $shortCommit = $displayVersion.Substring(0, [Math]::Min(12, $displayVersion.Length))
+            $displayVersion = "$([string]$addon.branch)@$shortCommit"
+        }
+
+        $escapedName = [regex]::Escape($name)
+        $rowPattern = "^\|\s*\[$escapedName\]\(https?://[^)]+\)\s*\|"
+        $matchingIndexes = @()
+        for ($i = $dataStart; $i -lt $dataEnd; $i++) {
+            if ($lines[$i] -match $rowPattern) {
+                $matchingIndexes += $i
+            }
+        }
+        if ($matchingIndexes.Count -ne 1) {
+            throw "Expected exactly one unified README row for Manifest add-on '$name'; found $($matchingIndexes.Count)."
+        }
+
+        $rowIndex = [int]$matchingIndexes[0]
+        $cells = @($lines[$rowIndex].Trim().Trim('|').Split('|') | ForEach-Object { $_.Trim() })
+        if ($cells.Count -ne 5) {
+            throw "README row for '$name' must contain all five unified catalog columns."
+        }
+
+        # Preserve project-owned purpose, placement, and updater documentation.
+        # Only normalize the source link/version and the installed/manual suffix.
+        $cells[0] = "[$name]($repository)"
+        $cells[1] = $backtick + $displayVersion + $backtick
+
+        $purpose = [string]$cells[2]
+        $purpose = $purpose -replace "(?i);\s*not installed and marked manual in the Larnz manifest$", ""
+        $purpose = $purpose -replace "(?i);\s*not installed$", ""
+        $manualEntry = $false
+        if ($addon.PSObject.Properties.Name -contains "automation_supported") {
+            $manualEntry = -not [bool]$addon.automation_supported
+        }
+        if ([bool]$addon.installed -eq $false) {
+            if ($manualEntry) {
+                $purpose += "; not installed and marked manual in the Manifest"
+            } elseif ($purpose -notmatch "(?i)\bnot installed\b") {
+                $purpose += "; not installed"
+            }
+        }
+        $cells[2] = $purpose
+
+        $lines[$rowIndex] = "| " + ($cells -join " | ") + " |"
+        $tableNames[$name] = $true
+    }
+
+    $newText = [string]::Join($newline, $lines)
+    if ($newText -ne $text) {
+        [IO.File]::WriteAllText(
+            $ReadmePath,
+            $newText,
+            (New-Object System.Text.UTF8Encoding($false))
+        )
+        Write-Info "Synchronized all $($tableNames.Count) Manifest rows in the unified README catalog."
+    }
+}
+
+if (-not (Test-Path $ManifestPath)) {
+    throw "Missing $ManifestPath"
+}
+
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    throw "git is required by the KUS-style updater."
+}
+
+if (-not (Test-Path (Join-Path $RepoRoot ".git"))) {
+    throw "$RepoRoot is not a Git working tree."
+}
+
+if (-not $DryRun) {
+    # This updater changes only the tracked source payload under game/csgo/ and
+    # README/manifest metadata. The live runtime is separate under server/game/csgo/,
+    # so fetching/committing release files is safe while CS2 instances are running.
+    # Runtime deployment and SteamCMD updates have their own active-process guards.
+    $status = @(& git -C $RepoRoot status --porcelain)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not read Git working tree status."
+    }
+    if ($status.Count -gt 0) {
+        throw ("Working tree is not clean. Commit/stash existing changes before running the updater:" + [Environment]::NewLine + ($status -join [Environment]::NewLine))
+    }
+}
+
+$manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
+$addons = @($manifest.addons | Sort-Object order)
+
+$available = @{}
+foreach ($addon in $addons) {
+    if (-not [bool]$addon.installed) {
+        $available[$addon.name] = $false
+    }
+    else {
+        $available[$addon.name] = $true
+    }
+}
+
+# Bundle-only entries are dependencies for other add-ons, not independent release
+# updates. Verify their owner-provided files before any -Only filtering takes place.
+foreach ($bundledAddon in @($addons | Where-Object {
+    $_.PSObject.Properties.Name -contains "bundled_by" -and
+    -not [string]::IsNullOrWhiteSpace([string]$_.bundled_by)
+})) {
+    $bundleMissingFiles = @(Get-AddonMissingFiles $bundledAddon)
+    $bundleAvailable = [bool]$bundledAddon.installed -and $bundleMissingFiles.Count -eq 0
+    $available[$bundledAddon.name] = $bundleAvailable
+    if (-not $bundleAvailable) {
+        Write-Warn ("Bundled dependency '{0}' from '{1}' is incomplete:" -f $bundledAddon.name, [string]$bundledAddon.bundled_by)
+        foreach ($missing in $bundleMissingFiles) { Write-Warn ("  " + $missing) }
+    }
+}
+
+
+$selectedAddonNames = $null
+if ($Only) {
+    $selected = @(
+        $addons | Where-Object {
+            $slug = (($_.name) -replace '[^A-Za-z0-9]+','-').Trim('-').ToLowerInvariant()
+            ($Only -contains $_.name) -or
+            ($Only -contains $slug) -or
+            ($Only -contains $_.repository)
+        }
+    )
+
+    if ($selected.Count -eq 0) {
+        throw "No addon matched -Only: $($Only -join ', ')"
+    }
+
+    $selectedAddonNames = @($selected | ForEach-Object { [string]$_.name })
+    $addons = $selected
+}
+
+if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $PayloadRoot | Out-Null }
+
+Write-Host ""
+Write-Host "CS2 KUS Addons updater" -ForegroundColor Cyan
+Write-Host "Target: $PayloadRoot"
+if ($DryRun) {
+    Write-Host "Mode: DRY RUN" -ForegroundColor Yellow
+}
+Write-Host ""
+
+$addonFailures = New-Object System.Collections.Generic.List[string]
+for ($addonIndex = 0; $addonIndex -lt $addons.Count; $addonIndex++) {
+    $addon = $addons[$addonIndex]
+    Write-Host "[$($addon.order)] $($addon.name)" -ForegroundColor White
+
+    if ($addon.PSObject.Properties.Name -contains "automation_supported" -and
+        -not [bool]$addon.automation_supported) {
+        if ($addon.PSObject.Properties.Name -contains "bundled_by" -and
+            -not [string]::IsNullOrWhiteSpace([string]$addon.bundled_by)) {
+            if (-not [bool]$available[$addon.name]) {
+                throw ("Bundled dependency '{0}' is incomplete. Run scripts/update/update.sh --only gamemodemanager before updating dependents." -f $addon.name)
+            }
+            Write-Info ("Verified {0} from bundled package '{1}'." -f $addon.name, [string]$addon.bundled_by)
+        }
+        else {
+            Write-Warn "This addon is tracked in the manifest but is not automated by this updater."
+        }
+        continue
+    }
+
+    foreach ($dependency in @($addon.depends_on)) {
+        if (-not $available.ContainsKey([string]$dependency) -or -not [bool]$available[[string]$dependency]) {
+            throw "$($addon.name) requires '$dependency'. Run the updater in dependency order or install that dependency first."
+        }
+    }
+
+    try {
+        if ($addon.type -eq "github_release") {
+            $release = Get-ReleaseForAddon $addon
+            $version = Get-AddonVersion -Addon $addon -Tag $release.tag_name
+
+            $missingFiles = @(Get-AddonMissingFiles $addon)
+            $needsRepair = $missingFiles.Count -gt 0
+            $needsUpdate = [bool]$Force -or
+                -not [bool]$addon.installed -or
+                ([string]$addon.version -ne $version) -or
+                $needsRepair
+
+            if (-not $needsUpdate) {
+                Write-Info "Already at $version; all required files are present."
+                continue
+            }
+            if ($needsRepair) {
+                Write-Warn ("Runtime requirements are missing; reinstalling {0} {1}:{2}{3}" -f $addon.name, $version, [Environment]::NewLine, ($missingFiles -join [Environment]::NewLine))
+            }
+
+            $newVersion = Install-ReleaseAddon $addon $release
+
+            if (-not $DryRun) {
+                $addon.installed = $true
+                $addon.version = $newVersion
+                $addon.release_tag = $release.tag_name
+            }
+
+            $readmeUrl = if ($addon.PSObject.Properties.Name -contains "readme_url" -and -not [string]::IsNullOrWhiteSpace([string]$addon.readme_url)) { [string]$addon.readme_url } else { [string]$addon.repository }
+            Update-ReadmeVersion $addon.name $readmeUrl $newVersion
+            Save-Manifest
+            Commit-AddonUpdate $addon.name $newVersion
+            $available[$addon.name] = $true
+            Write-Host "  OK $newVersion" -ForegroundColor Green
+        }
+        elseif ($addon.type -eq "github_source_build") {
+            $commit = Get-BranchCommit $addon
+            $version = $commit.sha
+            $missingFiles = @(Get-AddonMissingFiles $addon)
+            $needsRepair = $missingFiles.Count -gt 0
+
+            $needsUpdate = [bool]$Force -or
+                -not [bool]$addon.installed -or
+                ([string]$addon.version -ne $version) -or
+                $needsRepair
+
+            if (-not $needsUpdate) {
+                Write-Info "Already at $($version.Substring(0,12)); all required files are present."
+                continue
+            }
+            if ($needsRepair) {
+                Write-Warn ("Required files are missing; rebuilding {0} {1}:{2}{3}" -f $addon.name, $version, [Environment]::NewLine, ($missingFiles -join [Environment]::NewLine))
+            }
+
+            $newVersion = Install-SourceBuildAddon $addon $commit
+
+            if (-not $DryRun) {
+                $addon.installed = $true
+                $addon.version = $newVersion
+                if ($addon.PSObject.Properties.Name -contains "source_commit") {
+                    $addon.source_commit = $newVersion
+                }
+                else {
+                    Add-Member -InputObject $addon -MemberType NoteProperty -Name source_commit -Value $newVersion -Force
+                }
+            }
+
+            $display = "$($addon.branch)@$($newVersion.Substring(0,12))"
+            Update-ReadmeVersion $addon.name $addon.repository $display
+            Save-Manifest
+            Commit-AddonUpdate $addon.name $display
+            $available[$addon.name] = $true
+            Write-Host "  OK $display" -ForegroundColor Green
+        }
+        else {
+            throw "Unsupported addon type '$($addon.type)'."
+        }
+    }
+    catch {
+        $failureMessage = "{0}: {1}" -f [string]$addon.name, $_.Exception.Message
+        Write-Host "  ERROR $failureMessage" -ForegroundColor Red
+        $addonFailures.Add($failureMessage)
+
+        if (-not $DryRun) {
+            # Every successful add-on has its own commit. Reset only the current
+            # uncommitted attempt to the last good HEAD, then continue the queue.
+            & git -C $RepoRoot reset --hard HEAD
+            if ($LASTEXITCODE -ne 0) {
+                throw "Could not roll back the failed add-on '$($addon.name)'; stopping to protect the repository."
+            }
+            & git -C $RepoRoot clean -fd -- game/csgo
+            if ($LASTEXITCODE -ne 0) {
+                throw "Could not remove partial payload files for '$($addon.name)'; stopping to protect the repository."
+            }
+
+            # Save-Manifest may have changed in-memory objects before a commit
+            # failed. Reload the last committed state before processing dependents.
+            $manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
+            $allAddons = @($manifest.addons | Sort-Object order)
+            if ($selectedAddonNames) {
+                $addons = @($allAddons | Where-Object { $selectedAddonNames -contains [string]$_.name })
+            } else {
+                $addons = $allAddons
+            }
+        }
+    }
+}
+
+
+Sync-ReadmeAddonTable
+if (-not $DryRun) {
+    # If no release needed an update, the README may still need reconciliation.
+    # Commit only this expected documentation path, never unrelated working-tree files.
+    & git -C $RepoRoot diff --quiet -- README.md
+    $readmeDiffExit = $LASTEXITCODE
+    if ($readmeDiffExit -eq 1) {
+        & git -C $RepoRoot add -- README.md
+        if ($LASTEXITCODE -ne 0) {
+            throw "git add failed while staging README synchronization."
+        }
+
+        $stagedFiles = @(& git -C $RepoRoot diff --cached --name-only)
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not inspect staged README synchronization."
+        }
+        $unexpectedStaged = @($stagedFiles | Where-Object { $_ -ne "README.md" })
+        if ($unexpectedStaged.Count -gt 0) {
+            throw ("README synchronization found unexpected staged changes: " + ($unexpectedStaged -join ", "))
+        }
+        if ($stagedFiles -contains "README.md") {
+            & git -C $RepoRoot commit -m "Sync README add-on table from manifest"
+            if ($LASTEXITCODE -ne 0) {
+                throw "Could not commit README synchronization."
+            }
+            $short = (& git -C $RepoRoot rev-parse --short HEAD).Trim()
+            Write-Info "Committed README synchronization $short"
+        }
+    } elseif ($readmeDiffExit -ne 0) {
+        throw "Could not check README synchronization diff."
+    }
+}
+
+Write-Host ""
+Write-Host "Done." -ForegroundColor Cyan
+if (-not $DryRun) {
+    Write-Host "Review changes with: git status" -ForegroundColor DarkGray
+}
+if ($addonFailures.Count -gt 0) {
+    Write-Host ""
+    Write-Host ("Completed with {0} add-on failure(s); successful add-on commits were retained:" -f $addonFailures.Count) -ForegroundColor Yellow
+    foreach ($failure in $addonFailures) { Write-Host ("  - " + $failure) -ForegroundColor Red }
+    exit 1
+}
+, ''
+
+    $manualEntry = $false
+    if ($Addon.PSObject.Properties.Name -contains "automation_supported") {
+        $manualEntry = -not [bool]$Addon.automation_supported
+    }
+
+    if ([bool]$Addon.installed -eq $false) {
+        if ($manualEntry) {
+            $purpose += "; not installed and marked manual in the Manifest"
+        } elseif ($purpose -notmatch "(?i)\bnot installed\b") {
+            $purpose += "; not installed"
+        }
+    }
+
+    return $purpose
+}
+
 function Sync-ReadmeAddonTable() {
     if (-not (Test-Path -LiteralPath $ReadmePath) -or $DryRun) {
         return

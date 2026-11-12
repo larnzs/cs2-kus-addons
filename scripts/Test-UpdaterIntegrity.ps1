@@ -182,6 +182,50 @@ try {
     Assert-Condition ($weaponRestrict.Count -eq 1) "Expected exactly one CS2-WeaponRestrict manifest row."
     Assert-Condition (-not [bool]$weaponRestrict[0].installed -and -not [bool]$weaponRestrict[0].automation_supported) "CS2-WeaponRestrict must remain absent/manual while it has no staged payload."
 
+    # README manifest-purpose synchronization must be idempotent, including historical duplicated suffixes.
+    $updaterPath = Join-Path $PSScriptRoot "Update-Addons.ps1"
+    $updaterTokens = $null
+    $updaterParseErrors = $null
+    $updaterAst = [System.Management.Automation.Language.Parser]::ParseFile(
+        $updaterPath, [ref]$updaterTokens, [ref]$updaterParseErrors
+    )
+    $updaterParseMessage = @($updaterParseErrors | ForEach-Object { $_.Message }) -join "; "
+    Assert-Condition ($updaterParseErrors.Count -eq 0) ("Update-Addons.ps1 has PowerShell syntax errors: " + $updaterParseMessage)
+
+    $normalizerAst = $updaterAst.Find({
+        param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+            $node.Name -eq "Normalize-ManifestPurpose"
+    }, $true)
+    Assert-Condition ($null -ne $normalizerAst) "README purpose normalizer function is missing."
+    $syncAst = $updaterAst.Find({
+        param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+            $node.Name -eq "Sync-ReadmeAddonTable"
+    }, $true)
+    Assert-Condition ($null -ne $syncAst) "README synchronization function is missing."
+    Assert-Condition ($syncAst.Extent.Text.Contains("Normalize-ManifestPurpose")) "README synchronization does not use the tested purpose normalizer."
+    Invoke-Expression $normalizerAst.Extent.Text
+
+    $manualPhrase = "; not installed and marked manual in the Manifest"
+    $oldManualPhrase = "; not installed and marked manual in the Larnz manifest"
+    $manualBase = "Configurable weapon restrictions"
+    $duplicatedPurpose = $manualBase + $oldManualPhrase + ($manualPhrase * 19)
+    $manualAddon = [pscustomobject]@{ installed = $false; automation_supported = $false }
+    $expectedManualPurpose = $manualBase + $manualPhrase
+    $normalizedPurpose = Normalize-ManifestPurpose -Purpose $duplicatedPurpose -Addon $manualAddon
+    Assert-Condition ($normalizedPurpose -ceq $expectedManualPurpose) "README normalizer did not collapse historical repeated manual suffixes to one canonical suffix."
+    $normalizedAgain = Normalize-ManifestPurpose -Purpose $normalizedPurpose -Addon $manualAddon
+    Assert-Condition ($normalizedAgain -ceq $expectedManualPurpose) "README manual suffix normalization is not idempotent."
+
+    $installedAddon = [pscustomobject]@{ installed = $true; automation_supported = $true }
+    $installedPurpose = Normalize-ManifestPurpose -Purpose $duplicatedPurpose -Addon $installedAddon
+    Assert-Condition ($installedPurpose -ceq $manualBase) "README normalizer retained a stale manual suffix after an add-on became installed."
+
+    $uninstalledAddon = [pscustomobject]@{ installed = $false; automation_supported = $true }
+    $uninstalledPurpose = Normalize-ManifestPurpose -Purpose ($manualBase + "; not installed" * 5) -Addon $uninstalledAddon
+    Assert-Condition ($uninstalledPurpose -ceq ($manualBase + "; not installed")) "README normalizer did not collapse repeated non-manual not-installed suffixes."
+
     $sourceUpdater = Get-Content -LiteralPath (Join-Path $PSScriptRoot "Update-Addons.ps1") -Raw
     Assert-Condition ($sourceUpdater.Contains('if ([string]$Addon.name -eq "CS2-Gunsmenu")')) "PowerShell source-build updater must remove GunsMenu's stale private CounterStrikeSharp API copy."
 
