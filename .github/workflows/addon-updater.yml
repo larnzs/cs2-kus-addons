@@ -13,6 +13,7 @@ on:
       - "scripts/check-updates.sh"
       - "scripts/update/**"
       - ".github/workflows/addon-updater.yml"
+      - ".github/workflows/addon-updater-watchdog.yml"
       - "windows/**"
       - "linux/**"
       - "google/**"
