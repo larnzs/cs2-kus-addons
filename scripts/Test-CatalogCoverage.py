@@ -235,33 +235,6 @@ def main() -> int:
         if not path_errors:
             future_ok += 1
 
-    # CustomVotes is intentionally quarantined from automatic loading. Its complete
-    # dependency bundle remains in the disabled plugin-local folder and is still checked.
-    customvotes = ROOT / "game/csgo/addons/counterstrikesharp/plugins/disabled/CS2-CustomVotes"
-    active_customvotes = ROOT / "game/csgo/addons/counterstrikesharp/plugins/CS2-CustomVotes"
-    deps_file = customvotes / "CS2-CustomVotes.deps.json"
-    try:
-        deps = json.loads(deps_file.read_text(encoding="utf-8"))
-        target = deps["runtimeTarget"]["name"]
-        assemblies = deps["targets"][target]
-        plugin_key = next(k for k in assemblies if k.startswith("CS2-CustomVotes/"))
-        plugin = assemblies[plugin_key]
-        utils_version = plugin["dependencies"]["CSSharpUtils"]
-        shared_version = plugin["dependencies"]["CS2-CustomVotes.Shared"]
-        valid_customvotes = (
-            not active_customvotes.exists()
-            and (customvotes / "CS2-CustomVotes.dll").is_file()
-            and (customvotes / "CS2-CustomVotes.Shared.dll").is_file()
-            and (customvotes / "CSSharpUtils.dll").is_file()
-            and "CS2-CustomVotes.dll" in plugin["runtime"]
-            and "lib/net8.0/CSSharpUtils.dll" in assemblies[f"CSSharpUtils/{utils_version}"]["runtime"]
-            and "CS2-CustomVotes.Shared.dll" in assemblies[f"CS2-CustomVotes.Shared/{shared_version}"]["runtime"]
-        )
-        if not valid_customvotes:
-            errors.append("CS2-CustomVotes: plugin DLL, Shared DLL, CSSharpUtils DLL and .deps.json are not a consistent set")
-    except (OSError, KeyError, StopIteration, json.JSONDecodeError) as exc:
-        errors.append(f"CS2-CustomVotes: could not verify runtime dependency set: {exc}")
-
     print("=== Unified README plugin catalog hard-check ===")
     print(f"Catalog rows: {len(rows)}")
     print(f"Rows mapped to an existing updater/bundle script and real payload paths: {len(covered_rows)}")

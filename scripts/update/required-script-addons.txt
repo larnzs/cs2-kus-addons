@@ -3,7 +3,6 @@
 GameModeManager
 MultiAddonManager
 CS2 Advertisement
-CS2-CustomVotes
 CS2_ExecAfter
 CS2Rcon
 SimpleAdmin

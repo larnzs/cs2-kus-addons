@@ -99,7 +99,6 @@ The following are the adapter entrypoints currently tracked in this repository.
 | `plugins/cs2-advanced-weapon-system.sh` | Tracked updater adapter |
 | `plugins/cs2-advertisement.sh` | Tracked updater adapter |
 | `plugins/cs2-antibait.sh` | Tracked updater adapter |
-| `plugins/cs2-customvotes.sh` | Tracked updater adapter; updates the compatibility-disabled bundle at `plugins/disabled/CS2-CustomVotes` |
 | `plugins/cs2-deathmatch.sh` | Tracked updater adapter |
 | `plugins/cs2-execafter.sh` | Tracked updater adapter |
 | `plugins/cs2-executes.sh` | Tracked updater adapter |
@@ -137,7 +136,6 @@ The following are the adapter entrypoints currently tracked in this repository.
 | `plugins/game-mode-manager.sh` | Tracked updater adapter |
 | `plugins/gamemodemanager.sh` | Tracked updater adapter |
 | `plugins/gungame.sh` | Tracked updater adapter |
-| `plugins/inventory-simulator.sh` | Tracked updater adapter |
 | `plugins/jrandomskills.sh` | Tracked updater adapter |
 | `plugins/k4-arenas.sh` | Tracked updater adapter |
 | `plugins/k4-damageinfo.sh` | Tracked updater adapter |

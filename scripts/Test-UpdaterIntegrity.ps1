@@ -178,34 +178,12 @@ try {
     Assert-Condition (Test-Path -LiteralPath (Join-Path $repoRoot "scripts/update/plugins/cs2-gunsmenu.sh")) "CS2-Gunsmenu updater adapter is missing."
     Assert-Condition (Test-Path -LiteralPath (Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/plugins/disabled/GunsMenu/GunsMenu.dll")) "CS2-Gunsmenu must retain its mode-specific disabled payload path."
 
-    # CS2-CustomVotes remains updater-managed but is quarantined from automatic loading.
-    $customVotesUpdaterPath = Join-Path $PSScriptRoot "update/plugins/cs2-customvotes.sh"
-    $customVotesUpdater = Get-Content -LiteralPath $customVotesUpdaterPath -Raw
-    Assert-Condition ($customVotesUpdater.Contains('DESTINATION="game/csgo/addons/counterstrikesharp/plugins/disabled/CS2-CustomVotes"')) "CS2-CustomVotes updater must target plugins/disabled."
-    Assert-Condition ($customVotesUpdater.Contains('PLUGIN_PATHS=("$DESTINATION")')) "CS2-CustomVotes updater must declare only its destination in PLUGIN_PATHS."
-    Assert-Condition (-not $customVotesUpdater.Contains('DESTINATION="game/csgo/addons/counterstrikesharp/plugins/CS2-CustomVotes"')) "CS2-CustomVotes updater must not target the auto-load path."
-    $customVotesDisabled = Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/plugins/disabled/CS2-CustomVotes"
-    Assert-Condition (Test-Path -LiteralPath (Join-Path $customVotesDisabled "CS2-CustomVotes.dll")) "CS2-CustomVotes main DLL is missing from disabled."
-    Assert-Condition (Test-Path -LiteralPath (Join-Path $customVotesDisabled "CS2-CustomVotes.Shared.dll")) "CS2-CustomVotes Shared assembly is missing from disabled."
-    Assert-Condition (Test-Path -LiteralPath (Join-Path $customVotesDisabled "CSSharpUtils.dll")) "CS2-CustomVotes CSSharpUtils dependency is missing from disabled."
-    Assert-Condition (Test-Path -LiteralPath (Join-Path $customVotesDisabled "CS2-CustomVotes.deps.json")) "CS2-CustomVotes dependency manifest is missing from disabled."
-    Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/plugins/CS2-CustomVotes"))) "CS2-CustomVotes still has an active auto-load folder."
-    Assert-Condition (Test-Path -LiteralPath (Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/configs/plugins/CS2-CustomVotes/CS2-CustomVotes.json")) "CS2-CustomVotes operator config was not preserved."
     $weaponRestrict = @($manifest.addons | Where-Object { $_.name -eq "CS2-WeaponRestrict" })
     Assert-Condition ($weaponRestrict.Count -eq 1) "Expected exactly one CS2-WeaponRestrict manifest row."
     Assert-Condition (-not [bool]$weaponRestrict[0].installed -and -not [bool]$weaponRestrict[0].automation_supported) "CS2-WeaponRestrict must remain absent/manual while it has no staged payload."
 
     $sourceUpdater = Get-Content -LiteralPath (Join-Path $PSScriptRoot "Update-Addons.ps1") -Raw
     Assert-Condition ($sourceUpdater.Contains('if ([string]$Addon.name -eq "CS2-Gunsmenu")')) "PowerShell source-build updater must remove GunsMenu's stale private CounterStrikeSharp API copy."
-
-    # Mode-specific plugins must be kept under disabled and loaded from cfg files.
-    $inventoryUpdater = Get-Content -LiteralPath (Join-Path $PSScriptRoot "update/plugins/inventory-simulator.sh") -Raw
-    $inventoryPathsMatch = [regex]::Match($inventoryUpdater, '(?s)PLUGIN_PATHS=\((.*?)\)')
-    Assert-Condition $inventoryPathsMatch.Success "Inventory Simulator updater has no PLUGIN_PATHS declaration."
-    Assert-Condition ($inventoryPathsMatch.Groups[1].Value.Contains("plugins/disabled/InventorySimulator")) "Inventory Simulator updater must target plugins/disabled."
-    Assert-Condition (-not $inventoryPathsMatch.Groups[1].Value.Contains('plugins/InventorySimulator"')) "Inventory Simulator updater must not target the auto-load path."
-    Assert-Condition (-not (Test-Path (Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/plugins/InventorySimulator"))) "Inventory Simulator still has a duplicate auto-load folder."
-    Assert-Condition (Test-Path (Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/plugins/disabled/InventorySimulator/InventorySimulator.dll")) "Inventory Simulator DLL is missing from disabled."
 
     $fixSpawnUpdater = Get-Content -LiteralPath (Join-Path $PSScriptRoot "update/plugins/cs2-fixrandomspawn.sh") -Raw
     $fixSpawnPathsMatch = [regex]::Match($fixSpawnUpdater, '(?s)PLUGIN_PATHS=\((.*?)\)')

@@ -803,8 +803,8 @@ jobs:
           $table = $tableLines -join [Environment]::NewLine
           $addons = @($manifest.addons)
           $linkedRows = [regex]::Matches($table, '(?m)^\|\s*\[[^\]]+\]\(https?://[^)]+\)\s*\|')
-          if ($linkedRows.Count -ne 75) {
-            throw "Unified README catalog should have 75 linked plugin rows; found $($linkedRows.Count)."
+          if ($linkedRows.Count -ne 73) {
+            throw "Unified README catalog should have 73 linked plugin rows; found $($linkedRows.Count)."
           }
 
           foreach ($addon in $addons) {
@@ -826,7 +826,7 @@ jobs:
               throw "README row must link $($addon.name) to its manifest repository and show version '$expectedVersion'."
             }
           }
-          Write-Host "Validated $($addons.Count) Manifest rows inside the unified 75-row README plugin catalog."
+          Write-Host "Validated $($addons.Count) Manifest rows inside the unified 73-row README plugin catalog."
 
       - name: Verify all installed addon files and protected configs
         shell: pwsh

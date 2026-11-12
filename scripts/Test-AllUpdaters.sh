@@ -173,25 +173,6 @@ done
 [ "$mode_count" -eq 10 ] || fail "expected exactly 10 disabled mode-plugin adapters, checked $mode_count"
 pass "$mode_count disabled mode-specific plugins have required adapters and preserve their disabled payload locations"
 
-# CS2-CustomVotes is compatibility-disabled (not a game-mode plugin), but its
-# updater must continue maintaining the complete runtime bundle under plugins/disabled.
-customvotes_name="CS2-CustomVotes"
-customvotes_destination="game/csgo/addons/counterstrikesharp/plugins/disabled/CS2-CustomVotes"
-customvotes_active="game/csgo/addons/counterstrikesharp/plugins/CS2-CustomVotes"
-customvotes_script="scripts/update/plugins/cs2-customvotes.sh"
-grep -Fqx -- "$customvotes_name" scripts/update/required-script-addons.txt || fail "CS2-CustomVotes is missing mandatory updater coverage"
-[ -f "$customvotes_script" ] || fail "CS2-CustomVotes updater is missing"
-bash -n "$customvotes_script" || fail "CS2-CustomVotes updater has invalid Bash syntax"
-customvotes_paths="$(bash -c 'set -Eeuo pipefail; exec 3>&1; source scripts/update/lib.sh; source "$1"; printf "%s\n" "${PLUGIN_PATHS[@]}"' bash "$customvotes_script")" || fail "could not inspect CS2-CustomVotes updater paths"
-[ "$customvotes_paths" = "$customvotes_destination" ] || fail "CS2-CustomVotes updater must target only plugins/disabled/CS2-CustomVotes"
-[ -d "$customvotes_destination" ] || fail "CS2-CustomVotes disabled payload folder is missing"
-[ ! -e "$customvotes_active" ] || fail "CS2-CustomVotes still has an active auto-load folder"
-for required_file in CS2-CustomVotes.dll CS2-CustomVotes.Shared.dll CSSharpUtils.dll CS2-CustomVotes.deps.json; do
-    [ -s "$customvotes_destination/$required_file" ] || fail "CS2-CustomVotes disabled payload is missing $required_file"
-done
-bash -c 'set -Eeuo pipefail; exec 3>&1; source scripts/update/lib.sh; source "$1"; customvotes_payload_valid "$DESTINATION"' bash "$customvotes_script" || fail "CS2-CustomVotes dependency bundle is inconsistent in disabled"
-[ -s "game/csgo/addons/counterstrikesharp/configs/plugins/CS2-CustomVotes/CS2-CustomVotes.json" ] || fail "CS2-CustomVotes operator config was not preserved"
-pass "CS2-CustomVotes is fully staged under plugins/disabled and remains covered by its complete-bundle updater"
 # GG1MapChooser and MenuManagerCS2 are supplied by the GameModeManager release,
 # so neither component may have an independent release tracker or updater adapter.
 for bundled_name in "GG1MapChooser" "MenuManagerCS2"; do
