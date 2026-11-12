@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
 # Updater for imi-tat0r/CS2-CustomVotes.
-# Its release is a complete plugin folder: main DLL, Shared assembly, CSSharpUtils
-# and the dependency manifest must always travel together. Preserve local language files.
+# The runtime payload is quarantined from automatic loading until its CSSharpUtils
+# API compatibility issue is resolved. Keep this adapter active so the full release
+# bundle (main DLL, Shared assembly, CSSharpUtils and deps manifest) stays update-managed.
+# Preserve local language files and never touch the separate CounterStrikeSharp config.
 source scripts/update/catalog-plugin.sh
 
-DESTINATION="game/csgo/addons/counterstrikesharp/plugins/CS2-CustomVotes"
+DESTINATION="game/csgo/addons/counterstrikesharp/plugins/disabled/CS2-CustomVotes"
 PLUGIN_PATHS=("$DESTINATION")
+
+plugin_preflight() {
+    require_dir "game/csgo/addons/counterstrikesharp/plugins/disabled"
+}
 
 plugin_assets() {
     echo "CS2-CustomVotes-${NEW_VERSION}-*.zip"

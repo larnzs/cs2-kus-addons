@@ -178,6 +178,20 @@ try {
     Assert-Condition (Test-Path -LiteralPath (Join-Path $repoRoot "scripts/update/plugins/cs2-gunsmenu.sh")) "CS2-Gunsmenu updater adapter is missing."
     Assert-Condition (Test-Path -LiteralPath (Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/plugins/disabled/GunsMenu/GunsMenu.dll")) "CS2-Gunsmenu must retain its mode-specific disabled payload path."
 
+    # CS2-CustomVotes remains updater-managed but is quarantined from automatic loading.
+    $customVotesUpdaterPath = Join-Path $PSScriptRoot "update/plugins/cs2-customvotes.sh"
+    $customVotesUpdater = Get-Content -LiteralPath $customVotesUpdaterPath -Raw
+    $customVotesPathsMatch = [regex]::Match($customVotesUpdater, '(?m)^PLUGIN_PATHS=\((.*?)\)$')
+    Assert-Condition $customVotesPathsMatch.Success "CS2-CustomVotes updater has no PLUGIN_PATHS declaration."
+    Assert-Condition ($customVotesPathsMatch.Groups[1].Value.Contains("plugins/disabled/CS2-CustomVotes")) "CS2-CustomVotes updater must target plugins/disabled."
+    Assert-Condition (-not $customVotesPathsMatch.Groups[1].Value.Contains('plugins/CS2-CustomVotes"')) "CS2-CustomVotes updater must not target the auto-load path."
+    $customVotesDisabled = Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/plugins/disabled/CS2-CustomVotes"
+    Assert-Condition (Test-Path -LiteralPath (Join-Path $customVotesDisabled "CS2-CustomVotes.dll")) "CS2-CustomVotes main DLL is missing from disabled."
+    Assert-Condition (Test-Path -LiteralPath (Join-Path $customVotesDisabled "CS2-CustomVotes.Shared.dll")) "CS2-CustomVotes Shared assembly is missing from disabled."
+    Assert-Condition (Test-Path -LiteralPath (Join-Path $customVotesDisabled "CSSharpUtils.dll")) "CS2-CustomVotes CSSharpUtils dependency is missing from disabled."
+    Assert-Condition (Test-Path -LiteralPath (Join-Path $customVotesDisabled "CS2-CustomVotes.deps.json")) "CS2-CustomVotes dependency manifest is missing from disabled."
+    Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/plugins/CS2-CustomVotes"))) "CS2-CustomVotes still has an active auto-load folder."
+    Assert-Condition (Test-Path -LiteralPath (Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/configs/plugins/CS2-CustomVotes/CS2-CustomVotes.json")) "CS2-CustomVotes operator config was not preserved."
     $weaponRestrict = @($manifest.addons | Where-Object { $_.name -eq "CS2-WeaponRestrict" })
     Assert-Condition ($weaponRestrict.Count -eq 1) "Expected exactly one CS2-WeaponRestrict manifest row."
     Assert-Condition (-not [bool]$weaponRestrict[0].installed -and -not [bool]$weaponRestrict[0].automation_supported) "CS2-WeaponRestrict must remain absent/manual while it has no staged payload."
