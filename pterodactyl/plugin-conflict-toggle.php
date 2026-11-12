@@ -66,7 +66,7 @@ function safeVolumePath(string $uuid, string $volumeRoot): string
     return $realVolume;
 }
 
-/** Return active, already_disabled or missing; refuse ambiguity and symlinks. */
+/** Return active, already_disabled, conflict or missing; refuse unsafe paths and symlinks. */
 function addonDirectoryState(string $volumePath): string
 {
     $cursor = $volumePath;
@@ -82,12 +82,35 @@ function addonDirectoryState(string $volumePath): string
     if ((file_exists($active) && !is_dir($active)) || (file_exists($disabled) && !is_dir($disabled))) {
         fail('addons or DISABLED_addons exists but is not a directory under: ' . $cursor);
     }
-    if (is_dir($active) && is_dir($disabled)) {
-        fail('Both addons and DISABLED_addons exist for UUID ' . basename($volumePath) . '; refusing to merge or overwrite either.');
-    }
+    if (is_dir($active) && is_dir($disabled)) { return 'conflict'; }
     if (is_dir($active)) { return 'active'; }
     if (is_dir($disabled)) { return 'already_disabled'; }
     return 'missing';
+}
+
+/**
+ * Move a recreated addons directory to a unique sibling name without touching its contents.
+ * Both directories are known to be real directories under the validated UUID volume.
+ */
+function quarantineRecreatedAddonDirectory(string $volumePath): string
+{
+    if (addonDirectoryState($volumePath) !== 'conflict') {
+        fail('A recoverable addons conflict is no longer present for UUID ' . basename($volumePath));
+    }
+    $cs2 = $volumePath . '/game/csgo';
+    $source = $cs2 . '/addons';
+    for ($attempt = 0; $attempt < 20; $attempt++) {
+        $name = 'RECOVERED_addons_' . gmdate('Ymd_His') . '_' . bin2hex(random_bytes(4));
+        $destination = $cs2 . '/' . $name;
+        clearstatcache(true, $destination);
+        if (file_exists($destination) || is_link($destination)) { continue; }
+        if (!rename($source, $destination)) {
+            fail('Could not quarantine the newly-created addons directory for UUID ' . basename($volumePath));
+        }
+        logLine('UUID ' . basename($volumePath) . ': preserved conflicting addons as ' . $name . '.');
+        return $name;
+    }
+    fail('Could not allocate a unique RECOVERED_addons directory name for UUID ' . basename($volumePath));
 }
 
 /** A directory rename only; no files are removed and no Docker Mount is changed. */
@@ -95,6 +118,14 @@ function disableAddonDirectory(string $volumePath, string $beforeState): string
 {
     $current = addonDirectoryState($volumePath);
     $cs2 = $volumePath . '/game/csgo';
+
+    if ($current === 'conflict') {
+        if (!in_array($beforeState, ['active', 'already_disabled', 'conflict'], true)) {
+            fail('Both addons directories appeared unexpectedly for UUID ' . basename($volumePath) . '; preserving both for manual review.');
+        }
+        return 'quarantined_conflict_' . quarantineRecreatedAddonDirectory($volumePath);
+    }
+
     if ($beforeState === 'active') {
         if ($current === 'active') {
             if (!rename($cs2 . '/addons', $cs2 . '/DISABLED_addons')) { fail('Could not rename addons for UUID ' . basename($volumePath)); }
@@ -111,6 +142,10 @@ function disableAddonDirectory(string $volumePath, string $beforeState): string
         if ($current !== 'missing') { fail('addons path appeared after the emergency plan for UUID ' . basename($volumePath)); }
         return 'missing';
     }
+    if ($beforeState === 'conflict') {
+        if ($current === 'already_disabled') { return 'kept_pre_existing_disabled'; }
+        fail('The pre-existing addons conflict changed unexpectedly for UUID ' . basename($volumePath));
+    }
     fail('Invalid recorded addons state for UUID ' . basename($volumePath));
 }
 
@@ -119,6 +154,24 @@ function enableAddonDirectory(string $volumePath, string $beforeState): string
 {
     $current = addonDirectoryState($volumePath);
     $cs2 = $volumePath . '/game/csgo';
+
+    if ($current === 'conflict') {
+        if ($beforeState === 'active') {
+            $recovered = quarantineRecreatedAddonDirectory($volumePath);
+            if (addonDirectoryState($volumePath) !== 'already_disabled') {
+                fail('The original DISABLED_addons directory was not available after conflict quarantine for UUID ' . basename($volumePath));
+            }
+            if (!rename($cs2 . '/DISABLED_addons', $cs2 . '/addons')) {
+                fail('Could not restore the original addons directory after conflict quarantine for UUID ' . basename($volumePath));
+            }
+            return 'recovered_conflict_and_restored_' . $recovered;
+        }
+        if (in_array($beforeState, ['already_disabled', 'conflict'], true)) {
+            return 'quarantined_conflict_kept_disabled_' . quarantineRecreatedAddonDirectory($volumePath);
+        }
+        fail('Both addons directories appeared unexpectedly for UUID ' . basename($volumePath) . '; preserving both for manual review.');
+    }
+
     if ($beforeState === 'active') {
         if ($current === 'already_disabled') {
             if (!rename($cs2 . '/DISABLED_addons', $cs2 . '/addons')) { fail('Could not restore addons for UUID ' . basename($volumePath)); }
@@ -166,7 +219,7 @@ function readState(string $path): ?array
     }
     foreach ($state['servers'] as $uuid => $entry) {
         if (!validUuid((string) $uuid) || !is_array($entry)
-            || !in_array($entry['addons_before'] ?? null, ['active', 'already_disabled', 'missing'], true)
+            || !in_array($entry['addons_before'] ?? null, ['active', 'already_disabled', 'missing', 'conflict'], true)
             || !is_bool($entry['hook_before'] ?? null)
             || (isset($entry['hook_prefix_before']) && !is_string($entry['hook_prefix_before']))) {
             fail('Emergency state file contains an invalid server entry.');
@@ -271,75 +324,117 @@ function updateServerStartup(string $uuid, string $startup): void
     }
 }
 
-function executeDisable(array &$state, string $path, string $volumeRoot): void
+function executeDisable(array &$state, string $path, string $volumeRoot): int
 {
     $state['state'] = 'disabling';
     $state['updated_at'] = gmdate('c');
     writeStateAtomically($path, $state);
-    foreach ($state['servers'] as $uuid => &$entry) {
-        logLine('Disabling plugins for UUID ' . $uuid . '...');
-        $row = DB::table('servers')->where('uuid', $uuid)->first(['uuid', 'startup']);
-        if ($row === null) { fail('Panel server record disappeared during disable: ' . $uuid . '; state retained.'); }
-        if ($entry['hook_before']) {
-            $startup = (string) ($row->startup ?? '');
-            $currentPrefix = startupSyncHookPrefix($startup);
-            $originalPrefix = (string) ($entry['hook_prefix_before'] ?? STARTUP_HOOK_PREFIX);
-            if ($currentPrefix !== null) {
-                if ($currentPrefix !== $originalPrefix) {
-                    fail('The server Startup Command hook changed after the emergency plan was recorded for UUID ' . $uuid . '; refusing to rewrite it.');
-                }
-                updateServerStartup($uuid, removeStartupSyncHook($startup));
-                logLine('Removed only the exact original payload-sync prefix from the server Startup Command.');
-            }
-        }
-        $entry['hook_done'] = true;
-        writeStateAtomically($path, $state);
+    $failed = [];
 
-        $volume = safeVolumePath($uuid, $volumeRoot);
-        $result = disableAddonDirectory($volume, $entry['addons_before']);
-        $entry['addons_done'] = true;
-        writeStateAtomically($path, $state);
-        logLine('UUID ' . $uuid . ': directory=' . $result . ', container=' . ($entry['container_state'] ?? 'unknown'));
+    foreach ($state['servers'] as $uuid => &$entry) {
+        try {
+            logLine('Disabling plugins for UUID ' . $uuid . '...');
+            $row = DB::table('servers')->where('uuid', $uuid)->first(['uuid', 'startup']);
+            if ($row === null) { fail('Panel server record disappeared during disable: ' . $uuid); }
+            if ($entry['hook_before']) {
+                $startup = (string) ($row->startup ?? '');
+                $currentPrefix = startupSyncHookPrefix($startup);
+                $originalPrefix = (string) ($entry['hook_prefix_before'] ?? STARTUP_HOOK_PREFIX);
+                if ($currentPrefix !== null) {
+                    if ($currentPrefix !== $originalPrefix) {
+                        fail('The server Startup Command hook changed after the emergency plan was recorded; refusing to rewrite it.');
+                    }
+                    updateServerStartup($uuid, removeStartupSyncHook($startup));
+                    logLine('Removed only the exact original payload-sync prefix from the server Startup Command.');
+                }
+            }
+            $entry['hook_done'] = true;
+            writeStateAtomically($path, $state);
+
+            $volume = safeVolumePath($uuid, $volumeRoot);
+            $result = disableAddonDirectory($volume, $entry['addons_before']);
+            $entry['addons_done'] = true;
+            unset($entry['last_error'], $entry['last_error_at']);
+            $entry['last_successful_action'] = 'disable';
+            $entry['last_attempt_at'] = gmdate('c');
+            writeStateAtomically($path, $state);
+            logLine('UUID ' . $uuid . ': directory=' . $result . ', container=' . ($entry['container_state'] ?? 'unknown'));
+        } catch (Throwable $exception) {
+            $entry['last_error'] = $exception->getMessage();
+            $entry['last_error_at'] = gmdate('c');
+            $failed[] = $uuid;
+            writeStateAtomically($path, $state);
+            logLine('UUID ' . $uuid . ' failed: ' . $exception->getMessage() . ' Continuing with the remaining UUID containers.');
+        }
     }
     unset($entry);
-    $state['state'] = 'disabled';
+
+    $state['state'] = $failed === [] ? 'disabled' : 'disable_partial';
     $state['updated_at'] = gmdate('c');
+    $state['failed_uuids'] = $failed;
     writeStateAtomically($path, $state);
-    logLine('Emergency disable completed. No plugin files were deleted and no Docker Mount was detached.');
+
+    if ($failed === []) {
+        logLine('Emergency disable completed for every target. No plugin files were deleted and no Docker Mount was detached.');
+        return 0;
+    }
+    logLine('Emergency disable partially completed. Successful UUIDs were kept; retry or restore the failed UUIDs from the Control Center. Failed count: ' . count($failed));
+    return 1;
 }
 
-function executeEnable(array &$state, string $path, string $volumeRoot): void
+function executeEnable(array &$state, string $path, string $volumeRoot): int
 {
     $state['state'] = 'enabling';
     $state['updated_at'] = gmdate('c');
     writeStateAtomically($path, $state);
-    foreach ($state['servers'] as $uuid => &$entry) {
-        logLine('Restoring plugins for UUID ' . $uuid . '...');
-        $volume = safeVolumePath($uuid, $volumeRoot);
-        $result = enableAddonDirectory($volume, $entry['addons_before']);
-        $entry['addons_done'] = true;
-        writeStateAtomically($path, $state);
+    $failed = [];
 
-        $row = DB::table('servers')->where('uuid', $uuid)->first(['uuid', 'startup']);
-        if ($row === null) { fail('Panel server record disappeared during restore: ' . $uuid . '; state retained.'); }
-        if ($entry['hook_before']) {
-            $startup = (string) ($row->startup ?? '');
-            $originalPrefix = (string) ($entry['hook_prefix_before'] ?? STARTUP_HOOK_PREFIX);
-            $restored = restoreStartupSyncHook($startup, $originalPrefix);
-            if ($restored !== $startup) {
-                updateServerStartup($uuid, $restored);
-                logLine('Restored the exact original payload-sync prefix in the server Startup Command.');
+    foreach ($state['servers'] as $uuid => &$entry) {
+        try {
+            logLine('Restoring plugins for UUID ' . $uuid . '...');
+            $volume = safeVolumePath($uuid, $volumeRoot);
+            $result = enableAddonDirectory($volume, $entry['addons_before']);
+            $entry['addons_done'] = true;
+            writeStateAtomically($path, $state);
+
+            $row = DB::table('servers')->where('uuid', $uuid)->first(['uuid', 'startup']);
+            if ($row === null) { fail('Panel server record disappeared during restore: ' . $uuid); }
+            if ($entry['hook_before']) {
+                $startup = (string) ($row->startup ?? '');
+                $originalPrefix = (string) ($entry['hook_prefix_before'] ?? STARTUP_HOOK_PREFIX);
+                $restored = restoreStartupSyncHook($startup, $originalPrefix);
+                if ($restored !== $startup) {
+                    updateServerStartup($uuid, $restored);
+                    logLine('Restored the exact original payload-sync prefix in the server Startup Command.');
+                }
             }
+            $entry['hook_done'] = true;
+            unset($entry['last_error'], $entry['last_error_at']);
+            $entry['last_successful_action'] = 'enable';
+            $entry['last_attempt_at'] = gmdate('c');
+            writeStateAtomically($path, $state);
+            logLine('UUID ' . $uuid . ': directory=' . $result);
+        } catch (Throwable $exception) {
+            $entry['last_error'] = $exception->getMessage();
+            $entry['last_error_at'] = gmdate('c');
+            $failed[] = $uuid;
+            writeStateAtomically($path, $state);
+            logLine('UUID ' . $uuid . ' failed: ' . $exception->getMessage() . ' Continuing with the remaining UUID containers.');
         }
-        $entry['hook_done'] = true;
-        writeStateAtomically($path, $state);
-        logLine('UUID ' . $uuid . ': directory=' . $result);
     }
     unset($entry);
-    $state['state'] = 'enabled';
+
+    $state['state'] = $failed === [] ? 'enabled' : 'enable_partial';
     $state['updated_at'] = gmdate('c');
+    $state['failed_uuids'] = $failed;
     writeStateAtomically($path, $state);
-    logLine('Emergency mode is disabled. Pre-disabled addons directories remain untouched.');
+
+    if ($failed === []) {
+        logLine('Emergency mode is disabled for every target. Pre-disabled addons directories remain untouched.');
+        return 0;
+    }
+    logLine('Emergency restore partially completed. Successful UUIDs were kept; retry the failed UUIDs from the Control Center. Failed count: ' . count($failed));
+    return 1;
 }
 
 function statePath(string $root): string { return rtrim($root, '/') . '/' . STATE_FILENAME; }
@@ -394,20 +489,71 @@ function runSelfTest(): int
     try {
         mkdir($cs2 . '/addons', 0700);
         mkdir($cs2 . '/addons/sample-plugin', 0700);
-        file_put_contents($cs2 . '/addons/sample-plugin/keep-me.txt', 'preserve');
+        file_put_contents($cs2 . '/addons/sample-plugin/keep-me.txt', 'original-plugin-files');
         $before = addonDirectoryState($root);
         if ($before !== 'active' || disableAddonDirectory($root, $before) !== 'renamed'
             || !is_file($cs2 . '/DISABLED_addons/sample-plugin/keep-me.txt') || is_dir($cs2 . '/addons')) {
-            fail('Self-test failed: directory rename or file preservation.');
+            fail('Self-test failed: directory disable rename or file preservation.');
         }
         if (enableAddonDirectory($root, 'active') !== 'restored'
-            || file_get_contents($cs2 . '/addons/sample-plugin/keep-me.txt') !== 'preserve'
+            || file_get_contents($cs2 . '/addons/sample-plugin/keep-me.txt') !== 'original-plugin-files'
             || addonDirectoryState($root) !== 'active') {
-            fail('Self-test failed: reverse directory rename or content preservation.');
+            fail('Self-test failed: normal reverse rename or content preservation.');
         }
+
+        // Reproduce the reported incident: a new addons folder appears while the original is disabled.
+        if (!rename($cs2 . '/addons', $cs2 . '/DISABLED_addons')) {
+            fail('Self-test could not prepare the disabled original directory.');
+        }
+        mkdir($cs2 . '/addons', 0700);
+        mkdir($cs2 . '/addons/newly-created', 0700);
+        file_put_contents($cs2 . '/addons/newly-created/preserve-this.txt', 'recreated-addon-data');
+        if (addonDirectoryState($root) !== 'conflict') {
+            fail('Self-test failed: simultaneous addons and DISABLED_addons must be detected as a recoverable conflict.');
+        }
+        $recovery = enableAddonDirectory($root, 'active');
+        $recovered = glob($cs2 . '/RECOVERED_addons_*', GLOB_ONLYDIR) ?: [];
+        if (!str_starts_with($recovery, 'recovered_conflict_and_restored_')
+            || count($recovered) !== 1
+            || file_get_contents($cs2 . '/addons/sample-plugin/keep-me.txt') !== 'original-plugin-files'
+            || file_get_contents($recovered[0] . '/newly-created/preserve-this.txt') !== 'recreated-addon-data'
+            || addonDirectoryState($root) !== 'active') {
+            fail('Self-test failed: conflict quarantine did not preserve both folders and restore the original plugin directory.');
+        }
+        if (enableAddonDirectory($root, 'active') !== 'already_restored'
+            || count(glob($cs2 . '/RECOVERED_addons_*', GLOB_ONLYDIR) ?: []) !== 1) {
+            fail('Self-test failed: conflict recovery is not idempotent.');
+        }
+
+        // A server that was already disabled before emergency mode must remain disabled.
+        if (!rename($cs2 . '/addons', $cs2 . '/DISABLED_addons')) {
+            fail('Self-test could not prepare a pre-disabled fixture.');
+        }
+        mkdir($cs2 . '/addons', 0700);
+        file_put_contents($cs2 . '/addons/unexpected-file.txt', 'keep-separate');
+        $preDisabledResult = enableAddonDirectory($root, 'already_disabled');
+        $recovered = glob($cs2 . '/RECOVERED_addons_*', GLOB_ONLYDIR) ?: [];
+        $unexpectedDataPreserved = false;
+        foreach ($recovered as $recoveredDirectory) {
+            $unexpectedPath = $recoveredDirectory . '/unexpected-file.txt';
+            if (is_file($unexpectedPath) && file_get_contents($unexpectedPath) === 'keep-separate') {
+                $unexpectedDataPreserved = true;
+                break;
+            }
+        }
+        if (!str_starts_with($preDisabledResult, 'quarantined_conflict_kept_disabled_')
+            || count($recovered) !== 2
+            || !$unexpectedDataPreserved
+            || file_get_contents($cs2 . '/DISABLED_addons/sample-plugin/keep-me.txt') !== 'original-plugin-files'
+            || addonDirectoryState($root) !== 'already_disabled') {
+            fail('Self-test failed: pre-disabled state was not preserved while quarantining the recreated addons directory.');
+        }
+
         echo "PASS: Startup Command hook removal/restoration and idempotency.\n";
-        echo "PASS: addons -> DISABLED_addons rename; nested files preserved; reverse rename verified.\n";
-        echo "PASS: Unrelated Startup Commands are unchanged.\n";
+        echo "PASS: addons directory disable/enable renames preserve all original files.\n";
+        echo "PASS: recreated addons conflict is quarantined with a unique RECOVERED_addons_* name; original DISABLED_addons is restored.\n";
+        echo "PASS: pre-disabled servers remain disabled; recreated addons data is preserved separately.\n";
+        echo "PASS: repeated recovery is idempotent and unrelated Startup Commands are unchanged.\n";
     } finally { removeTestTree($root); }
     return 0;
 }
@@ -454,16 +600,14 @@ function main(array $argv): int
                 ];
                 writeStateAtomically($stateFile, $state);
             }
-            executeDisable($state, $stateFile, $volumes);
-            return 0;
+            return executeDisable($state, $stateFile, $volumes);
         }
 
         if ($state === null || ($state['state'] ?? '') === 'enabled') {
             logLine('Emergency disable is not active; no changes made.');
             return 0;
         }
-        executeEnable($state, $stateFile, $volumes);
-        return 0;
+        return executeEnable($state, $stateFile, $volumes);
     } finally {
         if (is_resource($payloadLock)) { flock($payloadLock, LOCK_UN); fclose($payloadLock); }
         if (is_resource($provisionerLock)) { flock($provisionerLock, LOCK_UN); fclose($provisionerLock); }

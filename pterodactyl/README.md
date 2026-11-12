@@ -112,7 +112,9 @@ When **ENABLE PLUGINS** is confirmed, the inverse operation restores `DISABLED_a
 
 The operation is intentionally non-disruptive: it does not restart or stop running game processes. Plugins already loaded in a running CS2 process may remain active until that server's next normal restart. The renamed directory and Startup Command change prevent them from being loaded/synchronized on the next start while emergency mode remains active.
 
-The root-only state ledger is stored at `/var/lib/pterodactyl/fragcity-addon-provisioner/plugin-conflict-toggle-v1.json`. An interrupted operation is resumable or reversible from the same Control Center option. If both `addons` and `DISABLED_addons` exist for a UUID, the helper fails closed for that UUID rather than merging, overwriting, or deleting either directory.
+The root-only state ledger is stored at `/var/lib/pterodactyl/fragcity-addon-provisioner/plugin-conflict-toggle-v1.json`. An interrupted or partially completed operation is resumable or reversible from the same Control Center option. Each UUID is processed independently, so a failure on one server does not stop the remaining targets; failed UUIDs are recorded in the ledger and exposed through a partial-recovery state in the Control Center.
+
+If both `addons` and `DISABLED_addons` exist while restoring a UUID whose original directory was active before emergency mode, the newly-created `addons` directory is renamed to a unique `RECOVERED_addons_<UTC timestamp>_<suffix>` directory under `game/csgo`. The original `DISABLED_addons` directory is then restored to `addons`. For a server that was already disabled before emergency mode, the unexpected `addons` directory is quarantined while the pre-existing `DISABLED_addons` directory remains disabled. No content is merged, overwritten, or deleted. A conflict that cannot be safely classified is preserved and reported as a per-UUID failure.
 
 ## What remains a one-time Panel setup
 

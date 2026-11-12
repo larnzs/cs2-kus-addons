@@ -148,20 +148,25 @@ manage_plugin_conflict() {
       read -r confirm
       [[ "$confirm" == "ENABLE PLUGINS" ]] || { echo 'Cancelled; no changes made.'; pause; return 0; }
       ;;
-    disabling|enabling)
-      printf '\nThe previous operation did not finish. Choose how to recover:\n'
-      printf '  R  Resume the interrupted operation\n'
-      printf '  E  Roll back / return to normal enabled state\n'
+    disabling|enabling|disable_partial|enable_partial)
+      printf '\nThe previous operation was interrupted or one or more UUIDs need recovery. Choose how to continue:\n'
+      if [[ "$state" == "disabling" || "$state" == "disable_partial" ]]; then
+        printf '  R  Resume disabling plugins on remaining / failed UUIDs\n'
+        printf '  E  Restore plugins and return to normal enabled state\n'
+      else
+        printf '  R  Resume restoring plugins on remaining / failed UUIDs\n'
+        printf '  E  Retry the restore operation\n'
+      fi
       printf '  0  Cancel\n\nAction: '
       read -r confirm
       case "$state:$confirm" in
-        disabling:R|disabling:r)
+        disabling:R|disabling:r|disable_partial:R|disable_partial:r)
           action=--disable
           printf 'Type %bDISABLE PLUGINS%b to resume: ' "$Y" "$Z"
           read -r confirm
           [[ "$confirm" == "DISABLE PLUGINS" ]] || { echo 'Cancelled.'; pause; return 0; }
           ;;
-        disabling:E|disabling:e|enabling:R|enabling:r|enabling:E|enabling:e)
+        disabling:E|disabling:e|disable_partial:E|disable_partial:e|enabling:R|enabling:r|enabling:E|enabling:e|enable_partial:R|enable_partial:r|enable_partial:E|enable_partial:e)
           action=--enable
           printf 'Type %bENABLE PLUGINS%b to restore the previous state: ' "$G" "$Z"
           read -r confirm
@@ -182,7 +187,7 @@ manage_plugin_conflict() {
   if (( rc == 0 )); then
     printf '\n%bEmergency operation completed.%b\n' "$G" "$Z"
   else
-    printf '\n%bEmergency operation stopped with exit code %s. Its state file is retained; re-open this menu to resume or restore.%b\n' "$R" "$rc" "$Z"
+    printf '\n%bEmergency operation returned exit code %s. Successful UUID work is preserved; failed UUIDs remain recorded. Re-open this menu to resume, retry, or restore.%b\n' "$R" "$rc" "$Z"
   fi
   php "$PLUGIN_CONFLICT_SCRIPT" --status 2>&1 || true
   pause
