@@ -1,0 +1,179 @@
+name: Add-on Updater Watchdog
+
+on:
+  # GitHub's scheduler is best-effort. Keep this offset from the top of the hour.
+  schedule:
+    - cron: "4-59/10 * * * *"
+  # Check scan failures immediately when the updater workflow finishes.
+  workflow_run:
+    workflows:
+      - Update CS2 Addons
+    types:
+      - completed
+    branches:
+      - integration/kus-monorepo
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  issues: write
+
+concurrency:
+  group: addon-updater-watchdog
+  cancel-in-progress: false
+
+jobs:
+  check-updater-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check scan heartbeat and synchronize alert issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          TARGET_BRANCH: integration/kus-monorepo
+          UPDATER_WORKFLOW_PATH: .github/workflows/addon-updater.yml
+          STALE_AFTER_MINUTES: "20"
+          ALERT_TITLE: "[Watchdog] Add-on updater health alert"
+        run: |
+          set -Eeuo pipefail
+
+          api="https://api.github.com/repos/${REPOSITORY}"
+          headers=(
+            -H "Accept: application/vnd.github+json"
+            -H "Authorization: Bearer ${GH_TOKEN}"
+            -H "X-GitHub-Api-Version: 2022-11-28"
+          )
+          api_get() {
+            curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --retry-all-errors "${headers[@]}" "$1"
+          }
+          api_post() {
+            curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --retry-all-errors "${headers[@]}" -X POST -H "Content-Type: application/json" --data "$2" "$1"
+          }
+          api_patch() {
+            curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --retry-all-errors "${headers[@]}" -X PATCH -H "Content-Type: application/json" --data "$2" "$1"
+          }
+
+          workflows_json="$(api_get "$api/actions/workflows?per_page=100")"
+          workflow_id="$(jq -er --arg path "${UPDATER_WORKFLOW_PATH}" '.workflows[] | select(.path == $path) | .id' <<< "$workflows_json")"
+          runs_json="$(api_get "$api/actions/workflows/$workflow_id/runs?branch=${TARGET_BRANCH//\//%2F}&per_page=50")"
+
+          # Bot-authored payload commits start push runs whose updater job is intentionally
+          # skipped; counting them would hide a dead cron.
+          latest_run="$(jq -c --arg branch "${TARGET_BRANCH}" '
+            [
+              .workflow_runs[]
+              | select(.head_branch == $branch)
+              | select((.actor.login // "") != "github-actions[bot]")
+              | select(.event == "schedule" or .event == "push")
+            ]
+            | sort_by(.created_at)
+            | last // empty
+          ' <<< "$runs_json")"
+
+          should_alert=false
+          healthy_scan=false
+          alert_reason=""
+          latest_run_url=""
+          latest_run_id=""
+          latest_run_status="missing"
+          latest_job_status="missing"
+          latest_job_conclusion="missing"
+          age_minutes="unknown"
+
+          now_epoch="$(date -u +%s)"
+          stale_seconds=$(( STALE_AFTER_MINUTES * 60 ))
+
+          if [[ -z "$latest_run" ]]; then
+            should_alert=true
+            alert_reason="No scheduled or user-triggered full scan is recorded for ${TARGET_BRANCH}."
+          else
+            latest_run_id="$(jq -r '.id' <<< "$latest_run")"
+            latest_run_url="$(jq -r '.html_url' <<< "$latest_run")"
+            latest_run_status="$(jq -r '.status // "unknown"' <<< "$latest_run")"
+
+            jobs_json="$(api_get "$api/actions/runs/$latest_run_id/jobs?per_page=100")"
+            scanner_job="$(jq -c '
+              [.jobs[] | select(.name == "update-kus-addons")]
+              | sort_by(.started_at // .created_at // "")
+              | last // empty
+            ' <<< "$jobs_json")"
+
+            if [[ -n "$scanner_job" ]]; then
+              latest_job_status="$(jq -r '.status // "unknown"' <<< "$scanner_job")"
+              latest_job_conclusion="$(jq -r '.conclusion // "none"' <<< "$scanner_job")"
+              if [[ "$latest_job_status" == "completed" ]]; then
+                heartbeat_time="$(jq -r '.completed_at // .updated_at // .started_at // .created_at' <<< "$scanner_job")"
+              else
+                heartbeat_time="$(jq -r '.started_at // .created_at' <<< "$scanner_job")"
+              fi
+            else
+              latest_job_status="$latest_run_status"
+              latest_job_conclusion="$(jq -r '.conclusion // "none"' <<< "$latest_run")"
+              heartbeat_time="$(jq -r '.run_started_at // .created_at' <<< "$latest_run")"
+            fi
+
+            heartbeat_epoch="$(date -u -d "$heartbeat_time" +%s)"
+            age_seconds=$(( now_epoch - heartbeat_epoch ))
+            (( age_seconds < 0 )) && age_seconds=0
+            age_minutes=$(( age_seconds / 60 ))
+
+            if [[ "$latest_job_status" == "completed" && "$latest_job_conclusion" != "success" && "$latest_job_conclusion" != "skipped" ]]; then
+              should_alert=true
+              alert_reason="The latest full-scan job finished with conclusion: ${latest_job_conclusion}."
+            elif (( age_seconds > stale_seconds )); then
+              should_alert=true
+              if [[ "$latest_job_status" == "completed" ]]; then
+                alert_reason="The last successful full scan is ${age_minutes} minutes old; the watchdog threshold is ${STALE_AFTER_MINUTES} minutes."
+              else
+                alert_reason="The latest full scan has not completed successfully and has been pending/running for ${age_minutes} minutes; the watchdog threshold is ${STALE_AFTER_MINUTES} minutes."
+              fi
+            elif [[ "$latest_job_status" == "completed" && "$latest_job_conclusion" == "success" ]]; then
+              healthy_scan=true
+            fi
+          fi
+
+          issues_json="$(api_get "$api/issues?state=open&per_page=100")"
+          open_issue="$(jq -c --arg title "${ALERT_TITLE}" '
+            [.[] | select(.title == $title) | select(.pull_request == null)]
+            | first // empty
+          ' <<< "$issues_json")"
+
+          if [[ "$should_alert" == "true" ]]; then
+            detected_at="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            body="$(cat <<EOF
+          @larnzs
+
+          The FragCity add-on updater needs attention.
+
+          **Detected:** ${detected_at}
+          **Branch:** ${TARGET_BRANCH}
+          **Reason:** ${alert_reason}
+          **Latest run status:** ${latest_run_status}
+          **Updater job:** ${latest_job_status} / ${latest_job_conclusion}
+          **Age:** ${age_minutes} minutes
+          **Latest run:** ${latest_run_url:-No run URL is available}
+
+          This issue is maintained automatically by the Add-on Updater Watchdog. It will close itself after a recent full scan completes successfully.
+          EOF
+          )"
+            if [[ -z "$open_issue" ]]; then
+              payload="$(jq -n --arg title "${ALERT_TITLE}" --arg body "$body" '{title:$title, body:$body}')"
+              created="$(api_post "$api/issues" "$payload")"
+              echo "Opened watchdog alert issue #$(jq -r '.number' <<< "$created")."
+            else
+              echo "Watchdog alert issue #$(jq -r '.number' <<< "$open_issue") is already open; not creating duplicate alerts."
+            fi
+          elif [[ "$healthy_scan" == "true" && -n "$open_issue" ]]; then
+            issue_number="$(jq -r '.number' <<< "$open_issue")"
+            comment="$(jq -n --arg body "Recovered: a recent full scan completed successfully at $(date -u '+%Y-%m-%d %H:%M:%S UTC'). The watchdog is closing this alert." '{body:$body}')"
+            api_post "$api/issues/$issue_number/comments" "$comment" >/dev/null
+            close_payload='{"state":"closed","state_reason":"completed"}'
+            api_patch "$api/issues/$issue_number" "$close_payload" >/dev/null
+            echo "Closed recovered watchdog alert issue #$issue_number."
+          elif [[ "$healthy_scan" == "true" ]]; then
+            echo "Healthy: the latest full scan completed successfully ${age_minutes} minutes ago."
+          else
+            echo "No new alert condition and no successful recovery to close."
+          fi

@@ -11,6 +11,7 @@ permissions:
 # Share the same lock as the full updater: both workflows write commits to one branch.
 concurrency:
   group: addon-updater
+  queue: max
   cancel-in-progress: false
 
 jobs:

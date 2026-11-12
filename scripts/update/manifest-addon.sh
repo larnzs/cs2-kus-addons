@@ -235,7 +235,9 @@ manifest_update_version() {
     type=$(jq -r --arg name "$name" '.addons[] | select(.name == $name) | .type' DEPENDENCIES.json)
     tmp="DEPENDENCIES.json.tmp"
     if [ "$name" = "Metamod:Source" ]; then
-        # KUS resolves MetaMod from metamodsource.net, not GitHub's unrelated stable /releases/latest line.
+                # Keep the visible/runtime version in Dev format (2.0.0-<build>). The matching GitHub
+        # tag uses dots (2.0.0.<build>) and is stored only as release_tag for the
+        # Windows updater's exact Source 2 SDK-compatible Dev package; this is not Stable.
         tag=$(printf '%s' "$version" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)-([0-9]+)$/\1.\2/')
         [ "$tag" != "$version" ] || die "could not derive the MetaMod release tag from version $version"
         jq --arg name "$name" --arg version "$version" --arg tag "$tag" '

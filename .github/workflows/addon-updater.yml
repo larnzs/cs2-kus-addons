@@ -22,7 +22,7 @@ on:
       - "README.md"
   schedule:
     # Check the complete KUS catalog and every automated Manifest add-on every five minutes.
-    - cron: "2-57/5 * * * *"
+    - cron: "3-58/5 * * * *"
   workflow_dispatch:
     inputs:
       only:
@@ -41,6 +41,7 @@ permissions:
 
 concurrency:
   group: addon-updater
+  queue: max
   cancel-in-progress: false
 
 jobs:
@@ -69,6 +70,13 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh scripts/update/manifest-addon.sh scripts/update/catalog-plugin.sh scripts/update/plugins/*.sh
+
+          # Metamod must be read from the Source 2 SDK-compatible Dev download channel,
+          # not from GitHub's generic Releases page.
+          if ! grep -Fq '| [Metamod:Source](https://www.metamodsource.net/downloads.php?branch=dev) |' README.md; then
+            echo "Metamod README catalog row must point to the Dev download page." >&2
+            exit 1
+          fi
 
           bash -euo pipefail <<'CONFIG_GUARD_TEST'
           exec 3>&1
