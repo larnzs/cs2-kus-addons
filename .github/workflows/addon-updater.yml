@@ -837,12 +837,18 @@ jobs:
               $expectedVersion = "$([string]$addon.branch)@$shortCommit"
             }
             $versionCell = [string][char]96 + $expectedVersion + [string][char]96
+            $readmeUrl = if ($addon.PSObject.Properties.Name -contains "readme_url" -and
+                -not [string]::IsNullOrWhiteSpace([string]$addon.readme_url)) {
+              [string]$addon.readme_url
+            } else {
+              [string]$addon.repository
+            }
             $rowPattern = '^\|\s*\[' + [regex]::Escape([string]$addon.name) + '\]\(' +
-              [regex]::Escape([string]$addon.repository) + '\)\s*\|\s*' +
+              [regex]::Escape($readmeUrl) + '\)\s*\|\s*' +
               [regex]::Escape($versionCell) + '\s*\|'
             $matches = [regex]::Matches($table, $rowPattern, [System.Text.RegularExpressions.RegexOptions]::Multiline)
             if ($matches.Count -ne 1) {
-              throw "README row must link $($addon.name) to its manifest repository and show version '$expectedVersion'."
+              throw "README row must link $($addon.name) to its configured readme_url/repository and show version '$expectedVersion'."
             }
           }
           Write-Host "Validated $($addons.Count) Manifest rows inside the unified 73-row README plugin catalog."
