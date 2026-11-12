@@ -20,6 +20,7 @@ permissions:
 
 concurrency:
   group: addon-updater-watchdog
+  queue: max
   cancel-in-progress: false
 
 jobs:
@@ -78,6 +79,7 @@ jobs:
           latest_run_url=""
           latest_run_id=""
           latest_run_status="missing"
+          latest_run_conclusion="missing"
           latest_job_status="missing"
           latest_job_conclusion="missing"
           age_minutes="unknown"
@@ -92,6 +94,7 @@ jobs:
             latest_run_id="$(jq -r '.id' <<< "$latest_run")"
             latest_run_url="$(jq -r '.html_url' <<< "$latest_run")"
             latest_run_status="$(jq -r '.status // "unknown"' <<< "$latest_run")"
+            latest_run_conclusion="$(jq -r '.conclusion // "none"' <<< "$latest_run")"
 
             jobs_json="$(api_get "$api/actions/runs/$latest_run_id/jobs?per_page=100")"
             scanner_job="$(jq -c '
@@ -119,7 +122,13 @@ jobs:
             (( age_seconds < 0 )) && age_seconds=0
             age_minutes=$(( age_seconds / 60 ))
 
-            if [[ "$latest_job_status" == "completed" && "$latest_job_conclusion" != "success" && "$latest_job_conclusion" != "skipped" ]]; then
+            if [[ "$latest_run_status" == "completed" && "$latest_run_conclusion" != "success" ]]; then
+              # The updater workflow has two validation/update tracks. A successful
+              # Linux scan must not close the alert while the Windows updater or its
+              # README/payload validation still fails.
+              should_alert=true
+              alert_reason="The latest full updater workflow finished with conclusion: ${latest_run_conclusion}."
+            elif [[ "$latest_job_status" == "completed" && "$latest_job_conclusion" != "success" && "$latest_job_conclusion" != "skipped" ]]; then
               should_alert=true
               alert_reason="The latest full-scan job finished with conclusion: ${latest_job_conclusion}."
             elif (( age_seconds > stale_seconds )); then
@@ -129,7 +138,8 @@ jobs:
               else
                 alert_reason="The latest full scan has not completed successfully and has been pending/running for ${age_minutes} minutes; the watchdog threshold is ${STALE_AFTER_MINUTES} minutes."
               fi
-            elif [[ "$latest_job_status" == "completed" && "$latest_job_conclusion" == "success" ]]; then
+            elif [[ "$latest_run_status" == "completed" && "$latest_run_conclusion" == "success" &&
+                    "$latest_job_status" == "completed" && "$latest_job_conclusion" == "success" ]]; then
               healthy_scan=true
             fi
           fi
@@ -150,7 +160,7 @@ jobs:
           **Detected:** ${detected_at}
           **Branch:** ${TARGET_BRANCH}
           **Reason:** ${alert_reason}
-          **Latest run status:** ${latest_run_status}
+          **Latest workflow:** ${latest_run_status} / ${latest_run_conclusion}
           **Updater job:** ${latest_job_status} / ${latest_job_conclusion}
           **Age:** ${age_minutes} minutes
           **Latest run:** ${latest_run_url:-No run URL is available}
