@@ -1210,6 +1210,12 @@ function Sync-ReadmeAddonTable() {
     foreach ($addon in @($manifest.addons | Sort-Object { [int]$_.order })) {
         $name = [string]$addon.name
         $repository = [string]$addon.repository
+        $readmeUrl = if ($addon.PSObject.Properties.Name -contains "readme_url" -and
+            -not [string]::IsNullOrWhiteSpace([string]$addon.readme_url)) {
+            [string]$addon.readme_url
+        } else {
+            $repository
+        }
         $displayVersion = [string]$addon.version
         if ([string]::IsNullOrWhiteSpace($name) -or
             [string]::IsNullOrWhiteSpace($repository) -or
@@ -1243,7 +1249,7 @@ function Sync-ReadmeAddonTable() {
 
         # Preserve project-owned purpose, placement, and updater documentation.
         # Only normalize the source link/version and the installed/manual suffix.
-        $cells[0] = "[$name]($repository)"
+        $cells[0] = "[$name]($readmeUrl)"
         $cells[1] = $backtick + $displayVersion + $backtick
 
         $cells[2] = Normalize-ManifestPurpose -Purpose ([string]$cells[2]) -Addon $addon

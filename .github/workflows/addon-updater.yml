@@ -71,6 +71,17 @@ jobs:
           set -euo pipefail
           bash -n scripts/check-updates.sh scripts/update/update.sh scripts/update/lib.sh scripts/update/manifest-addon.sh scripts/update/catalog-plugin.sh scripts/update/plugins/*.sh
 
+          # Manifest README reconciliation must honor readme_url (Dev docs/download pages)
+          # while falling back to repository for add-ons without a dedicated README URL.
+          if ! grep -Fq '$readmeUrl = if ($addon.PSObject.Properties.Name -contains "readme_url" -and' scripts/Update-Addons.ps1; then
+            echo "Windows manifest README sync ignores add-on readme_url." >&2
+            exit 1
+          fi
+          if ! grep -Fq '$cells[0] = "[$name]($readmeUrl)"' scripts/Update-Addons.ps1; then
+            echo "Windows manifest README sync does not write the selected readme_url." >&2
+            exit 1
+          fi
+
           # Metamod must be read from the Source 2 SDK-compatible Dev download channel,
           # not from GitHub's generic Releases page.
           if ! grep -Fq '| [Metamod:Source](https://www.metamodsource.net/downloads.php?branch=dev) |' README.md; then
