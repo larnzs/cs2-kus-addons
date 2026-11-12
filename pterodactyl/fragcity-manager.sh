@@ -347,6 +347,7 @@ trigger_cs2node_game_validation_update() {
     return 0
   }
 
+  trap 'restore_cs2node_config >/dev/null 2>&1 || true' EXIT
   trap 'restore_cs2node_config >/dev/null 2>&1 || true; exit 130' INT TERM
 
   # Enable validation only in the config snapshot that the next daemon process loads.
@@ -436,7 +437,7 @@ PY
     pause
     return 1
   fi
-  trap - INT TERM
+  trap - EXIT INT TERM
 
   if [[ "$ready" -ne 1 ]]; then
     printf '%bThe daemon restarted, but vpksync did not confirm loading the one-shot validation setting.%b\n' "$R" "$Z"
