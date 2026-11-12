@@ -235,9 +235,10 @@ def main() -> int:
         if not path_errors:
             future_ok += 1
 
-    # Current CustomVotes release has a native dependency that must stay in its
-    # plugin-local folder and match the dependency graph declared by its .deps.json.
-    customvotes = ROOT / "game/csgo/addons/counterstrikesharp/plugins/CS2-CustomVotes"
+    # CustomVotes is intentionally quarantined from automatic loading. Its complete
+    # dependency bundle remains in the disabled plugin-local folder and is still checked.
+    customvotes = ROOT / "game/csgo/addons/counterstrikesharp/plugins/disabled/CS2-CustomVotes"
+    active_customvotes = ROOT / "game/csgo/addons/counterstrikesharp/plugins/CS2-CustomVotes"
     deps_file = customvotes / "CS2-CustomVotes.deps.json"
     try:
         deps = json.loads(deps_file.read_text(encoding="utf-8"))
@@ -248,7 +249,8 @@ def main() -> int:
         utils_version = plugin["dependencies"]["CSSharpUtils"]
         shared_version = plugin["dependencies"]["CS2-CustomVotes.Shared"]
         valid_customvotes = (
-            (customvotes / "CS2-CustomVotes.dll").is_file()
+            not active_customvotes.exists()
+            and (customvotes / "CS2-CustomVotes.dll").is_file()
             and (customvotes / "CS2-CustomVotes.Shared.dll").is_file()
             and (customvotes / "CSSharpUtils.dll").is_file()
             and "CS2-CustomVotes.dll" in plugin["runtime"]
