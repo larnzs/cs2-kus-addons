@@ -1,0 +1,58 @@
+name: One-time vendor MultiAddonManager v1.7.4
+
+on:
+  push:
+    branches:
+      - integration/kus-monorepo
+    paths:
+      - ".github/workflows/_one-time-vendor-multiaddonmanager-1.7.4.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout integration branch
+        uses: actions/checkout@v4
+        with:
+          ref: integration/kus-monorepo
+          fetch-depth: 0
+
+      - name: Download and verify official SteamRT3 release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          archive="$RUNNER_TEMP/MultiAddonManager-v1.7.4-steamrt3.tar.gz"
+          extract="$RUNNER_TEMP/multiaddonmanager-v1.7.4"
+          url="https://github.com/Source2ZE/MultiAddonManager/releases/download/v1.7.4/MultiAddonManager-v1.7.4-steamrt3.tar.gz"
+          expected_archive_sha="1e4cb517308f8a6bd33c8fcb6905bf9d5c864258904374e4859f0bdd94fa2086"
+          expected_binary_sha="12a44b15fbfa2be8630edfe8577295d4c46a0c5f81754d809c268f6b6a93891e"
+
+          curl --fail --show-error --silent --location --retry 3 --retry-delay 2 "$url" --output "$archive"
+          printf '%s  %s\n' "$expected_archive_sha" "$archive" | sha256sum --check --status
+          mkdir -p "$extract"
+          tar -xzf "$archive" -C "$extract" --no-same-owner --no-same-permissions
+
+          plugin="$extract/addons/multiaddonmanager/bin/multiaddonmanager.so"
+          test -s "$plugin"
+          printf '%s  %s\n' "$expected_binary_sha" "$plugin" | sha256sum --check
+
+          install -D -m 0644 "$plugin" game/csgo/addons/multiaddonmanager/bin/multiaddonmanager.so
+          printf 'Vendored MultiAddonManager v1.7.4 SteamRT3 binary: '
+          sha256sum game/csgo/addons/multiaddonmanager/bin/multiaddonmanager.so
+
+      - name: Commit only the plugin binary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- game/csgo/addons/multiaddonmanager/bin/multiaddonmanager.so
+          if git diff --cached --quiet; then
+            echo "MultiAddonManager v1.7.4 binary is already present."
+            exit 0
+          fi
+          git commit -m "chore: update MultiAddonManager to v1.7.4"
+          git push origin HEAD:integration/kus-monorepo
