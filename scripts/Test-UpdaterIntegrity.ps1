@@ -181,10 +181,9 @@ try {
     # CS2-CustomVotes remains updater-managed but is quarantined from automatic loading.
     $customVotesUpdaterPath = Join-Path $PSScriptRoot "update/plugins/cs2-customvotes.sh"
     $customVotesUpdater = Get-Content -LiteralPath $customVotesUpdaterPath -Raw
-    $customVotesPathsMatch = [regex]::Match($customVotesUpdater, '(?m)^PLUGIN_PATHS=\((.*?)\)$')
-    Assert-Condition $customVotesPathsMatch.Success "CS2-CustomVotes updater has no PLUGIN_PATHS declaration."
-    Assert-Condition ($customVotesPathsMatch.Groups[1].Value.Contains("plugins/disabled/CS2-CustomVotes")) "CS2-CustomVotes updater must target plugins/disabled."
-    Assert-Condition (-not $customVotesPathsMatch.Groups[1].Value.Contains('plugins/CS2-CustomVotes"')) "CS2-CustomVotes updater must not target the auto-load path."
+    Assert-Condition ($customVotesUpdater.Contains('DESTINATION="game/csgo/addons/counterstrikesharp/plugins/disabled/CS2-CustomVotes"')) "CS2-CustomVotes updater must target plugins/disabled."
+    Assert-Condition ($customVotesUpdater.Contains('PLUGIN_PATHS=("$DESTINATION")')) "CS2-CustomVotes updater must declare only its destination in PLUGIN_PATHS."
+    Assert-Condition (-not $customVotesUpdater.Contains('DESTINATION="game/csgo/addons/counterstrikesharp/plugins/CS2-CustomVotes"')) "CS2-CustomVotes updater must not target the auto-load path."
     $customVotesDisabled = Join-Path $repoRoot "game/csgo/addons/counterstrikesharp/plugins/disabled/CS2-CustomVotes"
     Assert-Condition (Test-Path -LiteralPath (Join-Path $customVotesDisabled "CS2-CustomVotes.dll")) "CS2-CustomVotes main DLL is missing from disabled."
     Assert-Condition (Test-Path -LiteralPath (Join-Path $customVotesDisabled "CS2-CustomVotes.Shared.dll")) "CS2-CustomVotes Shared assembly is missing from disabled."
