@@ -18,25 +18,37 @@ function logLine(string $message): void { fwrite(STDOUT, '[fragcity-plugin-emerg
 function fail(string $message): never { throw new RuntimeException($message); }
 function validUuid(string $uuid): bool { return preg_match('/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/D', $uuid) === 1; }
 
+function startupSyncHookPrefix(string $startup): ?string
+{
+    if (preg_match('~^\s*(?:bash[ \t]+)?' . preg_quote(STARTUP_HOOK_PATH, '~') . '[ \t]*&&[ \t]*~', $startup, $matches) !== 1) {
+        return null;
+    }
+    return $matches[0];
+}
+
 function startupHasSyncHook(string $startup): bool
 {
-    return preg_match('~^\s*(?:bash\s+)?' . preg_quote(STARTUP_HOOK_PATH, '~') . '\s*&&\s*~', $startup) === 1;
+    return startupSyncHookPrefix($startup) !== null;
 }
 
-/** Remove only the exact leading FragCity container-side sync hook. */
+/** Remove only the exact leading FragCity container-side sync hook and return the bytes removed. */
 function removeStartupSyncHook(string $startup): string
 {
-    $updated = preg_replace('~^\s*(?:bash\s+)?' . preg_quote(STARTUP_HOOK_PATH, '~') . '\s*&&\s*~', '', $startup, 1);
-    if (!is_string($updated)) { fail('Could not parse the server Startup Command.'); }
-    return $updated;
+    $prefix = startupSyncHookPrefix($startup);
+    if ($prefix === null) {
+        return $startup;
+    }
+    return substr($startup, strlen($prefix));
 }
 
-/** Restore the canonical prefix without duplicating it or changing the command tail. */
-function restoreStartupSyncHook(string $startup): string
+/** Restore the exact per-server prefix captured before emergency mode; do not normalize it. */
+function restoreStartupSyncHook(string $startup, string $originalPrefix): string
 {
     if (startupHasSyncHook($startup)) { return $startup; }
-    if (trim($startup) === '') { fail('Refusing to restore the payload hook because Startup Command is empty.'); }
-    return STARTUP_HOOK_PREFIX . ltrim($startup);
+    if ($originalPrefix === '' || trim($startup) === '') {
+        fail('Refusing to restore the payload hook because its original prefix or Startup Command is empty.');
+    }
+    return $originalPrefix . $startup;
 }
 
 function safeVolumePath(string $uuid, string $volumeRoot): string
@@ -155,7 +167,10 @@ function readState(string $path): ?array
     foreach ($state['servers'] as $uuid => $entry) {
         if (!validUuid((string) $uuid) || !is_array($entry)
             || !in_array($entry['addons_before'] ?? null, ['active', 'already_disabled', 'missing'], true)
-            || !is_bool($entry['hook_before'] ?? null)) { fail('Emergency state file contains an invalid server entry.'); }
+            || !is_bool($entry['hook_before'] ?? null)
+            || (isset($entry['hook_prefix_before']) && !is_string($entry['hook_prefix_before']))) {
+            fail('Emergency state file contains an invalid server entry.');
+        }
     }
     return $state;
 }
@@ -231,12 +246,15 @@ function collectLocalUuidContainers(string $volumeRoot): array
         $volume = safeVolumePath($uuid, $volumeRoot);
         $container = safeContainerMount($uuid, $volume);
         $addonsBefore = addonDirectoryState($volume);
-        $hookBefore = startupHasSyncHook((string) ($servers[$uuid]->startup ?? ''));
+        $startupBefore = (string) ($servers[$uuid]->startup ?? '');
+        $hookPrefixBefore = startupSyncHookPrefix($startupBefore) ?? '';
+        $hookBefore = $hookPrefixBefore !== '';
         // Non-CS2 UUID containers without a FragCity startup hook are outside this operation.
         if (!$hookBefore && $addonsBefore === 'missing') { continue; }
         $targets[$uuid] = [
             'addons_before' => $addonsBefore,
             'hook_before' => $hookBefore,
+            'hook_prefix_before' => $hookPrefixBefore,
             'container_state' => $container['state'],
             'hook_done' => false,
             'addons_done' => false,
@@ -264,9 +282,14 @@ function executeDisable(array &$state, string $path, string $volumeRoot): void
         if ($row === null) { fail('Panel server record disappeared during disable: ' . $uuid . '; state retained.'); }
         if ($entry['hook_before']) {
             $startup = (string) ($row->startup ?? '');
-            if (startupHasSyncHook($startup)) {
+            $currentPrefix = startupSyncHookPrefix($startup);
+            $originalPrefix = (string) ($entry['hook_prefix_before'] ?? STARTUP_HOOK_PREFIX);
+            if ($currentPrefix !== null) {
+                if ($currentPrefix !== $originalPrefix) {
+                    fail('The server Startup Command hook changed after the emergency plan was recorded for UUID ' . $uuid . '; refusing to rewrite it.');
+                }
                 updateServerStartup($uuid, removeStartupSyncHook($startup));
-                logLine('Removed only the payload-sync prefix from the server Startup Command.');
+                logLine('Removed only the exact original payload-sync prefix from the server Startup Command.');
             }
         }
         $entry['hook_done'] = true;
@@ -301,10 +324,11 @@ function executeEnable(array &$state, string $path, string $volumeRoot): void
         if ($row === null) { fail('Panel server record disappeared during restore: ' . $uuid . '; state retained.'); }
         if ($entry['hook_before']) {
             $startup = (string) ($row->startup ?? '');
-            $restored = restoreStartupSyncHook($startup);
+            $originalPrefix = (string) ($entry['hook_prefix_before'] ?? STARTUP_HOOK_PREFIX);
+            $restored = restoreStartupSyncHook($startup, $originalPrefix);
             if ($restored !== $startup) {
                 updateServerStartup($uuid, $restored);
-                logLine('Restored the payload-sync prefix in the server Startup Command.');
+                logLine('Restored the exact original payload-sync prefix in the server Startup Command.');
             }
         }
         $entry['hook_done'] = true;
@@ -348,9 +372,18 @@ function runSelfTest(): int
 {
     $tail = './game/cs2.sh {{CUSTOM_PARAMS}} -tickrate {{TICKRATE}}';
     $hooked = STARTUP_HOOK_PREFIX . $tail;
+    $barePrefix = STARTUP_HOOK_PATH . ' && ';
+    $bareHooked = $barePrefix . $tail;
+    $spacedPrefix = "  bash " . STARTUP_HOOK_PATH . " &&  ";
+    $spacedHooked = $spacedPrefix . $tail;
     if (!startupHasSyncHook($hooked) || removeStartupSyncHook($hooked) !== $tail
-        || restoreStartupSyncHook($tail) !== $hooked || restoreStartupSyncHook($hooked) !== $hooked) {
-        fail('Self-test failed: Startup Command hook removal/restoration/idempotency.');
+        || restoreStartupSyncHook($tail, STARTUP_HOOK_PREFIX) !== $hooked
+        || restoreStartupSyncHook($hooked, STARTUP_HOOK_PREFIX) !== $hooked
+        || removeStartupSyncHook($bareHooked) !== $tail
+        || restoreStartupSyncHook($tail, $barePrefix) !== $bareHooked
+        || removeStartupSyncHook($spacedHooked) !== $tail
+        || restoreStartupSyncHook($tail, $spacedPrefix) !== $spacedHooked) {
+        fail('Self-test failed: exact Startup Command prefix removal/restoration/idempotency.');
     }
     $unrelated = 'bash /some/other/script.sh && ' . $tail;
     if (removeStartupSyncHook($unrelated) !== $unrelated) { fail('Self-test failed: unrelated Startup Command was changed.'); }
