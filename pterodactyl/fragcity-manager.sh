@@ -281,13 +281,191 @@ screen_wings() {
   pause
 }
 
+
+trigger_cs2node_game_validation_update() {
+  local config='/etc/cs2node/config.json'
+  local backup_dir='' restart_started='' ready=0 answer=''
+  local attempt log_snapshot
+
+  if ! command -v cs2node >/dev/null 2>&1; then
+    printf '%bCannot trigger the update: cs2node is not installed.%b\n' "$R" "$Z"
+    pause
+    return 1
+  fi
+  if ! systemctl is-active --quiet cs2node.service; then
+    printf '%bCannot trigger the update: cs2node.service is not active.%b\n' "$R" "$Z"
+    systemctl status cs2node.service --no-pager -l 2>&1 | tail -n 20
+    pause
+    return 1
+  fi
+  if [[ -L "$config" || ! -f "$config" ]]; then
+    printf '%bCannot trigger the update: config is missing or is a symlink (%s).%b\n' "$R" "$config" "$Z"
+    pause
+    return 1
+  fi
+
+  printf '\n%bFORCE STEAMCMD GAME VALIDATION + UPDATE%b\n' "$Y" "$Z"
+  printf '  This restarts the CS2Node daemon and triggers its immediate central CS2 update pass.\n'
+  printf '  SteamCMD will run App ID 730 with validate enabled for this pass only.\n'
+  printf '  If the build changes, CS2Node may push shared files and restart servers according to its configured restart policy.\n'
+  printf '\nType %bVALIDATE%b to continue: ' "$Y" "$Z"
+  read -r answer
+  if [[ "$answer" != VALIDATE ]]; then
+    printf 'Cancelled; no changes made.\n'
+    sleep 1
+    return 0
+  fi
+
+  backup_dir="$(mktemp -d /run/fragcity-cs2node-validation.XXXXXX)" || {
+    printf '%bCould not create a private temporary backup directory.%b\n' "$R" "$Z"
+    pause
+    return 1
+  }
+  chmod 0700 "$backup_dir"
+  if ! cp -a -- "$config" "$backup_dir/config.json"; then
+    rm -rf -- "$backup_dir"
+    printf '%bCould not back up the original CS2Node configuration; nothing was changed.%b\n' "$R" "$Z"
+    pause
+    return 1
+  fi
+
+  restore_cs2node_config() {
+    [[ -n "$backup_dir" && -f "$backup_dir/config.json" ]] || return 0
+    local restore_tmp
+    restore_tmp="$(mktemp "\${config}.fragcity-restore.XXXXXX")" || return 1
+    if ! cp --preserve=all -- "$backup_dir/config.json" "$restore_tmp"; then
+      rm -f -- "$restore_tmp"
+      return 1
+    fi
+    if ! mv -fT -- "$restore_tmp" "$config"; then
+      rm -f -- "$restore_tmp"
+      return 1
+    fi
+    rm -f -- "$backup_dir/config.json"
+    rmdir -- "$backup_dir" 2>/dev/null || true
+    backup_dir=''
+    return 0
+  }
+
+  trap 'restore_cs2node_config >/dev/null 2>&1 || true; exit 130' INT TERM
+
+  # Enable validation only in the config snapshot that the next daemon process loads.
+  # The original bytes and metadata are restored as soon as the vpksync module confirms
+  # that it has loaded this one-shot setting into memory.
+  if ! python3 - "$config" <<'PY'
+import json
+import os
+import stat
+import sys
+import tempfile
+
+path = sys.argv[1]
+if os.path.islink(path) or not os.path.isfile(path):
+    raise SystemExit("config path is not a regular file")
+
+original_stat = os.stat(path, follow_symlinks=False)
+with open(path, "r", encoding="utf-8") as handle:
+    config = json.load(handle)
+
+modules = config.get("modules")
+if not isinstance(modules, dict):
+    raise SystemExit("config has no modules object")
+vpksync = modules.get("vpksync")
+if not isinstance(vpksync, dict) or vpksync.get("enabled") is not True:
+    raise SystemExit("vpksync module is missing or disabled")
+vpksync["validate"] = True
+
+directory = os.path.dirname(path)
+fd, temporary = tempfile.mkstemp(prefix=".config.json.fragcity-", dir=directory)
+try:
+    os.fchmod(fd, stat.S_IMODE(original_stat.st_mode))
+    os.fchown(fd, original_stat.st_uid, original_stat.st_gid)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        json.dump(config, handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(temporary, path)
+except Exception:
+    try:
+        os.close(fd)
+    except OSError:
+        pass
+    try:
+        os.unlink(temporary)
+    except OSError:
+        pass
+    raise
+PY
+  then
+    restore_cs2node_config || printf '%bWARNING: original config restore needs manual attention: %s%b\n' "$R" "$config" "$Z"
+    trap - INT TERM
+    printf '%bCould not prepare the one-shot validation setting. Check the vpksync section and config JSON.%b\n' "$R" "$Z"
+    pause
+    return 1
+  fi
+
+  restart_started="$(date --iso-8601=seconds)"
+  printf '\n%bRestarting CS2Node with one-shot SteamCMD validation enabled...%b\n' "$C" "$Z"
+  if ! systemctl restart cs2node.service; then
+    restore_cs2node_config || printf '%bWARNING: original config restore needs manual attention: %s%b\n' "$R" "$config" "$Z"
+    trap - INT TERM
+    printf '%bCS2Node restart failed.%b\n' "$R" "$Z"
+    journalctl -u cs2node.service -n 25 --no-pager -o short-iso 2>&1
+    pause
+    return 1
+  fi
+
+  printf 'Waiting for the restarted daemon to load vpksync...\n'
+  for attempt in $(seq 1 30); do
+    log_snapshot="$(journalctl -u cs2node.service --since "$restart_started" -o cat --no-pager 2>/dev/null || true)"
+    if grep -q 'vpksync up' <<<"$log_snapshot"; then
+      ready=1
+      break
+    fi
+    if ! systemctl is-active --quiet cs2node.service; then
+      break
+    fi
+    sleep 1
+  done
+
+  if ! restore_cs2node_config; then
+    trap - INT TERM
+    printf '%bCRITICAL: could not restore the original config automatically: %s%b\n' "$R" "$config" "$Z"
+    printf 'The backup is retained under: %s\n' "$backup_dir"
+    pause
+    return 1
+  fi
+  trap - INT TERM
+
+  if [[ "$ready" -ne 1 ]]; then
+    printf '%bThe daemon restarted, but vpksync did not confirm loading the one-shot validation setting.%b\n' "$R" "$Z"
+    printf 'The original config has been restored. Inspect the service logs before retrying.\n'
+    journalctl -u cs2node.service --since "$restart_started" -n 35 --no-pager -o short-iso 2>&1
+    pause
+    return 1
+  fi
+
+  printf '%bCS2Node loaded the one-shot validation setting successfully.%b\n' "$G" "$Z"
+  printf 'The original /etc/cs2node/config.json has been restored; its persistent validate setting was not changed.\n'
+  printf 'The daemon starts the SteamCMD App ID 730 validation/update pass about 10 seconds after startup.\n'
+  printf 'Follow progress/events with: journalctl -fu cs2node.service\n'
+  printf '\n%bRecent CS2Node events%b\n' "$C" "$Z"
+  journalctl -u cs2node.service --since "$restart_started" -n 25 --no-pager -o short-iso 2>&1
+  pause
+}
+
 screen_cs2node() {
+  local action=''
   heading "CS2NODE / SHARED GAME DATA"
+  service_card "CS2Node daemon" cs2node.service
   if command -v cs2node >/dev/null 2>&1; then
     printf '  cs2node binary: %bFOUND%b\n' "$G" "$Z"
     command -v cs2node
     stat -c '  modified=%y | permissions=%a | owner=%U:%G' "$(command -v cs2node)"
     printf '  SHA-256: '; sha256sum "$(command -v cs2node)" 2>/dev/null | awk '{print $1}'
+    printf '\n%bCS2Node live status%b\n' "$C" "$Z"
+    timeout 10 cs2node status 2>&1 | sed -n '1,80p'
   else
     printf '  cs2node binary: %bNOT FOUND%b\n' "$R" "$Z"
   fi
@@ -312,7 +490,14 @@ screen_cs2node() {
   else printf '  Shared game directory not found at /srv/cs2-shared/game.\n'; fi
   printf '\n%bCS2 / Steam-related processes%b\n' "$C" "$Z"
   pgrep -af '[c]s2|[s]rcds|[s]teamcmd' 2>/dev/null | head -n 12 || printf '  No matching process detected.\n'
-  pause
+  printf '\n%b[MANUAL GAME MAINTENANCE]%b\n' "$Y" "$Z"
+  printf '  V  Trigger SteamCMD Game Validation and Update\n'
+  printf '  Enter  Return to the main menu\n'
+  read -r -p 'Choose an action: ' action
+  case "$action" in
+    V|v) trigger_cs2node_game_validation_update ;;
+    *) ;;
+  esac
 }
 
 screen_php() {
