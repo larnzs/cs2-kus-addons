@@ -149,6 +149,42 @@ function disableAddonDirectory(string $volumePath, string $beforeState): string
     fail('Invalid recorded addons state for UUID ' . basename($volumePath));
 }
 
+/**
+ * Remove only the Egg's per-container MetaMod/CounterStrikeSharp version cache.
+ * The UUID volume has already passed safeVolumePath() validation; no shared Mount path is used.
+ */
+function removeEggVersionsCache(string $volumePath): string
+{
+    $eggDirectory = $volumePath . '/egg';
+    if (is_link($eggDirectory)) {
+        fail('Refusing symlinked Egg directory for UUID ' . basename($volumePath));
+    }
+    clearstatcache(true, $eggDirectory);
+    if (!file_exists($eggDirectory)) {
+        return 'egg_directory_missing';
+    }
+    if (!is_dir($eggDirectory)) {
+        fail('Egg path exists but is not a directory for UUID ' . basename($volumePath));
+    }
+
+    $versionsFile = $eggDirectory . '/versions.txt';
+    clearstatcache(true, $versionsFile);
+    if (is_link($versionsFile)) {
+        fail('Refusing symlinked egg/versions.txt for UUID ' . basename($volumePath));
+    }
+    if (!file_exists($versionsFile)) {
+        return 'already_missing';
+    }
+    if (!is_file($versionsFile)) {
+        fail('egg/versions.txt exists but is not a regular file for UUID ' . basename($volumePath));
+    }
+    if (!unlink($versionsFile)) {
+        fail('Could not remove only egg/versions.txt for UUID ' . basename($volumePath));
+    }
+    logLine('UUID ' . basename($volumePath) . ': removed only egg/versions.txt so the next normal start can refresh the MetaMod/CounterStrikeSharp version cache.');
+    return 'deleted';
+}
+
 /** Restore only directories that were active before this tool renamed them. */
 function enableAddonDirectory(string $volumePath, string $beforeState): string
 {
@@ -221,7 +257,8 @@ function readState(string $path): ?array
         if (!validUuid((string) $uuid) || !is_array($entry)
             || !in_array($entry['addons_before'] ?? null, ['active', 'already_disabled', 'missing', 'conflict'], true)
             || !is_bool($entry['hook_before'] ?? null)
-            || (isset($entry['hook_prefix_before']) && !is_string($entry['hook_prefix_before']))) {
+            || (isset($entry['hook_prefix_before']) && !is_string($entry['hook_prefix_before']))
+            || (isset($entry['versions_cache_done']) && !is_bool($entry['versions_cache_done']))) {
             fail('Emergency state file contains an invalid server entry.');
         }
     }
@@ -311,6 +348,7 @@ function collectLocalUuidContainers(string $volumeRoot): array
             'container_state' => $container['state'],
             'hook_done' => false,
             'addons_done' => false,
+            'versions_cache_done' => false,
         ];
     }
     logLine('Discovered ' . count($uuids) . ' UUID containers; selected ' . count($targets) . ' CS2 target(s).');
@@ -409,11 +447,23 @@ function executeEnable(array &$state, string $path, string $volumeRoot): int
                 }
             }
             $entry['hook_done'] = true;
+
+            if ($entry['addons_before'] === 'active') {
+                $versionsCacheResult = removeEggVersionsCache($volume);
+                $entry['versions_cache_done'] = true;
+                $entry['versions_cache_action'] = $versionsCacheResult;
+            } else {
+                // Respect servers that were already disabled or had no addons directory before emergency mode.
+                $versionsCacheResult = 'preserved_pre_existing_non_active_state';
+                $entry['versions_cache_done'] = true;
+                $entry['versions_cache_action'] = $versionsCacheResult;
+            }
+
             unset($entry['last_error'], $entry['last_error_at']);
             $entry['last_successful_action'] = 'enable';
             $entry['last_attempt_at'] = gmdate('c');
             writeStateAtomically($path, $state);
-            logLine('UUID ' . $uuid . ': directory=' . $result);
+            logLine('UUID ' . $uuid . ': directory=' . $result . ', egg_versions_cache=' . $versionsCacheResult);
         } catch (Throwable $exception) {
             $entry['last_error'] = $exception->getMessage();
             $entry['last_error_at'] = gmdate('c');
@@ -485,20 +535,32 @@ function runSelfTest(): int
 
     $root = sys_get_temp_dir() . '/fragcity-plugin-toggle-test-' . bin2hex(random_bytes(6));
     $cs2 = $root . '/game/csgo';
-    if (!mkdir($cs2, 0700, true)) { fail('Self-test could not create temporary fixture.'); }
+    if (!mkdir($cs2, 0700, true) || !mkdir($root . '/egg', 0700)) { fail('Self-test could not create temporary fixture.'); }
     try {
+        file_put_contents($root . '/egg/versions.txt', "metamod=old\ncss=old\n");
+        file_put_contents($root . '/egg/keep-this-file.txt', 'unrelated-egg-data');
         mkdir($cs2 . '/addons', 0700);
         mkdir($cs2 . '/addons/sample-plugin', 0700);
         file_put_contents($cs2 . '/addons/sample-plugin/keep-me.txt', 'original-plugin-files');
         $before = addonDirectoryState($root);
         if ($before !== 'active' || disableAddonDirectory($root, $before) !== 'renamed'
-            || !is_file($cs2 . '/DISABLED_addons/sample-plugin/keep-me.txt') || is_dir($cs2 . '/addons')) {
-            fail('Self-test failed: directory disable rename or file preservation.');
+            || !is_file($cs2 . '/DISABLED_addons/sample-plugin/keep-me.txt') || is_dir($cs2 . '/addons')
+            || !is_file($root . '/egg/versions.txt')) {
+            fail('Self-test failed: disable rename must preserve plugin data and egg/versions.txt.');
         }
         if (enableAddonDirectory($root, 'active') !== 'restored'
             || file_get_contents($cs2 . '/addons/sample-plugin/keep-me.txt') !== 'original-plugin-files'
             || addonDirectoryState($root) !== 'active') {
             fail('Self-test failed: normal reverse rename or content preservation.');
+        }
+        $cacheRemoval = removeEggVersionsCache($root);
+        if ($cacheRemoval !== 'deleted' || file_exists($root . '/egg/versions.txt')
+            || file_get_contents($root . '/egg/keep-this-file.txt') !== 'unrelated-egg-data') {
+            fail('Self-test failed: Enable must remove only egg/versions.txt and preserve other Egg files.');
+        }
+        if (removeEggVersionsCache($root) !== 'already_missing'
+            || file_get_contents($root . '/egg/keep-this-file.txt') !== 'unrelated-egg-data') {
+            fail('Self-test failed: versions cache removal is not idempotent or changed unrelated files.');
         }
 
         // Reproduce the reported incident: a new addons folder appears while the original is disabled.
@@ -531,6 +593,7 @@ function runSelfTest(): int
         }
         mkdir($cs2 . '/addons', 0700);
         file_put_contents($cs2 . '/addons/unexpected-file.txt', 'keep-separate');
+        file_put_contents($root . '/egg/versions.txt', "leave-pre-disabled-cache\n");
         $preDisabledResult = enableAddonDirectory($root, 'already_disabled');
         $recovered = glob($cs2 . '/RECOVERED_addons_*', GLOB_ONLYDIR) ?: [];
         $unexpectedDataPreserved = false;
@@ -545,6 +608,7 @@ function runSelfTest(): int
             || count($recovered) !== 2
             || !$unexpectedDataPreserved
             || file_get_contents($cs2 . '/DISABLED_addons/sample-plugin/keep-me.txt') !== 'original-plugin-files'
+            || !is_file($root . '/egg/versions.txt')
             || addonDirectoryState($root) !== 'already_disabled') {
             fail('Self-test failed: pre-disabled state was not preserved while quarantining the recreated addons directory.');
         }
@@ -554,6 +618,8 @@ function runSelfTest(): int
         echo "PASS: recreated addons conflict is quarantined with a unique RECOVERED_addons_* name; original DISABLED_addons is restored.\n";
         echo "PASS: pre-disabled servers remain disabled; recreated addons data is preserved separately.\n";
         echo "PASS: repeated recovery is idempotent and unrelated Startup Commands are unchanged.\n";
+        echo "PASS: Disable preserves egg/versions.txt; Enable removes only that cache file and preserves other Egg files.\n";
+        echo "PASS: pre-disabled addon directories and their Egg version cache remain untouched.\n";
     } finally { removeTestTree($root); }
     return 0;
 }
