@@ -332,7 +332,7 @@ trigger_cs2node_game_validation_update() {
   restore_cs2node_config() {
     [[ -n "$backup_dir" && -f "$backup_dir/config.json" ]] || return 0
     local restore_tmp
-    restore_tmp="$(mktemp "\${config}.fragcity-restore.XXXXXX")" || return 1
+    restore_tmp="$(mktemp "${config}.fragcity-restore.XXXXXX")" || return 1
     if ! cp --preserve=all -- "$backup_dir/config.json" "$restore_tmp"; then
       rm -f -- "$restore_tmp"
       return 1
