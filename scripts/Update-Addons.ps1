@@ -1246,21 +1246,7 @@ function Sync-ReadmeAddonTable() {
         $cells[0] = "[$name]($repository)"
         $cells[1] = $backtick + $displayVersion + $backtick
 
-        $purpose = [string]$cells[2]
-        $purpose = $purpose -replace "(?i);\s*not installed and marked manual in the Larnz manifest$", ""
-        $purpose = $purpose -replace "(?i);\s*not installed$", ""
-        $manualEntry = $false
-        if ($addon.PSObject.Properties.Name -contains "automation_supported") {
-            $manualEntry = -not [bool]$addon.automation_supported
-        }
-        if ([bool]$addon.installed -eq $false) {
-            if ($manualEntry) {
-                $purpose += "; not installed and marked manual in the Manifest"
-            } elseif ($purpose -notmatch "(?i)\bnot installed\b") {
-                $purpose += "; not installed"
-            }
-        }
-        $cells[2] = $purpose
+        $cells[2] = Normalize-ManifestPurpose -Purpose ([string]$cells[2]) -Addon $addon
 
         $lines[$rowIndex] = "| " + ($cells -join " | ") + " |"
         $tableNames[$name] = $true
