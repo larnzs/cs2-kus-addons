@@ -1,0 +1,444 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\DB;
+use Symfony\Component\Process\Process;
+
+const DEFAULT_PANEL_ROOT = '/var/www/pterodactyl';
+const DEFAULT_VOLUME_ROOT = '/var/lib/pterodactyl/volumes';
+const DEFAULT_STATE_ROOT = '/var/lib/pterodactyl/fragcity-addon-provisioner';
+const PROVISIONER_LOCK = '/run/lock/fragcity-addon-provisioner.lock';
+const STARTUP_HOOK_PATH = '/home/container/egg/fragcity-payload/sync-addon-payload-container.sh';
+const STARTUP_HOOK_PREFIX = 'bash ' . STARTUP_HOOK_PATH . ' && ';
+const STATE_FILENAME = 'plugin-conflict-toggle-v1.json';
+
+function logLine(string $message): void { fwrite(STDOUT, '[fragcity-plugin-emergency] ' . $message . PHP_EOL); }
+function fail(string $message): never { throw new RuntimeException($message); }
+function validUuid(string $uuid): bool { return preg_match('/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/D', $uuid) === 1; }
+
+function startupHasSyncHook(string $startup): bool
+{
+    return preg_match('~^\s*(?:bash\s+)?' . preg_quote(STARTUP_HOOK_PATH, '~') . '\s*&&\s*~', $startup) === 1;
+}
+
+/** Remove only the exact leading FragCity container-side sync hook. */
+function removeStartupSyncHook(string $startup): string
+{
+    $updated = preg_replace('~^\s*(?:bash\s+)?' . preg_quote(STARTUP_HOOK_PATH, '~') . '\s*&&\s*~', '', $startup, 1);
+    if (!is_string($updated)) { fail('Could not parse the server Startup Command.'); }
+    return $updated;
+}
+
+/** Restore the canonical prefix without duplicating it or changing the command tail. */
+function restoreStartupSyncHook(string $startup): string
+{
+    if (startupHasSyncHook($startup)) { return $startup; }
+    if (trim($startup) === '') { fail('Refusing to restore the payload hook because Startup Command is empty.'); }
+    return STARTUP_HOOK_PREFIX . ltrim($startup);
+}
+
+function safeVolumePath(string $uuid, string $volumeRoot): string
+{
+    if (!validUuid($uuid)) { fail('Invalid server UUID: ' . $uuid); }
+    if (is_link($volumeRoot) || !is_dir($volumeRoot)) { fail('Pterodactyl volume root is missing or unsafe: ' . $volumeRoot); }
+    $realRoot = realpath($volumeRoot);
+    if ($realRoot === false || $realRoot !== rtrim($volumeRoot, '/')) { fail('Volume root is not a canonical non-symlink directory: ' . $volumeRoot); }
+    $expected = $realRoot . '/' . $uuid;
+    if (is_link($expected) || !is_dir($expected)) { fail('Server volume is missing or unsafe for UUID ' . $uuid . ': ' . $expected); }
+    $realVolume = realpath($expected);
+    if ($realVolume === false || $realVolume !== $expected || dirname($realVolume) !== $realRoot || basename($realVolume) !== $uuid) {
+        fail('Server volume failed UUID/path containment validation: ' . $expected);
+    }
+    return $realVolume;
+}
+
+/** Return active, already_disabled or missing; refuse ambiguity and symlinks. */
+function addonDirectoryState(string $volumePath): string
+{
+    $cursor = $volumePath;
+    foreach (['game', 'csgo'] as $part) {
+        $cursor .= '/' . $part;
+        if (is_link($cursor)) { fail('Refusing symlink in CS2 addon path: ' . $cursor); }
+        if (file_exists($cursor) && !is_dir($cursor)) { fail('CS2 addon parent is not a directory: ' . $cursor); }
+        if (!is_dir($cursor)) { return 'missing'; }
+    }
+    $active = $cursor . '/addons';
+    $disabled = $cursor . '/DISABLED_addons';
+    if (is_link($active) || is_link($disabled)) { fail('Refusing symlinked addons directory under: ' . $cursor); }
+    if ((file_exists($active) && !is_dir($active)) || (file_exists($disabled) && !is_dir($disabled))) {
+        fail('addons or DISABLED_addons exists but is not a directory under: ' . $cursor);
+    }
+    if (is_dir($active) && is_dir($disabled)) {
+        fail('Both addons and DISABLED_addons exist for UUID ' . basename($volumePath) . '; refusing to merge or overwrite either.');
+    }
+    if (is_dir($active)) { return 'active'; }
+    if (is_dir($disabled)) { return 'already_disabled'; }
+    return 'missing';
+}
+
+/** A directory rename only; no files are removed and no Docker Mount is changed. */
+function disableAddonDirectory(string $volumePath, string $beforeState): string
+{
+    $current = addonDirectoryState($volumePath);
+    $cs2 = $volumePath . '/game/csgo';
+    if ($beforeState === 'active') {
+        if ($current === 'active') {
+            if (!rename($cs2 . '/addons', $cs2 . '/DISABLED_addons')) { fail('Could not rename addons for UUID ' . basename($volumePath)); }
+            return 'renamed';
+        }
+        if ($current === 'already_disabled') { return 'renamed'; } // interrupted immediately after rename()
+        fail('addons disappeared during emergency disable for UUID ' . basename($volumePath));
+    }
+    if ($beforeState === 'already_disabled') {
+        if ($current !== 'already_disabled') { fail('Pre-disabled directory changed unexpectedly for UUID ' . basename($volumePath)); }
+        return 'pre_existing_disabled';
+    }
+    if ($beforeState === 'missing') {
+        if ($current !== 'missing') { fail('addons path appeared after the emergency plan for UUID ' . basename($volumePath)); }
+        return 'missing';
+    }
+    fail('Invalid recorded addons state for UUID ' . basename($volumePath));
+}
+
+/** Restore only directories that were active before this tool renamed them. */
+function enableAddonDirectory(string $volumePath, string $beforeState): string
+{
+    $current = addonDirectoryState($volumePath);
+    $cs2 = $volumePath . '/game/csgo';
+    if ($beforeState === 'active') {
+        if ($current === 'already_disabled') {
+            if (!rename($cs2 . '/DISABLED_addons', $cs2 . '/addons')) { fail('Could not restore addons for UUID ' . basename($volumePath)); }
+            return 'restored';
+        }
+        if ($current === 'active') { return 'already_restored'; } // interrupted immediately after restore rename()
+        fail('Neither addons nor DISABLED_addons exists for UUID ' . basename($volumePath));
+    }
+    if ($beforeState === 'already_disabled') {
+        if ($current !== 'already_disabled') { fail('Pre-disabled directory changed unexpectedly for UUID ' . basename($volumePath)); }
+        return 'left_pre_existing_disabled';
+    }
+    if ($beforeState === 'missing') {
+        if ($current !== 'missing') { fail('addons path changed while emergency mode was active for UUID ' . basename($volumePath)); }
+        return 'left_missing';
+    }
+    fail('Invalid recorded addons state for UUID ' . basename($volumePath));
+}
+
+function ensureStateDirectory(string $path): void
+{
+    if (is_link($path)) { fail('Emergency state directory must not be a symlink: ' . $path); }
+    if (!is_dir($path) && !mkdir($path, 0700, true) && !is_dir($path)) { fail('Could not create emergency state directory: ' . $path); }
+    if (!chmod($path, 0700)) { fail('Could not restrict emergency state directory permissions: ' . $path); }
+}
+
+function writeStateAtomically(string $path, array $state): void
+{
+    if (is_link($path) || (file_exists($path) && !is_file($path))) { fail('Emergency state path is unsafe: ' . $path); }
+    $json = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL;
+    $tmp = $path . '.tmp.' . getmypid();
+    if (is_link($tmp) || file_exists($tmp)) { fail('Emergency state temporary path exists or is unsafe: ' . $tmp); }
+    if (file_put_contents($tmp, $json, LOCK_EX) === false || !chmod($tmp, 0600)) { @unlink($tmp); fail('Could not write emergency state: ' . $path); }
+    if (!rename($tmp, $path)) { @unlink($tmp); fail('Could not atomically publish emergency state: ' . $path); }
+}
+
+function readState(string $path): ?array
+{
+    if (is_link($path)) { fail('Emergency state file must not be a symlink: ' . $path); }
+    if (!file_exists($path)) { return null; }
+    if (!is_file($path)) { fail('Emergency state path is not a regular file: ' . $path); }
+    $state = json_decode((string) file_get_contents($path), true);
+    if (!is_array($state) || ($state['version'] ?? null) !== 1 || !is_string($state['state'] ?? null) || !is_array($state['servers'] ?? null)) {
+        fail('Emergency state file is malformed or has an unsupported version.');
+    }
+    foreach ($state['servers'] as $uuid => $entry) {
+        if (!validUuid((string) $uuid) || !is_array($entry)
+            || !in_array($entry['addons_before'] ?? null, ['active', 'already_disabled', 'missing'], true)
+            || !is_bool($entry['hook_before'] ?? null)) { fail('Emergency state file contains an invalid server entry.'); }
+    }
+    return $state;
+}
+
+function runCommand(array $arguments, int $timeout = 30): string
+{
+    $process = new Process($arguments);
+    $process->setTimeout($timeout);
+    $process->run();
+    if (!$process->isSuccessful()) {
+        $detail = trim($process->getErrorOutput() . "\n" . $process->getOutput());
+        fail('Command failed (' . ($process->getExitCode() ?? 1) . '): ' . implode(' ', $arguments) . ($detail === '' ? '' : "\n" . $detail));
+    }
+    return trim($process->getOutput());
+}
+
+function safeContainerMount(string $uuid, string $volumePath): array
+{
+    $decoded = json_decode(runCommand(['docker', 'inspect', $uuid]), true);
+    if (!is_array($decoded) || count($decoded) !== 1 || !is_array($decoded[0])) { fail('Could not decode Docker inspect for UUID ' . $uuid); }
+    $container = $decoded[0];
+    if (($container['Name'] ?? '') !== '/' . $uuid) { fail('Docker container name does not exactly match UUID ' . $uuid); }
+    $mounts = array_values(array_filter($container['Mounts'] ?? [], static fn (array $m): bool => ($m['Destination'] ?? '') === '/home/container'));
+    if (count($mounts) !== 1 || rtrim((string) ($mounts[0]['Source'] ?? ''), '/') !== $volumePath) {
+        fail('Docker /home/container mapping does not match the UUID volume for ' . $uuid);
+    }
+    return ['state' => (string) ($container['State']['Status'] ?? 'unknown')];
+}
+
+function bootPanel(string $panelRoot): void
+{
+    if (is_link($panelRoot) || !is_dir($panelRoot)) { fail('Pterodactyl Panel root is missing or unsafe: ' . $panelRoot); }
+    if (!is_file($panelRoot . '/vendor/autoload.php') || !is_file($panelRoot . '/bootstrap/app.php')) { fail('Pterodactyl Laravel bootstrap files are missing under: ' . $panelRoot); }
+    require_once $panelRoot . '/vendor/autoload.php';
+    $app = require $panelRoot . '/bootstrap/app.php';
+    $app->make(Kernel::class)->bootstrap();
+}
+
+function acquireProvisionerLock()
+{
+    $handle = fopen(PROVISIONER_LOCK, 'c');
+    if ($handle === false || !flock($handle, LOCK_EX)) { if (is_resource($handle)) fclose($handle); fail('Could not acquire the shared Provisioner lock.'); }
+    return $handle;
+}
+
+/** Block concurrent startup synchronization while the folder and Startup Command are changed. */
+function acquirePayloadLock(string $payloadRoot)
+{
+    $path = rtrim($payloadRoot, '/') . '/.sync.lock';
+    if (is_link($path)) { fail('Payload lock is a symlink: ' . $path); }
+    if (!is_file($path)) { logLine('Payload .sync.lock is absent; the server Startup Command will still be fixed before any directory change.'); return null; }
+    $handle = fopen($path, 'c');
+    if ($handle === false || !flock($handle, LOCK_EX)) { if (is_resource($handle)) fclose($handle); fail('Could not acquire exclusive payload sync lock.'); }
+    return $handle;
+}
+
+function collectLocalUuidContainers(string $volumeRoot): array
+{
+    $names = runCommand(['docker', 'ps', '-a', '--format', '{{.Names}}']);
+    $uuids = [];
+    foreach (preg_split('/\R/', $names) ?: [] as $name) {
+        $name = trim($name);
+        if (validUuid($name)) { $uuids[$name] = true; }
+    }
+    if ($uuids === []) { return []; }
+    $rows = DB::table('servers')->whereIn('uuid', array_keys($uuids))->get(['uuid', 'startup']);
+    $servers = [];
+    foreach ($rows as $row) { $servers[(string) $row->uuid] = $row; }
+
+    $targets = [];
+    foreach (array_keys($uuids) as $uuid) {
+        if (!isset($servers[$uuid])) { logLine('Skipping orphan UUID Docker container without a Panel record: ' . $uuid); continue; }
+        $volume = safeVolumePath($uuid, $volumeRoot);
+        $container = safeContainerMount($uuid, $volume);
+        $addonsBefore = addonDirectoryState($volume);
+        $hookBefore = startupHasSyncHook((string) ($servers[$uuid]->startup ?? ''));
+        // Non-CS2 UUID containers without a FragCity startup hook are outside this operation.
+        if (!$hookBefore && $addonsBefore === 'missing') { continue; }
+        $targets[$uuid] = [
+            'addons_before' => $addonsBefore,
+            'hook_before' => $hookBefore,
+            'container_state' => $container['state'],
+            'hook_done' => false,
+            'addons_done' => false,
+        ];
+    }
+    logLine('Discovered ' . count($uuids) . ' UUID containers; selected ' . count($targets) . ' CS2 target(s).');
+    return $targets;
+}
+
+function updateServerStartup(string $uuid, string $startup): void
+{
+    if (DB::table('servers')->where('uuid', $uuid)->update(['startup' => $startup]) !== 1) {
+        fail('Could not update only the server-specific Startup Command for UUID ' . $uuid);
+    }
+}
+
+function executeDisable(array &$state, string $path, string $volumeRoot): void
+{
+    $state['state'] = 'disabling';
+    $state['updated_at'] = gmdate('c');
+    writeStateAtomically($path, $state);
+    foreach ($state['servers'] as $uuid => &$entry) {
+        logLine('Disabling plugins for UUID ' . $uuid . '...');
+        $row = DB::table('servers')->where('uuid', $uuid)->first(['uuid', 'startup']);
+        if ($row === null) { fail('Panel server record disappeared during disable: ' . $uuid . '; state retained.'); }
+        if ($entry['hook_before']) {
+            $startup = (string) ($row->startup ?? '');
+            if (startupHasSyncHook($startup)) {
+                updateServerStartup($uuid, removeStartupSyncHook($startup));
+                logLine('Removed only the payload-sync prefix from the server Startup Command.');
+            }
+        }
+        $entry['hook_done'] = true;
+        writeStateAtomically($path, $state);
+
+        $volume = safeVolumePath($uuid, $volumeRoot);
+        $result = disableAddonDirectory($volume, $entry['addons_before']);
+        $entry['addons_done'] = true;
+        writeStateAtomically($path, $state);
+        logLine('UUID ' . $uuid . ': directory=' . $result . ', container=' . ($entry['container_state'] ?? 'unknown'));
+    }
+    unset($entry);
+    $state['state'] = 'disabled';
+    $state['updated_at'] = gmdate('c');
+    writeStateAtomically($path, $state);
+    logLine('Emergency disable completed. No plugin files were deleted and no Docker Mount was detached.');
+}
+
+function executeEnable(array &$state, string $path, string $volumeRoot): void
+{
+    $state['state'] = 'enabling';
+    $state['updated_at'] = gmdate('c');
+    writeStateAtomically($path, $state);
+    foreach ($state['servers'] as $uuid => &$entry) {
+        logLine('Restoring plugins for UUID ' . $uuid . '...');
+        $volume = safeVolumePath($uuid, $volumeRoot);
+        $result = enableAddonDirectory($volume, $entry['addons_before']);
+        $entry['addons_done'] = true;
+        writeStateAtomically($path, $state);
+
+        $row = DB::table('servers')->where('uuid', $uuid)->first(['uuid', 'startup']);
+        if ($row === null) { fail('Panel server record disappeared during restore: ' . $uuid . '; state retained.'); }
+        if ($entry['hook_before']) {
+            $startup = (string) ($row->startup ?? '');
+            $restored = restoreStartupSyncHook($startup);
+            if ($restored !== $startup) {
+                updateServerStartup($uuid, $restored);
+                logLine('Restored the payload-sync prefix in the server Startup Command.');
+            }
+        }
+        $entry['hook_done'] = true;
+        writeStateAtomically($path, $state);
+        logLine('UUID ' . $uuid . ': directory=' . $result);
+    }
+    unset($entry);
+    $state['state'] = 'enabled';
+    $state['updated_at'] = gmdate('c');
+    writeStateAtomically($path, $state);
+    logLine('Emergency mode is disabled. Pre-disabled addons directories remain untouched.');
+}
+
+function statePath(string $root): string { return rtrim($root, '/') . '/' . STATE_FILENAME; }
+
+function printStatus(string $path): int
+{
+    $state = readState($path);
+    if ($state === null || ($state['state'] ?? '') === 'enabled') {
+        echo "STATE=enabled\nTARGETS=" . (is_array($state['servers'] ?? null) ? count($state['servers']) : 0) . "\n";
+    } else {
+        echo 'STATE=' . $state['state'] . "\nTARGETS=" . count($state['servers']) . "\n";
+    }
+    return 0;
+}
+
+function removeTestTree(string $path): void
+{
+    if (!file_exists($path) && !is_link($path)) { return; }
+    if (is_dir($path) && !is_link($path)) {
+        $items = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
+        foreach ($items as $item) {
+            if ($item->isDir() && !$item->isLink()) { rmdir($item->getPathname()); }
+            else { unlink($item->getPathname()); }
+        }
+        rmdir($path);
+    } else { unlink($path); }
+}
+
+function runSelfTest(): int
+{
+    $tail = './game/cs2.sh {{CUSTOM_PARAMS}} -tickrate {{TICKRATE}}';
+    $hooked = STARTUP_HOOK_PREFIX . $tail;
+    if (!startupHasSyncHook($hooked) || removeStartupSyncHook($hooked) !== $tail
+        || restoreStartupSyncHook($tail) !== $hooked || restoreStartupSyncHook($hooked) !== $hooked) {
+        fail('Self-test failed: Startup Command hook removal/restoration/idempotency.');
+    }
+    $unrelated = 'bash /some/other/script.sh && ' . $tail;
+    if (removeStartupSyncHook($unrelated) !== $unrelated) { fail('Self-test failed: unrelated Startup Command was changed.'); }
+
+    $root = sys_get_temp_dir() . '/fragcity-plugin-toggle-test-' . bin2hex(random_bytes(6));
+    $cs2 = $root . '/game/csgo';
+    if (!mkdir($cs2, 0700, true)) { fail('Self-test could not create temporary fixture.'); }
+    try {
+        mkdir($cs2 . '/addons', 0700);
+        mkdir($cs2 . '/addons/sample-plugin', 0700);
+        file_put_contents($cs2 . '/addons/sample-plugin/keep-me.txt', 'preserve');
+        $before = addonDirectoryState($root);
+        if ($before !== 'active' || disableAddonDirectory($root, $before) !== 'renamed'
+            || !is_file($cs2 . '/DISABLED_addons/sample-plugin/keep-me.txt') || is_dir($cs2 . '/addons')) {
+            fail('Self-test failed: directory rename or file preservation.');
+        }
+        if (enableAddonDirectory($root, 'active') !== 'restored'
+            || file_get_contents($cs2 . '/addons/sample-plugin/keep-me.txt') !== 'preserve'
+            || addonDirectoryState($root) !== 'active') {
+            fail('Self-test failed: reverse directory rename or content preservation.');
+        }
+        echo "PASS: Startup Command hook removal/restoration and idempotency.\n";
+        echo "PASS: addons -> DISABLED_addons rename; nested files preserved; reverse rename verified.\n";
+        echo "PASS: Unrelated Startup Commands are unchanged.\n";
+    } finally { removeTestTree($root); }
+    return 0;
+}
+
+function main(array $argv): int
+{
+    $mode = $argv[1] ?? '--help';
+    $panel = rtrim((string) (getenv('FRAGCITY_PANEL_ROOT') ?: DEFAULT_PANEL_ROOT), '/');
+    $volumes = rtrim((string) (getenv('FRAGCITY_VOLUME_ROOT') ?: DEFAULT_VOLUME_ROOT), '/');
+    $payload = rtrim((string) (getenv('FRAGCITY_PAYLOAD_SOURCE') ?: '/var/lib/pterodactyl/mounts/fragcity-addon-payload'), '/');
+    $stateRoot = rtrim((string) (getenv('FRAGCITY_PROVISIONER_STATE') ?: DEFAULT_STATE_ROOT), '/');
+    $stateFile = statePath($stateRoot);
+
+    if ($mode === '--help' || $mode === '-h') {
+        echo "Usage: php plugin-conflict-toggle.php --status|--disable|--enable|--self-test\n";
+        return 0;
+    }
+    if (isset($argv[2])) { fail('Unexpected extra arguments.'); }
+    if ($mode === '--self-test') { return runSelfTest(); }
+    if ($mode === '--status') { return printStatus($stateFile); }
+    if (!in_array($mode, ['--disable', '--enable'], true)) { fail('Unknown action: ' . $mode); }
+    if (!function_exists('posix_geteuid') || posix_geteuid() !== 0) { fail('Emergency toggle must run as root.'); }
+
+    ensureStateDirectory($stateRoot);
+    $provisionerLock = acquireProvisionerLock();
+    $payloadLock = null;
+    try {
+        bootPanel($panel);
+        $payloadLock = acquirePayloadLock($payload);
+        $state = readState($stateFile);
+
+        if ($mode === '--disable') {
+            if ($state !== null && ($state['state'] ?? '') === 'disabled') {
+                logLine('Emergency plugin disable is already active; no changes made.');
+                return 0;
+            }
+            if ($state === null || ($state['state'] ?? '') === 'enabled') {
+                $targets = collectLocalUuidContainers($volumes);
+                if ($targets === []) { fail('No local UUID-named CS2 containers with an addons directory or FragCity payload Startup hook were found.'); }
+                $state = [
+                    'version' => 1, 'state' => 'disabling',
+                    'created_at' => gmdate('c'), 'updated_at' => gmdate('c'),
+                    'servers' => $targets,
+                ];
+                writeStateAtomically($stateFile, $state);
+            }
+            executeDisable($state, $stateFile, $volumes);
+            return 0;
+        }
+
+        if ($state === null || ($state['state'] ?? '') === 'enabled') {
+            logLine('Emergency disable is not active; no changes made.');
+            return 0;
+        }
+        executeEnable($state, $stateFile, $volumes);
+        return 0;
+    } finally {
+        if (is_resource($payloadLock)) { flock($payloadLock, LOCK_UN); fclose($payloadLock); }
+        if (is_resource($provisionerLock)) { flock($provisionerLock, LOCK_UN); fclose($provisionerLock); }
+    }
+}
+
+try { exit(main($argv)); }
+catch (Throwable $exception) {
+    fwrite(STDERR, '[fragcity-plugin-emergency] ERROR: ' . $exception->getMessage() . PHP_EOL);
+    exit(1);
+}

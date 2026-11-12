@@ -10,6 +10,7 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 MONITOR_MODEL_PATH="$REPO_ROOT/pterodactyl/fragcity-monitor-model.sh"
+PLUGIN_CONFLICT_SCRIPT="$REPO_ROOT/pterodactyl/plugin-conflict-toggle.php"
 if [[ ! -r "$MONITOR_MODEL_PATH" ]]; then
   printf 'FragCity monitor model is missing: %s\n' "$MONITOR_MODEL_PATH" >&2
   exit 1
@@ -105,6 +106,85 @@ recentlogs() {
   journalctl -u fragcity-addon-provision.service -n 35 --no-pager -o short-iso 2>&1
   printf '\n%bPAYLOAD SYNC%b\n' "$M" "$Z"
   journalctl -u fragcity-addon-payload-sync.service -n 35 --no-pager -o short-iso 2>&1
+  pause
+}
+
+manage_plugin_conflict() {
+  local output state targets action confirm rc
+  if [[ ! -r "$PLUGIN_CONFLICT_SCRIPT" ]]; then
+    printf '%bEmergency toggle script is missing: %s%b\n' "$R" "$PLUGIN_CONFLICT_SCRIPT" "$Z"
+    pause
+    return 1
+  fi
+  output="$(php "$PLUGIN_CONFLICT_SCRIPT" --status 2>&1)"
+  rc=$?
+  if (( rc != 0 )); then
+    printf '%bCould not read emergency toggle state:%b\n%s\n' "$R" "$Z" "$output"
+    pause
+    return 1
+  fi
+  state="$(awk -F= '$1 == "STATE" {print $2; exit}' <<< "$output")"
+  targets="$(awk -F= '$1 == "TARGETS" {print $2; exit}' <<< "$output")"
+  [[ -n "$targets" ]] || targets=0
+  heading "EMERGENCY PLUGIN CONFLICT CONTROL"
+  printf '\n%bScope and guarantees%b\n' "$C" "$Z"
+  printf '  Local Docker containers named with canonical Pterodactyl UUIDs only.\n'
+  printf '  Disable: rename game/csgo/addons to game/csgo/DISABLED_addons.\n'
+  printf '  Disable: remove only the exact payload-sync prefix from each server Startup Command.\n'
+  printf '  Enable: reverse only the changes made by this emergency toggle.\n'
+  printf '  No plugin files are deleted; no container is stopped/restarted; no Mount is detached.\n'
+  printf '  The Egg startup template and the shared fragcity-payload Mount are not modified.\n'
+  printf '\nCurrent emergency state: %b%s%b | recorded UUID targets: %s\n' "$Y" "$state" "$Z" "$targets"
+  case "$state" in
+    enabled)
+      action=--disable
+      printf '\nType %bDISABLE PLUGINS%b to activate emergency mode: ' "$Y" "$Z"
+      read -r confirm
+      [[ "$confirm" == "DISABLE PLUGINS" ]] || { echo 'Cancelled; no changes made.'; pause; return 0; }
+      ;;
+    disabled)
+      action=--enable
+      printf '\nType %bENABLE PLUGINS%b to restore the previous state: ' "$G" "$Z"
+      read -r confirm
+      [[ "$confirm" == "ENABLE PLUGINS" ]] || { echo 'Cancelled; no changes made.'; pause; return 0; }
+      ;;
+    disabling|enabling)
+      printf '\nThe previous operation did not finish. Choose how to recover:\n'
+      printf '  R  Resume the interrupted operation\n'
+      printf '  E  Roll back / return to normal enabled state\n'
+      printf '  0  Cancel\n\nAction: '
+      read -r confirm
+      case "$state:$confirm" in
+        disabling:R|disabling:r)
+          action=--disable
+          printf 'Type %bDISABLE PLUGINS%b to resume: ' "$Y" "$Z"
+          read -r confirm
+          [[ "$confirm" == "DISABLE PLUGINS" ]] || { echo 'Cancelled.'; pause; return 0; }
+          ;;
+        disabling:E|disabling:e|enabling:R|enabling:r|enabling:E|enabling:e)
+          action=--enable
+          printf 'Type %bENABLE PLUGINS%b to restore the previous state: ' "$G" "$Z"
+          read -r confirm
+          [[ "$confirm" == "ENABLE PLUGINS" ]] || { echo 'Cancelled.'; pause; return 0; }
+          ;;
+        *) echo 'Cancelled; no changes made.'; pause; return 0 ;;
+      esac
+      ;;
+    *)
+      printf '%bUnknown emergency state; no changes were made.%b\n' "$R" "$Z"
+      pause
+      return 1
+      ;;
+  esac
+  printf '\n%bRunning emergency operation: %s%b\n' "$C" "$action" "$Z"
+  timeout 600 php "$PLUGIN_CONFLICT_SCRIPT" "$action"
+  rc=$?
+  if (( rc == 0 )); then
+    printf '\n%bEmergency operation completed.%b\n' "$G" "$Z"
+  else
+    printf '\n%bEmergency operation stopped with exit code %s. Its state file is retained; re-open this menu to resume or restore.%b\n' "$R" "$rc" "$Z"
+  fi
+  php "$PLUGIN_CONFLICT_SCRIPT" --status 2>&1 || true
   pause
 }
 followlogs() {
@@ -715,6 +795,25 @@ main_cs2node_status() {
   printf '\n'
 }
 
+main_plugin_conflict_status() {
+  local output state targets
+  if [[ ! -r "$PLUGIN_CONFLICT_SCRIPT" ]]; then
+    printf '  Plugin emergency: %bUNAVAILABLE%b\n' "$R" "$Z"
+    return
+  fi
+  output="$(timeout 5 php "$PLUGIN_CONFLICT_SCRIPT" --status 2>/dev/null)" || {
+    printf '  Plugin emergency: %bUNKNOWN%b\n' "$Y" "$Z"
+    return
+  }
+  state="$(awk -F= '$1 == "STATE" {print $2; exit}' <<< "$output")"
+  targets="$(awk -F= '$1 == "TARGETS" {print $2; exit}' <<< "$output")"
+  case "$state" in
+    enabled) printf '  Plugin emergency: %bENABLED%b (normal) | recorded UUIDs: %s\n' "$G" "$Z" "${targets:-0}" ;;
+    disabled) printf '  Plugin emergency: %bDISABLED%b (crisis mode) | UUIDs: %s\n' "$R" "$Z" "${targets:-0}" ;;
+    *) printf '  Plugin emergency: %bPARTIAL / %s%b | UUIDs: %s\n' "$Y" "$state" "$Z" "${targets:-0}" ;;
+  esac
+}
+
 refresh_main_mount_status() {
   local now result rc
   now="$(date +%s)"
@@ -997,6 +1096,7 @@ render_main_status() {
   main_service_pair Redis redis-server.service 'Payload timer' fragcity-addon-payload-sync.timer
   main_service_single 'Provisioner timer' fragcity-addon-provision.timer
   main_cs2node_status
+  main_plugin_conflict_status
   render_server_mount_status
 }
 
@@ -1015,6 +1115,7 @@ render_main_page() {
   printf '\n%b[ MANAGEMENT ]%b\n' "$C" "$Z"
   printf '  U Update payload   I First install / reinstall   P Provision once\n'
   printf '  M Manage install marks   D Deleted UUID history\n'
+  printf '  C Toggle disable plugins on all UUID containers to avoid plugin conflict\n'
   printf '  T Toggle payload timer   N Toggle provisioner timer\n'
   printf '  R Refresh status now   L Recent logs   W Follow logs   0 Exit\n'
 }
@@ -1053,6 +1154,7 @@ while true; do
       I|i) installation_wizard ;;
       M|m) manage_install_marks ;;
       D|d) screen_deleted_uuid_history ;;
+      C|c) manage_plugin_conflict ;;
       P|p)
         printf '\nProvisioning may attach the Mount and change Startup for eligible stopped servers.\nType YES to run one pass: '
         read -r ans

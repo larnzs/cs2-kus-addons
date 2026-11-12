@@ -187,6 +187,8 @@ jobs:
         run: |
           set -euo pipefail
           php -l pterodactyl/provision-addon-servers.php
+          php -l pterodactyl/plugin-conflict-toggle.php
+          php pterodactyl/plugin-conflict-toggle.php --self-test
           php -l pterodactyl/custom-cfg-sync.php
           php -l pterodactyl/test-custom-cfg-sync.php
           php -l pterodactyl/server-mount-status.php
