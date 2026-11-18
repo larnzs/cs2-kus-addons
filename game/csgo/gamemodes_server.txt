@@ -109,6 +109,7 @@
                 "de_dust2"	""
                 "de_cache"	""
                 "de_overpass"	""
+                "de_cbbl"    ""
             }
         }
         "mg_valve_competitive"
@@ -134,6 +135,7 @@
                 "de_warden"	""
                 "de_stronghold"	""
                 "cs_alpine"	""
+                "de_cbbl"    ""
             }
         }
         "mg_valve_wingman"
@@ -175,6 +177,7 @@
                 "de_warden"	""
                 "de_stronghold"	""
                 "cs_alpine"	""
+                "de_cbbl"    ""
             }
         }
         "mg_valve_deathmatch"
@@ -200,6 +203,7 @@
                 "de_warden"	""
                 "de_stronghold"	""
                 "cs_alpine"	""
+                "de_cbbl"    ""
             }
         }
         "mg_valve_arms_race"
@@ -229,6 +233,7 @@
                 "de_overpass"	""
                 "de_anubis"	""
                 "de_vertigo"	""
+                "de_cbbl"    ""
             }
         }
         "mg_rush"
@@ -261,6 +266,7 @@
                 "cs_shelter"	""
                 "cs_office"	""
                 "cs_italy"	""
+                "de_cbbl"    ""
                 "workshop/3256988376/de_warden"	""
                 "workshop/3477094554/de_stronghold"	""
                 "workshop/3221491619/cs_alpine"	""
@@ -324,6 +330,7 @@
                 "de_train"	""
                 "de_overpass"	""
                 "de_vertigo"	""
+                "de_cbbl"    ""
             }
         }
         "mg_prefire"
@@ -341,6 +348,7 @@
                 "de_train"	""
                 "de_overpass"	""
                 "de_vertigo"	""
+                "de_cbbl"    ""
             }
         }
         "mg_executes"
@@ -362,6 +370,7 @@
                 "de_poseidon"	""
                 "de_overpass"	""
                 "de_vertigo"	""
+                "de_cbbl"    ""
                 "de_nuke"	""
                 "de_inferno"	""
                 "ar_pool_day"	""
@@ -397,6 +406,7 @@
                 "workshop/3079872050/de_pipeline"	""
                 "workshop/3777797034/de_vine"	""
                 "workshop/3618786679/de_shortdust"	""
+
             }
         }
         "mg_dm"
@@ -406,6 +416,7 @@
             "maps"
             {
                 "de_vertigo"	""
+                "de_cbbl"    ""
                 "de_dust2"	""
                 "de_inferno"	""
                 "de_mirage"	""
@@ -822,6 +833,7 @@
                 "de_dust2"	""
                 "de_mirage"	""
                 "de_inferno"	""
+                "de_cbbl"    ""
                 "de_ancient_night"	""
                 "de_nuke"	""
                 "de_train"	""
