@@ -193,8 +193,8 @@
       "repository": "https://github.com/Nereziel/cs2-WeaponPaints",
       "type": "github_release",
       "track": "latest",
-      "version": "482",
-      "release_tag": "build-482",
+      "version": "484",
+      "release_tag": "build-484",
       "assets": [
         "WeaponPaints.zip"
       ],
