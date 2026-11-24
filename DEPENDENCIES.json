@@ -819,8 +819,8 @@
       "repository": "https://github.com/Staaar0/cs2-FaceitLevels",
       "type": "github_release",
       "track": "latest",
-      "version": "1.1.7-127",
-      "release_tag": "1.1.7-127",
+      "version": "1.1.8-128",
+      "release_tag": "1.1.8-128",
       "assets": [
         "CS2FaceitLevels.zip"
       ],
