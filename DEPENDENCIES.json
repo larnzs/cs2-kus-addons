@@ -29,8 +29,8 @@
       "readme_url": "https://www.metamodsource.net/downloads.php?branch=dev",
       "type": "github_release",
       "track": "latest",
-      "version": "2.0.0-1492",
-      "release_tag": "2.0.0.1492",
+      "version": "2.0.0-1493",
+      "release_tag": "2.0.0.1493",
       "version_format": "metamod",
       "assets": [
         "mmsource-*-windows.zip",
